@@ -1,0 +1,6 @@
+{
+  "name": "Quem Sou Eu? Jogo de Cartas",
+  "description": "Um divertido jogo de cartas multiplayer e adivinhação social para curtir com amigos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

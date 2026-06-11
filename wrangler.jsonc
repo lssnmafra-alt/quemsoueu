@@ -1,10 +1,6 @@
 {
   "name": "ai-studio-applet",
-  "compatibility_flags": ["nodejs_compat"],
-  "compatibility_date": "2026-06-11",
-  "main": "./.open-next/server/index.js",
-  "site": {
-    "bucket": "./.open-next/static"
-  }
+  "type": "javascript"
 }
+
 

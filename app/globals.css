@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-sans), sans-serif;
+  --font-display: var(--font-quicksand), sans-serif;
+  
+  --color-party-bg: #eef2f7;
+  --color-party-primary: #2563eb;
+  --color-party-secondary: #f59e0b;
+  --color-party-accent: #dc2626;
+  --color-party-green: #16a34a;
+  --color-party-light: #ffffff;
+  --color-party-dark: #0f172a;
+}
+
+/* Playful keyframes for game ambience */
+@keyframes float-playful {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(1.5deg); }
+}
+
+@keyframes bounce-small {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes cloud-slide {
+  0% { transform: translateX(-10%); }
+  100% { transform: translateX(110%); }
+}
+
+@utility float-playful {
+  animation: float-playful 5s infinite ease-in-out;
+}
+
+@utility bounce-playful {
+  animation: bounce-small 3s infinite ease-in-out;
+}
+
+/* Friendly rounded custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f0f1fa;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd2f6;
+  border-radius: 9999px;
+  border: 2px solid #f0f1fa;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a5b4fc;
+}
+
+html,
+body {
+  background: #eef2f7;
+}
+
+/* Solid game board background */
+.party-grid-bg {
+  background-color: #eef2f7;
+  background-image: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+/* Beautiful squishy game buttons */
+.btn-squishy-indigo {
+  @apply bg-blue-600 hover:bg-blue-700 text-white border-b-4 border-blue-900 hover:border-blue-950 transition-all rounded-2xl active:border-b-0 active:translate-y-1 active:mt-1 shadow-md;
+}
+
+.btn-squishy-yellow {
+  @apply bg-amber-500 hover:bg-amber-600 text-slate-950 border-b-4 border-amber-800 hover:border-amber-900 transition-all rounded-2xl active:border-b-0 active:translate-y-1 active:mt-1 shadow-md;
+}
+
+.btn-squishy-rose {
+  @apply bg-red-600 hover:bg-red-700 text-white border-b-4 border-red-900 hover:border-red-950 transition-all rounded-2xl active:border-b-0 active:translate-y-1 active:mt-1 shadow-md;
+}
+
+.btn-squishy-green {
+  @apply bg-green-600 hover:bg-green-700 text-white border-b-4 border-green-900 hover:border-green-950 transition-all rounded-2xl active:border-b-0 active:translate-y-1 active:mt-1 shadow-md;
+}
+
+.btn-squishy-white {
+  @apply bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200 border-b-4 border-slate-300 hover:border-slate-400 hover:border-b-4 transition-all rounded-2xl active:border-b-2 active:translate-y-0.5 shadow-sm;
+}

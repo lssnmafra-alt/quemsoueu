@@ -1,0 +1,31 @@
+export const AVATAR_COLORS = [
+  { id: 'red', name: 'Vermelho', value: '#EF4444' },
+  { id: 'blue', name: 'Azul', value: '#2563EB' },
+  { id: 'green', name: 'Verde', value: '#16A34A' },
+  { id: 'yellow', name: 'Amarelo', value: '#FACC15' },
+  { id: 'purple', name: 'Roxo', value: '#7C3AED' },
+  { id: 'pink', name: 'Rosa', value: '#DB2777' },
+  { id: 'orange', name: 'Laranja', value: '#F97316' },
+  { id: 'white', name: 'Branco', value: '#F8FAFC' },
+  { id: 'black', name: 'Preto', value: '#111827' },
+  { id: 'cyan', name: 'Ciano', value: '#06B6D4' },
+  { id: 'gold', name: 'Dourado', value: '#D97706' },
+  { id: 'silver', name: 'Prata', value: '#94A3B8' },
+  { id: 'brown', name: 'Marrom', value: '#92400E' },
+  { id: 'lime', name: 'Verde Neon', value: '#84CC16' },
+  { id: 'navy', name: 'Azul Escuro', value: '#1E3A8A' },
+  { id: 'dark-red', name: 'Vermelho Escuro', value: '#991B1B' },
+  { id: 'turquoise', name: 'Turquesa', value: '#14B8A6' },
+  { id: 'magenta', name: 'Magenta', value: '#C026D3' },
+  { id: 'gray', name: 'Cinza', value: '#64748B' },
+  { id: 'bronze', name: 'Bronze', value: '#B45309' },
+];
+
+export const AVATAR_FRAMES = [
+  { id: 'none', name: 'Nenhuma', color: '#CBD5E1' },
+  { id: 'fire', name: 'Fogo', color: '#EA580C' },
+  { id: 'ice', name: 'Gelo', color: '#38BDF8' },
+  { id: 'electric', name: 'Eletrica', color: '#EAB308' },
+  { id: 'shadow', name: 'Sombra', color: '#111827' },
+  { id: 'gold', name: 'Dourada', color: '#D97706' },
+];

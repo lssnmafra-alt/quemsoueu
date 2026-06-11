@@ -1,0 +1,17 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/generate-image/route": "app/api/generate-image/route.js",
+  "/api/rooms/[id]/bot-turn/route": "app/api/rooms/[id]/bot-turn/route.js",
+  "/api/rooms/[id]/finalize-picking/route": "app/api/rooms/[id]/finalize-picking/route.js",
+  "/api/rooms/[id]/heartbeat/route": "app/api/rooms/[id]/heartbeat/route.js",
+  "/api/rooms/[id]/leave/route": "app/api/rooms/[id]/leave/route.js",
+  "/api/rooms/[id]/start/route": "app/api/rooms/[id]/start/route.js",
+  "/api/rooms/[id]/turn-timeout/route": "app/api/rooms/[id]/turn-timeout/route.js",
+  "/api/rooms/bot-cycle/route": "app/api/rooms/bot-cycle/route.js",
+  "/api/rooms/cleanup/route": "app/api/rooms/cleanup/route.js",
+  "/decks/[id]/page": "app/decks/[id]/page.js",
+  "/decks/page": "app/decks/page.js",
+  "/lobby/page": "app/lobby/page.js",
+  "/page": "app/page.js",
+  "/room/[id]/page": "app/room/[id]/page.js"
+}

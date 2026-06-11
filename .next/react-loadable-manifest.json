@@ -1,0 +1,20 @@
+{
+  "components/game/ChatMenu.tsx -> @/app/actions/bots": {
+    "id": 3320,
+    "files": [
+      "static/chunks/320.049df0b4235f0b62.js"
+    ]
+  },
+  "components/game/RoomLobby.tsx -> @/app/actions/bots": {
+    "id": 3320,
+    "files": [
+      "static/chunks/320.049df0b4235f0b62.js"
+    ]
+  },
+  "components/game/RoomPlaying.tsx -> @/app/actions/bots": {
+    "id": 3320,
+    "files": [
+      "static/chunks/320.049df0b4235f0b62.js"
+    ]
+  }
+}

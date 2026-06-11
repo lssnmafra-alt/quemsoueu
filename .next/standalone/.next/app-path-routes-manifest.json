@@ -1,0 +1,17 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/api/generate-image/route": "/api/generate-image",
+  "/api/rooms/[id]/bot-turn/route": "/api/rooms/[id]/bot-turn",
+  "/api/rooms/[id]/finalize-picking/route": "/api/rooms/[id]/finalize-picking",
+  "/api/rooms/[id]/heartbeat/route": "/api/rooms/[id]/heartbeat",
+  "/api/rooms/[id]/leave/route": "/api/rooms/[id]/leave",
+  "/api/rooms/[id]/start/route": "/api/rooms/[id]/start",
+  "/api/rooms/[id]/turn-timeout/route": "/api/rooms/[id]/turn-timeout",
+  "/api/rooms/bot-cycle/route": "/api/rooms/bot-cycle",
+  "/api/rooms/cleanup/route": "/api/rooms/cleanup",
+  "/decks/[id]/page": "/decks/[id]",
+  "/decks/page": "/decks",
+  "/lobby/page": "/lobby",
+  "/page": "/",
+  "/room/[id]/page": "/room/[id]"
+}

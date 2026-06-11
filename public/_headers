@@ -1,0 +1,10 @@
+/*
+  Static file headers for Cloudflare Pages (optional).
+  Adjust caching/security headers for static assets if desired.
+  Example: cache all assets for 1 day.
+
+  /_headers is optional — keep it if you want custom headers for Pages.
+*/
+
+/assets/*
+  Cache-Control: public, max-age=86400

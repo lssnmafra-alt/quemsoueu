@@ -7,9 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "clean": "next clean",
-    "deploy": "npm run build",
-    "preview": "next start"
+    "clean": "next clean"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",

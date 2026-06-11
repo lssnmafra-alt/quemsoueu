@@ -1,8 +1,10 @@
 {
-  // Wrangler configuration for Cloudflare Workers/Pages using OpenNext
   "name": "ai-studio-applet",
-  // Ensure Node.js compatibility required by Next.js runtime
   "compatibility_flags": ["nodejs_compat"],
-  // Use a conservative compatibility_date; update if needed
-  "compatibility_date": "2026-06-11"
+  "compatibility_date": "2026-06-11",
+  "main": "./.open-next/server/index.js",
+  "site": {
+    "bucket": "./.open-next/static"
+  }
 }
+

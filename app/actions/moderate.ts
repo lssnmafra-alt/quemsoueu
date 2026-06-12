@@ -4,10 +4,10 @@ import { getGroqClient } from '@/lib/groq';
 
 export async function moderateText(text: string): Promise<boolean> {
   try {
-    const groq = getGroqClient();
     if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'MY_GROQ_API_KEY') {
       return true; // Bypass if not configured properly
     }
+    const groq = getGroqClient();
     const completion = await groq.chat.completions.create({
       messages: [
         {

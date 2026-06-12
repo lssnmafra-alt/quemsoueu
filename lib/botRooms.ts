@@ -1,5 +1,7 @@
 import { supabaseGame } from './supabase';
 import { playBotTurn } from './botTurn';
+import { finalizeRoomPicking } from './roomPicking';
+import { startRoom } from './roomStart';
 import { closeAndDeleteRoom, nextRoomExpiry, touchRoomActivity } from './roomLifecycle';
 
 const TARGET_BOT_LOBBY_ROOMS = 3;
@@ -113,7 +115,7 @@ function isBotOnlyRoom(roomPlayers: any[]) {
 export async function runBotRoomCycle() {
   const { data: rooms } = await supabaseGame
     .from('rooms')
-    .select('id,code,status,created_at,expires_at,is_public,deck_id,current_turn_number')
+    .select('id,code,status,created_at,expires_at,is_public,deck_id,current_turn_number,turn_expires_at,vote_time_seconds')
     .eq('is_public', true)
     .in('status', ['LOBBY', 'PICKING', 'STARTING', 'PLAYING', 'FINISHED']);
 
@@ -159,8 +161,48 @@ export async function runBotRoomCycle() {
     createdRooms.push(await createBotRoom(themes[i % themes.length], remainingLobbyCount + i));
   }
 
+  const startedRooms = [];
   for (const room of activeBotLobbyRooms.slice(0, TARGET_BOT_LOBBY_ROOMS)) {
+    const result = await startRoom(room.id, { auto: true });
+    if (result.ok && !result.skipped) {
+      startedRooms.push({ id: room.id, code: room.code });
+    } else {
+      await touchRoomActivity(room.id);
+    }
+  }
+
+  for (const room of createdRooms) {
+    const result = await startRoom(room.id, { auto: true });
+    if (result.ok && !result.skipped) {
+      startedRooms.push({ id: room.id, code: room.code });
+    }
+  }
+
+  const finalizedPickingRooms = [];
+  const activeBotPickingRooms = botOnlyRooms
+    .filter((room: any) => room.status === 'PICKING' && !staleBotRooms.some((stale: any) => stale.id === room.id));
+
+  for (const room of activeBotPickingRooms) {
+    const result = await finalizeRoomPicking(room.id);
+    if (result.ok && !result.skipped) {
+      finalizedPickingRooms.push({ id: room.id, code: room.code });
+    }
+  }
+
+  const advancedStartingRooms = [];
+  const activeBotStartingRooms = botOnlyRooms
+    .filter((room: any) => room.status === 'STARTING' && !staleBotRooms.some((stale: any) => stale.id === room.id));
+
+  for (const room of activeBotStartingRooms) {
+    const readyToPlay = !room.turn_expires_at || new Date(room.turn_expires_at).getTime() <= Date.now();
+    if (!readyToPlay) continue;
+
+    await supabaseGame.from('rooms').update({
+      status: 'PLAYING',
+      turn_expires_at: new Date(Date.now() + ((room.vote_time_seconds || 30) * 1000)).toISOString(),
+    }).eq('id', room.id);
     await touchRoomActivity(room.id);
+    advancedStartingRooms.push({ id: room.id, code: room.code });
   }
 
   const activeBotPlayingRooms = botOnlyRooms
@@ -185,6 +227,9 @@ export async function runBotRoomCycle() {
   return {
     closedRooms: [...staleBotRooms, ...excessRooms].map((room: any) => ({ id: room.id, code: room.code })),
     createdRooms,
-    activeBotLobbyRooms: remainingLobbyCount + createdRooms.length,
+    startedRooms,
+    finalizedPickingRooms,
+    advancedStartingRooms,
+    activeBotRooms: remainingLobbyCount + createdRooms.length,
   };
 }

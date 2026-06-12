@@ -5,11 +5,12 @@ let groqClient: Groq | null = null;
 
 export function getGroqClient() {
   if (!groqClient) {
-    if (!process.env.GROQ_API_KEY) {
-      console.warn("GROQ_API_KEY is not set. Groq moderation will fail.");
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey || apiKey === 'MY_GROQ_API_KEY') {
+      throw new Error('GROQ_API_KEY is not configured.');
     }
     groqClient = new Groq({
-      apiKey: process.env.GROQ_API_KEY || "dummy", 
+      apiKey,
     });
   }
   return groqClient;

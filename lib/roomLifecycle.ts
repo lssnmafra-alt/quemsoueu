@@ -1,7 +1,7 @@
 import { supabaseGame } from './supabase';
 
 export const ROOM_INACTIVITY_MS = 60 * 60 * 1000;
-export const PLAYER_STALE_MS = 20 * 1000;
+export const PLAYER_STALE_MS = 90 * 1000;
 
 export function nextRoomExpiry(now = new Date()) {
   return new Date(now.getTime() + ROOM_INACTIVITY_MS).toISOString();

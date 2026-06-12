@@ -93,6 +93,11 @@ export default function RoomPage() {
 
       // Auto join only after auth is restored, without overfilling the room.
       if (shouldAutoJoin && !alreadyInRoom) {
+        if (rm.status !== 'LOBBY') {
+          router.push('/lobby');
+          return;
+        }
+
         if (rm.status === 'LOBBY' && normalizedPlayers.length >= (rm.max_players || 6)) {
           alert('Sala cheia.');
           router.push('/lobby');
@@ -185,46 +190,6 @@ export default function RoomPage() {
     const timer = setInterval(heartbeat, 10000);
     return () => clearInterval(timer);
   }, [me?.id, room?.id, user?.id]);
-
-  const meIdRef = useRef<string | null>(null);
-  const roomIdRef = useRef<string | null>(null);
-  const isAdminRef = useRef<boolean>(false);
-  const enrichedPlayersRef = useRef<any[]>([]);
-
-  useEffect(() => {
-    meIdRef.current = me?.id || null;
-    roomIdRef.current = room?.id || null;
-    isAdminRef.current = isAdmin;
-    enrichedPlayersRef.current = enrichedPlayers;
-  }, [me?.id, room?.id, isAdmin, enrichedPlayers]);
-
-  useEffect(() => {
-    const handleUnload = () => {
-      const pId = meIdRef.current;
-      const rId = roomIdRef.current;
-
-      if (pId && rId) {
-        navigator.sendBeacon?.(`/api/rooms/${rId}/leave`, new Blob([JSON.stringify({ playerId: pId })], { type: 'application/json' }));
-      }
-    };
-
-    window.addEventListener('beforeunload', handleUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleUnload);
-      
-      const pId = meIdRef.current;
-      const rId = roomIdRef.current;
-      if (pId && rId) {
-        fetch(`/api/rooms/${rId}/leave`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerId: pId }),
-          keepalive: true,
-        }).catch(() => {});
-      }
-    };
-  }, []);
 
   const leaveRoom = async () => {
      if (me) {

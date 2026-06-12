@@ -15,6 +15,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const [botsCount, setBotsCount] = useState<number>(() => players.filter((p: any) => p.is_bot).length);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const botStartRef = useRef(false);
+  const botRowsCountRef = useRef(players.filter((p: any) => p.is_bot).length);
   const adminPlayer = useMemo(() => players.find((p: any) => p.user_id === room.admin_id || p.is_admin), [players, room.admin_id]);
   const botIsAdmin = Boolean(adminPlayer?.is_bot);
 
@@ -82,8 +83,15 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   }, [botIsAdmin, decks, handleStart, isAdmin, players, room.deck_id, room.status]);
 
   const realPlayersCount = players.filter((p: any) => !p.is_bot).length;
+  const botRowsCount = players.filter((p: any) => p.is_bot).length;
   const maxBots = Math.max(0, (room.max_players || 6) - realPlayersCount);
   const clampedBotsCount = Math.min(botsCount, maxBots);
+
+  useEffect(() => {
+    if (botRowsCount === botRowsCountRef.current) return;
+    botRowsCountRef.current = botRowsCount;
+    setBotsCount(Math.min(botRowsCount, maxBots));
+  }, [botRowsCount, maxBots]);
 
   return (
     <div className="flex h-screen overflow-hidden w-full bg-[#f5f6ff] text-indigo-950 font-sans relative party-grid-bg">

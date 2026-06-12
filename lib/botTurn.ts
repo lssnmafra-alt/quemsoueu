@@ -2,9 +2,18 @@ import { supabaseGame } from './supabase';
 import { touchRoomActivity } from './roomLifecycle';
 import { advanceTurn, finishOrAdvance } from './gameProgress';
 
+type GroqTurnStatus = {
+  configured: boolean;
+  attempted: boolean;
+  responded: boolean;
+  parsed: boolean;
+  selectedBy: 'groq' | 'fallback' | null;
+  fallbackReason: string | null;
+};
+
 export async function playBotTurn(
   roomId: string,
-  options: { expectedTurnNumber?: number | null; expectedPlayerId?: string } = {}
+  options: { expectedTurnNumber?: number | null; expectedPlayerId?: string } = {},
 ) {
   const expectedTurnNumber = Number.isInteger(options.expectedTurnNumber) ? options.expectedTurnNumber : null;
   const expectedPlayerId = options.expectedPlayerId || '';
@@ -58,22 +67,32 @@ export async function playBotTurn(
   const activePlayerIds = new Set(activePlayers.map((player: any) => player.id));
   const playersById = new Map((players || []).map((player: any) => [player.id, player]));
   const livePlayerCards = cards.filter((card: any) => activePlayerIds.has(card.player_id));
-  const liveCharacterIds = [...new Set(livePlayerCards.map((card: any) => card.character_id))];
+  const liveCharacterIds = [...new Set(livePlayerCards.map((card: any) => card.character_id))] as string[];
 
   if (liveCharacterIds.length === 0 || chars.length === 0) {
     const result = await finishOrAdvance(room);
     return { ok: true, skipped: true, reason: 'no-live-cards', ...result };
   }
 
-  let targetChar = null;
+  let targetChar: any = null;
   let botComment = '';
+  const groqStatus: GroqTurnStatus = {
+    configured: Boolean(process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'MY_GROQ_API_KEY'),
+    attempted: false,
+    responded: false,
+    parsed: false,
+    selectedBy: null,
+    fallbackReason: null,
+  };
 
-  try {
-    const { getGroqClient } = await import('./groq');
-    const groq = getGroqClient();
-    if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'MY_GROQ_API_KEY') {
-      const liveCharsForBot = chars.filter((c: any) => liveCharacterIds.includes(c.id));
-      const liveCharsNames = liveCharsForBot.map((c: any) => c.name);
+  if (groqStatus.configured) {
+    try {
+      const { getGroqClient } = await import('./groq');
+      const groq = getGroqClient();
+      groqStatus.attempted = true;
+
+      const liveCharsForBot = chars.filter((char: any) => liveCharacterIds.includes(char.id));
+      const liveCharsNames = liveCharsForBot.map((char: any) => char.name);
 
       const completion = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
@@ -81,46 +100,62 @@ export async function playBotTurn(
         messages: [
           {
             role: 'system',
-            content: 'Você é um jogador bot tático, audacioso e divertido jogando uma partida de adivinhação chamada Quem Sou Eu.\nVocê precisa analisar a lista de personagens vivos e selecionar UM personagem dessa lista para adivinhar/votar.\nSua resposta deve ser estritamente em formato JSON válido com as chaves:\n{\n  "selectedCharacterName": "nome exato do personagem da lista",\n  "comment": "um comentário curtíssimo, irônico ou carismático em português brasileiro sobre esse palpite"\n}'
+            content: 'Voce e um jogador tatico, audacioso e divertido em uma partida de adivinhacao chamada Quem Sou Eu. Nao diga que e IA, robo ou bot.\nAnalise a lista de personagens vivos e selecione UM personagem dessa lista para adivinhar/votar.\nSua resposta deve ser estritamente em JSON valido com as chaves:\n{\n  "selectedCharacterName": "nome exato do personagem da lista",\n  "comment": "um comentario curtissimo, ironico ou carismatico em portugues brasileiro sobre esse palpite"\n}',
           },
           {
             role: 'user',
-            content: `Seu nome de bot: ${activePlayer.nickname}.\nPersonagens ainda vivos na mesa (escolha apenas um desta lista): ${liveCharsNames.join(', ')}.`
-          }
+            content: `Seu nome na mesa: ${activePlayer.nickname}.\nPersonagens ainda vivos na mesa (escolha apenas um desta lista): ${liveCharsNames.join(', ')}.`,
+          },
         ],
         temperature: 0.8,
       });
 
       const contentText = completion.choices[0]?.message?.content || '{}';
+      groqStatus.responded = Boolean(contentText && contentText !== '{}');
       const parsed = JSON.parse(contentText);
-      const chosenName = parsed.selectedCharacterName;
-      botComment = parsed.comment;
+      groqStatus.parsed = true;
+
+      const chosenName = typeof parsed.selectedCharacterName === 'string' ? parsed.selectedCharacterName : '';
+      botComment = typeof parsed.comment === 'string' ? parsed.comment.slice(0, 160) : '';
 
       if (chosenName) {
-        targetChar = chars.find((char: any) => 
-          liveCharacterIds.includes(char.id) && 
+        targetChar = chars.find((char: any) =>
+          liveCharacterIds.includes(char.id) &&
           char.name.toLowerCase() === chosenName.toLowerCase()
         );
+
         if (!targetChar) {
-          targetChar = chars.find((char: any) => 
-            liveCharacterIds.includes(char.id) && 
-            (char.name.toLowerCase().includes(chosenName.toLowerCase()) || chosenName.toLowerCase().includes(char.name.toLowerCase()))
+          targetChar = chars.find((char: any) =>
+            liveCharacterIds.includes(char.id) &&
+            (char.name.toLowerCase().includes(chosenName.toLowerCase()) ||
+              chosenName.toLowerCase().includes(char.name.toLowerCase()))
           );
         }
       }
+
+      if (targetChar) {
+        groqStatus.selectedBy = 'groq';
+      } else {
+        groqStatus.fallbackReason = 'groq-selected-character-not-found';
+      }
+    } catch (error) {
+      groqStatus.fallbackReason = error instanceof SyntaxError ? 'groq-json-parse-error' : 'groq-request-error';
+      console.error('Groq bot turn error:', error);
     }
-  } catch (error) {
-    console.error('Groq bot turn error:', error);
+  } else {
+    groqStatus.fallbackReason = 'missing-groq-api-key';
   }
 
   if (!targetChar) {
     const randomCharacterId = liveCharacterIds[Math.floor(Math.random() * liveCharacterIds.length)];
     targetChar = chars.find((char: any) => char.id === randomCharacterId);
+    groqStatus.selectedBy = 'fallback';
+    groqStatus.fallbackReason = groqStatus.fallbackReason || 'no-groq-target';
   }
 
   if (!targetChar) {
     await advanceTurn(room);
-    return { ok: true, skipped: true, reason: 'no-target' };
+    return { ok: true, skipped: true, reason: 'no-target', groq: groqStatus };
   }
 
   if (botComment) {
@@ -131,8 +166,8 @@ export async function playBotTurn(
         sender_id: activePlayer.user_id || activePlayer.id,
         content: botComment,
       });
-    } catch (e) {
-      console.error('Failed to insert bot comment into messages:', e);
+    } catch (error) {
+      console.error('Failed to insert bot comment into messages:', error);
     }
   }
 
@@ -162,6 +197,7 @@ export async function playBotTurn(
     target: targetChar.name,
     hits: hits.length,
     hitPlayerIds: hits.map((hit: any) => hit.player_id),
+    groq: groqStatus,
     ...result,
   };
 }

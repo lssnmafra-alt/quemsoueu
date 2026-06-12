@@ -503,7 +503,7 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-40 flex items-center justify-center bg-slate-900/60 backdrop-blur-md rounded-3xl"
+              className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-900/60 backdrop-blur-md rounded-3xl"
             >
               {!revelation || revealStage === 'suspense' ? (
                 <div className="text-center p-8 bg-white border-4 border-indigo-100 shadow-2xl max-w-sm w-full rounded-3xl">

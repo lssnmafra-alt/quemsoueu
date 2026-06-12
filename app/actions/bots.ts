@@ -17,36 +17,55 @@ async function insertBotMessage(roomId: string, bot: any, content: string) {
     room_id: roomId,
     sender_name: bot.nickname,
     sender_id: bot.user_id || bot.id,
-    content: content,
+    content,
   });
+}
+
+function hasGroqKey() {
+  return Boolean(process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'MY_GROQ_API_KEY');
+}
+
+function pickBotForMessage(bots: any[], message: string) {
+  const normalized = message.toLowerCase();
+  const mentioned = bots.filter((bot: any) => {
+    const name = String(bot.nickname || '').toLowerCase();
+    return name && normalized.includes(name);
+  });
+
+  if (mentioned.length > 0) return mentioned[Math.floor(Math.random() * mentioned.length)];
+  if (normalized.includes('@bot') || normalized.includes('bot')) return bots[Math.floor(Math.random() * bots.length)];
+  if (Math.random() < 0.2) return bots[Math.floor(Math.random() * bots.length)];
+  return null;
 }
 
 export async function triggerBotResponse(roomId: string, lastMessage: string, senderName: string) {
   const bots = await getBots(roomId);
   if (bots.length === 0 || !lastMessage.trim()) return;
 
-  const bot = bots[Math.floor(Math.random() * bots.length)];
+  const bot = pickBotForMessage(bots, lastMessage);
+  if (!bot) return;
+
   let content = '';
 
-  try {
-    const { getGroqClient } = await import('@/lib/groq');
-    const groq = getGroqClient();
-    if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'MY_GROQ_API_KEY') {
+  if (hasGroqKey()) {
+    try {
+      const { getGroqClient } = await import('@/lib/groq');
+      const groq = getGroqClient();
       const completion = await groq.chat.completions.create({
         model: 'llama-3.1-8b-instant',
         messages: [
           {
             role: 'system',
-            content: `Você é um robô jogador sarcástico e divertido de nome ${bot.nickname} em uma partida de "Quem Sou Eu?". Um jogador humano chamado ${senderName} acabou de enviar uma mensagem na sala de chat. Responda em português brasileiro de forma inteligente, carismática ou provocativa em no máximo 1 frase curta.`,
+            content: `Voce e ${bot.nickname}, um jogador carismatico em uma partida de "Quem Sou Eu?". Um jogador chamado ${senderName} acabou de enviar uma mensagem no chat. Responda em portugues brasileiro, em no maximo 1 frase curta. Nao diga que e IA, robo ou bot.`,
           },
           { role: 'user', content: lastMessage },
         ],
         temperature: 0.8,
       });
       content = completion.choices[0]?.message?.content?.trim() || '';
+    } catch (error) {
+      console.error('Groq triggerBotResponse error:', error);
     }
-  } catch (err) {
-    console.error('Groq triggerBotResponse error:', err);
   }
 
   if (!content) {
@@ -61,7 +80,7 @@ export async function triggerBotResponse(roomId: string, lastMessage: string, se
     content = replies[Math.floor(Math.random() * replies.length)];
   }
 
-  await insertBotMessage(roomId, bot, content);
+  await insertBotMessage(roomId, bot, content.slice(0, 200));
 }
 
 export async function triggerBotLobbyMessage(roomId: string) {
@@ -84,6 +103,8 @@ export async function triggerBotPickingMessage(roomId: string, botId?: string) {
   if (bots.length === 0) return;
 
   const bot = botId ? bots.find((item: any) => item.id === botId) : bots[Math.floor(Math.random() * bots.length)];
+  if (!bot) return;
+
   const lines = [
     'Minhas cartas estao escolhidas.',
     'Fechei meu baralho. Agora e suspense.',

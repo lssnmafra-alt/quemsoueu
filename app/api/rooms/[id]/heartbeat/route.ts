@@ -8,8 +8,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const playerId = typeof body.playerId === 'string' ? body.playerId : '';
   const userId = typeof body.userId === 'string' ? body.userId : '';
 
-  await cleanupStalePlayers(roomId);
-
   if (!playerId || !userId) {
     return NextResponse.json({ error: 'playerId and userId are required' }, { status: 400 });
   }
@@ -31,6 +29,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: 'player not found' }, { status: 404 });
   }
 
+  await cleanupStalePlayers(roomId);
   await touchRoomActivity(roomId);
   return NextResponse.json({ ok: true, lastSeenAt: now });
 }

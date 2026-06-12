@@ -8,6 +8,10 @@ import { audioManager } from '@/lib/audioManager';
 import ChatMenu from './ChatMenu';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: any) {
   const [deckChars, setDeckChars] = useState<any[]>([]);
   const [timeLeft, setTimeLeft] = useState(room.vote_time_seconds || 15);
@@ -16,8 +20,14 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
   const [liveCharIds, setLiveCharIds] = useState<Set<string>>(new Set());
   const handlingTimeoutRef = useRef(false);
   const botTurnRef = useRef<string>('');
-  const [revelation, setRevelation] = useState<{ charName: string, players: any[] } | null>(null);
-  const [revealStage, setRevealStage] = useState<'suspense' | 'result'>('result');
+  const [revelation, setRevelation] = useState<{
+    voterName: string;
+    voter?: any;
+    charName: string;
+    players: any[];
+    eliminatedPlayers: any[];
+  } | null>(null);
+  const [revealStage, setRevealStage] = useState<'choosing' | 'choice' | 'impact' | 'eliminated' | 'miss'>('choice');
 
   const orderedPlayers = [...players].sort((a, b) => (a.play_order || 0) - (b.play_order || 0));
   const activePlayers = orderedPlayers.filter((p) => !p.is_eliminated && p.lives > 0);
@@ -49,24 +59,37 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
     setLiveCharIds(new Set((data || []).map((card: any) => card.character_id)));
   }, [room.id]);
 
-  const showReveal = useCallback((charName: string, hitPlayerIds: string[] = []) => {
+  const showReveal = useCallback(async (charName: string, hitPlayerIds: string[] = [], voter = activePlayer) => {
+    const hitPlayers = hitPlayerIds.map((id: string) => players.find((p: any) => p.id === id)).filter(Boolean);
+    const eliminatedPlayers = hitPlayers.filter((player: any) => (player.lives || 0) <= 1 || player.is_eliminated);
+
     setIsRevealing(true);
-    setRevealStage(hitPlayerIds.length > 0 ? 'suspense' : 'result');
+    setRevealStage('choosing');
     setRevelation({
+      voterName: voter?.nickname || 'Alguem',
+      voter,
       charName,
-      players: hitPlayerIds.map((id: string) => players.find((p: any) => p.id === id)).filter(Boolean),
+      players: hitPlayers,
+      eliminatedPlayers,
     });
 
-    if (hitPlayerIds.length > 0) {
-      setTimeout(() => setRevealStage('result'), 1600);
+    await sleep(800);
+    setRevealStage('choice');
+    await sleep(950);
+    setRevealStage(hitPlayers.length > 0 ? 'impact' : 'miss');
+    await sleep(1200);
+
+    if (eliminatedPlayers.length > 0) {
+      setRevealStage('eliminated');
+      await sleep(1400);
+    } else {
+      await sleep(500);
     }
 
-    setTimeout(() => {
-      setIsRevealing(false);
-      setRevelation(null);
-      refreshLiveCards();
-    }, (room.reveal_time_seconds || 4) * 1000);
-  }, [players, refreshLiveCards, room.reveal_time_seconds]);
+    setIsRevealing(false);
+    setRevelation(null);
+    refreshLiveCards();
+  }, [activePlayer, players, refreshLiveCards]);
 
   const channelRef = useRef<any>(null);
   const showRevealRef = useRef(showReveal);
@@ -77,7 +100,8 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
   useEffect(() => {
     const ch = supabaseGame.channel(`revels:${room.id}`)
       .on('broadcast', { event: 'REVEAL' }, (payload) => {
-         showRevealRef.current?.(payload.payload.charName, payload.payload.hits || payload.payload.hitPlayerIds || []);
+         const voter = players.find((p: any) => p.id === payload.payload.voterId) || { nickname: payload.payload.voterName };
+         showRevealRef.current?.(payload.payload.charName, payload.payload.hits || payload.payload.hitPlayerIds || [], voter);
       })
       .subscribe();
     channelRef.current = ch;
@@ -85,7 +109,7 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
       ch.unsubscribe();
       channelRef.current = null;
     };
-  }, [room.id]);
+  }, [players, room.id]);
 
   const advanceTurn = useCallback(async () => {
     const { data: freshPlayers } = await supabaseGame.from('room_players').select('*').eq('room_id', room.id);
@@ -140,17 +164,29 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
   const processVote = async (targetCharId: string) => {
     const targetChar = deckChars.find((c) => c.id === targetCharId);
     if (!targetChar || !activePlayer) return;
-    setIsRevealing(true);
-    setRevealStage('suspense');
+    if (isRevealing) return;
+
     await supabaseGame.from('room_players').update({ missed_turns: 0 }).eq('id', activePlayer.id);
 
-    addLog(`${activePlayer.nickname} suspeita de ${targetChar.name}...`);
+    addLog(`${activePlayer.nickname} fez sua escolha...`);
 
     const { data: allCards } = await supabaseGame.from('player_cards').select('*').eq('room_id', room.id).eq('is_dead', false);
     const hits = allCards?.filter((c) => c.character_id === targetCharId) || [];
+    const hitPlayerIds = hits.map(h => h.player_id);
+
+    const revelPayload = { charName: targetChar.name, hits: hitPlayerIds, voterId: activePlayer.id, voterName: activePlayer.nickname };
+    if (channelRef.current) {
+      channelRef.current.send({
+         type: 'broadcast',
+         event: 'REVEAL',
+         payload: revelPayload
+      });
+    }
+
+    await showReveal(targetChar.name, hitPlayerIds, activePlayer);
 
     if (hits.length > 0) {
-      addLog(`ACERTOU! Alguem na mesa tinha ${targetChar.name}!`);
+      addLog(`ACERTOU! ${targetChar.name} estava na mesa.`);
       for (const hit of hits) {
         await supabaseGame.from('player_cards').update({ is_dead: true }).eq('id', hit.id);
         const targetP = players.find((p: any) => p.id === hit.player_id);
@@ -160,72 +196,57 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
             lives: newLives,
             is_eliminated: newLives <= 0
           }).eq('id', targetP.id);
-          addLog(`${targetP.nickname} perdeu 1 vida!`);
+          addLog(newLives <= 0 ? `${targetP.nickname} foi eliminado!` : `${targetP.nickname} perdeu 1 vida!`);
         }
       }
     } else {
-      addLog(`ERROU! Ninguem na mesa tinha ${targetChar.name}!`);
+      addLog(`ERROU! Ninguem tinha ${targetChar.name}.`);
     }
 
     await refreshLiveCards();
 
-    const hitPlayerIds = hits.map(h => h.player_id);
-    const revelPayload = { charName: targetChar.name, hits: hitPlayerIds };
-    if (channelRef.current) {
-      channelRef.current.send({
-         type: 'broadcast',
-         event: 'REVEAL',
-         payload: revelPayload
-      });
+    const [{ data: freshPlayers }, { data: remainingCards }] = await Promise.all([
+      supabaseGame.from('room_players').select('*').eq('room_id', room.id),
+      supabaseGame.from('player_cards').select('*').eq('room_id', room.id).eq('is_dead', false),
+    ]);
+    const liveCounts = new Map<string, number>();
+    for (const card of remainingCards || []) {
+      liveCounts.set(card.player_id, (liveCounts.get(card.player_id) || 0) + 1);
     }
-    showReveal(targetChar.name, hitPlayerIds);
+    const alive = freshPlayers?.filter((p) => (liveCounts.get(p.id) || 0) > 0) || [];
 
-    setTimeout(async () => {
-      setIsRevealing(false);
-      setRevelation(null);
-      const [{ data: freshPlayers }, { data: remainingCards }] = await Promise.all([
-        supabaseGame.from('room_players').select('*').eq('room_id', room.id),
-        supabaseGame.from('player_cards').select('*').eq('room_id', room.id).eq('is_dead', false),
-      ]);
-      const liveCounts = new Map<string, number>();
-      for (const card of remainingCards || []) {
-        liveCounts.set(card.player_id, (liveCounts.get(card.player_id) || 0) + 1);
+    if (alive.length === 0) {
+      addLog('EMPATE! Escolha qualquer personagem na rodada extra.');
+      const recentlyEliminated = hits.map((h) => players.find((p: any) => p.id === h.player_id)).filter(Boolean);
+      const playersToRevive = recentlyEliminated.length > 0 ? recentlyEliminated : players;
+      for (const p of playersToRevive) {
+        await supabaseGame.from('room_players').update({ lives: 1, is_eliminated: false }).eq('id', p.id);
       }
-      const alive = freshPlayers?.filter((p) => (liveCounts.get(p.id) || 0) > 0) || [];
+      await supabaseGame.from('player_cards').update({ is_dead: false }).eq('room_id', room.id);
+      await advanceTurn();
+    } else if (alive.length === 1) {
+      addLog(`Partida encerrada! Campeao: ${alive[0].nickname}!`);
+      await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
+    } else {
+      const maxLives = Math.max(...alive.map((p) => liveCounts.get(p.id) || 0));
+      const leaders = alive.filter((p) => (liveCounts.get(p.id) || 0) === maxLives);
 
-      if (alive.length === 0) {
-        addLog('EMPATE! Escolha qualquer personagem na rodada extra.');
-        const recentlyEliminated = hits.map((h) => players.find((p: any) => p.id === h.player_id)).filter(Boolean);
-        const playersToRevive = recentlyEliminated.length > 0 ? recentlyEliminated : players;
-        for (const p of playersToRevive) {
-          await supabaseGame.from('room_players').update({ lives: 1, is_eliminated: false }).eq('id', p.id);
+      if (leaders.length === 1) {
+        const { data: allUnguessed } = await supabaseGame.from('player_cards')
+          .select('character_id')
+          .in('player_id', alive.map((p) => p.id))
+          .eq('is_dead', false);
+
+        const distinctCardIds = new Set(allUnguessed?.map((c) => c.character_id)).size;
+        const leaderLives = liveCounts.get(leaders[0].id) || leaders[0].lives;
+        if (leaderLives >= distinctCardIds) {
+          addLog(`Vitoria inteligente! Campeao: ${leaders[0].nickname}!`);
+          await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
+          return;
         }
-        await supabaseGame.from('player_cards').update({ is_dead: false }).eq('room_id', room.id);
-        await advanceTurn();
-      } else if (alive.length === 1) {
-        addLog(`Partida encerrada! Campeao: ${alive[0].nickname}!`);
-        await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
-      } else {
-        const maxLives = Math.max(...alive.map((p) => liveCounts.get(p.id) || 0));
-        const leaders = alive.filter((p) => (liveCounts.get(p.id) || 0) === maxLives);
-
-        if (leaders.length === 1) {
-          const { data: allUnguessed } = await supabaseGame.from('player_cards')
-            .select('character_id')
-            .in('player_id', alive.map((p) => p.id))
-            .eq('is_dead', false);
-
-          const distinctCardIds = new Set(allUnguessed?.map((c) => c.character_id)).size;
-          const leaderLives = liveCounts.get(leaders[0].id) || leaders[0].lives;
-          if (leaderLives >= distinctCardIds) {
-            addLog(`Vitoria inteligente! Campeao: ${leaders[0].nickname}!`);
-            await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
-            return;
-          }
-        }
-        await advanceTurn();
       }
-    }, (room.reveal_time_seconds || 4) * 1000);
+      await advanceTurn();
+    }
 
     if (activePlayer.is_bot) {
       import('@/app/actions/bots').then(({ triggerBotResultMessage }) => {
@@ -333,10 +354,15 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
             channelRef.current.send({
               type: 'broadcast',
               event: 'REVEAL',
-              payload: { charName: result.target, hits: result.hitPlayerIds || [] },
+              payload: {
+                charName: result.target,
+                hits: result.hitPlayerIds || [],
+                voterId: activePlayer.id,
+                voterName: activePlayer.nickname,
+              },
             });
           }
-          showReveal(result.target, result.hitPlayerIds || []);
+          await showReveal(result.target, result.hitPlayerIds || [], activePlayer);
         }
       }, randomDelay);
       return () => clearTimeout(timer);
@@ -379,7 +405,7 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
         <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
           {orderedPlayers.map((p) => (
             <div key={p.id} className={cn("bg-white/90 border-2 rounded-2xl px-3 py-2 flex items-center gap-2 shadow-sm min-w-0", activePlayer?.id === p.id ? cn(p.color?.border || 'border-indigo-400', p.color?.lightBgc || 'bg-indigo-50') : 'border-indigo-100')}>
-              <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} className={cn("w-8 h-8 rounded-xl border-2 shrink-0", p.color?.border || 'border-slate-200')} />
+              <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn("w-8 h-8 rounded-xl border-2 shrink-0", p.color?.border || 'border-slate-200')} />
               <div className="min-w-0 flex-1">
                 <p className={cn("text-xs font-black truncate", p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
                 <div className="flex items-center gap-0.5">
@@ -405,7 +431,7 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
             ) : (
               <>
                 <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center border border-white/30 truncate">
-                   <AvatarFigure avatarUrl={activePlayer.avatar_url} label={activePlayer.nickname} className="w-6 h-6 border-0" />
+                   <AvatarFigure avatarUrl={activePlayer.avatar_url} label={activePlayer.nickname} primaryColor={activePlayer.color?.hex} className="w-6 h-6 border-0" />
                 </div>
                 <span>É A VEZ DE {activePlayer.nickname}</span>
               </>
@@ -443,7 +469,7 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
               animate={{ opacity: 1, y: 0 }}
               className={cn("mb-5 rounded-3xl border-4 p-5 shadow-lg flex flex-col sm:flex-row sm:items-center gap-4", me.color?.border || 'border-indigo-300', me.color?.lightBgc || 'bg-indigo-50')}
             >
-              <AvatarFigure avatarUrl={me.avatar_url} label={me.nickname} state="vote" className={cn("w-20 h-20 rounded-2xl border-4 shrink-0", me.color?.border || 'border-indigo-400')} />
+              <AvatarFigure avatarUrl={me.avatar_url} label={me.nickname} state="vote" primaryColor={me.color?.hex} className={cn("w-20 h-20 rounded-2xl border-4 shrink-0", me.color?.border || 'border-indigo-400')} />
               <div className="text-left">
                 <p className={cn("text-xs font-black uppercase tracking-widest", me.color?.text || 'text-indigo-600')}>Sua vez de palpitar</p>
                 <h3 className="text-2xl font-black text-indigo-950 font-display">Escolha um card da mesa</h3>
@@ -505,27 +531,34 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
               exit={{ opacity: 0 }}
               className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-900/60 backdrop-blur-md rounded-3xl"
             >
-              {!revelation || revealStage === 'suspense' ? (
+              {revelation && revealStage === 'choosing' ? (
                 <div className="text-center p-8 bg-white border-4 border-indigo-100 shadow-2xl max-w-sm w-full rounded-3xl">
                   <div className="w-16 h-16 bg-amber-50 border-2 border-amber-200 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
                     <Zap className="w-8 h-8" />
                   </div>
-                  <h2 className="text-2xl font-black text-indigo-950 font-display mb-1.5 animate-pulse">Suspense...</h2>
-                  <p className="text-xs font-black text-indigo-500 uppercase tracking-widest">Conferindo se alguem foi atingido</p>
+                  <p className={cn("text-sm font-black uppercase tracking-widest mb-2", revelation.voter?.color?.text || 'text-indigo-600')}>{revelation.voterName}</p>
+                  <h2 className="text-2xl font-black text-indigo-950 font-display mb-1.5 animate-pulse">Fez sua escolha...</h2>
+                  <p className="text-xs font-black text-indigo-500 uppercase tracking-widest">A mesa ainda nao sabe o alvo</p>
                 </div>
-              ) : revelation.players.length > 0 ? (
+              ) : revelation && revealStage === 'choice' ? (
+                <motion.div initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} className="text-center p-8 bg-white border-4 border-indigo-100 shadow-2xl max-w-md w-full rounded-3xl text-indigo-950">
+                   <p className={cn("text-sm font-black uppercase tracking-widest mb-2", revelation.voter?.color?.text || 'text-indigo-600')}>{revelation.voterName} escolheu</p>
+                   <p className="text-4xl font-black font-display mb-4">{revelation.charName}</p>
+                   <p className="text-xs font-black text-indigo-500 uppercase tracking-widest">Conferindo atingidos...</p>
+                </motion.div>
+              ) : revelation && (revealStage === 'impact' || revealStage === 'eliminated') ? (
                 <motion.div initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} className="text-center p-8 bg-rose-600 border-4 border-rose-400 shadow-2xl max-w-md w-full rounded-3xl text-white">
                    <h2 className="text-rose-200 font-extrabold tracking-widest text-sm mb-4 uppercase drop-shadow-sm flex items-center justify-center gap-2">
-                     <span className="text-xl">⚡</span> PERSONAGEM ELIMINADO <span className="text-xl">⚡</span>
+                     {revealStage === 'eliminated' ? 'ELIMINACAO' : 'ATINGIDO'}
                    </h2>
                    <p className="text-4xl font-black font-display mb-6 drop-shadow-md">{revelation.charName}</p>
                    <div className="bg-rose-950/20 rounded-2xl p-4 mb-4 border border-rose-500/30">
-                     <p className="text-xs font-bold text-rose-200 uppercase mb-2">Pertencia a:</p>
-                     <p className="text-lg font-black">{revelation.players.map(p => p.nickname).join(', ')}</p>
+                     <p className="text-xs font-bold text-rose-200 uppercase mb-2">{revealStage === 'eliminated' ? 'Saiu do jogo:' : 'Perdeu vida:'}</p>
+                     <p className="text-lg font-black">{(revealStage === 'eliminated' ? revelation.eliminatedPlayers : revelation.players).map((p: any) => p.nickname).join(', ')}</p>
                    </div>
-                   <p className="text-2xl font-black animate-pulse text-rose-200">-{revelation.players.length} VIDA{revelation.players.length > 1 ? 'S' : ''} NA MESA</p>
+                   <div className="grid gap-2 text-left">{revelation.players.map((p: any) => <div key={p.id} className="rounded-xl bg-white/15 border border-white/20 px-3 py-2"><span className="font-black">{p.nickname}</span><span className="ml-2 text-rose-100 font-bold">vidas: {Math.max(0, (p.lives || 0) - 1)}</span></div>)}</div>
                 </motion.div>
-              ) : (
+              ) : revelation ? (
                 <motion.div initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} className="text-center p-8 bg-slate-800 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white">
                    <h2 className="text-slate-400 font-extrabold tracking-widest text-sm mb-4 uppercase">
                      NENHUM ACERTO
@@ -533,7 +566,7 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
                    <p className="text-2xl font-black mb-2 text-slate-300 line-through decoration-slate-500 decoration-4">{revelation.charName}</p>
                    <p className="text-lg font-bold text-slate-400">Ninguem tinha este personagem!</p>
                 </motion.div>
-              )}
+              ) : null}
             </motion.div>
           )}
         </AnimatePresence>
@@ -558,7 +591,7 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
 
                 <div className="flex items-center gap-3 mb-3 relative z-10 w-full">
                   <div className="relative">
-                    <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} className={cn("w-10 h-10 border-2 rounded-lg shrink-0", p.color?.border || 'border-slate-200', p.color?.lightBgc || 'bg-slate-100')} />
+                    <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn("w-10 h-10 border-2 rounded-lg shrink-0", p.color?.border || 'border-slate-200', p.color?.lightBgc || 'bg-slate-100')} />
                     {!p.is_eliminated && (
                       <div className="absolute -top-2 -right-2 text-xl drop-shadow-md">
                         {rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : <div className="text-slate-400 font-bold bg-slate-100 rounded-full w-5 h-5 flex justify-center items-center text-[10px] border border-slate-300 shadow-sm mt-1 mr-1">#{rank + 1}</div>}

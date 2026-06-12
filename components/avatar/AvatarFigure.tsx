@@ -17,10 +17,25 @@ type AvatarFigureProps = {
   label?: string;
   className?: string;
   imageClassName?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
 };
 
-export default function AvatarFigure({ avatarUrl, selection, state = 'idle', label, className, imageClassName }: AvatarFigureProps) {
-  const selected = selectionFromAvatarUrl(avatarUrl) || normalizeAvatarSelection(selection || DEFAULT_AVATAR_SELECTION);
+export default function AvatarFigure({
+  avatarUrl,
+  selection,
+  state = 'idle',
+  label,
+  className,
+  imageClassName,
+  primaryColor,
+  secondaryColor,
+}: AvatarFigureProps) {
+  const selected = {
+    ...(selectionFromAvatarUrl(avatarUrl) || normalizeAvatarSelection(selection || DEFAULT_AVATAR_SELECTION)),
+    ...(primaryColor ? { primaryColor } : {}),
+    ...(secondaryColor ? { secondaryColor } : {}),
+  };
   const source = avatarUrl && !avatarUrl.startsWith('avatar:') ? avatarUrl : avatarToDataUri(selected, state);
 
   return (

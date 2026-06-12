@@ -59,7 +59,7 @@ export default function RoomStarting({ room, players }: any) {
                 <span className="text-xl font-black text-amber-500 bg-amber-50 rounded-full w-8 h-8 flex items-center justify-center border border-amber-200">
                   #{index + 1}
                 </span>
-                <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} className={cn("w-10 h-10 border-2 rounded-xl shadow-sm", p.color?.border || 'border-indigo-200', p.color?.lightBgc || 'bg-slate-50')} />
+                <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn("w-10 h-10 border-2 rounded-xl shadow-sm", p.color?.border || 'border-indigo-200', p.color?.lightBgc || 'bg-slate-50')} />
                 <span className={cn("text-base font-bold", p.color?.text || 'text-indigo-950')}>{p.nickname}</span>
               </div>
 

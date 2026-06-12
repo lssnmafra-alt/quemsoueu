@@ -144,7 +144,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
                   )}
                 >
                   <div className={cn("absolute top-0 left-0 w-1.5 h-full", p.color?.bg || 'bg-slate-400')} />
-                  <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} className={cn("w-12 h-12 border-2 rounded-2xl shadow-sm shrink-0", p.color?.border || 'border-slate-200', p.color?.lightBgc || 'bg-slate-100')} />
+                  <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn("w-12 h-12 border-2 rounded-2xl shadow-sm shrink-0", p.color?.border || 'border-slate-200', p.color?.lightBgc || 'bg-slate-100')} />
                   <div className="flex-1">
                     <p className={cn("text-base font-bold", p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -162,7 +162,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
               <div className={cn("bg-white border-4 rounded-3xl shadow-md p-5", me.color?.border || 'border-indigo-100')}>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
-                    <AvatarFigure avatarUrl={me.avatar_url} label={me.nickname} className={cn("w-14 h-14 rounded-2xl border-2 shrink-0", me.color?.border || 'border-indigo-200', me.color?.lightBgc || 'bg-slate-50')} />
+                    <AvatarFigure avatarUrl={me.avatar_url} label={me.nickname} primaryColor={me.color?.hex} className={cn("w-14 h-14 rounded-2xl border-2 shrink-0", me.color?.border || 'border-indigo-200', me.color?.lightBgc || 'bg-slate-50')} />
                     <div className="min-w-0">
                       <h3 className={cn("text-xs font-black uppercase tracking-wider border-l-4 pl-2 select-none", me.color?.text || 'text-indigo-600', me.color?.border || 'border-indigo-500')}>Avatar do Jogador</h3>
                       <p className="text-xs text-slate-500 font-semibold mt-1">Escolha base, cores e moldura.</p>

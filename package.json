@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "next:build": "next build",
+    "build": "npx @opennextjs/cloudflare build",
     "start": "next start",
     "lint": "eslint .",
     "clean": "next clean",
-    "deploy": "npx @opennextjs/cloudflare build && npx @opennextjs/cloudflare deploy",
-    "preview": "npx @opennextjs/cloudflare build && npx @opennextjs/cloudflare preview"
+    "deploy": "npm run build && npx @opennextjs/cloudflare deploy",
+    "preview": "npm run build && npx @opennextjs/cloudflare preview"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",

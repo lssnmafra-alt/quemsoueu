@@ -1,10 +1,11 @@
 // lib/supabase.ts
-import { createClient } from '@supabase/supabase-js';
-import { getPublicEnvValue, type PublicEnvKey } from './publicEnv';
+import { createClient, type SupabaseClient, type SupabaseClientOptions } from '@supabase/supabase-js';
+import { getPublicEnvNames, getPublicEnvValue, type PublicEnvKey } from './publicEnv';
 
 function reportMissingEnv(key: PublicEnvKey): never {
+  const acceptedNames = getPublicEnvNames(key).join(', ');
   const message =
-    `[Supabase config] Missing ${key}. Configure it in the Cloudflare Worker environment ` +
+    `[Supabase config] Missing ${key}. Accepted env names: ${acceptedNames}. Configure it in the Cloudflare Worker environment ` +
     '(Production and Preview, when used) or provide it during the Next/OpenNext build.';
 
   if (typeof console !== 'undefined') console.error(message);
@@ -35,11 +36,52 @@ function requireSupabaseUrl(key: PublicEnvKey) {
   return value;
 }
 
-// Supabase 1 - Auth e Usuarios
-const urlAuth = requireSupabaseUrl('NEXT_PUBLIC_SUPABASE_URL_AUTH');
-const supabaseAnonKeyAuth = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY_AUTH');
+function createLazySupabaseClient(
+  urlKey: PublicEnvKey,
+  anonKeyKey: PublicEnvKey,
+  options?: SupabaseClientOptions<'public'>,
+) {
+  let client: SupabaseClient | null = null;
 
-export const supabaseAuth = createClient(urlAuth, supabaseAnonKeyAuth, {
+  const getClient = () => {
+    if (!client) {
+      client = createClient(requireSupabaseUrl(urlKey), requireEnv(anonKeyKey), options);
+    }
+
+    return client;
+  };
+
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        const value = (getClient() as any)[prop];
+        return typeof value === 'function' ? value.bind(getClient()) : value;
+      },
+      set(_target, prop, value) {
+        (getClient() as any)[prop] = value;
+        return true;
+      },
+      has(_target, prop) {
+        return prop in getClient();
+      },
+      ownKeys() {
+        return Reflect.ownKeys(getClient() as any);
+      },
+      getOwnPropertyDescriptor(_target, prop) {
+        const descriptor = Object.getOwnPropertyDescriptor(getClient() as any, prop);
+        if (descriptor) descriptor.configurable = true;
+        return descriptor;
+      },
+    },
+  ) as SupabaseClient;
+}
+
+// Supabase 1 - Auth e Usuarios
+export const supabaseAuth = createLazySupabaseClient(
+  'NEXT_PUBLIC_SUPABASE_URL_AUTH',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY_AUTH',
+  {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -47,10 +89,11 @@ export const supabaseAuth = createClient(urlAuth, supabaseAnonKeyAuth, {
     flowType: 'pkce',
     storageKey: 'quem-sou-eu-auth-session',
   },
-});
+  },
+);
 
 // Supabase 2 - Dados do Jogo
-const urlGame = requireSupabaseUrl('NEXT_PUBLIC_SUPABASE_URL_GAME');
-const supabaseAnonKeyGame = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY_GAME');
-
-export const supabaseGame = createClient(urlGame, supabaseAnonKeyGame);
+export const supabaseGame = createLazySupabaseClient(
+  'NEXT_PUBLIC_SUPABASE_URL_GAME',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY_GAME',
+);

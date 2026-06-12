@@ -1,4 +1,5 @@
 const config = {
+  buildCommand: "npm run next:build",
   default: {
     override: {
       wrapper: "cloudflare-node",

@@ -1,10 +1,43 @@
 // lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
+import { getPublicEnvValue, type PublicEnvKey } from './publicEnv';
 
-// Supabase 1 - Auth e Usuários
-let urlAuth = process.env.NEXT_PUBLIC_SUPABASE_URL_AUTH || 'https://dummy1.supabase.co';
-if (!urlAuth.startsWith('http')) urlAuth = 'https://dummy1.supabase.co';
-const supabaseAnonKeyAuth = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_AUTH || 'dummy';
+function reportMissingEnv(key: PublicEnvKey): never {
+  const message =
+    `[Supabase config] Missing ${key}. Configure it in the Cloudflare Worker environment ` +
+    '(Production and Preview, when used) or provide it during the Next/OpenNext build.';
+
+  if (typeof console !== 'undefined') console.error(message);
+  throw new Error(message);
+}
+
+function reportInvalidUrl(key: PublicEnvKey, value: string): never {
+  const message = `[Supabase config] ${key} must be a valid http(s) URL. Received: ${value}`;
+
+  if (typeof console !== 'undefined') console.error(message);
+  throw new Error(message);
+}
+
+function requireEnv(key: PublicEnvKey) {
+  return getPublicEnvValue(key) || reportMissingEnv(key);
+}
+
+function requireSupabaseUrl(key: PublicEnvKey) {
+  const value = requireEnv(key);
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') reportInvalidUrl(key, value);
+  } catch {
+    reportInvalidUrl(key, value);
+  }
+
+  return value;
+}
+
+// Supabase 1 - Auth e Usuarios
+const urlAuth = requireSupabaseUrl('NEXT_PUBLIC_SUPABASE_URL_AUTH');
+const supabaseAnonKeyAuth = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY_AUTH');
 
 export const supabaseAuth = createClient(urlAuth, supabaseAnonKeyAuth, {
   auth: {
@@ -17,8 +50,7 @@ export const supabaseAuth = createClient(urlAuth, supabaseAnonKeyAuth, {
 });
 
 // Supabase 2 - Dados do Jogo
-let urlGame = process.env.NEXT_PUBLIC_SUPABASE_URL_GAME || 'https://dummy2.supabase.co';
-if (!urlGame.startsWith('http')) urlGame = 'https://dummy2.supabase.co';
-const supabaseAnonKeyGame = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_GAME || 'dummy';
+const urlGame = requireSupabaseUrl('NEXT_PUBLIC_SUPABASE_URL_GAME');
+const supabaseAnonKeyGame = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY_GAME');
 
 export const supabaseGame = createClient(urlGame, supabaseAnonKeyGame);

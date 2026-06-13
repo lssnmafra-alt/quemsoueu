@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import LoadingArena from '@/components/LoadingArena';
 import CharacterImage from '@/components/CharacterImage';
 import { MAX_CHARACTERS_PER_DECK } from '@/lib/deckRules';
+import { isOfficialDeckId, TEMP_OFFICIAL_DECK_EDITING_ENABLED } from '@/lib/officialDecks';
 
 export default function DeckEditorPage() {
   const router = useRouter();
@@ -32,6 +33,8 @@ export default function DeckEditorPage() {
   const [adding, setAdding] = useState(false);
   const [updatingDeck, setUpdatingDeck] = useState(false);
   const [errorChart, setErrorChart] = useState('');
+  const [editingCharacterId, setEditingCharacterId] = useState('');
+  const [characterDrafts, setCharacterDrafts] = useState<Record<string, { name: string; imageUrl: string }>>({});
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
@@ -61,6 +64,7 @@ export default function DeckEditorPage() {
       setDeck({...dData, creator_nickname: creatorNickname});
       setDeckImage(dData?.cover_url || dData?.image_url || '');
       setCharacters(cData || []);
+      setCharacterDrafts(Object.fromEntries((cData || []).map((char: any) => [char.id, { name: char.name || '', imageUrl: char.image_url || '' }])));
       setIsFavorited(isFav);
       setLoading(false);
     };
@@ -79,7 +83,7 @@ export default function DeckEditorPage() {
   };
 
   const handleAddChar = async () => {
-    if (!isCreator) return;
+    if (!canEditDeck) return;
     if (!charName.trim()) return;
     if (characters.length >= MAX_CHARACTERS_PER_DECK) {
       setErrorChart(`Cada baralho pode ter no maximo ${MAX_CHARACTERS_PER_DECK} personagens.`);
@@ -112,28 +116,68 @@ export default function DeckEditorPage() {
       }
     }
 
-    const { data } = await supabaseGame.from('characters').insert({
-      deck_id: deckId,
-      name: charName,
-      image_url: finalImageUrl || ''
-    }).select().single();
-    
-    if (data) {
-      setCharacters([...characters, data]);
-      setCharName('');
-      setCharDesc('');
+    try {
+      const data = isTemporaryOfficialEditor
+        ? (await fetch('/api/official-decks/edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'add-character',
+              deckId,
+              name: charName,
+              imageUrl: finalImageUrl || '',
+            }),
+          }).then(async (res) => {
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Nao foi possivel inserir o personagem.');
+            return result.character;
+          }))
+        : (await supabaseGame.from('characters').insert({
+            deck_id: deckId,
+            name: charName,
+            image_url: finalImageUrl || ''
+          }).select().single()).data;
+      
+      if (data) {
+        setCharacters([...characters, data]);
+        setCharacterDrafts((current) => ({ ...current, [data.id]: { name: data.name || '', imageUrl: data.image_url || '' } }));
+        setCharName('');
+        setCharDesc('');
+      }
+    } catch (error: any) {
+      alert(error.message || 'Nao foi possivel inserir o personagem.');
     }
     setAdding(false);
   };
   
   const handleDeleteChar = async (id: string) => {
-    if (!isCreator) return;
-    await supabaseGame.from('characters').delete().eq('id', id);
+    if (!canEditDeck) return;
+    if (isTemporaryOfficialEditor) {
+      const response = await fetch('/api/official-decks/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete-character', deckId, characterId: id }),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        alert(result.error || 'Nao foi possivel excluir o personagem.');
+        return;
+      }
+    } else {
+      await supabaseGame.from('characters').delete().eq('id', id);
+    }
     setCharacters(characters.filter(c => c.id !== id));
+    setCharacterDrafts((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
   };
 
   const storedGuestId = typeof window !== 'undefined' ? localStorage.getItem('guestId') : null;
   const isCreator = deck?.creator_id === user?.id;
+  const isTemporaryOfficialEditor = TEMP_OFFICIAL_DECK_EDITING_ENABLED && isOfficialDeckId(deckId);
+  const canEditDeck = isCreator || isTemporaryOfficialEditor;
 
   const togglePublish = async () => {
     if (!isCreator) return;
@@ -148,11 +192,65 @@ export default function DeckEditorPage() {
   };
   
   const handleUpdateDeckImage = async () => {
-    if (!isCreator) return;
+    if (!canEditDeck) return;
     setUpdatingDeck(true);
-    await supabaseGame.from('decks').update({ cover_url: deckImage }).eq('id', deckId);
-    setDeck({ ...deck, cover_url: deckImage });
+    if (isTemporaryOfficialEditor) {
+      const response = await fetch('/api/official-decks/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update-cover', deckId, coverUrl: deckImage }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        alert(result.error || 'Nao foi possivel salvar a capa.');
+      } else {
+        setDeck({ ...deck, cover_url: deckImage });
+      }
+    } else {
+      await supabaseGame.from('decks').update({ cover_url: deckImage }).eq('id', deckId);
+      setDeck({ ...deck, cover_url: deckImage });
+    }
     setUpdatingDeck(false);
+  };
+
+  const handleSaveCharacter = async (char: any) => {
+    if (!canEditDeck) return;
+    const draft = characterDrafts[char.id] || { name: char.name || '', imageUrl: char.image_url || '' };
+    setEditingCharacterId(char.id);
+
+    try {
+      const updated = isTemporaryOfficialEditor
+        ? (await fetch('/api/official-decks/edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'update-character',
+              deckId,
+              characterId: char.id,
+              name: draft.name,
+              imageUrl: draft.imageUrl,
+            }),
+          }).then(async (res) => {
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Nao foi possivel salvar o personagem.');
+            return result.character;
+          }))
+        : (await supabaseGame
+            .from('characters')
+            .update({ name: draft.name.trim(), image_url: draft.imageUrl.trim() })
+            .eq('id', char.id)
+            .select()
+            .single()).data;
+
+      if (updated) {
+        setCharacters((current) => current.map((item) => item.id === char.id ? updated : item));
+        setCharacterDrafts((current) => ({ ...current, [updated.id]: { name: updated.name || '', imageUrl: updated.image_url || '' } }));
+      }
+    } catch (error: any) {
+      alert(error.message || 'Nao foi possivel salvar o personagem.');
+    } finally {
+      setEditingCharacterId('');
+    }
   };
   
   const handleDeleteDeck = async () => {
@@ -204,39 +302,39 @@ export default function DeckEditorPage() {
           </div>
           
           <div className="flex gap-2">
-             {!isCreator && deck.is_public && (
+             {!canEditDeck && deck.is_public && (
                 <Button variant="outline" size="icon" onClick={toggleFavorite} className={cn("w-12 h-12 rounded-2xl transition-all border-2 cursor-pointer flex items-center justify-center", isFavorited ? "text-amber-500 border-amber-200 bg-amber-50" : "text-slate-400 border-slate-200 bg-white hover:text-amber-500 hover:border-amber-100")}>
                    {isFavorited ? <Star className="w-5 h-5 fill-current" /> : <StarOff className="w-5 h-5" />}
                 </Button>
              )}
-             {isCreator && (
+             {canEditDeck && (
                 <>
-                  <Button 
+                  {isCreator && <Button 
                    onClick={togglePublish}
                    className={cn("h-12 px-5 rounded-2xl text-xs font-black uppercase transition-all hidden sm:flex border-2 cursor-pointer", deck.is_public ? "text-indigo-600 border-indigo-200 bg-indigo-50 hover:bg-indigo-100" : "bg-white border-slate-250 text-slate-500 hover:bg-slate-50")}
                   >
                     {deck.is_public ? <Globe className="w-4 h-4 mr-2 text-indigo-500"/> : <Lock className="w-4 h-4 mr-2 text-slate-400"/>}
                     {deck.is_public ? ' Baralho Publico' : ' Baralho Privado'}
-                  </Button>
+                  </Button>}
                   
                   {/* Mobile publish toggle */}
-                  <Button 
+                  {isCreator && <Button 
                    onClick={togglePublish}
                    size="icon"
                    className={cn("h-12 w-12 rounded-2xl flex sm:hidden transition-all border-2 cursor-pointer items-center justify-center", deck.is_public ? "text-indigo-600 bg-indigo-50 border-indigo-100" : "bg-white text-slate-500 border-slate-250")}
                   >
                     {deck.is_public ? <Globe className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
-                  </Button>
+                  </Button>}
 
-                  <Button variant="destructive" size="icon" onClick={handleDeleteDeck} className="h-12 w-12 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 border-2 border-rose-200 hover:border-rose-300 transition-all cursor-pointer flex items-center justify-center">
+                  {isCreator && <Button variant="destructive" size="icon" onClick={handleDeleteDeck} className="h-12 w-12 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 border-2 border-rose-200 hover:border-rose-300 transition-all cursor-pointer flex items-center justify-center">
                     <Trash className="w-5 h-5" />
-                  </Button>
+                  </Button>}
                 </>
              )}
           </div>
         </motion.header>
 
-        {isCreator && (
+        {canEditDeck && (
           <motion.div 
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -338,13 +436,43 @@ export default function DeckEditorPage() {
                        <span className="text-sm font-black text-[#1e1b4b] truncate block text-center">{char.name}</span>
                     </div>
                     
-                    {isCreator && (
+                    {canEditDeck && (
                       <button 
                         onClick={() => handleDeleteChar(char.id)}
                         className="absolute top-2.5 right-2.5 p-2 bg-rose-50 border border-rose-200 z-30 rounded-xl text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 shadow-md opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5 stroke-[2.5px]" />
                       </button>
+                    )}
+
+                    {canEditDeck && (
+                      <div className="absolute inset-x-2 bottom-[52px] z-20 bg-white/95 backdrop-blur border border-indigo-100 rounded-xl p-2 opacity-0 group-hover:opacity-100 transition-all shadow-lg space-y-1">
+                        <Input
+                          value={characterDrafts[char.id]?.name ?? char.name ?? ''}
+                          onChange={(event) => setCharacterDrafts((current) => ({
+                            ...current,
+                            [char.id]: { name: event.target.value, imageUrl: current[char.id]?.imageUrl ?? char.image_url ?? '' },
+                          }))}
+                          className="h-8 text-[11px] font-bold border-slate-200"
+                          placeholder="Nome"
+                        />
+                        <Input
+                          value={characterDrafts[char.id]?.imageUrl ?? char.image_url ?? ''}
+                          onChange={(event) => setCharacterDrafts((current) => ({
+                            ...current,
+                            [char.id]: { name: current[char.id]?.name ?? char.name ?? '', imageUrl: event.target.value },
+                          }))}
+                          className="h-8 text-[11px] font-semibold border-slate-200"
+                          placeholder="URL da imagem"
+                        />
+                        <Button
+                          onClick={() => handleSaveCharacter(char)}
+                          disabled={editingCharacterId === char.id}
+                          className="h-8 w-full text-[10px] font-black uppercase btn-squishy-indigo text-white"
+                        >
+                          {editingCharacterId === char.id ? 'Salvando...' : 'Salvar'}
+                        </Button>
+                      </div>
                     )}
                   </motion.div>
                 ))}

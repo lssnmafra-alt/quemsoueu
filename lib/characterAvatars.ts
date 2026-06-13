@@ -117,6 +117,95 @@ export function getKnownCharacterAvatar(name: string) {
       </g>`));
   }
 
+  if (n.includes("hulk")) {
+    return svgUrl(base("#6aa84f", "#1f2933", `
+      <g filter="url(#shadow)">
+        <path d="M56 500 Q76 324 130 268 Q200 326 270 268 Q324 324 344 500 Z" fill="#266534"/>
+        <path d="M102 364 Q200 278 298 364 L282 500 H118 Z" fill="#4ade80"/>
+        <path d="M120 500 L150 420 H250 L280 500 Z" fill="#5b2a86"/>
+        <rect x="174" y="248" width="52" height="82" rx="20" fill="#5fbf56"/>
+        <ellipse cx="200" cy="198" rx="75" ry="78" fill="#6bd162"/>
+        <ellipse cx="122" cy="210" rx="20" ry="29" fill="#6bd162"/>
+        <ellipse cx="278" cy="210" rx="20" ry="29" fill="#6bd162"/>
+        <path d="M132 150 Q158 86 206 112 Q246 90 270 152 Q236 136 205 146 Q166 136 132 150" fill="#172016"/>
+        <path d="M146 176 Q174 166 196 184 M204 184 Q226 166 254 176" stroke="#172016" stroke-width="10" stroke-linecap="round"/>
+        <ellipse cx="176" cy="205" rx="14" ry="10" fill="#f8fafc"/>
+        <ellipse cx="224" cy="205" rx="14" ry="10" fill="#f8fafc"/>
+        <circle cx="180" cy="206" r="6" fill="#111827"/>
+        <circle cx="228" cy="206" r="6" fill="#111827"/>
+        <path d="M172 248 Q200 232 228 248" stroke="#193318" stroke-width="12" fill="none" stroke-linecap="round"/>
+        <path d="M108 360 Q82 392 82 448 H138 Q146 392 166 352 Z" fill="#5fbf56"/>
+        <path d="M292 360 Q318 392 318 448 H262 Q254 392 234 352 Z" fill="#5fbf56"/>
+      </g>`));
+  }
+
+  if (n.includes("homem-aranha") || n.includes("homem aranha") || n.includes("spider") || n.includes("aranha")) {
+    return svgUrl(base("#1d4ed8", "#0f172a", `
+      <g filter="url(#shadow)">
+        <path d="M76 500 Q90 320 142 270 Q200 322 258 270 Q310 320 324 500 Z" fill="#1d4ed8"/>
+        <path d="M112 330 Q200 250 288 330 L268 500 H132 Z" fill="#dc2626"/>
+        <path d="M148 500 L200 378 L252 500 Z" fill="#1d4ed8"/>
+        <path d="M130 356 H270 M122 402 H278 M132 448 H268" stroke="#7f1d1d" stroke-width="8" opacity="0.7"/>
+        <path d="M200 318 V500 M160 340 L132 500 M240 340 L268 500" stroke="#7f1d1d" stroke-width="7" opacity="0.75"/>
+        <ellipse cx="200" cy="200" rx="72" ry="78" fill="#dc2626"/>
+        <path d="M132 172 Q200 126 268 172 M126 206 Q200 170 274 206 M146 238 Q200 212 254 238" stroke="#7f1d1d" stroke-width="7" fill="none"/>
+        <path d="M200 126 V278 M158 142 L182 278 M242 142 L218 278" stroke="#7f1d1d" stroke-width="7"/>
+        <path d="M148 194 Q174 176 196 194 Q178 224 150 218 Z" fill="#f8fafc" stroke="#111827" stroke-width="7"/>
+        <path d="M252 194 Q226 176 204 194 Q222 224 250 218 Z" fill="#f8fafc" stroke="#111827" stroke-width="7"/>
+        <path d="M184 350 Q200 338 216 350 Q208 362 200 378 Q192 362 184 350 Z" fill="#111827"/>
+        <path d="M200 356 L180 396 M200 356 L220 396 M190 374 H210 M184 392 H216" stroke="#111827" stroke-width="5" stroke-linecap="round"/>
+      </g>`));
+  }
+
+  if (n.includes("aquaman")) {
+    return svgUrl(base("#0f766e", "#083344", `
+      <path d="M314 78 V268" stroke="#facc15" stroke-width="12" stroke-linecap="round"/>
+      <path d="M282 104 Q314 62 346 104 M314 64 V112" stroke="#facc15" stroke-width="12" fill="none" stroke-linecap="round"/>
+      <g filter="url(#shadow)">
+        <path d="M82 500 Q100 326 150 278 Q200 322 250 278 Q300 326 318 500 Z" fill="#15803d"/>
+        <path d="M118 330 Q200 272 282 330 L264 500 H136 Z" fill="#f59e0b"/>
+        <path d="M136 350 H264 M128 392 H272 M138 434 H262" stroke="#fde68a" stroke-width="9" opacity="0.85"/>
+        <rect x="181" y="254" width="38" height="72" rx="17" fill="#e0a46d"/>
+        <ellipse cx="200" cy="202" rx="66" ry="70" fill="#efbd83"/>
+        <ellipse cx="132" cy="208" rx="17" ry="23" fill="#efbd83"/>
+        <ellipse cx="268" cy="208" rx="17" ry="23" fill="#efbd83"/>
+        <path d="M134 178 Q156 118 206 132 Q254 118 268 184 Q236 168 208 174 Q174 166 134 178" fill="#d7a22f"/>
+        <path d="M140 178 Q120 260 158 314 Q174 248 160 198" fill="#d7a22f"/>
+        <path d="M260 178 Q280 260 242 314 Q226 248 240 198" fill="#d7a22f"/>
+        <path d="M150 226 Q200 292 250 226 Q238 282 200 302 Q162 282 150 226" fill="#9a5c25"/>
+        <ellipse cx="177" cy="206" rx="12" ry="9" fill="#fff"/>
+        <ellipse cx="223" cy="206" rx="12" ry="9" fill="#fff"/>
+        <circle cx="180" cy="207" r="5" fill="#155e75"/>
+        <circle cx="226" cy="207" r="5" fill="#155e75"/>
+        <path d="M170 188 Q186 181 198 190 M202 190 Q216 181 232 188" stroke="#8a4d19" stroke-width="7" stroke-linecap="round"/>
+        <path d="M182 248 Q200 260 218 248" stroke="#f8fafc" stroke-width="7" fill="none" stroke-linecap="round"/>
+      </g>`));
+  }
+
+  if (n.includes("lucas moura") || n.includes("lucas mourea")) {
+    return svgUrl(base("#b91c1c", "#0f172a", `
+      ${soccerBall}
+      <g filter="url(#shadow)">
+        <path d="M88 334 Q200 282 312 334 L292 500 H108 Z" fill="#f8fafc"/>
+        <path d="M120 344 H280 M116 390 H284 M128 436 H272" stroke="#cbd5e1" stroke-width="9" opacity="0.9"/>
+        <path d="M132 334 Q200 382 268 334 L246 500 H154 Z" fill="#1d4ed8" opacity="0.88"/>
+        <circle cx="200" cy="386" r="32" fill="#f8fafc"/>
+        <text x="200" y="397" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="30" fill="#1d4ed8">7</text>
+        <rect x="181" y="252" width="38" height="72" rx="17" fill="#9b5a2e"/>
+        <ellipse cx="200" cy="202" rx="62" ry="66" fill="#a66332"/>
+        <ellipse cx="136" cy="206" rx="16" ry="22" fill="#a66332"/>
+        <ellipse cx="264" cy="206" rx="16" ry="22" fill="#a66332"/>
+        <path d="M142 172 Q160 128 202 140 Q238 128 258 176 Q222 160 200 168 Q174 160 142 172" fill="#1b120c"/>
+        <path d="M154 160 Q182 126 224 144 Q204 150 176 170" fill="#2b1a10"/>
+        <ellipse cx="176" cy="208" rx="12" ry="9" fill="#fff"/>
+        <ellipse cx="224" cy="208" rx="12" ry="9" fill="#fff"/>
+        <circle cx="180" cy="209" r="5" fill="#2a1710"/>
+        <circle cx="228" cy="209" r="5" fill="#2a1710"/>
+        <path d="M170 188 Q186 181 198 190 M202 190 Q216 181 232 188" stroke="#2a1710" stroke-width="7" stroke-linecap="round"/>
+        <path d="M178 246 Q200 262 222 246" stroke="#3a1f13" stroke-width="8" fill="none" stroke-linecap="round"/>
+      </g>`));
+  }
+
   if (n.includes("thor")) {
     return svgUrl(base("#9fc8e8", "#344b7a", `
       <path d="M74 72 L118 118 L92 118 L138 178 L72 106 L102 106 Z" fill="#fef08a" opacity="0.9"/>

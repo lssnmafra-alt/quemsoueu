@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { differenceInSeconds } from 'date-fns';
 import { motion } from 'motion/react';
 import { Check, Layers, Lightbulb } from 'lucide-react';
+import CharacterImage from '@/components/CharacterImage';
 
 export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const [deckChars, setDeckChars] = useState<any[]>([]);
@@ -152,13 +153,12 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
                   confirmed && !isSelected && 'opacity-50 grayscale bg-slate-100'
                 )}
               >
-                {c.image_url ? (
-                  <img src={c.image_url} referrerPolicy="no-referrer" className="flex-1 object-cover w-full h-full bg-slate-100" alt="" />
-                ) : (
-                  <div className="flex-1 bg-slate-100 flex items-center justify-center">
-                    <span className="text-xs font-bold text-slate-400">Sem Foto</span>
-                  </div>
-                )}
+                <CharacterImage
+                  name={c.name}
+                  imageUrl={c.image_url}
+                  alt=""
+                  className="flex-1 object-cover w-full h-full bg-slate-100"
+                />
 
                 <div className="p-3 bg-white w-full border-t-2 border-slate-100">
                   <p className="text-sm font-black text-center text-indigo-950 truncate">{c.name}</p>

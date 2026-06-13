@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabaseGame } from '@/lib/supabase';
 import { differenceInSeconds } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Heart, Target, Clock, LogOut, Zap, List, UserRound, Skull } from 'lucide-react';
+import { Heart, Target, Clock, LogOut, Zap, List, Skull } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { audioManager } from '@/lib/audioManager';
 import ChatMenu from './ChatMenu';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
+import CharacterImage from '@/components/CharacterImage';
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -459,13 +460,12 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
             <ul className="divide-y divide-slate-100">
               {visibleDeckChars.map((c, i) => (
                 <li key={c.id} className="flex items-center gap-3 py-2.5">
-                   {c.image_url ? (
-                     <img src={c.image_url} alt="" referrerPolicy="no-referrer" className="w-9 h-9 rounded-lg object-cover bg-slate-200 shrink-0" />
-                   ) : (
-                     <div className="w-9 h-9 bg-slate-100 rounded-lg shrink-0 flex items-center justify-center">
-                       <UserRound className="w-4 h-4 text-slate-400" />
-                     </div>
-                   )}
+                   <CharacterImage
+                     name={c.name}
+                     imageUrl={c.image_url}
+                     alt=""
+                     className="w-9 h-9 rounded-lg object-cover bg-slate-200 shrink-0"
+                   />
                    <span className="text-sm font-bold text-indigo-950 truncate">{c.name}</span>
                 </li>
               ))}
@@ -497,13 +497,12 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
                 className="bg-white border-4 border-slate-100 hover:border-indigo-400 hover:shadow-lg rounded-2xl p-3 cursor-pointer transition-all flex flex-col group hover:-translate-y-2 relative"
               >
                 <div className="aspect-[3/4] relative rounded-xl overflow-hidden bg-slate-50 mb-2">
-                  {c.image_url ? (
-                    <img src={c.image_url} referrerPolicy="no-referrer" className="object-cover w-full h-full" alt="" />
-                  ) : (
-                    <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                      <span className="text-xs text-slate-400 font-bold">Sem Foto</span>
-                    </div>
-                  )}
+                  <CharacterImage
+                    name={c.name}
+                    imageUrl={c.image_url}
+                    alt=""
+                    className="object-cover w-full h-full"
+                  />
                 </div>
                 <p className="text-sm font-black text-center text-indigo-950 truncate">{c.name}</p>
 

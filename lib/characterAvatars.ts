@@ -150,5 +150,80 @@ export function getKnownCharacterAvatar(name: string) {
       </g>`));
   }
 
+  if (n.includes("doutor destino") || n.includes("doctor doom") || n.includes("dr doom")) {
+    return svgUrl(base("#18251f", "#050807", `
+      <path d="M66 78 Q200 18 334 78 L292 166 Q200 118 108 166 Z" fill="#115e36" opacity="0.95"/>
+      <g filter="url(#shadow)">
+        <path d="M74 500 Q92 326 134 244 Q200 300 266 244 Q308 326 326 500 Z" fill="#166534"/>
+        <path d="M112 500 Q126 326 200 256 Q274 326 288 500 Z" fill="#0f3f27"/>
+        <path d="M128 306 Q200 234 272 306 L252 500 H148 Z" fill="#9ca3af"/>
+        <path d="M154 328 H246 M146 370 H254 M154 412 H246" stroke="#d1d5db" stroke-width="10" opacity="0.75"/>
+        <rect x="174" y="244" width="52" height="88" rx="18" fill="#6b7280"/>
+        <path d="M128 168 Q200 84 272 168 L260 246 Q200 294 140 246 Z" fill="#166534"/>
+        <path d="M156 162 Q200 122 244 162 L240 238 Q200 274 160 238 Z" fill="#cbd5e1" stroke="#6b7280" stroke-width="9"/>
+        <path d="M170 188 H230 M166 212 H234 M178 238 H222" stroke="#64748b" stroke-width="7"/>
+        <rect x="170" y="198" width="24" height="9" rx="4" fill="#86efac"/>
+        <rect x="206" y="198" width="24" height="9" rx="4" fill="#86efac"/>
+        <path d="M184 224 Q200 232 216 224" stroke="#475569" stroke-width="6" fill="none" stroke-linecap="round"/>
+        <circle cx="132" cy="334" r="20" fill="#d1d5db"/>
+        <circle cx="268" cy="334" r="20" fill="#d1d5db"/>
+      </g>`));
+  }
+
+  if (n.includes("sentinela") || n.includes("sentinel")) {
+    return svgUrl(base("#3b174f", "#15091f", `
+      <g filter="url(#shadow)">
+        <path d="M80 500 Q92 320 132 266 H268 Q308 320 320 500 Z" fill="#7e22ce"/>
+        <path d="M104 326 Q200 270 296 326 L278 500 H122 Z" fill="#a855f7"/>
+        <path d="M132 346 H268 M128 398 H272 M140 450 H260" stroke="#4c1d95" stroke-width="14" opacity="0.55"/>
+        <circle cx="112" cy="348" r="48" fill="#6d28d9"/>
+        <circle cx="288" cy="348" r="48" fill="#6d28d9"/>
+        <rect x="168" y="246" width="64" height="82" rx="18" fill="#7e22ce"/>
+        <path d="M126 164 Q200 92 274 164 L258 248 Q200 296 142 248 Z" fill="#9333ea"/>
+        <path d="M150 158 Q200 118 250 158 L240 232 Q200 262 160 232 Z" fill="#c084fc" stroke="#581c87" stroke-width="9"/>
+        <rect x="158" y="190" width="84" height="18" rx="9" fill="#facc15"/>
+        <rect x="176" y="194" width="48" height="10" rx="5" fill="#fef08a"/>
+        <path d="M178 228 H222" stroke="#4c1d95" stroke-width="8" stroke-linecap="round"/>
+        <path d="M152 144 L128 110 M248 144 L272 110" stroke="#a855f7" stroke-width="14" stroke-linecap="round"/>
+        <circle cx="200" cy="378" r="30" fill="#facc15"/>
+        <circle cx="200" cy="378" r="17" fill="#fde68a"/>
+      </g>`));
+  }
+
+  if (n.includes("loki")) {
+    return svgUrl(base("#24311f", "#0a0d09", `
+      <g filter="url(#shadow)">
+        <path d="M96 500 Q112 326 154 282 H246 Q288 326 304 500 Z" fill="#15803d"/>
+        <path d="M126 324 Q200 270 274 324 L258 500 H142 Z" fill="#166534"/>
+        <circle cx="158" cy="356" r="15" fill="#fbbf24"/>
+        <circle cx="242" cy="356" r="15" fill="#fbbf24"/>
+        <rect x="181" y="256" width="38" height="70" rx="17" fill="#e8bf8c"/>
+        <ellipse cx="200" cy="204" rx="62" ry="66" fill="#efc995"/>
+        <path d="M140 172 Q164 126 202 140 Q238 128 260 176 Q224 158 198 168 Q168 160 140 172" fill="#141414"/>
+        <path d="M122 136 Q98 66 124 42 Q168 112 160 164" fill="none" stroke="#d6a72e" stroke-width="18" stroke-linecap="round"/>
+        <path d="M278 136 Q302 66 276 42 Q232 112 240 164" fill="none" stroke="#d6a72e" stroke-width="18" stroke-linecap="round"/>
+        <path d="M150 156 Q200 104 250 156 L238 184 Q200 160 162 184 Z" fill="#d6a72e"/>
+        <circle cx="200" cy="158" r="13" fill="#16a34a" stroke="#854d0e" stroke-width="5"/>
+        <ellipse cx="176" cy="207" rx="12" ry="9" fill="#fff"/>
+        <ellipse cx="224" cy="207" rx="12" ry="9" fill="#fff"/>
+        <circle cx="180" cy="208" r="5" fill="#1f2937"/>
+        <circle cx="228" cy="208" r="5" fill="#1f2937"/>
+        <path d="M166 188 Q184 178 198 188 M202 188 Q216 178 234 188" stroke="#141414" stroke-width="7" stroke-linecap="round"/>
+        <path d="M178 246 Q200 260 222 246" stroke="#5b2b13" stroke-width="7" fill="none" stroke-linecap="round"/>
+      </g>`));
+  }
+
   return null;
+}
+
+function isGenericGeneratedSvg(url?: string | null) {
+  if (!url) return false;
+  const value = url.trim().toLowerCase();
+  return value.startsWith("data:image/svg") || value.includes(".svg");
+}
+
+export function getCharacterDisplayImageUrl(name: string, imageUrl?: string | null) {
+  const knownAvatar = getKnownCharacterAvatar(name);
+  if (knownAvatar && isGenericGeneratedSvg(imageUrl)) return knownAvatar;
+  return imageUrl || knownAvatar || undefined;
 }

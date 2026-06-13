@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, Plus, Trash2, Globe, Lock, Trash, Star, StarOff, Layers, Image as ImageIcon } from 'lucide-react';
 import { moderateText } from '@/app/actions/moderate';
 import { cn } from '@/lib/utils';
-import { getKnownCharacterAvatar } from '@/lib/characterAvatars';
+import { getCharacterDisplayImageUrl } from '@/lib/characterAvatars';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingArena from '@/components/LoadingArena';
 
@@ -321,9 +321,9 @@ export default function DeckEditorPage() {
                     className="group relative bg-white border-4 border-slate-100 rounded-2xl overflow-hidden aspect-[2/3] flex flex-col hover:border-indigo-400 shadow-sm transition-all duration-300 hover:-translate-y-1.5"
                   >
                     <div className="flex-1 w-full bg-slate-50/50 flex items-center justify-center relative p-2 overflow-hidden">
-                      {char.image_url || getKnownCharacterAvatar(char.name) ? (
+                      {getCharacterDisplayImageUrl(char.name, char.image_url) ? (
                         <img 
-                          src={char.image_url || getKnownCharacterAvatar(char.name)} 
+                          src={getCharacterDisplayImageUrl(char.name, char.image_url)}
                           alt={char.name} 
                           referrerPolicy="no-referrer" 
                           className="w-full h-full object-cover rounded-xl shadow-inner transition-transform duration-500 scale-100 group-hover:scale-105" 

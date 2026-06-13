@@ -30,6 +30,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ url: `data:${generated.contentType};base64,${b64}`, prompt: imagePrompt });
     }
 
+    const directUrl = buildPollinationsImageUrl(imagePrompt, { includeKey: false, model: "flux" });
+    if (directUrl) {
+      return NextResponse.json({ url: directUrl, prompt: imagePrompt, fallback: "pollinations-url" });
+    }
+
     let t: any = {};
     const hasGroq = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'MY_GROQ_API_KEY';
 
@@ -119,6 +124,7 @@ async function buildPollinationsPrompt(input: string) {
   const base = createVisualBrief(input);
   const hasGroq = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== "MY_GROQ_API_KEY";
 
+  if (isKnownSpecificCharacter(input)) return base;
   if (!hasGroq) return base;
 
   try {
@@ -151,7 +157,7 @@ Avoid: ugly anatomy, extra fingers, readable text, random letters, watermarks, l
 function createVisualBrief(input: string) {
   const raw = String(input || "").trim();
   const p = normalizeText(raw);
-  const common = "vertical 400x500 collectible character card portrait, thick black outer card frame with gold trim, dark top name plate without readable letters, dark bottom stat panels without readable letters, centered bust portrait, clean cartoon-comic digital illustration, sharp eyes, readable silhouette, detailed outfit, textured action background, no random text, no watermark, no logo, no official crest";
+  const common = "vertical 400x500 collectible character card portrait, thick black outer card frame with gold trim, dark top name plate without readable letters, dark bottom stat panels without readable letters, centered bust portrait, clean cartoon-comic digital illustration, sharp eyes, readable silhouette, detailed outfit, textured action background, no random text, no watermark, no logo, no official crest, not a flat icon, not a simple vector avatar";
 
   if (p.includes("neymar")) {
     return `${common}. Character: Neymar Jr inspired Brazilian football star, recognizable stylized likeness, tan brown skin, short fade mohawk with blond tips, trimmed beard and mustache, earrings, confident side glance, yellow football jersey with green trim and number 10, Brazil colors, energetic gold and green paint streak background.`;
@@ -169,6 +175,18 @@ function createVisualBrief(input: string) {
     return `${common}. Character: Thor inspired thunder hero, handsome blond warrior, long blond hair, short beard, red cape, dark silver armor with round chest plates, holding a heavy hammer, lightning in the background, heroic comic-book pose.`;
   }
 
+  if (p.includes("doutor destino") || p.includes("doctor doom") || p.includes("dr doom")) {
+    return `${common}. Character: Doctor Doom inspired armored ruler, imposing emerald green hooded cloak and cape over polished silver medieval metal mask and armor, riveted steel faceplate, no visible human face, intense glowing eyes through narrow mask slits, regal villain posture, dark gothic castle and green energy background, premium comic-book collectible card style. Avoid red and gold armor, arc reactor chest, Iron Man helmet, headphones.`;
+  }
+
+  if (p.includes("sentinela") || p.includes("sentinel")) {
+    return `${common}. Character: giant mutant-hunting Sentinel robot inspired by classic comics, towering purple and magenta armored robot, angular helmet, glowing yellow visor slit, huge square shoulders, segmented mechanical chest plating, oversized metal hands, city-scale sci-fi background with dramatic low-angle pose, premium comic-book collectible card style. Avoid red and gold armor, arc reactor chest, Iron Man helmet, human face.`;
+  }
+
+  if (p.includes("loki")) {
+    return `${common}. Character: Loki inspired trickster god, pale clever face, sly smile, long black hair, large gold horned helmet, emerald green and gold armor, magical green mist, premium comic-book collectible card style.`;
+  }
+
   if (p.includes("hulk") && (p.includes("jogador") || p.includes("futebol") || p.includes("fluminense") || p.includes("atletico") || p.includes("cam"))) {
     return `${common}. Character: strong Brazilian football striker nicknamed Hulk, muscular athletic man, dark hair, full beard, intense expression, football jersey described by the user, powerful stadium lighting, not a green monster. Details: ${raw}`;
   }
@@ -180,6 +198,23 @@ function createVisualBrief(input: string) {
   return `${common}. Character request: ${raw}. Follow the appearance description exactly, emphasize recognizable clothing, hair, face shape, colors, accessories, and a playful card-game avatar style.`;
 }
 
+function isKnownSpecificCharacter(input: string) {
+  const p = normalizeText(input || "");
+  return [
+    "neymar",
+    "messi",
+    "lamine",
+    "yamal",
+    "thor",
+    "doutor destino",
+    "doctor doom",
+    "dr doom",
+    "sentinela",
+    "sentinel",
+    "loki",
+  ].some((name) => p.includes(name));
+}
+
 function clampPrompt(prompt: string) {
   return prompt
     .replace(/^["']|["']$/g, "")
@@ -189,34 +224,70 @@ function clampPrompt(prompt: string) {
 
 async function generatePollinationsImage(prompt: string): Promise<{ bytes: Uint8Array; contentType: string } | null> {
   const apiKey = process.env.POLLINATIONS_API_KEY;
-  if (!apiKey) return null;
+  const urls = [
+    buildPollinationsImageUrl(prompt, { includeKey: Boolean(apiKey), model: "flux" }),
+    buildPollinationsImageUrl(prompt, { includeKey: Boolean(apiKey), model: "turbo" }),
+    buildLegacyPollinationsImageUrl(prompt, Boolean(apiKey)),
+  ].filter(Boolean) as string[];
 
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, { method: "GET" });
+      if (!response.ok) {
+        console.warn(`Pollinations image generation failed: ${response.status} ${response.statusText}`);
+        continue;
+      }
+
+      const contentType = response.headers.get("content-type") || "image/jpeg";
+      if (!contentType.startsWith("image/")) {
+        console.warn(`Pollinations returned non-image content-type: ${contentType}`);
+        continue;
+      }
+
+      return { bytes: new Uint8Array(await response.arrayBuffer()), contentType };
+    } catch (err) {
+      console.warn("Pollinations image generation request failed:", err);
+    }
+  }
+
+  return null;
+}
+
+function buildPollinationsImageUrl(prompt: string, options: { includeKey: boolean; model: string }) {
   const url = new URL(`https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}`);
   url.searchParams.set("width", "400");
   url.searchParams.set("height", "500");
-  url.searchParams.set("model", "flux");
+  url.searchParams.set("model", options.model);
   url.searchParams.set("quality", "high");
   url.searchParams.set("private", "true");
-  url.searchParams.set("key", apiKey);
-
-  try {
-    const response = await fetch(url.toString(), { method: "GET" });
-    if (!response.ok) {
-      console.warn(`Pollinations image generation failed: ${response.status} ${response.statusText}`);
-      return null;
-    }
-
-    const contentType = response.headers.get("content-type") || "image/jpeg";
-    if (!contentType.startsWith("image/")) {
-      console.warn(`Pollinations returned non-image content-type: ${contentType}`);
-      return null;
-    }
-
-    return { bytes: new Uint8Array(await response.arrayBuffer()), contentType };
-  } catch (err) {
-    console.warn("Pollinations image generation request failed:", err);
-    return null;
+  url.searchParams.set("seed", String(stableSeed(prompt)));
+  if (options.includeKey && process.env.POLLINATIONS_API_KEY) {
+    url.searchParams.set("key", process.env.POLLINATIONS_API_KEY);
   }
+  return url.toString();
+}
+
+function buildLegacyPollinationsImageUrl(prompt: string, includeKey: boolean) {
+  const url = new URL(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`);
+  url.searchParams.set("width", "400");
+  url.searchParams.set("height", "500");
+  url.searchParams.set("model", "flux");
+  url.searchParams.set("nologo", "true");
+  url.searchParams.set("private", "true");
+  url.searchParams.set("seed", String(stableSeed(prompt)));
+  if (includeKey && process.env.POLLINATIONS_API_KEY) {
+    url.searchParams.set("key", process.env.POLLINATIONS_API_KEY);
+  }
+  return url.toString();
+}
+
+function stableSeed(value: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0) || 42;
 }
 
 async function uploadImageToR2(key: string, bytes: Uint8Array, contentType: string) {

@@ -1,6 +1,8 @@
 import { supabaseGame } from './supabase';
 import { touchRoomActivity } from './roomLifecycle';
 
+const MIN_PLAYERS_TO_START = 4;
+
 async function countPlayableCharacters() {
   const { data: characters } = await supabaseGame
     .from('characters')
@@ -60,8 +62,8 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
       ? Math.min(Math.max(existingBots.length, 1), botSlots)
       : existingBots.length;
 
-  if (realPlayers.length + targetBots < 2 && botSlots > targetBots) {
-    targetBots = Math.min(botSlots, 2 - realPlayers.length);
+  if (realPlayers.length + targetBots < MIN_PLAYERS_TO_START && botSlots > targetBots) {
+    targetBots = Math.min(botSlots, MIN_PLAYERS_TO_START - realPlayers.length);
   }
 
   const botsToRemove = existingBots.slice(targetBots);
@@ -93,7 +95,7 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
     targetBots,
     botsCreated: botsToCreate,
     botsRemoved: botsToRemove.length,
-    enforcedMinimumBot: realPlayers.length + (typeof desiredBots === 'number' ? Math.max(0, desiredBots) : existingBots.length) < 2 && targetBots > existingBots.length,
+    enforcedMinimumBot: realPlayers.length + (typeof desiredBots === 'number' ? Math.max(0, desiredBots) : existingBots.length) < MIN_PLAYERS_TO_START && targetBots > existingBots.length,
   };
 }
 
@@ -133,11 +135,11 @@ export async function startRoom(
   }
 
   const botSync = await syncBots(room, playablePlayers, desiredBots, auto);
-  if (botSync.players.length < 2) {
+  if (botSync.players.length < MIN_PLAYERS_TO_START) {
     return {
       ok: false,
       status: 400,
-      error: 'A partida precisa de pelo menos 2 participantes. Convide alguem ou adicione bots.',
+      error: 'A partida precisa de pelo menos 4 participantes. Convide alguem ou adicione bots.',
     };
   }
 

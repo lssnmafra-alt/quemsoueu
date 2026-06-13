@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabaseGame } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
-import { LogOut, Settings, Play, Users, Cpu, ShieldAlert, Sparkles, Smile, Shield } from 'lucide-react';
+import { Flame, Globe2, LogOut, Search, Settings, Play, Users, Cpu, ShieldAlert, Sparkles, Shield, Star, UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ChatMenu from './ChatMenu';
 import { motion } from 'motion/react';
@@ -9,9 +9,36 @@ import { avatarSelectionToUrl, readStoredAvatar, selectionFromAvatarUrl } from '
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import AvatarPickerModal from '@/components/avatar/AvatarPickerModal';
 
+const MIN_PLAYERS_TO_START = 4;
+
+const officialDeck = {
+  id: '',
+  name: 'Personagens Oficiais',
+  is_public: true,
+  is_official: true,
+  favorite_count: 0,
+};
+
+const deckTabs = [
+  { id: 'official', label: 'Oficial', icon: Globe2 },
+  { id: 'mine', label: 'Criado por mim', icon: UserRound },
+  { id: 'favorites', label: 'Favoritos', icon: Star },
+  { id: 'trending', label: 'Bombando agora', icon: Flame },
+] as const;
+
+const settingGroups = [
+  { label: 'Max de Jogadores', key: 'max_players', options: [4, 6, 10, 12] },
+  { label: 'Vidas por Jogador', key: 'chars_per_player', options: [1, 2, 3] },
+  { label: 'Tempo de Escolha (S)', key: 'pick_time_seconds', options: [15, 30, 45] },
+  { label: 'Tempo de Votacao (S)', key: 'vote_time_seconds', options: [15, 30, 45] },
+  { label: 'Tempo de Revelacao (S)', key: 'reveal_time_seconds', options: [5, 8, 12] },
+] as const;
+
 export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any) {
   const [decks, setDecks] = useState<any[]>([]);
   const [selectedDeck, setSelectedDeck] = useState(room.deck_id || '');
+  const [deckSearch, setDeckSearch] = useState('');
+  const [deckTab, setDeckTab] = useState<(typeof deckTabs)[number]['id']>('official');
   const [botsCount, setBotsCount] = useState<number>(() => players.filter((p: any) => p.is_bot).length);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const botStartRef = useRef(false);
@@ -21,8 +48,32 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
 
   useEffect(() => {
     const fetchDecks = async () => {
-      const { data } = await supabaseGame.from('decks').select('*').or(`is_public.eq.true,creator_id.eq.${me.user_id}`);
-      setDecks(data || []);
+      const { data } = await supabaseGame
+        .from('decks')
+        .select('*')
+        .or(`is_public.eq.true,creator_id.eq.${me.user_id}`);
+      const { data: favoriteRows } = await supabaseGame
+        .from('deck_favorites')
+        .select('deck_id')
+        .eq('user_id', me.user_id);
+      const { data: allFavoriteRows } = await supabaseGame
+        .from('deck_favorites')
+        .select('deck_id');
+
+      const favoriteIds = new Set((favoriteRows || []).map((row: any) => row.deck_id));
+      const favoriteCounts = new Map<string, number>();
+      (allFavoriteRows || []).forEach((row: any) => {
+        favoriteCounts.set(row.deck_id, (favoriteCounts.get(row.deck_id) || 0) + 1);
+      });
+
+      const nextDecks = [officialDeck, ...(data || []).map((deck: any) => ({
+        ...deck,
+        is_favorite: favoriteIds.has(deck.id),
+        favorite_count: favoriteCounts.get(deck.id) || 0,
+        is_official: deck.is_public && deck.creator_id !== me.user_id,
+      }))];
+
+      setDecks(nextDecks);
     };
 
     if (isAdmin || botIsAdmin) fetchDecks();
@@ -84,8 +135,30 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
 
   const realPlayersCount = players.filter((p: any) => !p.is_bot).length;
   const botRowsCount = players.filter((p: any) => p.is_bot).length;
+  const totalPlayersCount = players.length;
   const maxBots = Math.max(0, (room.max_players || 6) - realPlayersCount);
   const clampedBotsCount = Math.min(botsCount, maxBots);
+  const expectedParticipants = realPlayersCount + clampedBotsCount;
+  const canStart = expectedParticipants >= MIN_PLAYERS_TO_START;
+  const selectedDeckName = decks.find((deck: any) => deck.id === selectedDeck)?.name || 'Personagens Oficiais';
+
+  const filteredDecks = useMemo(() => {
+    const search = deckSearch.trim().toLowerCase();
+    return decks
+      .filter((deck: any) => {
+        if (deckTab === 'official') return deck.is_official || deck.id === '';
+        if (deckTab === 'mine') return deck.creator_id === me.user_id;
+        if (deckTab === 'favorites') return deck.is_favorite;
+        return deck.is_public;
+      })
+      .filter((deck: any) => !search || deck.name.toLowerCase().includes(search))
+      .sort((a: any, b: any) => {
+        if (deckTab === 'trending') {
+          return (b.favorite_count || 0) - (a.favorite_count || 0) || b.name.localeCompare(a.name);
+        }
+        return a.name.localeCompare(b.name);
+      });
+  }, [deckSearch, deckTab, decks, me.user_id]);
 
   useEffect(() => {
     if (botRowsCount === botRowsCountRef.current) return;
@@ -188,20 +261,73 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
             <div className="bg-white border-4 border-indigo-100 rounded-3xl p-6 flex flex-col gap-5 flex-1 shadow-md overflow-y-auto">
               <div>
                 <label className="text-xs font-black text-indigo-600 uppercase tracking-wider block mb-2 border-l-4 border-indigo-500 pl-2 h-4 select-none">Tema de Cartas Escolhido</label>
-                <div className="relative">
-                  <select
-                    disabled={!isAdmin}
-                    className="w-full bg-indigo-50/50 border-2 border-indigo-100 focus:border-indigo-400 h-12 px-4 text-sm font-bold text-indigo-950 transition-all cursor-pointer disabled:cursor-not-allowed rounded-xl appearance-none"
-                    value={selectedDeck}
-                    onChange={(e) => {
-                      setSelectedDeck(e.target.value);
-                      if (isAdmin) updateSettings({ deck_id: e.target.value });
-                    }}
-                  >
-                    <option value="" className="bg-white">SELECIONE O TEMA DE CARTAS...</option>
-                    {decks.map((d) => <option key={d.id} value={d.id} className="bg-white">{d.name}</option>)}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 font-bold">v</div>
+                <div className="bg-indigo-50/40 border-2 border-indigo-100 rounded-2xl p-3 space-y-3">
+                  <div className="flex items-center gap-2 rounded-xl bg-white border-2 border-indigo-100 px-3 h-11">
+                    <Search className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <input
+                      disabled={!isAdmin}
+                      value={deckSearch}
+                      onChange={(event) => setDeckSearch(event.target.value)}
+                      placeholder="Pesquisar baralho..."
+                      className="min-w-0 flex-1 bg-transparent outline-none text-sm font-bold text-indigo-950 placeholder:text-slate-400 disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {deckTabs.map((tab) => {
+                      const Icon = tab.icon;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          disabled={!isAdmin}
+                          onClick={() => setDeckTab(tab.id)}
+                          className={cn(
+                            'h-10 rounded-xl border-2 px-2 text-[10px] font-black uppercase flex items-center justify-center gap-1.5 transition-all disabled:cursor-not-allowed',
+                            deckTab === tab.id
+                              ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                              : 'bg-white border-indigo-100 text-indigo-600 hover:border-indigo-300'
+                          )}
+                        >
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{tab.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                    {filteredDecks.length === 0 ? (
+                      <div className="h-20 flex items-center justify-center text-xs font-black text-slate-400 uppercase bg-white border-2 border-dashed border-indigo-100 rounded-xl">
+                        Nenhum baralho encontrado
+                      </div>
+                    ) : filteredDecks.map((deck: any) => (
+                      <button
+                        key={deck.id || 'official'}
+                        type="button"
+                        disabled={!isAdmin}
+                        onClick={() => {
+                          setSelectedDeck(deck.id);
+                          updateSettings({ deck_id: deck.id || null });
+                        }}
+                        className={cn(
+                          'w-full min-h-12 rounded-xl border-2 px-3 py-2 text-left transition-all disabled:cursor-not-allowed flex items-center justify-between gap-3',
+                          selectedDeck === deck.id
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                            : 'bg-white border-indigo-100 text-indigo-950 hover:border-indigo-300'
+                        )}
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-black truncate">{deck.name}</span>
+                          <span className={cn('block text-[10px] font-bold uppercase', selectedDeck === deck.id ? 'text-indigo-100' : 'text-slate-400')}>
+                            {deck.id === '' || deck.is_official ? 'Oficial' : deck.creator_id === me.user_id ? 'Criado por mim' : 'Publico'} {deck.favorite_count ? `- ${deck.favorite_count} favoritos` : ''}
+                          </span>
+                        </span>
+                        {selectedDeck === deck.id && <Sparkles className="w-4 h-4 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] font-bold text-indigo-600">Selecionado: {selectedDeckName}</p>
                 </div>
                 {!isAdmin && <p className="text-[11px] text-indigo-600 font-bold mt-2 flex items-center gap-1"><ShieldAlert className="w-4 h-4 text-indigo-400" /> Apenas o dono da sala pode mudar configuracoes do jogo.</p>}
               </div>
@@ -215,32 +341,40 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
                   </select>
                 </div>
 
-                {[
-                  { label: 'Max de Jogadores', val: room.max_players || 6, key: 'max_players' },
-                  { label: 'Vidas por Jogador', val: room.chars_per_player, key: 'chars_per_player' },
-                  { label: 'Tempo de Escolha (S)', val: room.pick_time_seconds || 30, key: 'pick_time_seconds' },
-                  { label: 'Tempo de Votacao (S)', val: room.vote_time_seconds || 30, key: 'vote_time_seconds' },
-                  { label: 'Tempo de Revelacao (S)', val: room.reveal_time_seconds || 8, key: 'reveal_time_seconds' },
-                ].map((field, idx) => (
-                  <div key={idx} className="bg-indigo-50/30 p-3 border-2 border-indigo-50 rounded-2xl">
+                {settingGroups.map((field) => {
+                  const currentValue = room[field.key] || field.options[0];
+                  return (
+                  <div key={field.key} className="bg-indigo-50/30 p-3 border-2 border-indigo-50 rounded-2xl">
                     <label className="text-[10px] font-black text-indigo-500 uppercase tracking-wider block mb-1">{field.label}</label>
-                    <input
-                      type="number"
-                      disabled={!isAdmin}
-                      value={field.val}
-                      min={field.key === 'chars_per_player' ? 1 : field.key === 'max_players' ? realPlayersCount : 5}
-                      max={field.key === 'max_players' ? 12 : 120}
-                      onChange={(e) => {
-                        const nextValue = parseInt(e.target.value) || 0;
-                        updateSettings({ [field.key]: nextValue });
-                        if (field.key === 'max_players') {
-                          setBotsCount((current) => Math.min(current, Math.max(0, nextValue - realPlayersCount)));
-                        }
-                      }}
-                      className="w-full bg-transparent border-0 h-6 text-sm font-bold text-indigo-950 focus:outline-none p-0"
-                    />
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {field.options.map((option) => {
+                        const optionDisabled = !isAdmin || (field.key === 'max_players' && option < totalPlayersCount);
+                        return (
+                          <button
+                            key={option}
+                            type="button"
+                            disabled={optionDisabled}
+                            onClick={() => {
+                              updateSettings({ [field.key]: option });
+                              if (field.key === 'max_players') {
+                                setBotsCount((current) => Math.min(current, Math.max(0, option - realPlayersCount)));
+                              }
+                            }}
+                            className={cn(
+                              'h-8 rounded-lg border text-xs font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed',
+                              currentValue === option
+                                ? 'bg-indigo-600 border-indigo-600 text-white'
+                                : 'bg-white border-indigo-100 text-indigo-600 hover:border-indigo-300'
+                            )}
+                          >
+                            {option}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                ))}
+                );
+                })}
               </div>
 
               {isAdmin && (
@@ -259,13 +393,18 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
 
               <div className="mt-auto pt-4">
                 {isAdmin ? (
-                  <Button onClick={() => handleStart()} className="w-full h-14 text-sm font-black tracking-wider uppercase btn-squishy-green text-white cursor-pointer flex items-center justify-center gap-2">
+                  <Button disabled={!canStart} onClick={() => handleStart()} className="w-full h-14 text-sm font-black tracking-wider uppercase btn-squishy-green text-white cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     <Play className="w-4 h-4 fill-white" /> Iniciar Partida
                   </Button>
                 ) : (
                   <div className="h-14 flex items-center justify-center bg-indigo-50 text-indigo-600 text-xs font-bold uppercase rounded-2xl animate-pulse">
                     Aguardando o Administrador iniciar a partida...
                   </div>
+                )}
+                {isAdmin && !canStart && (
+                  <p className="text-[11px] text-indigo-600 font-bold mt-2 text-center">
+                    A partida libera com 4 participantes. Ajuste os bots ou convide mais jogadores.
+                  </p>
                 )}
               </div>
             </div>

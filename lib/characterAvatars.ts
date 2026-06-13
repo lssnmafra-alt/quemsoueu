@@ -31,6 +31,28 @@ const soccerBall = `<g transform="translate(304 104)">
   <path d="M0 -34 V-13 M32 -10 L13 -4 M20 27 L8 12 M-20 27 L-8 12 M-32 -10 L-13 -4" stroke="#111827" stroke-width="5"/>
 </g>`;
 
+function standardPortrait(bg1: string, bg2: string, accent: string, label: string, symbol: string) {
+  return svgUrl(base(bg1, bg2, `
+    <g filter="url(#shadow)">
+      <path d="M84 500 Q98 318 146 278 Q200 324 254 278 Q302 318 316 500 Z" fill="${accent}"/>
+      <path d="M118 336 Q200 276 282 336 L262 500 H138 Z" fill="#f8fafc" opacity="0.9"/>
+      <rect x="182" y="254" width="36" height="70" rx="17" fill="#b8794a"/>
+      <ellipse cx="200" cy="204" rx="64" ry="68" fill="#c98a55"/>
+      <ellipse cx="134" cy="208" rx="16" ry="22" fill="#c98a55"/>
+      <ellipse cx="266" cy="208" rx="16" ry="22" fill="#c98a55"/>
+      <path d="M142 174 Q164 130 202 140 Q238 130 258 176 Q222 160 200 168 Q174 160 142 174" fill="#2b1a10"/>
+      <ellipse cx="176" cy="210" rx="12" ry="9" fill="#fff"/>
+      <ellipse cx="224" cy="210" rx="12" ry="9" fill="#fff"/>
+      <circle cx="180" cy="211" r="5" fill="#1f2937"/>
+      <circle cx="228" cy="211" r="5" fill="#1f2937"/>
+      <path d="M170 190 Q186 183 198 192 M202 192 Q216 183 232 190" stroke="#2b1a10" stroke-width="7" stroke-linecap="round"/>
+      <path d="M180 248 Q200 262 220 248" stroke="#3a1f13" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <circle cx="200" cy="382" r="44" fill="${accent}" stroke="#f8fafc" stroke-width="8"/>
+      <text x="200" y="397" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="36" fill="#fff">${label}</text>
+      <text x="308" y="112" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="42" fill="#fff" opacity="0.9">${symbol}</text>
+    </g>`));
+}
+
 export function getKnownCharacterAvatar(name: string) {
   const n = normalizeName(name);
 
@@ -307,6 +329,44 @@ export function getKnownCharacterAvatar(name: string) {
         <path d="M178 246 Q200 260 222 246" stroke="#5b2b13" stroke-width="7" fill="none" stroke-linecap="round"/>
       </g>`));
   }
+
+  if (n.includes("cristiano") || n.includes("ronaldo")) return standardPortrait("#0f5132", "#09251a", "#dc2626", "7", "CR");
+  if (n.includes("mbappe")) return standardPortrait("#102a7a", "#081531", "#1d4ed8", "10", "KM");
+  if (n.includes("vini") || n.includes("vinicius")) return standardPortrait("#f8fafc", "#9ca3af", "#2563eb", "7", "VJ");
+  if (n.includes("haaland")) return standardPortrait("#9fd3ff", "#1d4ed8", "#facc15", "9", "EH");
+
+  if (n.includes("mario")) return standardPortrait("#ef4444", "#7f1d1d", "#dc2626", "M", "!");
+  if (n.includes("sonic")) return standardPortrait("#2563eb", "#0f172a", "#1d4ed8", "S", "*");
+  if (n.includes("pikachu")) return standardPortrait("#fde047", "#ca8a04", "#f59e0b", "P", "Z");
+  if (n.includes("naruto")) return standardPortrait("#fb923c", "#7c2d12", "#f97316", "N", "+");
+  if (n.includes("goku")) return standardPortrait("#f97316", "#1d4ed8", "#f97316", "G", "*");
+  if (n.includes("elsa")) return standardPortrait("#bae6fd", "#0ea5e9", "#38bdf8", "E", "*");
+  if (n.includes("shrek")) return standardPortrait("#84cc16", "#365314", "#65a30d", "S", "!");
+  if (n.includes("bob esponja") || n.includes("spongebob")) return standardPortrait("#fde047", "#0f766e", "#eab308", "B", "~~");
+
+  if (n.includes("superman")) return standardPortrait("#1d4ed8", "#7f1d1d", "#dc2626", "S", "S");
+  if (n.includes("homem de ferro") || n.includes("iron man")) return standardPortrait("#991b1b", "#451a03", "#dc2626", "Fe", "O");
+  if (n.includes("mulher maravilha") || n.includes("wonder woman")) return standardPortrait("#1e3a8a", "#7f1d1d", "#dc2626", "W", "*");
+  if (n.includes("capitao america") || n.includes("capitao america") || n.includes("captain america")) return standardPortrait("#1d4ed8", "#7f1d1d", "#2563eb", "A", "*");
+  if (n.includes("pantera negra") || n.includes("black panther")) return standardPortrait("#111827", "#020617", "#4c1d95", "P", "^");
+  if (n.includes("batman")) return standardPortrait("#111827", "#334155", "#1f2937", "B", "^");
+
+  if (n.includes("anitta")) return standardPortrait("#f97316", "#831843", "#ec4899", "A", "♪");
+  if (n.includes("beyonce")) return standardPortrait("#facc15", "#78350f", "#d97706", "B", "♪");
+  if (n.includes("taylor")) return standardPortrait("#fbcfe8", "#7e22ce", "#db2777", "TS", "♪");
+  if (n.includes("weeknd")) return standardPortrait("#991b1b", "#111827", "#dc2626", "W", "♪");
+  if (n.includes("ariana")) return standardPortrait("#f5d0fe", "#581c87", "#c026d3", "A", "♪");
+  if (n.includes("bruno mars")) return standardPortrait("#fdba74", "#7c2d12", "#ea580c", "BM", "♪");
+  if (n.includes("michael jackson")) return standardPortrait("#f8fafc", "#111827", "#111827", "MJ", "♪");
+  if (n.includes("rihanna")) return standardPortrait("#be123c", "#4c0519", "#e11d48", "R", "♪");
+
+  if (n.includes("coringa") || n.includes("joker")) return standardPortrait("#4c1d95", "#052e16", "#7e22ce", "J", "!");
+  if (n.includes("lex luthor") || n.includes("lex")) return standardPortrait("#166534", "#111827", "#16a34a", "L", "!");
+  if (n.includes("thanos")) return standardPortrait("#6d28d9", "#312e81", "#7c3aed", "T", "*");
+  if (n.includes("darth vader")) return standardPortrait("#111827", "#000000", "#1f2937", "DV", "!");
+  if (n.includes("voldemort")) return standardPortrait("#e5e7eb", "#334155", "#64748b", "V", "!");
+  if (n.includes("magneto")) return standardPortrait("#991b1b", "#312e81", "#dc2626", "M", "!");
+  if (n.includes("duende verde")) return standardPortrait("#16a34a", "#4a044e", "#22c55e", "D", "!");
 
   return null;
 }

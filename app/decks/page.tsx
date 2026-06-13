@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingArena from '@/components/LoadingArena';
 import CharacterImage from '@/components/CharacterImage';
+import { MAX_CHARACTERS_PER_DECK } from '@/lib/deckRules';
 
 const characterOrder = ['NEYMAR', 'MESSI', 'YAMAL', 'HULK_MARVEL', 'HULK_FLUMINENSE', 'HULK', 'THOR'];
 
@@ -101,6 +102,10 @@ export default function DeckEditorPage() {
 
   const handleAddChar = async () => {
     if (!charName.trim()) return;
+    if (characters.length >= MAX_CHARACTERS_PER_DECK) {
+      setErrorChart(`Cada baralho pode ter no maximo ${MAX_CHARACTERS_PER_DECK} personagens.`);
+      return;
+    }
     setAdding(true);
     setErrorChart('');
     
@@ -207,7 +212,7 @@ export default function DeckEditorPage() {
                   {deck.name}
                 </h1>
                 <div className="flex items-center gap-3">
-                  <p className="text-xs text-indigo-600 font-extrabold">{characters.length} Personagens criados</p>
+                  <p className="text-xs text-indigo-600 font-extrabold">{characters.length}/{MAX_CHARACTERS_PER_DECK} Personagens criados</p>
                   <span className="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
                   <p className="text-xs text-slate-500 font-semibold">Dono: <strong className="text-slate-600">{deck.creator_nickname}</strong></p>
                 </div>
@@ -306,7 +311,7 @@ export default function DeckEditorPage() {
                   </div>
                   <Button 
                     onClick={handleAddChar} 
-                    disabled={adding || !charName.trim()} 
+                    disabled={adding || !charName.trim() || characters.length >= MAX_CHARACTERS_PER_DECK} 
                     className="w-full md:w-auto h-12 px-6 btn-squishy-green text-white font-black uppercase text-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                   >
                     {adding ? 'Criando...' : <><Plus className="w-4 h-4 font-black" /> Inserir Personagem</>}

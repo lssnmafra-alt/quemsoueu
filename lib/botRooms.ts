@@ -1,5 +1,5 @@
 import { supabaseGame } from './supabase';
-import { closeAndDeleteRoom, nextRoomExpiry } from './roomLifecycle';
+import { closeAndDeleteRooms, nextRoomExpiry } from './roomLifecycle';
 
 const TARGET_BOT_LOBBY_ROOMS = 1;
 const MAX_BOT_ONLY_ROOM_AGE_MS = 8 * 60 * 1000;
@@ -136,9 +136,7 @@ export async function runBotRoomCycle() {
     return expired || room.status === 'FINISHED' || age > MAX_BOT_ONLY_ROOM_AGE_MS;
   });
 
-  for (const room of staleBotRooms) {
-    await closeAndDeleteRoom(room.id);
-  }
+  await closeAndDeleteRooms(staleBotRooms.map((room: any) => room.id));
 
   const activeBotRooms = botOnlyRooms
     .filter((room: any) => !staleBotRooms.some((stale: any) => stale.id === room.id));
@@ -150,9 +148,7 @@ export async function runBotRoomCycle() {
   const keptBotLobbyRooms = activeBotLobbyRooms.slice(0, TARGET_BOT_LOBBY_ROOMS);
   const keptBotLobbyIds = new Set(keptBotLobbyRooms.map((room: any) => room.id));
   const excessRooms = activeBotRooms.filter((room: any) => !keptBotLobbyIds.has(room.id));
-  for (const room of excessRooms) {
-    await closeAndDeleteRoom(room.id);
-  }
+  await closeAndDeleteRooms(excessRooms.map((room: any) => room.id));
 
   const remainingLobbyCount = keptBotLobbyRooms.length;
   const neededRooms = Math.max(0, TARGET_BOT_LOBBY_ROOMS - remainingLobbyCount);

@@ -30,6 +30,17 @@ export async function closeAndDeleteRoom(roomId: string) {
   await supabaseGame.from('rooms').delete().eq('id', roomId);
 }
 
+export async function closeAndDeleteRooms(roomIds: string[]) {
+  const ids = Array.from(new Set(roomIds.filter(Boolean)));
+  if (ids.length === 0) return;
+
+  await supabaseGame.from('rooms').update({ status: 'CLOSED' }).in('id', ids);
+  await supabaseGame.from('messages').delete().in('room_id', ids);
+  await supabaseGame.from('player_cards').delete().in('room_id', ids);
+  await supabaseGame.from('room_players').delete().in('room_id', ids);
+  await supabaseGame.from('rooms').delete().in('id', ids);
+}
+
 export async function transferRoomAdmin(roomId: string, players: any[], previousPlayerId?: string) {
   const candidates = players.filter((player) => player.id !== previousPlayerId);
   const nextAdmin = candidates.find((player) => !player.is_bot) || candidates.find((player) => player.is_bot);

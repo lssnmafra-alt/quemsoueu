@@ -1,12 +1,9 @@
 import { supabaseGame } from './supabase';
-import { playBotTurn } from './botTurn';
-import { finalizeRoomPicking } from './roomPicking';
-import { startRoom } from './roomStart';
-import { closeAndDeleteRoom, nextRoomExpiry, touchRoomActivity } from './roomLifecycle';
+import { closeAndDeleteRoom, nextRoomExpiry } from './roomLifecycle';
 
-const TARGET_BOT_LOBBY_ROOMS = 3;
-const MAX_BOT_ONLY_ROOM_AGE_MS = 20 * 60 * 1000;
-const BOT_ROOM_SIZE = 4;
+const TARGET_BOT_LOBBY_ROOMS = 1;
+const MAX_BOT_ONLY_ROOM_AGE_MS = 8 * 60 * 1000;
+const BOT_ROOM_SIZE = 2;
 
 const BOT_NAMES = [
   'Bot Tatico',
@@ -143,16 +140,21 @@ export async function runBotRoomCycle() {
     await closeAndDeleteRoom(room.id);
   }
 
-  const activeBotLobbyRooms = botOnlyRooms
+  const activeBotRooms = botOnlyRooms
+    .filter((room: any) => !staleBotRooms.some((stale: any) => stale.id === room.id));
+
+  const activeBotLobbyRooms = activeBotRooms
     .filter((room: any) => room.status === 'LOBBY' && !staleBotRooms.some((stale: any) => stale.id === room.id))
     .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  const excessRooms = activeBotLobbyRooms.slice(TARGET_BOT_LOBBY_ROOMS);
+  const keptBotLobbyRooms = activeBotLobbyRooms.slice(0, TARGET_BOT_LOBBY_ROOMS);
+  const keptBotLobbyIds = new Set(keptBotLobbyRooms.map((room: any) => room.id));
+  const excessRooms = activeBotRooms.filter((room: any) => !keptBotLobbyIds.has(room.id));
   for (const room of excessRooms) {
     await closeAndDeleteRoom(room.id);
   }
 
-  const remainingLobbyCount = Math.max(0, activeBotLobbyRooms.length - excessRooms.length);
+  const remainingLobbyCount = keptBotLobbyRooms.length;
   const neededRooms = Math.max(0, TARGET_BOT_LOBBY_ROOMS - remainingLobbyCount);
   const themes = shuffle(await getPlayableThemes(3));
   const createdRooms = [];
@@ -161,75 +163,10 @@ export async function runBotRoomCycle() {
     createdRooms.push(await createBotRoom(themes[i % themes.length], remainingLobbyCount + i));
   }
 
-  const startedRooms = [];
-  for (const room of activeBotLobbyRooms.slice(0, TARGET_BOT_LOBBY_ROOMS)) {
-    const result = await startRoom(room.id, { auto: true });
-    if (result.ok && !result.skipped) {
-      startedRooms.push({ id: room.id, code: room.code });
-    } else {
-      await touchRoomActivity(room.id);
-    }
-  }
-
-  for (const room of createdRooms) {
-    const result = await startRoom(room.id, { auto: true });
-    if (result.ok && !result.skipped) {
-      startedRooms.push({ id: room.id, code: room.code });
-    }
-  }
-
-  const finalizedPickingRooms = [];
-  const activeBotPickingRooms = botOnlyRooms
-    .filter((room: any) => room.status === 'PICKING' && !staleBotRooms.some((stale: any) => stale.id === room.id));
-
-  for (const room of activeBotPickingRooms) {
-    const result = await finalizeRoomPicking(room.id);
-    if (result.ok && !result.skipped) {
-      finalizedPickingRooms.push({ id: room.id, code: room.code });
-    }
-  }
-
-  const advancedStartingRooms = [];
-  const activeBotStartingRooms = botOnlyRooms
-    .filter((room: any) => room.status === 'STARTING' && !staleBotRooms.some((stale: any) => stale.id === room.id));
-
-  for (const room of activeBotStartingRooms) {
-    const readyToPlay = !room.turn_expires_at || new Date(room.turn_expires_at).getTime() <= Date.now();
-    if (!readyToPlay) continue;
-
-    await supabaseGame.from('rooms').update({
-      status: 'PLAYING',
-      turn_expires_at: new Date(Date.now() + ((room.vote_time_seconds || 30) * 1000)).toISOString(),
-    }).eq('id', room.id);
-    await touchRoomActivity(room.id);
-    advancedStartingRooms.push({ id: room.id, code: room.code });
-  }
-
-  const activeBotPlayingRooms = botOnlyRooms
-    .filter((room: any) => room.status === 'PLAYING' && !staleBotRooms.some((stale: any) => stale.id === room.id));
-
-  for (const room of activeBotPlayingRooms) {
-    const roomPlayers = [...(playersByRoom.get(room.id) || [])]
-      .sort((a: any, b: any) => (a.play_order || 0) - (b.play_order || 0));
-    const activePlayers = roomPlayers.filter((player: any) => !player.is_eliminated && player.lives > 0);
-    const activePlayer = activePlayers.length > 0
-      ? activePlayers[(room.current_turn_number || 0) % activePlayers.length]
-      : null;
-
-    if (activePlayer?.is_bot) {
-      await playBotTurn(room.id, {
-        expectedTurnNumber: room.current_turn_number || 0,
-        expectedPlayerId: activePlayer.id,
-      });
-    }
-  }
-
   return {
     closedRooms: [...staleBotRooms, ...excessRooms].map((room: any) => ({ id: room.id, code: room.code })),
     createdRooms,
-    startedRooms,
-    finalizedPickingRooms,
-    advancedStartingRooms,
+    keptBotLobbyRooms: keptBotLobbyRooms.map((room: any) => ({ id: room.id, code: room.code })),
     activeBotRooms: remainingLobbyCount + createdRooms.length,
   };
 }

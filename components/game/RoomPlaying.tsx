@@ -33,6 +33,8 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
   const activePlayers = orderedPlayers.filter((p) => !p.is_eliminated && p.lives > 0);
   const activePlayer = activePlayers.length > 0 ? activePlayers[room.current_turn_number % activePlayers.length] : null;
   const activePlayerIndex = orderedPlayers.findIndex((p) => p.id === activePlayer?.id);
+  const playersRef = useRef(players);
+  const activePlayerRef = useRef<any>(activePlayer);
   const visibleDeckChars = useMemo(() => (
     liveCharIds.size > 0 ? deckChars.filter((c) => liveCharIds.has(c.id)) : deckChars
   ), [deckChars, liveCharIds]);
@@ -59,15 +61,22 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
     setLiveCharIds(new Set((data || []).map((card: any) => card.character_id)));
   }, [room.id]);
 
-  const showReveal = useCallback(async (charName: string, hitPlayerIds: string[] = [], voter = activePlayer) => {
-    const hitPlayers = hitPlayerIds.map((id: string) => players.find((p: any) => p.id === id)).filter(Boolean);
+  useEffect(() => {
+    playersRef.current = players;
+    activePlayerRef.current = activePlayer;
+  }, [players, activePlayer]);
+
+  const showReveal = useCallback(async (charName: string, hitPlayerIds: string[] = [], voter?: any) => {
+    const currentPlayers = playersRef.current;
+    const revealVoter = voter || activePlayerRef.current;
+    const hitPlayers = hitPlayerIds.map((id: string) => currentPlayers.find((p: any) => p.id === id)).filter(Boolean);
     const eliminatedPlayers = hitPlayers.filter((player: any) => (player.lives || 0) <= 1 || player.is_eliminated);
 
     setIsRevealing(true);
     setRevealStage('choosing');
     setRevelation({
-      voterName: voter?.nickname || 'Alguem',
-      voter,
+      voterName: revealVoter?.nickname || 'Alguem',
+      voter: revealVoter,
       charName,
       players: hitPlayers,
       eliminatedPlayers,
@@ -89,7 +98,7 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
     setIsRevealing(false);
     setRevelation(null);
     refreshLiveCards();
-  }, [activePlayer, players, refreshLiveCards]);
+  }, [refreshLiveCards]);
 
   const channelRef = useRef<any>(null);
   const showRevealRef = useRef(showReveal);

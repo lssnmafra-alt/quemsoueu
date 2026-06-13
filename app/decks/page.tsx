@@ -338,9 +338,9 @@ export default function DeckEditorPage() {
                     className="group relative bg-white border-4 border-slate-100 rounded-2xl overflow-hidden aspect-[2/3] flex flex-col hover:border-indigo-400 shadow-sm transition-all duration-300 hover:-translate-y-1.5"
                   >
                     <div className="flex-1 w-full bg-slate-50/50 flex items-center justify-center relative p-2 overflow-hidden">
-                      {getKnownCharacterAvatar(char.name) || char.image_url ? (
+                      {char.image_url || getKnownCharacterAvatar(char.name) ? (
                         <img 
-                          src={getKnownCharacterAvatar(char.name) || char.image_url} 
+                          src={char.image_url || getKnownCharacterAvatar(char.name)} 
                           alt={char.name} 
                           referrerPolicy="no-referrer" 
                           className="w-full h-full object-cover rounded-xl shadow-inner transition-transform duration-500 scale-100 group-hover:scale-105" 

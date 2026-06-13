@@ -16,6 +16,20 @@ export async function POST(req: NextRequest) {
     const { prompt } = await req.json();
     if (!prompt) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
 
+    const imagePrompt = await buildPollinationsPrompt(prompt);
+    const generated = await generatePollinationsImage(imagePrompt);
+    if (generated) {
+      const key = `char_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.jpg`;
+      const uploadedUrl = await uploadImageToR2(key, generated.bytes, generated.contentType);
+
+      if (uploadedUrl) {
+        return NextResponse.json({ url: uploadedUrl, prompt: imagePrompt });
+      }
+
+      const b64 = Buffer.from(generated.bytes).toString("base64");
+      return NextResponse.json({ url: `data:${generated.contentType};base64,${b64}`, prompt: imagePrompt });
+    }
+
     let t: any = {};
     const hasGroq = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'MY_GROQ_API_KEY';
 
@@ -98,6 +112,130 @@ Examples of how to translate without using names:
   } catch (error: any) {
     console.error("Image generation error:", error);
     return NextResponse.json({ error: error.message || "Internal error" }, { status: 500 });
+  }
+}
+
+async function buildPollinationsPrompt(input: string) {
+  const base = createVisualBrief(input);
+  const hasGroq = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== "MY_GROQ_API_KEY";
+
+  if (!hasGroq) return base;
+
+  try {
+    const groq = getGroqClient();
+    const res = await groq.chat.completions.create({
+      messages: [
+        {
+          role: "system",
+          content: `You write image prompts for a guessing-card game.
+Return only one concise English prompt, no markdown.
+Goal: polished illustrated collectible character card, expressive likeness when a public figure or fictional character is named, not a flat icon.
+Style: modern sports/comic trading card illustration, crisp vector-like digital painting, clean face, dynamic pose, thick black outer frame with gold trim, dark bottom stat panels, high contrast, professional mobile game asset.
+Avoid: ugly anatomy, extra fingers, readable text, random letters, watermarks, logos, official team crests, blurry image, low detail, photorealism.`
+        },
+        { role: "user", content: base }
+      ],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.45,
+      max_tokens: 220,
+    });
+
+    const refined = res.choices[0]?.message?.content?.trim();
+    return refined ? clampPrompt(refined) : base;
+  } catch (err) {
+    console.warn("Groq image prompt refinement failed, using deterministic prompt:", err);
+    return base;
+  }
+}
+
+function createVisualBrief(input: string) {
+  const raw = String(input || "").trim();
+  const p = normalizeText(raw);
+  const common = "vertical 400x500 collectible character card portrait, thick black outer card frame with gold trim, dark top name plate without readable letters, dark bottom stat panels without readable letters, centered bust portrait, clean cartoon-comic digital illustration, sharp eyes, readable silhouette, detailed outfit, textured action background, no random text, no watermark, no logo, no official crest";
+
+  if (p.includes("neymar")) {
+    return `${common}. Character: Neymar Jr inspired Brazilian football star, recognizable stylized likeness, tan brown skin, short fade mohawk with blond tips, trimmed beard and mustache, earrings, confident side glance, yellow football jersey with green trim and number 10, Brazil colors, energetic gold and green paint streak background.`;
+  }
+
+  if (p.includes("messi")) {
+    return `${common}. Character: Lionel Messi inspired football star, recognizable stylized likeness, light skin, short brown hair, full brown beard, calm focused expression, sky blue and white striped football jersey with number 10, soft blue stadium glow background.`;
+  }
+
+  if (p.includes("lamine") || p.includes("yamal")) {
+    return `${common}. Character: Lamine Yamal inspired young football winger, dark skin, low curly fade, youthful face, big confident smile, red and blue football jersey with number 19, warm beige stadium background.`;
+  }
+
+  if (p.includes("thor")) {
+    return `${common}. Character: Thor inspired thunder hero, handsome blond warrior, long blond hair, short beard, red cape, dark silver armor with round chest plates, holding a heavy hammer, lightning in the background, heroic comic-book pose.`;
+  }
+
+  if (p.includes("hulk") && (p.includes("jogador") || p.includes("futebol") || p.includes("fluminense") || p.includes("atletico") || p.includes("cam"))) {
+    return `${common}. Character: strong Brazilian football striker nicknamed Hulk, muscular athletic man, dark hair, full beard, intense expression, football jersey described by the user, powerful stadium lighting, not a green monster. Details: ${raw}`;
+  }
+
+  if (p.includes("hulk")) {
+    return `${common}. Character: Hulk inspired green super-strong giant, massive muscular body, green skin, angry confident expression, torn purple shorts, dramatic gray rubble background, comic-book action style.`;
+  }
+
+  return `${common}. Character request: ${raw}. Follow the appearance description exactly, emphasize recognizable clothing, hair, face shape, colors, accessories, and a playful card-game avatar style.`;
+}
+
+function clampPrompt(prompt: string) {
+  return prompt
+    .replace(/^["']|["']$/g, "")
+    .replace(/\s+/g, " ")
+    .slice(0, 1200);
+}
+
+async function generatePollinationsImage(prompt: string): Promise<{ bytes: Uint8Array; contentType: string } | null> {
+  const apiKey = process.env.POLLINATIONS_API_KEY;
+  if (!apiKey) return null;
+
+  const url = new URL(`https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}`);
+  url.searchParams.set("width", "400");
+  url.searchParams.set("height", "500");
+  url.searchParams.set("model", "flux");
+  url.searchParams.set("quality", "high");
+  url.searchParams.set("private", "true");
+  url.searchParams.set("key", apiKey);
+
+  try {
+    const response = await fetch(url.toString(), { method: "GET" });
+    if (!response.ok) {
+      console.warn(`Pollinations image generation failed: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    if (!contentType.startsWith("image/")) {
+      console.warn(`Pollinations returned non-image content-type: ${contentType}`);
+      return null;
+    }
+
+    return { bytes: new Uint8Array(await response.arrayBuffer()), contentType };
+  } catch (err) {
+    console.warn("Pollinations image generation request failed:", err);
+    return null;
+  }
+}
+
+async function uploadImageToR2(key: string, bytes: Uint8Array, contentType: string) {
+  if (!process.env.CLOUDFLARE_ACCOUNT_ID || !process.env.R2_BUCKET_NAME) return "";
+
+  try {
+    await s3Client.send(new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key,
+      Body: Buffer.from(bytes),
+      ContentType: contentType,
+      CacheControl: "public, max-age=31536000",
+    }));
+
+    const base = process.env.R2_PUBLIC_URL || "";
+    return base.endsWith("/") ? `${base}${key}` : `${base}/${key}`;
+  } catch (err) {
+    console.warn("R2 image upload failed:", err);
+    return "";
   }
 }
 

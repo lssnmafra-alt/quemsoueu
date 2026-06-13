@@ -34,6 +34,12 @@ const soccerBall = `<g transform="translate(304 104)">
 export function getKnownCharacterAvatar(name: string) {
   const n = normalizeName(name);
 
+  if (n.includes("hulk")) return "/standard-cards/hulk.png";
+  if (n.includes("homem-aranha") || n.includes("homem aranha") || n.includes("spider") || n.includes("aranha")) return "/standard-cards/homem-aranha.png";
+  if (n.includes("aquaman")) return "/standard-cards/aquaman.png";
+  if (n.includes("thor")) return "/standard-cards/thor.png";
+  if (n.includes("lucas moura") || n.includes("lucas mourea")) return "/standard-cards/lucas-moura.png";
+
   if (n.includes("neymar")) {
     return svgUrl(base("#60c646", "#15803d", `
       ${soccerBall}

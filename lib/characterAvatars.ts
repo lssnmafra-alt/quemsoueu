@@ -371,15 +371,16 @@ export function getKnownCharacterAvatar(name: string) {
   return null;
 }
 
-function isGenericGeneratedSvg(url?: string | null) {
+function isBadGeneratedImage(url?: string | null) {
   if (!url) return false;
   const value = url.trim().toLowerCase();
-  return value.startsWith("data:image/svg") || value.includes(".svg");
+  return value.startsWith("data:image/svg") || value.includes(".svg") || value.includes("gen.pollinations.ai");
 }
 
 export function getCharacterDisplayImageUrl(name: string, imageUrl?: string | null) {
   const knownAvatar = getKnownCharacterAvatar(name);
+  if (imageUrl && !isBadGeneratedImage(imageUrl)) return imageUrl;
   if (knownAvatar) return knownAvatar;
-  if (isGenericGeneratedSvg(imageUrl)) return undefined;
+  if (isBadGeneratedImage(imageUrl)) return undefined;
   return imageUrl || knownAvatar || undefined;
 }

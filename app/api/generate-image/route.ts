@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getGroqClient } from "@/lib/groq";
+import { getKnownCharacterAvatar } from "@/lib/characterAvatars";
 
 const s3Client = new S3Client({
   region: "auto",
@@ -15,6 +16,11 @@ export async function POST(req: NextRequest) {
   try {
     const { prompt } = await req.json();
     if (!prompt) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+
+    const standardAvatar = getKnownCharacterAvatar(prompt);
+    if (standardAvatar) {
+      return NextResponse.json({ url: standardAvatar, prompt, fallback: "standard-character-avatar" });
+    }
 
     const imagePrompt = await buildPollinationsPrompt(prompt);
     const generated = await generatePollinationsImage(imagePrompt);

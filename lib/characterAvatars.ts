@@ -313,6 +313,7 @@ function isGenericGeneratedSvg(url?: string | null) {
 
 export function getCharacterDisplayImageUrl(name: string, imageUrl?: string | null) {
   const knownAvatar = getKnownCharacterAvatar(name);
-  if (knownAvatar && isGenericGeneratedSvg(imageUrl)) return knownAvatar;
+  if (knownAvatar) return knownAvatar;
+  if (isGenericGeneratedSvg(imageUrl)) return undefined;
   return imageUrl || knownAvatar || undefined;
 }

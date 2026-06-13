@@ -189,7 +189,7 @@ export default function DeckEditorPage() {
           className="p-5 bg-white border-4 border-indigo-100 flex items-center justify-between shrink-0 rounded-3xl shadow-md"
         >
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => { try { router.push('/decks'); } catch { window.location.href = '/decks'; } }} className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 w-12 h-12 rounded-2xl border-2 border-slate-250 transition-colors cursor-pointer flex items-center justify-center">
+            <Button variant="ghost" onClick={() => { try { router.push('/'); } catch { window.location.href = '/'; } }} className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 w-12 h-12 rounded-2xl border-2 border-slate-250 transition-colors cursor-pointer flex items-center justify-center">
               <ArrowLeft className="w-5 h-5 stroke-[3px]"/>
             </Button>
             <div className="flex items-center gap-4">

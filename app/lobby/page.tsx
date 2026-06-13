@@ -38,7 +38,7 @@ export default function HomeLobby() {
       const now = Date.now();
       if (now - lastBotCycleRunAt > 25000) {
         lastBotCycleRunAt = now;
-        await fetch('/api/rooms/bot-cycle', { method: 'POST' }).catch(() => {});
+        fetch('/api/rooms/bot-cycle', { method: 'POST' }).catch(() => {});
       }
 
       const { data } = await supabaseGame
@@ -326,7 +326,7 @@ export default function HomeLobby() {
                   <div className="flex-1 flex bg-indigo-50/50 border-2 border-indigo-100 p-1 rounded-2xl focus-within:border-indigo-400 focus-within:bg-white transition-all shadow-inner relative justify-between">
                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-400" />
                      <Input 
-                       placeholder="CÓCODIGO DA SALA..." 
+                       placeholder="CODIGO DA SALA..."
                        value={roomCode}
                        onChange={e => setRoomCode(e.target.value)}
                        className="border-0 bg-transparent pl-12 pr-1 h-12 text-base font-bold text-indigo-950 uppercase placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none shadow-none flex-1"

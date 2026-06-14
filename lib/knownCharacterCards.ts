@@ -178,7 +178,7 @@ const KNOWN_CHARACTER_CARDS: KnownCharacterCardRule[] = [
   },
   {
     path: '/standard-cards/lucas-moura.png',
-    aliases: ['lucas moura'],
+    aliases: ['lucas moura', 'lucas mourea'],
   },
 ];
 

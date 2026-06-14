@@ -5,7 +5,12 @@ import { MAX_CHARACTERS_PER_DECK } from '@/lib/deckRules';
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL_GAME || process.env.SUPABASE_URL_GAME || process.env.SUPABASE_GAME_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY_GAME || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_GAME ||
+    process.env.SUPABASE_ANON_KEY_GAME ||
+    process.env.SUPABASE_GAME_ANON_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY_GAME ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
     throw new Error('Supabase service credentials are not configured.');

@@ -48,6 +48,7 @@ export default function DeckEditorPage() {
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
+
     if (!user) {
       router.push('/');
       return;
@@ -140,7 +141,9 @@ export default function DeckEditorPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            prompt: charDesc.trim() ? `${charName} — aparência: ${charDesc.trim()}` : charName
+            prompt: charDesc.trim()
+              ? `${charName}, ${charDesc.trim()}. Realistic and detailed character portrait.`
+              : `${charName}. Character portrait.`
           })
         });
 

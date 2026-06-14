@@ -317,7 +317,15 @@ async function generateOpenAIImage(prompt: string, env: RuntimeEnv) {
   const payload = (await safeJson(response)) as any;
 
   if (!response.ok) {
-    throw new Error(payload?.error?.message || `OpenAI Images API retornou ${response.status}.`);
+    const message = payload?.error?.message || `OpenAI Images API retornou ${response.status}.`;
+
+    if (isOpenAIBillingLimitError(message)) {
+      throw new Error(
+        'A conta OpenAI atingiu o limite de billing. Aumente o limite/adicione creditos na OpenAI ou envie uma imagem manualmente para este personagem.',
+      );
+    }
+
+    throw new Error(message);
   }
 
   const imageBase64 = payload?.data?.[0]?.b64_json;
@@ -473,6 +481,12 @@ function isValidCharacterImageUrl(value: string) {
   if (url.includes('/characters/') && url.endsWith('.svg')) return false;
 
   return true;
+}
+
+function isOpenAIBillingLimitError(message: string) {
+  const normalized = message.toLowerCase();
+
+  return normalized.includes('billing hard limit') || normalized.includes('hard limit has been reached');
 }
 
 function normalizeSearchText(value: string) {

@@ -3,7 +3,7 @@
 import { useMemo, useState, type ImgHTMLAttributes, type SyntheticEvent } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getCharacterDisplayImageUrl, getKnownCharacterAvatar } from '@/lib/characterAvatars';
+import { getKnownCharacterAvatar } from '@/lib/characterAvatars';
 
 type CharacterImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'> & {
   name: string;
@@ -22,14 +22,17 @@ export default function CharacterImage({
   referrerPolicy = 'no-referrer',
   ...props
 }: CharacterImageProps) {
-  const primarySrc = useMemo(() => getCharacterDisplayImageUrl(name, imageUrl), [name, imageUrl]);
-  const fallbackSrc = useMemo(() => getKnownCharacterAvatar(name), [name]);
+  const sources = useMemo(() => {
+    const generated = imageUrl?.trim();
+    const fallback = getKnownCharacterAvatar(name) || undefined;
+
+    return [generated, fallback].filter((src, index, list): src is string => {
+      return Boolean(src) && list.indexOf(src) === index;
+    });
+  }, [name, imageUrl]);
+
   const [brokenUrls, setBrokenUrls] = useState<Record<string, true>>({});
-  const src = primarySrc && !brokenUrls[primarySrc]
-    ? primarySrc
-    : fallbackSrc && !brokenUrls[fallbackSrc]
-      ? fallbackSrc
-      : undefined;
+  const src = sources.find((candidate) => !brokenUrls[candidate]);
 
   const handleError = (event: SyntheticEvent<HTMLImageElement>) => {
     if (src) setBrokenUrls((current) => ({ ...current, [src]: true }));

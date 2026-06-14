@@ -3,8 +3,8 @@
 import { useMemo, useState, type ImgHTMLAttributes, type SyntheticEvent } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getKnownCharacterCard } from '@/lib/knownCharacterCards';
 import { getKnownCharacterAvatar } from '@/lib/characterAvatars';
+import { getKnownCharacterCard } from '@/lib/knownCharacterCards';
 
 type CharacterImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'> & {
   name: string;
@@ -81,6 +81,7 @@ function isBadGeneratedFallback(url: string) {
     normalized.includes('fallback-svg') ||
     normalized.includes('source=fallback') ||
     normalized.includes('generic') ||
-    normalized.includes('placeholder')
+    normalized.includes('placeholder') ||
+    (normalized.includes('/characters/') && normalized.endsWith('.svg'))
   );
 }

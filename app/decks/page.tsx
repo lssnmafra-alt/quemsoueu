@@ -6,18 +6,7 @@ import { useUserStore } from '@/lib/store';
 import { supabaseGame } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  ArrowLeft,
-  Plus,
-  Trash2,
-  Globe,
-  Lock,
-  Trash,
-  Star,
-  StarOff,
-  Layers,
-  Image as ImageIcon
-} from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Globe, Lock, Trash, Star, StarOff, Layers, Image as ImageIcon } from 'lucide-react';
 import { moderateText } from '@/app/actions/moderate';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -25,19 +14,10 @@ import LoadingArena from '@/components/LoadingArena';
 import CharacterImage from '@/components/CharacterImage';
 import { MAX_CHARACTERS_PER_DECK } from '@/lib/deckRules';
 
-const characterOrder = [
-  'NEYMAR',
-  'MESSI',
-  'YAMAL',
-  'HULK_MARVEL',
-  'HULK_FLUMINENSE',
-  'HULK',
-  'THOR'
-];
+const characterOrder = ['NEYMAR', 'MESSI', 'YAMAL', 'HULK_MARVEL', 'HULK_FLUMINENSE', 'HULK', 'THOR'];
 
 function characterKey(name: string) {
   const normalized = name.trim().toUpperCase();
-
   if (normalized.includes('YAMAL')) return 'YAMAL';
   if (normalized.includes('NEYMAR')) return 'NEYMAR';
   if (normalized.includes('MESSI')) return 'MESSI';
@@ -45,7 +25,6 @@ function characterKey(name: string) {
   if (normalized.includes('HULK') && normalized.includes('FLUMINENSE')) return 'HULK_FLUMINENSE';
   if (normalized.includes('HULK')) return 'HULK';
   if (normalized.includes('THOR')) return 'THOR';
-
   return normalized;
 }
 
@@ -53,12 +32,7 @@ export default function DeckEditorPage() {
   const router = useRouter();
   const params = useParams();
   const deckId = params.id as string;
-
-  const {
-    user,
-    initialized: authInitialized,
-    loading: authLoading
-  } = useUserStore();
+  const { user, initialized: authInitialized, loading: authLoading } = useUserStore();
 
   const [deck, setDeck] = useState<any>(null);
   const [characters, setCharacters] = useState<any[]>([]);
@@ -74,7 +48,6 @@ export default function DeckEditorPage() {
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
-
     if (!user) {
       router.push('/');
       return;
@@ -84,63 +57,28 @@ export default function DeckEditorPage() {
       const hasDeckId = typeof deckId === 'string' && deckId.length > 0;
 
       const { data: dData } = hasDeckId
-        ? await supabaseGame
-            .from('decks')
-            .select('*')
-            .eq('id', deckId)
-            .single()
+        ? await supabaseGame.from('decks').select('*').eq('id', deckId).single()
         : { data: null };
 
       const { data: rawCharacters } = hasDeckId
-        ? await supabaseGame
-            .from('characters')
-            .select('*')
-            .eq('deck_id', deckId)
-        : await supabaseGame
-            .from('characters')
-            .select('*')
-            .is('deck_id', null)
-            .order('created_at', { ascending: false })
-            .limit(40);
+        ? await supabaseGame.from('characters').select('*').eq('deck_id', deckId)
+        : await supabaseGame.from('characters').select('*').is('deck_id', null).order('created_at', { ascending: false }).limit(40);
 
       const cData = hasDeckId
         ? rawCharacters
-        : Array.from(
-            new Map(
-              (rawCharacters || []).map((char) => [
-                characterKey(char.name),
-                char
-              ])
-            ).values()
-          )
+        : Array.from(new Map((rawCharacters || []).map((char) => [characterKey(char.name), char])).values())
             .filter((char) => characterOrder.includes(characterKey(char.name)))
-            .filter(
-              (char) =>
-                characterKey(char.name) !== 'HULK' || Boolean(char.image_url)
-            )
-            .sort(
-              (a, b) =>
-                characterOrder.indexOf(characterKey(a.name)) -
-                characterOrder.indexOf(characterKey(b.name))
-            );
+            .filter((char) => characterKey(char.name) !== 'HULK' || Boolean(char.image_url))
+            .sort((a, b) => characterOrder.indexOf(characterKey(a.name)) - characterOrder.indexOf(characterKey(b.name)));
 
       const { data: favData } = hasDeckId
-        ? await supabaseGame
-            .from('deck_favorites')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('deck_id', deckId)
-            .single()
+        ? await supabaseGame.from('deck_favorites').select('*').eq('user_id', user.id).eq('deck_id', deckId).single()
         : { data: null };
 
       let creatorNickname = hasDeckId ? 'Criador Anônimo' : 'Oficial';
 
       if (dData?.creator_id) {
-        const { data: creatorData } = await supabaseGame
-          .from('profiles')
-          .select('nickname')
-          .eq('id', dData.creator_id)
-          .single();
+        const { data: creatorData } = await supabaseGame.from('profiles').select('nickname').eq('id', dData.creator_id).single();
 
         if (creatorData) {
           creatorNickname = creatorData.nickname;
@@ -167,21 +105,10 @@ export default function DeckEditorPage() {
 
   const toggleFavorite = async () => {
     if (isFavorited) {
-      await supabaseGame
-        .from('deck_favorites')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('deck_id', deckId);
-
+      await supabaseGame.from('deck_favorites').delete().eq('user_id', user.id).eq('deck_id', deckId);
       setIsFavorited(false);
     } else {
-      await supabaseGame
-        .from('deck_favorites')
-        .insert({
-          user_id: user.id,
-          deck_id: deckId
-        });
-
+      await supabaseGame.from('deck_favorites').insert({ user_id: user.id, deck_id: deckId });
       setIsFavorited(true);
     }
   };
@@ -190,9 +117,7 @@ export default function DeckEditorPage() {
     if (!charName.trim()) return;
 
     if (characters.length >= MAX_CHARACTERS_PER_DECK) {
-      setErrorChart(
-        `Cada baralho pode ter no maximo ${MAX_CHARACTERS_PER_DECK} personagens.`
-      );
+      setErrorChart(`Cada baralho pode ter no maximo ${MAX_CHARACTERS_PER_DECK} personagens.`);
       return;
     }
 
@@ -213,13 +138,9 @@ export default function DeckEditorPage() {
       try {
         const res = await fetch('/api/generate-image', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            prompt: charDesc.trim()
-              ? `${charName} — aparência: ${charDesc.trim()}`
-              : charName
+            prompt: charDesc.trim() ? `${charName} — aparência: ${charDesc.trim()}` : charName
           })
         });
 
@@ -232,16 +153,12 @@ export default function DeckEditorPage() {
       }
     }
 
-    const { data } = await supabaseGame
-      .from('characters')
-      .insert({
-        deck_id: deckId || null,
-        name: charName,
-        description: charDesc,
-        image_url: finalImageUrl || ''
-      })
-      .select()
-      .single();
+    const { data } = await supabaseGame.from('characters').insert({
+      deck_id: deckId || null,
+      name: charName,
+      description: charDesc,
+      image_url: finalImageUrl || ''
+    }).select().single();
 
     if (data) {
       setCharacters([...characters, data]);
@@ -253,69 +170,40 @@ export default function DeckEditorPage() {
   };
 
   const handleDeleteChar = async (id: string) => {
-    await supabaseGame
-      .from('characters')
-      .delete()
-      .eq('id', id);
-
+    await supabaseGame.from('characters').delete().eq('id', id);
     setCharacters(characters.filter((c) => c.id !== id));
   };
 
   const togglePublish = async () => {
     if (!deck.is_public && characters.length < 5) {
-      alert(
-        'Seu baralho precisa conter pelo menos 5 personagens antes de ser publicado globalmente.'
-      );
+      alert('Seu baralho precisa conter pelo menos 5 personagens antes de ser publicado globalmente.');
       return;
     }
 
     const newStatus = !deck.is_public;
 
-    await supabaseGame
-      .from('decks')
-      .update({
-        is_public: newStatus
-      })
-      .eq('id', deckId);
+    await supabaseGame.from('decks').update({ is_public: newStatus }).eq('id', deckId);
 
-    setDeck({
-      ...deck,
-      is_public: newStatus
-    });
+    setDeck({ ...deck, is_public: newStatus });
   };
 
   const handleUpdateDeckImage = async () => {
     setUpdatingDeck(true);
 
-    await supabaseGame
-      .from('decks')
-      .update({
-        cover_url: deckImage
-      })
-      .eq('id', deckId);
+    await supabaseGame.from('decks').update({ cover_url: deckImage }).eq('id', deckId);
 
-    setDeck({
-      ...deck,
-      cover_url: deckImage
-    });
-
+    setDeck({ ...deck, cover_url: deckImage });
     setUpdatingDeck(false);
   };
 
   const handleDeleteDeck = async () => {
     if (confirm('Deseja realmente apagar este baralho permanentemente?')) {
-      await supabaseGame
-        .from('decks')
-        .delete()
-        .eq('id', deckId);
-
+      await supabaseGame.from('decks').delete().eq('id', deckId);
       router.push('/decks');
     }
   };
 
-  if (loading) {
-    return <LoadingArena label="Carregando dados do baralho..." />;
-  }
+  if (loading) return <LoadingArena label="Carregando dados do baralho..." />;
 
   if (!deck) {
     return (
@@ -375,14 +263,9 @@ export default function DeckEditorPage() {
                   <p className="text-xs text-indigo-600 font-extrabold">
                     {characters.length}/{MAX_CHARACTERS_PER_DECK} Personagens criados
                   </p>
-
                   <span className="w-1.5 h-1.5 bg-slate-200 rounded-full" />
-
                   <p className="text-xs text-slate-500 font-semibold">
-                    Dono:{' '}
-                    <strong className="text-slate-600">
-                      {deck.creator_nickname}
-                    </strong>
+                    Dono: <strong className="text-slate-600">{deck.creator_nickname}</strong>
                   </p>
                 </div>
               </div>
@@ -402,11 +285,7 @@ export default function DeckEditorPage() {
                     : 'text-slate-400 border-slate-200 bg-white hover:text-amber-500 hover:border-amber-100'
                 )}
               >
-                {isFavorited ? (
-                  <Star className="w-5 h-5 fill-current" />
-                ) : (
-                  <StarOff className="w-5 h-5" />
-                )}
+                {isFavorited ? <Star className="w-5 h-5 fill-current" /> : <StarOff className="w-5 h-5" />}
               </Button>
             )}
 
@@ -426,7 +305,6 @@ export default function DeckEditorPage() {
                   ) : (
                     <Lock className="w-4 h-4 mr-2 text-slate-400" />
                   )}
-
                   {deck.is_public ? ' Baralho Publico' : ' Baralho Privado'}
                 </Button>
 
@@ -440,11 +318,7 @@ export default function DeckEditorPage() {
                       : 'bg-white text-slate-500 border-slate-250'
                   )}
                 >
-                  {deck.is_public ? (
-                    <Globe className="w-5 h-5" />
-                  ) : (
-                    <Lock className="w-5 h-5" />
-                  )}
+                  {deck.is_public ? <Globe className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
                 </Button>
 
                 <Button
@@ -469,8 +343,7 @@ export default function DeckEditorPage() {
             <div className="flex flex-col md:flex-row gap-5">
               <div className="flex-1 bg-slate-50/50 p-5 border-2 border-slate-100 rounded-2xl space-y-3">
                 <label className="text-xs font-black text-indigo-600 uppercase tracking-wider flex items-center gap-1.5 pl-1">
-                  <ImageIcon className="w-4 h-4 text-indigo-500" />
-                  Imagem de Capa do Baralho
+                  <ImageIcon className="w-4 h-4 text-indigo-500" /> Imagem de Capa do Baralho
                 </label>
 
                 <div className="flex gap-3">
@@ -483,10 +356,7 @@ export default function DeckEditorPage() {
 
                   <Button
                     onClick={handleUpdateDeckImage}
-                    disabled={
-                      updatingDeck ||
-                      deckImage === (deck.cover_url || deck.image_url || '')
-                    }
+                    disabled={updatingDeck || deckImage === (deck.cover_url || deck.image_url || '')}
                     className="h-12 px-5 btn-squishy-indigo text-white font-black text-xs uppercase cursor-pointer shrink-0"
                   >
                     {updatingDeck ? '...' : 'Salvar Capa'}
@@ -497,8 +367,7 @@ export default function DeckEditorPage() {
 
             <div className="border-t border-slate-100 pt-6">
               <h3 className="text-xl font-black text-indigo-950 uppercase tracking-wide mb-4 flex items-center gap-2">
-                <Plus className="w-6 h-6 text-indigo-500 stroke-[3px]" />
-                Adicionar Novo Personagem
+                <Plus className="w-6 h-6 text-indigo-500 stroke-[3px]" /> Adicionar Novo Personagem
               </h3>
 
               <div className="flex flex-col md:flex-row gap-4 items-start w-full">
@@ -530,19 +399,14 @@ export default function DeckEditorPage() {
 
                 <Button
                   onClick={handleAddChar}
-                  disabled={
-                    adding ||
-                    !charName.trim() ||
-                    characters.length >= MAX_CHARACTERS_PER_DECK
-                  }
+                  disabled={adding || !charName.trim() || characters.length >= MAX_CHARACTERS_PER_DECK}
                   className="w-full md:w-auto h-12 px-6 btn-squishy-green text-white font-black uppercase text-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                 >
                   {adding ? (
                     'Criando...'
                   ) : (
                     <>
-                      <Plus className="w-4 h-4 font-black" />
-                      Inserir Personagem
+                      <Plus className="w-4 h-4 font-black" /> Inserir Personagem
                     </>
                   )}
                 </Button>
@@ -559,7 +423,6 @@ export default function DeckEditorPage() {
           {characters.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center p-8 border-4 border-dashed border-indigo-50 rounded-2xl bg-slate-50/50">
               <Layers className="w-12 h-12 text-indigo-200 mb-3" />
-
               <p className="text-sm font-extrabold text-slate-400 uppercase tracking-wide">
                 Este baralho ainda não tem personagens. Adicione alguns acima!
               </p>

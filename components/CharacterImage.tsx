@@ -3,6 +3,7 @@
 import { useMemo, useState, type ImgHTMLAttributes, type SyntheticEvent } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getKnownCharacterCard } from '@/lib/knownCharacterCards';
 import { getKnownCharacterAvatar } from '@/lib/characterAvatars';
 
 type CharacterImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'> & {
@@ -23,10 +24,11 @@ export default function CharacterImage({
   ...props
 }: CharacterImageProps) {
   const sources = useMemo(() => {
-    const generated = imageUrl?.trim();
-    const fallback = getKnownCharacterAvatar(name) || undefined;
+    const savedImage = sanitizeSavedImageUrl(imageUrl);
+    const officialCard = getKnownCharacterCard(name) || undefined;
+    const legacyAvatar = getKnownCharacterAvatar(name) || undefined;
 
-    return [generated, fallback].filter((src, index, list): src is string => {
+    return [savedImage, officialCard, legacyAvatar].filter((src, index, list): src is string => {
       return Boolean(src) && list.indexOf(src) === index;
     });
   }, [name, imageUrl]);
@@ -35,7 +37,10 @@ export default function CharacterImage({
   const src = sources.find((candidate) => !brokenUrls[candidate]);
 
   const handleError = (event: SyntheticEvent<HTMLImageElement>) => {
-    if (src) setBrokenUrls((current) => ({ ...current, [src]: true }));
+    if (src) {
+      setBrokenUrls((current) => ({ ...current, [src]: true }));
+    }
+
     onError?.(event);
   };
 
@@ -56,5 +61,26 @@ export default function CharacterImage({
       className={className}
       onError={handleError}
     />
+  );
+}
+
+function sanitizeSavedImageUrl(value?: string | null) {
+  const url = value?.trim();
+
+  if (!url) return undefined;
+  if (isBadGeneratedFallback(url)) return undefined;
+
+  return url;
+}
+
+function isBadGeneratedFallback(url: string) {
+  const normalized = url.toLowerCase();
+
+  return (
+    normalized.startsWith('data:image/svg') ||
+    normalized.includes('fallback-svg') ||
+    normalized.includes('source=fallback') ||
+    normalized.includes('generic') ||
+    normalized.includes('placeholder')
   );
 }

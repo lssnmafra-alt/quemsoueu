@@ -6,7 +6,7 @@ import { useUserStore } from '@/lib/store';
 import { supabaseGame } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Plus, Trash2, Globe, Lock, Trash, Star, StarOff, Layers, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Globe, Lock, Trash, Star, StarOff, Layers, ImagePlus } from 'lucide-react';
 import { moderateText } from '@/app/actions/moderate';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -30,11 +30,10 @@ export default function DeckEditorPage() {
 
   const [charName, setCharName] = useState('');
   const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(DEFAULT_AVATAR_CONFIG);
-  const [deckImage, setDeckImage] = useState('');
   const [adding, setAdding] = useState(false);
-  const [updatingDeck, setUpdatingDeck] = useState(false);
   const [errorChart, setErrorChart] = useState('');
   const [editingCharacterId, setEditingCharacterId] = useState('');
+  const [uploadingCharacterId, setUploadingCharacterId] = useState('');
   const [characterDrafts, setCharacterDrafts] = useState<Record<string, { name: string; imageUrl: string; avatarConfig: AvatarConfig }>>({});
 
   const isCreator = deck?.creator_id === user?.id;
@@ -109,7 +108,6 @@ export default function DeckEditorPage() {
         }));
 
         setDeck({ ...dData, creator_nickname: creatorNickname });
-        setDeckImage(dData?.cover_url || dData?.image_url || '');
         setCharacters(sanitizedCharacters);
         setCharacterDrafts(
           Object.fromEntries(
@@ -240,39 +238,6 @@ export default function DeckEditorPage() {
     setDeck({ ...deck, is_public: newStatus });
   };
 
-  const handleUpdateDeckImage = async () => {
-    if (!canEditDeck) return;
-
-    const cleanDeckImage = deckImage.trim();
-
-    setUpdatingDeck(true);
-
-    try {
-      if (isTemporaryOfficialEditor) {
-        const response = await fetch('/api/official-decks/edit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'update-cover', deckId, coverUrl: cleanDeckImage }),
-        });
-
-        const result = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          alert(result.error || 'Nao foi possivel salvar a capa.');
-        } else {
-          setDeck({ ...deck, cover_url: cleanDeckImage });
-          setDeckImage(cleanDeckImage);
-        }
-      } else {
-        await supabaseGame.from('decks').update({ cover_url: cleanDeckImage }).eq('id', deckId);
-        setDeck({ ...deck, cover_url: cleanDeckImage });
-        setDeckImage(cleanDeckImage);
-      }
-    } finally {
-      setUpdatingDeck(false);
-    }
-  };
-
   const handleSaveCharacter = async (char: any) => {
     if (!canEditDeck) return;
 
@@ -349,6 +314,67 @@ export default function DeckEditorPage() {
       alert(error.message || 'Nao foi possivel salvar o personagem.');
     } finally {
       setEditingCharacterId('');
+    }
+  };
+
+  const handleAttachOfficialImage = async (char: any, file?: File) => {
+    if (!isTemporaryOfficialEditor || !file) return;
+
+    setUploadingCharacterId(char.id);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const uploadResponse = await fetch('/api/upload-official-card-image', {
+        method: 'POST',
+        body: formData,
+      });
+      const uploadResult = await uploadResponse.json().catch(() => ({}));
+
+      if (!uploadResponse.ok) {
+        throw new Error(uploadResult.error || 'Nao foi possivel anexar a imagem.');
+      }
+
+      const imageUrl = String(uploadResult.url || '').trim();
+      if (!imageUrl) throw new Error('Upload concluido sem URL publica.');
+
+      const saveResponse = await fetch('/api/official-decks/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update-character',
+          deckId,
+          characterId: char.id,
+          name: characterDrafts[char.id]?.name ?? char.name ?? '',
+          imageUrl,
+        }),
+      });
+      const saveResult = await saveResponse.json().catch(() => ({}));
+
+      if (!saveResponse.ok) {
+        throw new Error(saveResult.error || 'Imagem anexada, mas nao foi possivel salvar o card.');
+      }
+
+      const updated = {
+        ...saveResult.character,
+        image_url: sanitizeStoredCharacterImageUrl(saveResult.character?.image_url),
+        avatar_config: saveResult.character?.avatar_config || char.avatar_config || DEFAULT_AVATAR_CONFIG,
+      };
+
+      setCharacters((current) => current.map((item) => (item.id === char.id ? updated : item)));
+      setCharacterDrafts((current) => ({
+        ...current,
+        [char.id]: {
+          name: updated.name || '',
+          imageUrl: updated.image_url || '',
+          avatarConfig: updated.avatar_config || DEFAULT_AVATAR_CONFIG,
+        },
+      }));
+    } catch (error: any) {
+      alert(error.message || 'Nao foi possivel anexar a imagem.');
+    } finally {
+      setUploadingCharacterId('');
     }
   };
 
@@ -490,87 +516,60 @@ export default function DeckEditorPage() {
           </div>
         </motion.header>
 
-        {canEditDeck && (
+        {canCreateCharacters && (
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-white border-4 border-indigo-100 p-6 md:p-8 rounded-3xl shadow-md space-y-6 relative"
           >
-            <div className="flex flex-col md:flex-row gap-5">
-              <div className="flex-1 bg-slate-50/50 p-5 border-2 border-slate-100 rounded-2xl space-y-3">
-                <label className="text-xs font-black text-indigo-600 uppercase tracking-wider flex items-center gap-1.5 pl-1">
-                  <ImageIcon className="w-4 h-4 text-indigo-500" /> Imagem de Capa do Baralho
-                </label>
+            <div>
+              <h3 className="text-xl font-black text-indigo-950 uppercase tracking-wide mb-4 flex items-center gap-2">
+                <Plus className="w-6 h-6 text-indigo-500 stroke-[3px]" /> Adicionar Novo Personagem
+              </h3>
 
-                <div className="flex gap-3">
+              <div className="flex flex-col md:flex-row gap-4 items-start w-full">
+                <div className="w-full md:max-w-md space-y-1">
                   <Input
-                    placeholder="Insira a URL de uma imagem para ilustrar o álbum..."
-                    value={deckImage}
-                    onChange={(e) => setDeckImage(e.target.value)}
-                    className="flex-1 bg-white border-2 border-slate-200 h-12 text-sm font-semibold rounded-xl text-indigo-950 focus-visible:ring-indigo-150"
+                    placeholder="NOME DO PERSONAGEM, EX: SHREK, HARRY POTTER..."
+                    value={charName}
+                    maxLength={35}
+                    onChange={(e) => {
+                      setCharName(e.target.value);
+                      if (errorChart) setErrorChart('');
+                    }}
+                    className="bg-slate-50 border-2 border-slate-200 h-12 rounded-xl text-sm font-bold text-[#1e1b4b] focus-visible:ring-indigo-150"
                   />
 
-                  <Button
-                    onClick={handleUpdateDeckImage}
-                    disabled={updatingDeck || deckImage === (deck.cover_url || deck.image_url || '')}
-                    className="h-12 px-5 btn-squishy-indigo text-white font-black text-xs uppercase cursor-pointer shrink-0"
-                  >
-                    {updatingDeck ? '...' : 'Salvar Capa'}
-                  </Button>
+                  {errorChart && (
+                    <p className="text-xs font-bold text-rose-500 bg-rose-50 border border-rose-100 p-2 mt-2 rounded-xl">
+                      {errorChart}
+                    </p>
+                  )}
                 </div>
+
+                <Button
+                  onClick={handleAddChar}
+                  disabled={adding || !charName.trim() || characters.length >= MAX_CHARACTERS_PER_DECK}
+                  className="w-full md:w-auto h-12 px-6 btn-squishy-green text-white font-black uppercase text-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  {adding ? (
+                    'Inserindo...'
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 font-black" /> Inserir Personagem
+                    </>
+                  )}
+                </Button>
               </div>
+
+              <div className="mt-4">
+                <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
+              </div>
+
+              <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
+                Personalize o personagem em camadas. Cards criados por jogadores nao usam imagem externa.
+              </p>
             </div>
-
-            {canCreateCharacters && (
-              <div className="border-t border-slate-100 pt-6">
-                <h3 className="text-xl font-black text-indigo-950 uppercase tracking-wide mb-4 flex items-center gap-2">
-                  <Plus className="w-6 h-6 text-indigo-500 stroke-[3px]" /> Adicionar Novo Personagem
-                </h3>
-
-                <div className="flex flex-col md:flex-row gap-4 items-start w-full">
-                  <div className="w-full md:max-w-md space-y-1">
-                    <Input
-                      placeholder="NOME DO PERSONAGEM, EX: SHREK, HARRY POTTER..."
-                      value={charName}
-                      maxLength={35}
-                      onChange={(e) => {
-                        setCharName(e.target.value);
-                        if (errorChart) setErrorChart('');
-                      }}
-                      className="bg-slate-50 border-2 border-slate-200 h-12 rounded-xl text-sm font-bold text-[#1e1b4b] focus-visible:ring-indigo-150"
-                    />
-
-                    {errorChart && (
-                      <p className="text-xs font-bold text-rose-500 bg-rose-50 border border-rose-100 p-2 mt-2 rounded-xl">
-                        {errorChart}
-                      </p>
-                    )}
-                  </div>
-
-                  <Button
-                    onClick={handleAddChar}
-                    disabled={adding || !charName.trim() || characters.length >= MAX_CHARACTERS_PER_DECK}
-                    className="w-full md:w-auto h-12 px-6 btn-squishy-green text-white font-black uppercase text-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-                  >
-                    {adding ? (
-                      'Inserindo...'
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4 font-black" /> Inserir Personagem
-                      </>
-                    )}
-                  </Button>
-                </div>
-
-                <div className="mt-4">
-                  <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
-                </div>
-
-                <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
-                  Personalize o personagem em camadas. Cards criados por jogadores nao usam imagem externa.
-                </p>
-              </div>
-            )}
           </motion.div>
         )}
 
@@ -607,6 +606,23 @@ export default function DeckEditorPage() {
 
                     <div className="p-3 bg-white border-t-2 border-slate-50">
                       <span className="text-sm font-black text-[#1e1b4b] truncate block text-center">{char.name}</span>
+                      {isTemporaryOfficialEditor && (
+                        <label className="mt-2 h-8 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-[10px] font-black uppercase">
+                          <ImagePlus className="w-3.5 h-3.5" />
+                          {uploadingCharacterId === char.id ? 'Anexando...' : 'Anexar imagem'}
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            className="hidden"
+                            disabled={uploadingCharacterId === char.id}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              event.target.value = '';
+                              void handleAttachOfficialImage(char, file);
+                            }}
+                          />
+                        </label>
+                      )}
                     </div>
 
                     {canDeleteCharacters && (

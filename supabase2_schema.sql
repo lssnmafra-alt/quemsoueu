@@ -19,6 +19,7 @@ CREATE TABLE public.characters (
   deck_id UUID REFERENCES public.decks(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   image_url TEXT,
+  avatar_config JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 ALTER TABLE public.characters ENABLE ROW LEVEL SECURITY;

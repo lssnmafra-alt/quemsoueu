@@ -6,6 +6,7 @@ import { differenceInSeconds } from 'date-fns';
 import { motion } from 'motion/react';
 import { Check, Layers, Lightbulb } from 'lucide-react';
 import CharacterImage from '@/components/CharacterImage';
+import { isOfficialDeckId } from '@/lib/officialDecks';
 
 export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const [deckChars, setDeckChars] = useState<any[]>([]);
@@ -105,6 +106,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
 
   const totalTime = room.pick_time_seconds || 30;
   const progressPercent = Math.max(0, (timeLeft / totalTime) * 100);
+  const usesOfficialImages = !room.deck_id || isOfficialDeckId(room.deck_id);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 md:p-8 bg-[#f5f6ff] font-sans text-indigo-950 relative overflow-hidden party-grid-bg">
@@ -156,6 +158,8 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
                 <CharacterImage
                   name={c.name}
                   imageUrl={c.image_url}
+                  avatarConfig={c.avatar_config}
+                  isOfficial={usesOfficialImages}
                   alt=""
                   className="flex-1 object-cover w-full h-full bg-slate-100"
                 />

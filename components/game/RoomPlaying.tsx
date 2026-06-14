@@ -8,6 +8,7 @@ import { audioManager } from '@/lib/audioManager';
 import ChatMenu from './ChatMenu';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import CharacterImage from '@/components/CharacterImage';
+import { isOfficialDeckId } from '@/lib/officialDecks';
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -43,6 +44,7 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
 
   const humanPlayers = orderedPlayers.filter((p: any) => !p.is_bot);
   const isFirstHuman = humanPlayers.length > 0 && humanPlayers[0].id === me?.id;
+  const usesOfficialImages = !room.deck_id || isOfficialDeckId(room.deck_id);
 
   const addLog = useCallback((msg: string) => {
     const id = Math.random().toString();
@@ -463,6 +465,8 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
                    <CharacterImage
                      name={c.name}
                      imageUrl={c.image_url}
+                     avatarConfig={c.avatar_config}
+                     isOfficial={usesOfficialImages}
                      alt=""
                      className="w-9 h-9 rounded-lg object-cover bg-slate-200 shrink-0"
                    />
@@ -500,6 +504,8 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
                   <CharacterImage
                     name={c.name}
                     imageUrl={c.image_url}
+                    avatarConfig={c.avatar_config}
+                    isOfficial={usesOfficialImages}
                     alt=""
                     className="object-cover w-full h-full"
                   />

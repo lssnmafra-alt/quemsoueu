@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingArena from '@/components/LoadingArena';
 import CharacterImage from '@/components/CharacterImage';
+import AvatarBuilder from '@/components/avatar/AvatarBuilder';
+import { DEFAULT_AVATAR_CONFIG, randomAvatarConfig, type AvatarConfig } from '@/lib/avatarConfig';
 import { MAX_CHARACTERS_PER_DECK } from '@/lib/deckRules';
 import { isOfficialDeckId, TEMP_OFFICIAL_DECK_EDITING_ENABLED } from '@/lib/officialDecks';
 
@@ -27,14 +29,13 @@ export default function DeckEditorPage() {
   const [isFavorited, setIsFavorited] = useState(false);
 
   const [charName, setCharName] = useState('');
-  const [charDesc, setCharDesc] = useState('');
-  const [charImageFile, setCharImageFile] = useState<File | null>(null);
+  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(DEFAULT_AVATAR_CONFIG);
   const [deckImage, setDeckImage] = useState('');
   const [adding, setAdding] = useState(false);
   const [updatingDeck, setUpdatingDeck] = useState(false);
   const [errorChart, setErrorChart] = useState('');
   const [editingCharacterId, setEditingCharacterId] = useState('');
-  const [characterDrafts, setCharacterDrafts] = useState<Record<string, { name: string; imageUrl: string }>>({});
+  const [characterDrafts, setCharacterDrafts] = useState<Record<string, { name: string; imageUrl: string; avatarConfig: AvatarConfig }>>({});
 
   const isCreator = deck?.creator_id === user?.id;
   const isTemporaryOfficialEditor = TEMP_OFFICIAL_DECK_EDITING_ENABLED && isOfficialDeckId(deckId);
@@ -102,6 +103,7 @@ export default function DeckEditorPage() {
         const sanitizedCharacters = (cData || []).map((char: any) => ({
           ...char,
           image_url: sanitizeStoredCharacterImageUrl(char.image_url),
+          avatar_config: char.avatar_config || DEFAULT_AVATAR_CONFIG,
         }));
 
         setDeck({ ...dData, creator_nickname: creatorNickname });
@@ -114,6 +116,7 @@ export default function DeckEditorPage() {
               {
                 name: char.name || '',
                 imageUrl: char.image_url || '',
+                avatarConfig: char.avatar_config || DEFAULT_AVATAR_CONFIG,
               },
             ]),
           ),
@@ -146,7 +149,6 @@ export default function DeckEditorPage() {
     if (!canEditDeck) return;
 
     const cleanName = charName.trim();
-    const cleanDesc = charDesc.trim();
 
     if (!cleanName) return;
 
@@ -162,22 +164,9 @@ export default function DeckEditorPage() {
       const isSafeName = await moderateText(cleanName);
 
       if (!isSafeName) {
-        setErrorChart('Nomes inadequados não são permitidos.');
+        setErrorChart('Nomes inadequados nao sao permitidos.');
         return;
       }
-
-      if (cleanDesc) {
-        const isSafeDesc = await moderateText(cleanDesc);
-
-        if (!isSafeDesc) {
-          setErrorChart('Descrições inadequadas não são permitidas.');
-          return;
-        }
-      }
-
-      const characterImageUrl = charImageFile
-        ? await uploadCharacterImage(charImageFile)
-        : await generateCharacterImage(cleanName, cleanDesc);
 
       const data = isTemporaryOfficialEditor
         ? await fetch('/api/official-decks/edit', {
@@ -187,7 +176,7 @@ export default function DeckEditorPage() {
               action: 'add-character',
               deckId,
               name: cleanName,
-              imageUrl: characterImageUrl,
+              imageUrl: '',
             }),
           }).then(async (res) => {
             const result = await res.json().catch(() => ({}));
@@ -200,7 +189,8 @@ export default function DeckEditorPage() {
               .insert({
                 deck_id: deckId,
                 name: cleanName,
-                image_url: characterImageUrl,
+                image_url: '',
+                avatar_config: avatarConfig,
               })
               .select()
               .single()
@@ -210,6 +200,7 @@ export default function DeckEditorPage() {
         const sanitizedCharacter = {
           ...data,
           image_url: sanitizeStoredCharacterImageUrl(data.image_url),
+          avatar_config: data.avatar_config || avatarConfig,
         };
 
         setCharacters((current) => [...current, sanitizedCharacter]);
@@ -218,85 +209,17 @@ export default function DeckEditorPage() {
           [sanitizedCharacter.id]: {
             name: sanitizedCharacter.name || '',
             imageUrl: sanitizedCharacter.image_url || '',
+            avatarConfig: sanitizedCharacter.avatar_config || DEFAULT_AVATAR_CONFIG,
           },
         }));
         setCharName('');
-        setCharDesc('');
-        setCharImageFile(null);
+        setAvatarConfig(DEFAULT_AVATAR_CONFIG);
       }
     } catch (error: any) {
       console.error('Failed to add character', error);
       setErrorChart(error.message || 'Nao foi possivel inserir o personagem.');
     } finally {
       setAdding(false);
-    }
-  };
-
-  const generateCharacterImage = async (name: string, description: string) => {
-    const response = await fetch('/api/generate-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name,
-        description,
-      }),
-    });
-
-    const result = await response.json().catch(() => ({}));
-
-    if (!response.ok || typeof result.url !== 'string') {
-      throw new Error(result.error || 'Nao foi possivel gerar a imagem. Tente enviar uma imagem manualmente.');
-    }
-
-    const cleanUrl = sanitizeGeneratedImageUrl(result.url);
-
-    if (!cleanUrl) {
-      throw new Error('A imagem gerada retornou uma URL invalida.');
-    }
-
-    return cleanUrl;
-  };
-
-  const uploadCharacterImage = async (file: File) => {
-    validateCharacterImageFile(file);
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch('/api/upload-character-image', {
-      method: 'POST',
-      body: formData,
-    });
-
-    const result = await response.json().catch(() => ({}));
-
-    if (!response.ok || typeof result.url !== 'string') {
-      throw new Error(result.error || 'Nao foi possivel enviar a imagem. Tente outra imagem.');
-    }
-
-    const cleanUrl = sanitizeGeneratedImageUrl(result.url);
-
-    if (!cleanUrl) {
-      throw new Error('A imagem enviada retornou uma URL invalida.');
-    }
-
-    return cleanUrl;
-  };
-
-  const handleCharacterFileChange = (file?: File | null) => {
-    setErrorChart('');
-
-    if (!file) {
-      setCharImageFile(null);
-      return;
-    }
-
-    try {
-      validateCharacterImageFile(file);
-      setCharImageFile(file);
-    } catch (error: any) {
-      setCharImageFile(null);
-      setErrorChart(error.message || 'Imagem invalida.');
     }
   };
 
@@ -380,6 +303,7 @@ export default function DeckEditorPage() {
     const draft = characterDrafts[char.id] || {
       name: char.name || '',
       imageUrl: char.image_url || '',
+      avatarConfig: char.avatar_config || DEFAULT_AVATAR_CONFIG,
     };
 
     const cleanName = draft.name.trim();
@@ -387,12 +311,12 @@ export default function DeckEditorPage() {
     const cleanImageUrl = rawImageUrl ? sanitizeGeneratedImageUrl(rawImageUrl) : '';
 
     if (!cleanName) {
-      alert('O nome do personagem não pode ficar vazio.');
+      alert('O nome do personagem nao pode ficar vazio.');
       return;
     }
 
-    if (rawImageUrl && !cleanImageUrl) {
-      alert('Essa URL de imagem é inválida ou é um fallback antigo ruim.');
+    if (isTemporaryOfficialEditor && rawImageUrl && !cleanImageUrl) {
+      alert('Essa URL de imagem e invalida ou e um fallback antigo ruim.');
       return;
     }
 
@@ -420,7 +344,8 @@ export default function DeckEditorPage() {
               .from('characters')
               .update({
                 name: cleanName,
-                image_url: cleanImageUrl,
+                image_url: '',
+                avatar_config: draft.avatarConfig || DEFAULT_AVATAR_CONFIG,
               })
               .eq('id', char.id)
               .select()
@@ -431,6 +356,7 @@ export default function DeckEditorPage() {
         const sanitizedCharacter = {
           ...updated,
           image_url: sanitizeStoredCharacterImageUrl(updated.image_url),
+          avatar_config: updated.avatar_config || draft.avatarConfig || DEFAULT_AVATAR_CONFIG,
         };
 
         setCharacters((current) => current.map((item) => (item.id === char.id ? sanitizedCharacter : item)));
@@ -439,6 +365,7 @@ export default function DeckEditorPage() {
           [sanitizedCharacter.id]: {
             name: sanitizedCharacter.name || '',
             imageUrl: sanitizedCharacter.image_url || '',
+            avatarConfig: sanitizedCharacter.avatar_config || DEFAULT_AVATAR_CONFIG,
           },
         }));
       }
@@ -624,7 +551,7 @@ export default function DeckEditorPage() {
               </h3>
 
               <div className="flex flex-col md:flex-row gap-4 items-start w-full">
-                <div className="w-full md:flex-1 space-y-1">
+                <div className="w-full md:max-w-md space-y-1">
                   <Input
                     placeholder="NOME DO PERSONAGEM, EX: SHREK, HARRY POTTER..."
                     value={charName}
@@ -643,26 +570,13 @@ export default function DeckEditorPage() {
                   )}
                 </div>
 
-                <div className="w-full md:flex-1 space-y-2">
-                  <Input
-                    placeholder="DESCREVA A APARÊNCIA (OPCIONAL): ex: cabelo cacheado, barba, pele escura, camisa verde..."
-                    value={charDesc}
-                    maxLength={120}
-                    onChange={(e) => {
-                      setCharDesc(e.target.value);
-                      if (errorChart) setErrorChart('');
-                    }}
-                    className="bg-slate-50 border-2 border-violet-100 h-12 rounded-xl text-xs font-semibold text-[#1e1b4b] focus-visible:ring-violet-200 placeholder:text-slate-400"
-                  />
-                </div>
-
                 <Button
                   onClick={handleAddChar}
                   disabled={adding || !charName.trim() || characters.length >= MAX_CHARACTERS_PER_DECK}
                   className="w-full md:w-auto h-12 px-6 btn-squishy-green text-white font-black uppercase text-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                 >
                   {adding ? (
-                    charImageFile ? 'Enviando...' : 'Gerando...'
+                    'Inserindo...'
                   ) : (
                     <>
                       <Plus className="w-4 h-4 font-black" /> Inserir Personagem
@@ -671,31 +585,13 @@ export default function DeckEditorPage() {
                 </Button>
               </div>
 
-              <div className="mt-4 flex flex-col md:flex-row gap-3 md:items-center">
-                <label className="w-full md:max-w-md flex flex-col gap-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-4 cursor-pointer hover:border-indigo-200 transition-colors">
-                  <span className="text-xs font-black uppercase text-indigo-700 flex items-center gap-2">
-                    <ImageIcon className="w-4 h-4" /> Imagem do personagem (opcional)
-                  </span>
-                  <span className="text-[11px] font-bold text-slate-400">
-                    PNG, JPG ou WEBP ate 5MB. Sem upload, o app gera com OpenAI.
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="sr-only"
-                    onChange={(event) => handleCharacterFileChange(event.target.files?.[0])}
-                  />
-                </label>
-
-                {charImageFile && (
-                  <div className="text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-xl">
-                    Imagem selecionada: {charImageFile.name}
-                  </div>
-                )}
+              <div className="mt-5 bg-slate-50/70 border-2 border-slate-100 rounded-2xl p-4">
+                <p className="text-xs font-black uppercase text-indigo-700 mb-3">Criar Avatar</p>
+                <AvatarBuilder value={avatarConfig} onChange={setAvatarConfig} />
               </div>
 
               <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
-                A descricao e opcional e ajuda a OpenAI a gerar uma imagem mais fiel quando nao houver upload.
+                Personalize o personagem em camadas. Cards criados por jogadores nao usam imagem externa.
               </p>
             </div>
           </motion.div>
@@ -725,6 +621,8 @@ export default function DeckEditorPage() {
                       <CharacterImage
                         name={char.name}
                         imageUrl={sanitizeStoredCharacterImageUrl(char.image_url)}
+                        avatarConfig={char.avatar_config}
+                        isOfficial={isOfficialDeckId(deckId)}
                         className="w-full h-full object-cover rounded-xl shadow-inner transition-transform duration-500 scale-100 group-hover:scale-105"
                         placeholderClassName="text-slate-300"
                       />
@@ -753,6 +651,7 @@ export default function DeckEditorPage() {
                               [char.id]: {
                                 name: event.target.value,
                                 imageUrl: current[char.id]?.imageUrl ?? char.image_url ?? '',
+                                avatarConfig: current[char.id]?.avatarConfig ?? char.avatar_config ?? DEFAULT_AVATAR_CONFIG,
                               },
                             }))
                           }
@@ -760,20 +659,40 @@ export default function DeckEditorPage() {
                           placeholder="Nome"
                         />
 
-                        <Input
-                          value={characterDrafts[char.id]?.imageUrl ?? char.image_url ?? ''}
-                          onChange={(event) =>
-                            setCharacterDrafts((current) => ({
-                              ...current,
-                              [char.id]: {
-                                name: current[char.id]?.name ?? char.name ?? '',
-                                imageUrl: event.target.value,
-                              },
-                            }))
-                          }
-                          className="h-8 text-[11px] font-semibold border-slate-200"
-                          placeholder="URL da imagem"
-                        />
+                        {isTemporaryOfficialEditor ? (
+                          <Input
+                            value={characterDrafts[char.id]?.imageUrl ?? char.image_url ?? ''}
+                            onChange={(event) =>
+                              setCharacterDrafts((current) => ({
+                                ...current,
+                                [char.id]: {
+                                  name: current[char.id]?.name ?? char.name ?? '',
+                                  imageUrl: event.target.value,
+                                  avatarConfig: current[char.id]?.avatarConfig ?? char.avatar_config ?? DEFAULT_AVATAR_CONFIG,
+                                },
+                              }))
+                            }
+                            className="h-8 text-[11px] font-semibold border-slate-200"
+                            placeholder="URL da imagem oficial"
+                          />
+                        ) : (
+                          <Button
+                            type="button"
+                            onClick={() =>
+                              setCharacterDrafts((current) => ({
+                                ...current,
+                                [char.id]: {
+                                  name: current[char.id]?.name ?? char.name ?? '',
+                                  imageUrl: '',
+                                  avatarConfig: randomAvatarConfig(),
+                                },
+                              }))
+                            }
+                            className="h-8 w-full text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100"
+                          >
+                            Randomizar visual
+                          </Button>
+                        )}
 
                         <Button
                           onClick={() => handleSaveCharacter(char)}
@@ -784,6 +703,7 @@ export default function DeckEditorPage() {
                         </Button>
                       </div>
                     )}
+
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -820,26 +740,7 @@ function isBadCharacterImageUrl(url: string) {
   if (normalized.includes('fallback-svg')) return true;
   if (normalized.includes('source=fallback')) return true;
 
-  if (normalized.startsWith('/official-cards/')) return true;
-  if (normalized.startsWith('/standard-cards/')) return true;
-
-  if (normalized.includes('/official-cards/')) return true;
-  if (normalized.includes('/standard-cards/')) return true;
-
   if (normalized.includes('/characters/') && normalized.endsWith('.svg')) return true;
 
   return false;
-}
-
-function validateCharacterImageFile(file: File) {
-  const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
-  const maxBytes = 5 * 1024 * 1024;
-
-  if (!allowedTypes.includes(file.type)) {
-    throw new Error('Envie uma imagem PNG, JPG ou WEBP.');
-  }
-
-  if (file.size > maxBytes) {
-    throw new Error('A imagem pode ter no maximo 5MB.');
-  }
 }

@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingArena from '@/components/LoadingArena';
 import CharacterImage from '@/components/CharacterImage';
+import AvatarBuilder from '@/components/avatar/AvatarBuilder';
+import { DEFAULT_AVATAR_CONFIG, type AvatarConfig } from '@/lib/avatarConfig';
 import { MAX_CHARACTERS_PER_DECK } from '@/lib/deckRules';
 
 const characterOrder = ['NEYMAR', 'MESSI', 'YAMAL', 'HULK_MARVEL', 'HULK_FLUMINENSE', 'HULK', 'THOR'];
@@ -40,7 +42,7 @@ export default function DeckEditorPage() {
   const [isFavorited, setIsFavorited] = useState(false);
 
   const [charName, setCharName] = useState('');
-  const [charDesc, setCharDesc] = useState('');
+  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(DEFAULT_AVATAR_CONFIG);
   const [deckImage, setDeckImage] = useState('');
   const [adding, setAdding] = useState(false);
   const [updatingDeck, setUpdatingDeck] = useState(false);
@@ -133,40 +135,17 @@ export default function DeckEditorPage() {
       return;
     }
 
-    let finalImageUrl = '';
-
-    if (!finalImageUrl) {
-      try {
-        const res = await fetch('/api/generate-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: charDesc.trim()
-              ? `${charName}, ${charDesc.trim()}. Realistic and detailed character portrait.`
-              : `${charName}. Character portrait.`
-          })
-        });
-
-        if (res.ok) {
-          const { url } = await res.json();
-          finalImageUrl = url;
-        }
-      } catch (err) {
-        console.error('Failed to generate image', err);
-      }
-    }
-
     const { data } = await supabaseGame.from('characters').insert({
       deck_id: deckId || null,
       name: charName,
-      description: charDesc,
-      image_url: finalImageUrl || ''
+      image_url: '',
+      avatar_config: avatarConfig,
     }).select().single();
 
     if (data) {
       setCharacters([...characters, data]);
       setCharName('');
-      setCharDesc('');
+      setAvatarConfig(DEFAULT_AVATAR_CONFIG);
     }
 
     setAdding(false);
@@ -390,16 +369,6 @@ export default function DeckEditorPage() {
                   )}
                 </div>
 
-                <div className="w-full md:flex-1 space-y-2">
-                  <Input
-                    placeholder="DESCREVA A APARÊNCIA (OPCIONAL): ex: cabelo cacheado, barba, pele escura, camisa verde..."
-                    value={charDesc}
-                    maxLength={120}
-                    onChange={(e) => setCharDesc(e.target.value)}
-                    className="bg-slate-50 border-2 border-violet-100 h-12 rounded-xl text-xs font-semibold text-[#1e1b4b] focus-visible:ring-violet-200 placeholder:text-slate-400"
-                  />
-                </div>
-
                 <Button
                   onClick={handleAddChar}
                   disabled={adding || !charName.trim() || characters.length >= MAX_CHARACTERS_PER_DECK}
@@ -415,8 +384,13 @@ export default function DeckEditorPage() {
                 </Button>
               </div>
 
+              <div className="mt-5 bg-slate-50/70 border-2 border-slate-100 rounded-2xl p-4">
+                <p className="text-xs font-black uppercase text-indigo-700 mb-3">Criar Avatar</p>
+                <AvatarBuilder value={avatarConfig} onChange={setAvatarConfig} />
+              </div>
+
               <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
-                Personagem pouco conhecido? Descreva a aparência dele para a IA criar um avatar mais fiel!
+                Personalize o personagem em camadas. Cards criados por jogadores nao usam imagem externa.
               </p>
             </div>
           </motion.div>
@@ -446,6 +420,8 @@ export default function DeckEditorPage() {
                       <CharacterImage
                         name={char.name}
                         imageUrl={char.image_url}
+                        avatarConfig={char.avatar_config}
+                        isOfficial={!deckId}
                         className="w-full h-full object-cover rounded-xl shadow-inner transition-transform duration-500 scale-100 group-hover:scale-105"
                         placeholderClassName="text-slate-300"
                       />

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 export const dynamic = 'force-dynamic';
 
-const PROMPT_VERSION = 'groq-pollinations-direct-url-v15';
+const PROMPT_VERSION = 'proxy-pollinations-card-v21';
 
 type RuntimeEnv = Record<string, unknown>;
 
@@ -21,12 +20,6 @@ type NormalizedCharacterInput = {
   normalizedName: string;
 };
 
-type GeneratedImage = {
-  bytes: Uint8Array;
-  contentType: string;
-  provider: 'pollinations-download';
-};
-
 type GroqChatResponse = {
   choices?: Array<{
     message?: {
@@ -38,25 +31,27 @@ type GroqChatResponse = {
   };
 };
 
-type R2BucketLike = {
-  put: (
-    key: string,
-    value: ArrayBuffer | ArrayBufferView | string | ReadableStream | null,
-    options?: {
-      httpMetadata?: {
-        contentType?: string;
-        cacheControl?: string;
-      };
-    },
-  ) => Promise<unknown>;
-};
-
 type CharacterHint = {
   aliases: string[];
   visual: string;
 };
 
 const CHARACTER_HINTS: CharacterHint[] = [
+  {
+    aliases: ['thanos'],
+    visual:
+      'Thanos, massive purple-skinned titan villain, bald head, deeply furrowed chin, gold and dark blue armor, intimidating expression, cosmic fiery background, powerful stance',
+  },
+  {
+    aliases: ['darth vader'],
+    visual:
+      'Darth Vader, black armored Sith lord, glossy black helmet, triangular breathing mask, black cape, red lightsaber glow, dark smoky sci-fi background, intimidating silhouette',
+  },
+  {
+    aliases: ['bruxa má do oeste', 'bruxa ma do oeste', 'wicked witch of the west'],
+    visual:
+      'Wicked Witch of the West, green-skinned witch, long hooked nose, black pointed hat, black robes, sinister expression, dark magical green smoke background',
+  },
   {
     aliases: ['sonic', 'sonic the hedgehog'],
     visual:
@@ -169,55 +164,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    const seed = stableSeed(`${PROMPT_VERSION}:${input.fullText}`);
     const prompt = await buildFinalPrompt(input, env);
-    const urls = buildPollinationsUrls(prompt, seed, env);
+    const seed = stableSeed(`${PROMPT_VERSION}:${input.fullText}`);
+    const width = getNumberEnv(env, 'POLLINATIONS_IMAGE_WIDTH', 768);
+    const height = getNumberEnv(env, 'POLLINATIONS_IMAGE_HEIGHT', 960);
+    const model = getStringEnv(env, 'POLLINATIONS_IMAGE_MODEL') || 'flux';
+    const url = buildInternalImageProxyUrl(prompt, seed, width, height, model);
 
-    for (const url of urls) {
-      const image = await downloadPollinationsImage(url);
-
-      if (!image) continue;
-
-      const key = `characters/${slugify(input.displayName)}_${Date.now()}_${seed}.${extensionFromContentType(image.contentType)}`;
-      const uploadedUrl = await uploadImageToStorage(key, image.bytes, image.contentType, env);
-
-      if (uploadedUrl) {
-        return NextResponse.json({
-          url: uploadedUrl,
-          prompt,
-          source: 'pollinations-r2',
-        });
-      }
-
-      return NextResponse.json({
-        url: `data:${image.contentType};base64,${bytesToBase64(image.bytes)}`,
-        prompt,
-        source: 'pollinations-data-uri',
-      });
-    }
-
-    const directUrl = urls[0];
-
-    if (directUrl) {
-      return NextResponse.json({
-        url: directUrl,
-        prompt,
-        source: 'pollinations-direct-url',
-        warning: 'Worker nao conseguiu baixar a imagem, entao retornou a URL direta do Pollinations.',
-      });
-    }
-
-    return NextResponse.json(
-      {
-        url: '',
-        prompt,
-        source: 'no-url-built',
-        error: 'Nao foi possivel montar a URL da imagem.',
-      },
-      { status: 500 },
-    );
+    return NextResponse.json({
+      url,
+      prompt,
+      source: 'internal-pollinations-proxy',
+    });
   } catch (error: unknown) {
-    console.error('Image generation error:', error);
+    console.error('Image generation route error:', error);
     const message = error instanceof Error ? error.message : 'Internal error';
 
     return NextResponse.json({ error: message }, { status: 500 });
@@ -242,7 +202,7 @@ async function getRuntimeEnv(): Promise<RuntimeEnv> {
       const context = getCloudflareContext() as unknown as { env: RuntimeEnv };
       Object.assign(merged, context.env);
     } catch {
-      // Local fora do Cloudflare.
+      // Fora do Cloudflare/OpenNext.
     }
   }
 
@@ -306,7 +266,7 @@ function sanitizeDescription(value: string) {
     .replace(/\s+/g, ' ')
     .replace(/[,.]\s*$/g, '')
     .trim()
-    .slice(0, 320);
+    .slice(0, 260);
 }
 
 async function buildFinalPrompt(input: NormalizedCharacterInput, env: RuntimeEnv) {
@@ -337,13 +297,13 @@ async function buildPromptWithGroq(input: NormalizedCharacterInput, env: Runtime
       },
       body: JSON.stringify({
         model,
-        temperature: 0.25,
-        max_tokens: 650,
+        temperature: 0.2,
+        max_tokens: 520,
         messages: [
           {
             role: 'system',
             content:
-              'You write strong English prompts for AI image generation. Return only the final prompt text. No markdown. No JSON. No explanations.',
+              'You write concise English prompts for AI image generation. Return only the final prompt text. No markdown. No JSON. No explanations.',
           },
           {
             role: 'user',
@@ -353,7 +313,7 @@ Character name: ${input.displayName}
 User appearance details: ${description}
 Known visual identity: ${hint || 'infer the most recognizable visual identity from the character name if known'}
 
-The image must look like the named character, not a generic avatar.
+The result must look like the named character, not a generic avatar.
 
 Style:
 premium vertical collectible trading card, cinematic digital painting, polished fan-art, centered chest-up character, recognizable face, accurate costume, iconic colors, iconic accessories, iconic silhouette, dynamic background related to the character, dramatic lighting, black and metallic gold card border.
@@ -385,17 +345,17 @@ flat vector, simple geometric avatar, emoji, childish drawing, stick figure, gen
 
 function buildDirectPrompt(input: NormalizedCharacterInput) {
   const hint = getCharacterHint(input);
-  const description = input.description ? `User custom appearance details: ${input.description}.` : '';
+  const description = input.description ? `User details: ${input.description}.` : '';
   const identity = hint || `use the most recognizable visual identity of ${input.displayName}`;
 
   return clampPrompt(`
 Premium vertical collectible trading card illustration.
 Character: ${input.displayName}.
-Recognizable visual identity: ${identity}.
+Visual identity: ${identity}.
 ${description}
-Make the image immediately recognizable as ${input.displayName}, not generic.
+Make the image immediately recognizable as ${input.displayName}.
 Cinematic digital painting, polished fan-art, centered chest-up character, expressive face, accurate hair, accurate costume, iconic colors, iconic accessories, dynamic character-related background, dramatic lighting, crisp details, black and metallic gold card border.
-Avoid flat vector, simple geometric avatar, emoji, childish drawing, stick figure, generic face, generic costume, placeholder, readable text, letters, watermark, logo.
+No flat vector, no simple geometric avatar, no emoji, no childish drawing, no stick figure, no generic face, no generic costume, no placeholder, no readable text, no letters, no watermark, no logo.
 `.trim());
 }
 
@@ -434,191 +394,27 @@ function getCharacterHint(input: NormalizedCharacterInput) {
   return partial?.visual || '';
 }
 
-function buildPollinationsUrls(prompt: string, seed: number, env: RuntimeEnv) {
-  const apiKey = getStringEnv(env, 'POLLINATIONS_API_KEY');
-  const width = getNumberEnv(env, 'POLLINATIONS_IMAGE_WIDTH', 768);
-  const height = getNumberEnv(env, 'POLLINATIONS_IMAGE_HEIGHT', 960);
-  const preferredModel = getStringEnv(env, 'POLLINATIONS_IMAGE_MODEL') || 'flux';
-  const models = uniqueStrings([preferredModel, 'flux', 'turbo']);
+function buildInternalImageProxyUrl(prompt: string, seed: number, width: number, height: number, model: string) {
+  const params = new URLSearchParams();
 
-  const urls: string[] = [];
+  params.set('p', base64UrlEncode(prompt));
+  params.set('s', String(seed));
+  params.set('w', String(width));
+  params.set('h', String(height));
+  params.set('m', model);
 
-  for (const model of models) {
-    urls.push(buildPollinationsUrl('https://image.pollinations.ai/prompt', prompt, seed, width, height, model, apiKey));
-    urls.push(buildPollinationsUrl('https://gen.pollinations.ai/image', prompt, seed, width, height, model, apiKey));
-  }
-
-  return uniqueStrings(urls);
+  return `/api/generated-character-image?${params.toString()}`;
 }
 
-function buildPollinationsUrl(
-  base: string,
-  prompt: string,
-  seed: number,
-  width: number,
-  height: number,
-  model: string,
-  apiKey: string,
-) {
-  const url = new URL(`${base}/${encodeURIComponent(prompt)}`);
-
-  url.searchParams.set('width', String(width));
-  url.searchParams.set('height', String(height));
-  url.searchParams.set('seed', String(seed));
-  url.searchParams.set('model', model);
-  url.searchParams.set('nologo', 'true');
-  url.searchParams.set('private', 'true');
-  url.searchParams.set('safe', 'true');
-  url.searchParams.set('enhance', 'true');
-
-  if (apiKey) {
-    url.searchParams.set('key', apiKey);
-  }
-
-  return url.toString();
-}
-
-async function downloadPollinationsImage(url: string): Promise<GeneratedImage | null> {
-  try {
-    const response = await fetchWithTimeout(url, {
-      method: 'GET',
-      headers: {
-        Accept: 'image/*',
-      },
-    });
-
-    if (!response.ok) {
-      console.warn('Pollinations download failed:', response.status, response.statusText);
-      return null;
-    }
-
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
-
-    if (!contentType.startsWith('image/')) {
-      console.warn('Pollinations returned non-image:', contentType);
-      return null;
-    }
-
-    const bytes = new Uint8Array(await response.arrayBuffer());
-
-    if (bytes.byteLength < 10_000) {
-      console.warn('Pollinations returned invalid small image.');
-      return null;
-    }
-
-    return {
-      bytes,
-      contentType,
-      provider: 'pollinations-download',
-    };
-  } catch (error) {
-    console.warn('Pollinations request failed:', error);
-    return null;
-  }
-}
-
-async function uploadImageToStorage(key: string, bytes: Uint8Array, contentType: string, env: RuntimeEnv) {
-  const directR2Url = await uploadImageToDirectR2Binding(key, bytes, contentType, env);
-
-  if (directR2Url) return directR2Url;
-
-  return uploadImageToR2S3Api(key, bytes, contentType, env);
-}
-
-async function uploadImageToDirectR2Binding(key: string, bytes: Uint8Array, contentType: string, env: RuntimeEnv) {
-  const bucket = getR2BucketBinding(env);
-  const publicUrl = getStringEnv(env, 'R2_PUBLIC_URL');
-
-  if (!bucket || !publicUrl) return '';
-
-  try {
-    await bucket.put(key, bytes, {
-      httpMetadata: {
-        contentType,
-        cacheControl: 'public, max-age=31536000, immutable',
-      },
-    });
-
-    return joinPublicUrl(publicUrl, key);
-  } catch (error) {
-    console.warn('Direct R2 binding upload failed:', error);
-    return '';
-  }
-}
-
-function getR2BucketBinding(env: RuntimeEnv): R2BucketLike | null {
-  const names = ['CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
-
-  for (const name of names) {
-    const value = env[name];
-
-    if (isR2BucketLike(value)) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
-function isR2BucketLike(value: unknown): value is R2BucketLike {
-  return Boolean(value && typeof value === 'object' && 'put' in value && typeof (value as { put?: unknown }).put === 'function');
-}
-
-async function uploadImageToR2S3Api(key: string, bytes: Uint8Array, contentType: string, env: RuntimeEnv) {
-  const accountId = getStringEnv(env, 'R2_ACCOUNT_ID') || getStringEnv(env, 'CLOUDFLARE_ACCOUNT_ID');
-  const accessKeyId = getStringEnv(env, 'R2_ACCESS_KEY_ID');
-  const secretAccessKey = getStringEnv(env, 'R2_SECRET_ACCESS_KEY');
-  const bucketName = getStringEnv(env, 'R2_BUCKET_NAME');
-  const publicUrl = getStringEnv(env, 'R2_PUBLIC_URL');
-
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucketName || !publicUrl) {
-    return '';
-  }
-
-  try {
-    const s3Client = new S3Client({
-      region: 'auto',
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
-    });
-
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: bucketName,
-        Key: key,
-        Body: bytes,
-        ContentType: contentType,
-        CacheControl: 'public, max-age=31536000, immutable',
-      }),
-    );
-
-    return joinPublicUrl(publicUrl, key);
-  } catch (error) {
-    console.warn('R2 S3 API upload failed:', error);
-    return '';
-  }
-}
-
-function joinPublicUrl(base: string, key: string) {
-  return base.endsWith('/') ? `${base}${key}` : `${base}/${key}`;
-}
-
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 55_000) {
+function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 40_000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  try {
-    return await fetch(url, {
-      ...init,
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
+  return fetch(url, {
+    ...init,
+    signal: controller.signal,
+    cache: 'no-store',
+  }).finally(() => clearTimeout(timeout));
 }
 
 async function safeJson(response: Response) {
@@ -651,27 +447,12 @@ function normalizeSearchText(value: string) {
     .trim();
 }
 
-function slugify(value: string) {
-  const slug = normalizeSearchText(value).replace(/\s+/g, '-').replace(/^-+|-+$/g, '').slice(0, 56);
-  return slug || 'character';
-}
-
 function clampPrompt(prompt: string) {
-  return prompt.replace(/\s+/g, ' ').trim().slice(0, 1600);
+  return prompt.replace(/\s+/g, ' ').trim().slice(0, 1200);
 }
 
-function extensionFromContentType(contentType: string) {
-  if (contentType.includes('png')) return 'png';
-  if (contentType.includes('webp')) return 'webp';
-  if (contentType.includes('jpeg') || contentType.includes('jpg')) return 'jpg';
-  return 'jpg';
-}
-
-function bytesToBase64(bytes: Uint8Array) {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(bytes).toString('base64');
-  }
-
+function base64UrlEncode(value: string) {
+  const bytes = new TextEncoder().encode(value);
   let binary = '';
   const chunkSize = 0x8000;
 
@@ -680,9 +461,5 @@ function bytesToBase64(bytes: Uint8Array) {
     binary += String.fromCharCode(...Array.from(chunk));
   }
 
-  return btoa(binary);
-}
-
-function uniqueStrings(values: string[]) {
-  return values.filter((value, index, list) => Boolean(value) && list.indexOf(value) === index);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }

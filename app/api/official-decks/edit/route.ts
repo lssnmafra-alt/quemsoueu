@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { isOfficialDeckId, TEMP_OFFICIAL_DECK_EDITING_ENABLED } from '@/lib/officialDecks';
-import { MAX_CHARACTERS_PER_DECK } from '@/lib/deckRules';
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL_GAME || process.env.SUPABASE_URL_GAME || process.env.SUPABASE_GAME_URL;
@@ -36,42 +35,17 @@ export async function POST(req: NextRequest) {
     const supabase = getAdminClient();
 
     if (action === 'add-character') {
-      const { count } = await supabase
-        .from('characters')
-        .select('id', { count: 'exact', head: true })
-        .eq('deck_id', deckId);
-
-      if ((count || 0) >= MAX_CHARACTERS_PER_DECK) {
-        return NextResponse.json({ error: `Cada baralho pode ter no maximo ${MAX_CHARACTERS_PER_DECK} personagens.` }, { status: 400 });
-      }
-
-      const name = String(body.name || '').trim();
-      if (!name) return NextResponse.json({ error: 'Nome obrigatorio.' }, { status: 400 });
-
-      const { data, error } = await supabase
-        .from('characters')
-        .insert({
-          deck_id: deckId,
-          name,
-          image_url: String(body.imageUrl || ''),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return NextResponse.json({ character: data });
+      return NextResponse.json(
+        { error: 'Criacao de cards oficiais desativada. Edite/anexe imagem nos cards existentes.' },
+        { status: 403 },
+      );
     }
 
     if (action === 'delete-character') {
-      const characterId = String(body.characterId || '');
-      const { error } = await supabase
-        .from('characters')
-        .delete()
-        .eq('id', characterId)
-        .eq('deck_id', deckId);
-
-      if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return NextResponse.json(
+        { error: 'Exclusao de cards oficiais desativada. Edite/anexe imagem nos cards existentes.' },
+        { status: 403 },
+      );
     }
 
     if (action === 'update-character') {

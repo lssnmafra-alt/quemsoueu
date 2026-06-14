@@ -40,6 +40,8 @@ export default function DeckEditorPage() {
   const isCreator = deck?.creator_id === user?.id;
   const isTemporaryOfficialEditor = TEMP_OFFICIAL_DECK_EDITING_ENABLED && isOfficialDeckId(deckId);
   const canEditDeck = isCreator || isTemporaryOfficialEditor;
+  const canCreateCharacters = isCreator && !isTemporaryOfficialEditor;
+  const canDeleteCharacters = isCreator;
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
@@ -146,7 +148,10 @@ export default function DeckEditorPage() {
   };
 
   const handleAddChar = async () => {
-    if (!canEditDeck) return;
+    if (!canCreateCharacters) {
+      setErrorChart('Criacao de cards oficiais esta desativada. Edite/anexe imagem nos cards existentes.');
+      return;
+    }
 
     const cleanName = charName.trim();
 
@@ -168,33 +173,18 @@ export default function DeckEditorPage() {
         return;
       }
 
-      const data = isTemporaryOfficialEditor
-        ? await fetch('/api/official-decks/edit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'add-character',
-              deckId,
-              name: cleanName,
-              imageUrl: '',
-            }),
-          }).then(async (res) => {
-            const result = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(result.error || 'Nao foi possivel inserir o personagem.');
-            return result.character;
+      const data = (
+        await supabaseGame
+          .from('characters')
+          .insert({
+            deck_id: deckId,
+            name: cleanName,
+            image_url: '',
+            avatar_config: avatarConfig,
           })
-        : (
-            await supabaseGame
-              .from('characters')
-              .insert({
-                deck_id: deckId,
-                name: cleanName,
-                image_url: '',
-                avatar_config: avatarConfig,
-              })
-              .select()
-              .single()
-          ).data;
+          .select()
+          .single()
+      ).data;
 
       if (data) {
         const sanitizedCharacter = {
@@ -224,23 +214,9 @@ export default function DeckEditorPage() {
   };
 
   const handleDeleteChar = async (id: string) => {
-    if (!canEditDeck) return;
+    if (!canDeleteCharacters) return;
 
-    if (isTemporaryOfficialEditor) {
-      const response = await fetch('/api/official-decks/edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete-character', deckId, characterId: id }),
-      });
-
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
-        alert(result.error || 'Nao foi possivel excluir o personagem.');
-        return;
-      }
-    } else {
-      await supabaseGame.from('characters').delete().eq('id', id);
-    }
+    await supabaseGame.from('characters').delete().eq('id', id);
 
     setCharacters((current) => current.filter((char) => char.id !== id));
     setCharacterDrafts((current) => {
@@ -545,55 +521,56 @@ export default function DeckEditorPage() {
               </div>
             </div>
 
-            <div className="border-t border-slate-100 pt-6">
-              <h3 className="text-xl font-black text-indigo-950 uppercase tracking-wide mb-4 flex items-center gap-2">
-                <Plus className="w-6 h-6 text-indigo-500 stroke-[3px]" /> Adicionar Novo Personagem
-              </h3>
+            {canCreateCharacters && (
+              <div className="border-t border-slate-100 pt-6">
+                <h3 className="text-xl font-black text-indigo-950 uppercase tracking-wide mb-4 flex items-center gap-2">
+                  <Plus className="w-6 h-6 text-indigo-500 stroke-[3px]" /> Adicionar Novo Personagem
+                </h3>
 
-              <div className="flex flex-col md:flex-row gap-4 items-start w-full">
-                <div className="w-full md:max-w-md space-y-1">
-                  <Input
-                    placeholder="NOME DO PERSONAGEM, EX: SHREK, HARRY POTTER..."
-                    value={charName}
-                    maxLength={35}
-                    onChange={(e) => {
-                      setCharName(e.target.value);
-                      if (errorChart) setErrorChart('');
-                    }}
-                    className="bg-slate-50 border-2 border-slate-200 h-12 rounded-xl text-sm font-bold text-[#1e1b4b] focus-visible:ring-indigo-150"
-                  />
+                <div className="flex flex-col md:flex-row gap-4 items-start w-full">
+                  <div className="w-full md:max-w-md space-y-1">
+                    <Input
+                      placeholder="NOME DO PERSONAGEM, EX: SHREK, HARRY POTTER..."
+                      value={charName}
+                      maxLength={35}
+                      onChange={(e) => {
+                        setCharName(e.target.value);
+                        if (errorChart) setErrorChart('');
+                      }}
+                      className="bg-slate-50 border-2 border-slate-200 h-12 rounded-xl text-sm font-bold text-[#1e1b4b] focus-visible:ring-indigo-150"
+                    />
 
-                  {errorChart && (
-                    <p className="text-xs font-bold text-rose-500 bg-rose-50 border border-rose-100 p-2 mt-2 rounded-xl">
-                      {errorChart}
-                    </p>
-                  )}
+                    {errorChart && (
+                      <p className="text-xs font-bold text-rose-500 bg-rose-50 border border-rose-100 p-2 mt-2 rounded-xl">
+                        {errorChart}
+                      </p>
+                    )}
+                  </div>
+
+                  <Button
+                    onClick={handleAddChar}
+                    disabled={adding || !charName.trim() || characters.length >= MAX_CHARACTERS_PER_DECK}
+                    className="w-full md:w-auto h-12 px-6 btn-squishy-green text-white font-black uppercase text-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    {adding ? (
+                      'Inserindo...'
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 font-black" /> Inserir Personagem
+                      </>
+                    )}
+                  </Button>
                 </div>
 
-                <Button
-                  onClick={handleAddChar}
-                  disabled={adding || !charName.trim() || characters.length >= MAX_CHARACTERS_PER_DECK}
-                  className="w-full md:w-auto h-12 px-6 btn-squishy-green text-white font-black uppercase text-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-                >
-                  {adding ? (
-                    'Inserindo...'
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4 font-black" /> Inserir Personagem
-                    </>
-                  )}
-                </Button>
-              </div>
+                <div className="mt-4">
+                  <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
+                </div>
 
-              <div className="mt-5 bg-slate-50/70 border-2 border-slate-100 rounded-2xl p-4">
-                <p className="text-xs font-black uppercase text-indigo-700 mb-3">Criar Avatar</p>
-                <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
+                <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
+                  Personalize o personagem em camadas. Cards criados por jogadores nao usam imagem externa.
+                </p>
               </div>
-
-              <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
-                Personalize o personagem em camadas. Cards criados por jogadores nao usam imagem externa.
-              </p>
-            </div>
+            )}
           </motion.div>
         )}
 
@@ -632,7 +609,7 @@ export default function DeckEditorPage() {
                       <span className="text-sm font-black text-[#1e1b4b] truncate block text-center">{char.name}</span>
                     </div>
 
-                    {canEditDeck && (
+                    {canDeleteCharacters && (
                       <button
                         onClick={() => handleDeleteChar(char.id)}
                         className="absolute top-2.5 right-2.5 p-2 bg-rose-50 border border-rose-200 z-30 rounded-xl text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 shadow-md opacity-0 group-hover:opacity-100 transition-all cursor-pointer"

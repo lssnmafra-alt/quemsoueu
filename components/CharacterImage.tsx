@@ -45,7 +45,7 @@ export default function CharacterImage({
 
   if (!src) {
     if (!isOfficial) {
-      return <AvatarRenderer config={avatarConfig} className={className} />;
+      return <AvatarRenderer config={avatarConfig} name={name} className={className} />;
     }
 
     return (

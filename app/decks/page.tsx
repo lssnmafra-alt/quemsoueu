@@ -386,7 +386,7 @@ export default function DeckEditorPage() {
 
               <div className="mt-5 bg-slate-50/70 border-2 border-slate-100 rounded-2xl p-4">
                 <p className="text-xs font-black uppercase text-indigo-700 mb-3">Criar Avatar</p>
-                <AvatarBuilder value={avatarConfig} onChange={setAvatarConfig} />
+                <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
               </div>
 
               <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">

@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 
 type AvatarRendererProps = {
   config?: AvatarConfig | null;
+  name?: string;
   className?: string;
 };
 
@@ -15,9 +16,12 @@ const skinColors: Record<string, string> = {
   'skin-03': '#b8733f',
   'skin-04': '#8b4f2f',
   'skin-05': '#5b2e1f',
+  'skin-06': '#22c55e',
+  'skin-07': '#7c3aed',
+  'skin-08': '#38bdf8',
 };
 
-export default function AvatarRenderer({ config, className }: AvatarRendererProps) {
+export default function AvatarRenderer({ config, name, className }: AvatarRendererProps) {
   const avatar = normalizeAvatarConfig(config || DEFAULT_AVATAR_CONFIG);
   const skin = skinColors[avatar.skin] || skinColors['skin-02'];
 
@@ -48,6 +52,7 @@ export default function AvatarRenderer({ config, className }: AvatarRendererProp
       </g>
 
       {renderFrame(avatar.frame)}
+      {name && renderCardName(name, avatar.frame)}
     </svg>
   );
 }
@@ -60,6 +65,10 @@ function renderBackgroundGradient(background: string) {
     'bg-04': ['#2e1065', '#7c3aed', '#22d3ee'],
     'bg-05': ['#111827', '#334155', '#facc15'],
     'bg-06': ['#052e16', '#16a34a', '#bef264'],
+    'bg-07': ['#450a0a', '#991b1b', '#f8fafc'],
+    'bg-08': ['#020617', '#312e81', '#f59e0b'],
+    'bg-09': ['#020617', '#1e1b4b', '#64748b'],
+    'bg-10': ['#064e3b', '#16a34a', '#facc15'],
   };
   const [a, b, c] = gradients[background] || gradients['bg-01'];
 
@@ -120,6 +129,48 @@ function renderBackgroundDetails(background: string) {
     );
   }
 
+  if (background === 'bg-07') {
+    return (
+      <g opacity="0.42">
+        <path d="M0 320 C58 230 76 160 32 88 C92 136 126 210 82 320 Z" fill="#ef4444" />
+        <path d="M240 320 C182 230 164 160 208 88 C148 136 114 210 158 320 Z" fill="#f8fafc" />
+        <circle cx="195" cy="70" r="26" fill="#dc2626" />
+      </g>
+    );
+  }
+
+  if (background === 'bg-08') {
+    return (
+      <g opacity="0.55">
+        <circle cx="50" cy="68" r="2" fill="#fff" />
+        <circle cx="94" cy="42" r="3" fill="#fff" />
+        <circle cx="190" cy="88" r="2" fill="#fff" />
+        <circle cx="180" cy="230" r="36" fill="#f59e0b" opacity="0.35" />
+        <path d="M34 245 C96 200 156 190 222 226" stroke="#a78bfa" strokeWidth="4" fill="none" />
+      </g>
+    );
+  }
+
+  if (background === 'bg-09') {
+    return (
+      <g fill="#020617" opacity="0.72">
+        <path d="M42 88 Q56 74 70 88 Q56 84 42 88 Z" />
+        <path d="M162 76 Q178 60 194 76 Q178 72 162 76 Z" />
+        <path d="M150 132 Q170 112 190 132 Q170 126 150 132 Z" />
+      </g>
+    );
+  }
+
+  if (background === 'bg-10') {
+    return (
+      <g opacity="0.45">
+        <rect x="0" y="230" width="240" height="90" fill="#14532d" />
+        <path d="M10 252 H230 M40 230 V320 M200 230 V320" stroke="#f8fafc" strokeWidth="4" />
+        <circle cx="120" cy="250" r="28" stroke="#f8fafc" strokeWidth="3" fill="none" />
+      </g>
+    );
+  }
+
   return (
     <g opacity="0.25">
       <circle cx="44" cy="48" r="28" fill="#fff" />
@@ -135,6 +186,8 @@ function renderFace(face: string, skin: string) {
     'face-02': <ellipse cx="120" cy="130" rx="48" ry="58" fill={skin} />,
     'face-03': <path d="M76 92 H164 L172 146 C168 190 72 190 68 146 Z" fill={skin} />,
     'face-04': <path d="M82 105 C88 68 152 68 158 105 L150 172 C142 205 98 205 90 172 Z" fill={skin} />,
+    'face-05': <path d="M70 104 C72 64 168 64 170 104 L162 174 C152 210 88 210 78 174 Z" fill={skin} />,
+    'face-06': <path d="M74 92 H166 L160 172 C150 198 90 198 80 172 Z" fill={skin} />,
   };
 
   return shapes[face] || shapes['face-01'];
@@ -206,6 +259,31 @@ function renderEyes(eyes: string) {
     );
   }
 
+  if (eyes === 'eyes-07') {
+    return (
+      <g>
+        <circle cx="102" cy="128" r="9" fill="#f8fafc" />
+        <circle cx="138" cy="128" r="9" fill="#f8fafc" />
+        <circle cx="102" cy="128" r="3" fill="#dc2626" />
+        <circle cx="138" cy="128" r="3" fill="#dc2626" />
+        <path d="M94 110 L108 124 M146 110 L132 124" stroke="#dc2626" strokeWidth="4" strokeLinecap="round" />
+      </g>
+    );
+  }
+
+  if (eyes === 'eyes-08') {
+    return (
+      <g>
+        <path d="M86 118 H154 L146 138 H94 Z" fill="#facc15" stroke="#111827" strokeWidth="4" />
+        <path d="M96 128 H116 M126 128 H146" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" />
+      </g>
+    );
+  }
+
+  if (eyes === 'eyes-09') {
+    return <path d="M84 118 H156 L150 136 H90 Z" fill="#0f172a" stroke="#22d3ee" strokeWidth="4" />;
+  }
+
   return (
     <g>
       <ellipse cx="102" cy="128" rx="8" ry="7" fill="#fff" />
@@ -239,6 +317,20 @@ function renderHair(hair: string, color: string) {
     'hair-04': <path d="M74 110 C78 66 164 66 168 110 L178 196 C156 184 150 140 160 112 C134 104 106 104 80 112 C90 140 84 184 62 196 Z" fill={hairColor} />,
     'hair-05': <path d="M74 110 C86 70 124 60 166 82 C142 82 136 94 170 110 C136 100 106 102 74 118 Z" fill={hairColor} />,
     'hair-06': <path d="M102 110 L116 48 L128 110 C118 104 110 104 102 110 Z M80 118 C92 96 148 96 160 118 C132 104 108 104 80 118 Z" fill={hairColor} />,
+    'hair-07': <path d="M60 118 C68 74 96 58 126 72 C154 84 160 104 158 130 C130 104 98 104 76 126 Z M158 118 C176 128 182 154 174 182 C160 154 152 132 158 118 Z" fill={hairColor} />,
+    'hair-08': <path d="M86 106 C96 72 146 72 156 106 C132 98 110 98 86 106 Z" fill={shade(hairColor)} opacity="0.12" />,
+    'hair-09': <path d="M66 116 C66 66 174 66 174 116 L162 174 C148 138 92 138 78 174 Z" fill={hairColor} />,
+    'hair-10': <path d="M66 120 L86 66 L98 100 L118 42 L128 100 L154 52 L150 106 L176 82 L164 130 C136 104 102 104 66 120 Z" fill={hairColor} />,
+    'hair-11': <path d="M72 112 C78 62 166 62 168 112 C150 98 130 96 120 112 C108 94 90 98 72 112 Z M78 112 L60 180 L88 156 Z M162 112 L180 180 L152 156 Z" fill={hairColor} />,
+    'hair-12': (
+      <g stroke={hairColor} strokeWidth="8" strokeLinecap="round" fill="none">
+        <path d="M84 104 C74 134 70 158 76 188" />
+        <path d="M102 94 C94 132 94 162 102 198" />
+        <path d="M138 94 C146 132 146 162 138 198" />
+        <path d="M156 104 C166 134 170 158 164 188" />
+        <path d="M82 100 C100 74 140 74 158 100" strokeWidth="18" />
+      </g>
+    ),
   };
 
   return shapes[hair] || shapes['hair-01'];
@@ -283,6 +375,62 @@ function renderClothes(clothes: string, color: string) {
         <circle cx="120" cy="246" r="17" fill="#67e8f9" />
       </g>
     ),
+    'clothes-07': (
+      <g>
+        <path d="M56 300 C68 222 92 204 120 204 C148 204 172 222 184 300 Z" fill={base} />
+        <path d="M122 212 L104 252 H124 L106 292 L150 232 H128 L142 212 Z" fill="#facc15" />
+      </g>
+    ),
+    'clothes-08': (
+      <g>
+        <path d="M48 300 C70 220 92 204 120 204 C148 204 170 220 192 300 Z" fill="#020617" />
+        <path d="M86 218 L120 246 L154 218 L145 300 H95 Z" fill={base} />
+        <path d="M96 228 Q120 250 144 228 Q132 236 120 224 Q108 236 96 228 Z" fill="#94a3b8" />
+      </g>
+    ),
+    'clothes-09': (
+      <g>
+        <path d="M54 300 C70 222 92 204 120 204 C148 204 170 222 186 300 Z" fill="#f8fafc" />
+        <path d="M62 300 L96 214 L118 300 Z M178 300 L144 214 L122 300 Z" fill={base} />
+        <circle cx="120" cy="238" r="9" fill="#dc2626" />
+        <circle cx="120" cy="266" r="9" fill="#dc2626" />
+      </g>
+    ),
+    'clothes-10': (
+      <g>
+        <path d="M60 300 C72 222 92 204 120 204 C148 204 168 222 180 300 Z" fill={base} />
+        <path d="M82 226 L110 246 L92 262 L124 286 L94 300 H62 Z" fill={dark} opacity="0.55" />
+        <path d="M148 220 L132 252 L160 244 L138 286 L178 300 H178 Z" fill="#111827" opacity="0.25" />
+      </g>
+    ),
+    'clothes-11': (
+      <g>
+        <path d="M58 300 C74 226 94 206 120 206 C146 206 166 226 182 300 Z" fill={base} />
+        <path d="M84 210 L120 232 L156 210 L146 236 L160 300 H80 L94 236 Z" fill="#1d4ed8" opacity="0.85" />
+      </g>
+    ),
+    'clothes-12': (
+      <g>
+        <path d="M56 300 C70 222 92 204 120 204 C148 204 170 222 184 300 Z" fill="#111827" />
+        <path d="M82 214 H158 L148 300 H92 Z" fill={base} opacity="0.7" />
+        <path d="M72 238 H168" stroke="#64748b" strokeWidth="8" />
+      </g>
+    ),
+    'clothes-13': (
+      <g>
+        <path d="M40 300 C70 222 92 204 120 204 C148 204 170 222 200 300 Z" fill="#b91c1c" />
+        <path d="M64 300 C74 226 94 206 120 206 C146 206 166 226 176 300 Z" fill={base} />
+        <path d="M100 218 L120 246 L140 218 Z" fill="#facc15" />
+      </g>
+    ),
+    'clothes-14': (
+      <g>
+        <path d="M60 300 C72 222 92 204 120 204 C148 204 168 222 180 300 Z" fill="#111827" />
+        <path d="M86 218 H154 L148 300 H92 Z" fill={base} />
+        <circle cx="102" cy="228" r="7" fill="#22d3ee" />
+        <circle cx="138" cy="228" r="7" fill="#22d3ee" />
+      </g>
+    ),
   };
 
   return shapes[clothes] || shapes['clothes-01'];
@@ -315,6 +463,41 @@ function renderAccessory(accessory: string) {
     return <path d="M84 72 L102 44 L120 70 L138 44 L156 72 L148 88 H92 Z" fill="#facc15" stroke="#92400e" strokeWidth="4" />;
   }
 
+  if (accessory === 'accessory-06') {
+    return <path d="M78 78 L96 34 L112 82 M128 82 L144 34 L162 78" fill="#020617" stroke="#111827" strokeWidth="4" strokeLinejoin="round" />;
+  }
+
+  if (accessory === 'accessory-07') {
+    return (
+      <g>
+        <circle cx="198" cy="74" r="20" fill="#dc2626" />
+        <path d="M198 94 C200 128 184 148 190 178" stroke="#f8fafc" strokeWidth="3" fill="none" />
+      </g>
+    );
+  }
+
+  if (accessory === 'accessory-08') {
+    return (
+      <g>
+        <path d="M70 112 C76 64 164 64 170 112 L160 146 H80 Z" fill="#b91c1c" stroke="#7f1d1d" strokeWidth="4" />
+        <path d="M94 118 H146 L140 134 H100 Z" fill="#fde68a" />
+      </g>
+    );
+  }
+
+  if (accessory === 'accessory-09') {
+    return <path d="M190 120 L212 220 M184 136 L202 128 M198 116 L220 108" stroke="#e5e7eb" strokeWidth="5" strokeLinecap="round" />;
+  }
+
+  if (accessory === 'accessory-10') {
+    return (
+      <g>
+        <rect x="184" y="154" width="12" height="48" rx="6" fill="#111827" />
+        <circle cx="190" cy="146" r="13" fill="#64748b" />
+      </g>
+    );
+  }
+
   return null;
 }
 
@@ -324,6 +507,8 @@ function renderFrame(frame: string) {
     'frame-rare': ['#60a5fa', '#1d4ed8'],
     'frame-epic': ['#c084fc', '#7e22ce'],
     'frame-legendary': ['#facc15', '#b45309'],
+    'frame-horror': ['#ef4444', '#450a0a'],
+    'frame-speed': ['#fde047', '#dc2626'],
   };
   const [light, dark] = colors[frame] || colors['frame-common'];
 
@@ -332,6 +517,30 @@ function renderFrame(frame: string) {
       <rect x="6" y="6" width="228" height="308" rx="18" stroke="#111827" strokeWidth="8" />
       <rect x="14" y="14" width="212" height="292" rx="13" stroke={light} strokeWidth="5" />
       <rect x="22" y="22" width="196" height="276" rx="9" stroke={dark} strokeWidth="2" opacity="0.8" />
+    </g>
+  );
+}
+
+function renderCardName(name: string, frame: string) {
+  const text = name.trim().slice(0, 18).toUpperCase();
+  const frameColor = frame === 'frame-horror' ? '#fee2e2' : frame === 'frame-legendary' ? '#fef3c7' : '#eef2ff';
+
+  return (
+    <g>
+      <rect x="26" y="270" width="188" height="32" rx="10" fill="#0f172a" opacity="0.86" />
+      <rect x="30" y="274" width="180" height="24" rx="7" fill={frameColor} opacity="0.15" />
+      <text
+        x="120"
+        y="291"
+        textAnchor="middle"
+        fontSize={text.length > 12 ? 12 : 14}
+        fontFamily="Arial, sans-serif"
+        fontWeight="900"
+        letterSpacing="0"
+        fill="#ffffff"
+      >
+        {text}
+      </text>
     </g>
   );
 }

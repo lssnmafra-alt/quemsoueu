@@ -50,57 +50,80 @@ export default function DeckEditorPage() {
     const fetchDeck = async () => {
       setLoading(true);
 
-      const { data: dData } = await supabaseGame.from('decks').select('*').eq('id', deckId).single();
-      const { data: cData } = await supabaseGame.from('characters').select('*').eq('deck_id', deckId);
-
-      let isFav = false;
-
-      if (user?.id) {
-        const { data: favData } = await supabaseGame
-          .from('deck_favorites')
+      try {
+        const { data: dData, error: deckError } = await supabaseGame
+          .from('decks')
           .select('*')
-          .eq('user_id', user.id)
-          .eq('deck_id', deckId)
+          .eq('id', deckId)
           .single();
 
-        isFav = !!favData;
-      }
-
-      let creatorNickname = 'Criador Anônimo';
-
-      if (dData?.creator_id) {
-        const { data: creatorData } = await supabaseGame
-          .from('profiles')
-          .select('nickname')
-          .eq('id', dData.creator_id)
-          .single();
-
-        if (creatorData) {
-          creatorNickname = creatorData.nickname;
+        if (deckError || !dData) {
+          setDeck(null);
+          setCharacters([]);
+          setCharacterDrafts({});
+          setIsFavorited(false);
+          setLoading(false);
+          return;
         }
+
+        const { data: cData } = await supabaseGame
+          .from('characters')
+          .select('*')
+          .eq('deck_id', deckId);
+
+        let isFav = false;
+
+        if (user?.id) {
+          const { data: favData } = await supabaseGame
+            .from('deck_favorites')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('deck_id', deckId)
+            .single();
+
+          isFav = !!favData;
+        }
+
+        let creatorNickname = 'Criador Anônimo';
+
+        if (dData?.creator_id) {
+          const { data: creatorData } = await supabaseGame
+            .from('profiles')
+            .select('nickname')
+            .eq('id', dData.creator_id)
+            .single();
+
+          if (creatorData?.nickname) {
+            creatorNickname = creatorData.nickname;
+          }
+        }
+
+        const sanitizedCharacters = (cData || []).map((char: any) => ({
+          ...char,
+          image_url: sanitizeStoredCharacterImageUrl(char.image_url),
+        }));
+
+        setDeck({ ...dData, creator_nickname: creatorNickname });
+        setDeckImage(dData?.cover_url || dData?.image_url || '');
+        setCharacters(sanitizedCharacters);
+        setCharacterDrafts(
+          Object.fromEntries(
+            sanitizedCharacters.map((char: any) => [
+              char.id,
+              {
+                name: char.name || '',
+                imageUrl: char.image_url || '',
+              },
+            ]),
+          ),
+        );
+        setIsFavorited(isFav);
+      } catch (error) {
+        console.error('Failed to fetch deck', error);
+        setDeck(null);
+      } finally {
+        setLoading(false);
       }
-
-      const sanitizedCharacters = (cData || []).map((char: any) => ({
-        ...char,
-        image_url: sanitizeStoredCharacterImageUrl(char.image_url),
-      }));
-
-      setDeck({ ...dData, creator_nickname: creatorNickname });
-      setDeckImage(dData?.cover_url || dData?.image_url || '');
-      setCharacters(sanitizedCharacters);
-      setCharacterDrafts(
-        Object.fromEntries(
-          sanitizedCharacters.map((char: any) => [
-            char.id,
-            {
-              name: char.name || '',
-              imageUrl: char.image_url || '',
-            },
-          ]),
-        ),
-      );
-      setIsFavorited(isFav);
-      setLoading(false);
     };
 
     fetchDeck();
@@ -285,6 +308,8 @@ export default function DeckEditorPage() {
   const handleUpdateDeckImage = async () => {
     if (!canEditDeck) return;
 
+    const cleanDeckImage = deckImage.trim();
+
     setUpdatingDeck(true);
 
     try {
@@ -292,7 +317,7 @@ export default function DeckEditorPage() {
         const response = await fetch('/api/official-decks/edit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'update-cover', deckId, coverUrl: deckImage.trim() }),
+          body: JSON.stringify({ action: 'update-cover', deckId, coverUrl: cleanDeckImage }),
         });
 
         const result = await response.json().catch(() => ({}));
@@ -300,11 +325,13 @@ export default function DeckEditorPage() {
         if (!response.ok) {
           alert(result.error || 'Nao foi possivel salvar a capa.');
         } else {
-          setDeck({ ...deck, cover_url: deckImage.trim() });
+          setDeck({ ...deck, cover_url: cleanDeckImage });
+          setDeckImage(cleanDeckImage);
         }
       } else {
-        await supabaseGame.from('decks').update({ cover_url: deckImage.trim() }).eq('id', deckId);
-        setDeck({ ...deck, cover_url: deckImage.trim() });
+        await supabaseGame.from('decks').update({ cover_url: cleanDeckImage }).eq('id', deckId);
+        setDeck({ ...deck, cover_url: cleanDeckImage });
+        setDeckImage(cleanDeckImage);
       }
     } finally {
       setUpdatingDeck(false);
@@ -727,18 +754,19 @@ function sanitizeStoredCharacterImageUrl(value?: string | null) {
 }
 
 function isBadCharacterImageUrl(url: string) {
-  const normalized = url.toLowerCase();
+  const normalized = url.toLowerCase().trim();
 
-  return (
-    normalized.startsWith('data:image/svg') ||
-    normalized.includes('fallback-svg') ||
-    normalized.includes('source=fallback') ||
-    normalized.includes('placeholder') ||
-    normalized.includes('generic') ||
-    normalized.startsWith('/official-cards/') ||
-    normalized.startsWith('/standard-cards/') ||
-    normalized.includes('/official-cards/') ||
-    normalized.includes('/standard-cards/') ||
-    (normalized.includes('/characters/') && normalized.endsWith('.svg'))
-  );
+  if (normalized.startsWith('data:image/svg')) return true;
+  if (normalized.includes('fallback-svg')) return true;
+  if (normalized.includes('source=fallback')) return true;
+
+  if (normalized.startsWith('/official-cards/')) return true;
+  if (normalized.startsWith('/standard-cards/')) return true;
+
+  if (normalized.includes('/official-cards/')) return true;
+  if (normalized.includes('/standard-cards/')) return true;
+
+  if (normalized.includes('/characters/') && normalized.endsWith('.svg')) return true;
+
+  return false;
 }

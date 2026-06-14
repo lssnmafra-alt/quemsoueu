@@ -1,22 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 export const dynamic = 'force-dynamic';
-
-const PROMPT_VERSION = 'proxy-pollinations-card-v21';
 
 type RuntimeEnv = Record<string, unknown>;
 
 type CharacterRequest = {
-  prompt?: string;
   name?: string;
+  prompt?: string;
   description?: string;
 };
 
 type NormalizedCharacterInput = {
   displayName: string;
   description: string;
-  fullText: string;
   normalizedName: string;
 };
 
@@ -31,156 +29,131 @@ type GroqChatResponse = {
   };
 };
 
-type CharacterHint = {
-  aliases: string[];
-  visual: string;
+type SupabaseCharacter = {
+  name?: string | null;
+  image_url?: string | null;
 };
 
-const CHARACTER_HINTS: CharacterHint[] = [
-  {
-    aliases: ['thanos'],
-    visual:
-      'Thanos, massive purple-skinned titan villain, bald head, deeply furrowed chin, gold and dark blue armor, intimidating expression, cosmic fiery background, powerful stance',
-  },
-  {
-    aliases: ['darth vader'],
-    visual:
-      'Darth Vader, black armored Sith lord, glossy black helmet, triangular breathing mask, black cape, red lightsaber glow, dark smoky sci-fi background, intimidating silhouette',
-  },
-  {
-    aliases: ['bruxa má do oeste', 'bruxa ma do oeste', 'wicked witch of the west'],
-    visual:
-      'Wicked Witch of the West, green-skinned witch, long hooked nose, black pointed hat, black robes, sinister expression, dark magical green smoke background',
-  },
-  {
-    aliases: ['sonic', 'sonic the hedgehog'],
-    visual:
-      'Sonic the Hedgehog, blue anthropomorphic hedgehog, swept-back blue quills, tan muzzle, white gloves, red shoes with white stripe, confident smirk, speed trails, golden rings',
-  },
-  {
-    aliases: ['super mario', 'mario'],
-    visual:
-      'Super Mario, cheerful plumber hero, red cap, thick black mustache, round nose, blue overalls, red shirt, white gloves, colorful mushroom kingdom background',
-  },
-  {
-    aliases: ['the flash', 'flash'],
-    visual:
-      'The Flash, red speedster superhero suit, gold lightning ear pieces, gold lightning belt, yellow lightning trails, motion blur, heroic intense face',
-  },
-  {
-    aliases: ['loki'],
-    visual:
-      'Loki, sly trickster villain, pale sharp face, black slicked hair, mischievous smile, emerald green and gold armor, large curved golden horned helmet, green magic glow',
-  },
-  {
-    aliases: ['thor'],
-    visual:
-      'Thor, muscular thunder god warrior, long blond hair, short blond beard, red cape, dark silver armor with round discs, storm clouds, blue lightning',
-  },
-  {
-    aliases: ['lanterna verde', 'green lantern'],
-    visual:
-      'Green Lantern, emerald cosmic superhero, green and black suit, green domino mask, glowing power ring, bright green aura, space background',
-  },
-  {
-    aliases: ['emma frost', 'rainha branca', 'white queen'],
-    visual:
-      'Emma Frost White Queen, platinum blonde woman, long elegant hair, confident intense gaze, white futuristic comic outfit, diamond sparkle aura, icy silver background',
-  },
-  {
-    aliases: ['hulk marvel', 'bruce banner'],
-    visual:
-      'Hulk, huge muscular green giant superhero, green skin, black messy hair, angry powerful face, massive shoulders, torn purple shorts, rubble background',
-  },
-  {
-    aliases: ['hulk fluminense', 'hulk jogador', 'hulk futebol', 'givanildo vieira'],
-    visual:
-      'Brazilian football striker Hulk, strong athletic man, tan skin, short dark hair, full dark beard, intense face, burgundy green and white football jersey, stadium lights, not a green monster',
-  },
-  {
-    aliases: ['hulk'],
-    visual:
-      'Hulk, huge muscular green giant superhero, green skin, black messy hair, angry powerful face, massive shoulders, torn purple shorts, rubble background',
-  },
-  {
-    aliases: ['homem aranha', 'homem-aranha', 'spider man', 'spider-man', 'spiderman'],
-    visual:
-      'Spider-Man, agile superhero, red and blue spider suit, web pattern, large white expressive eye lenses, dynamic pose, city skyline, web strands',
-  },
-  {
-    aliases: ['homem de ferro', 'homem-de-ferro', 'iron man', 'tony stark'],
-    visual:
-      'Iron Man, red and gold metallic armored hero, glowing blue arc reactor, illuminated helmet eyes, polished metal reflections, cinematic technology background',
-  },
-  {
-    aliases: ['batman'],
-    visual:
-      'Batman, dark vigilante, black cowl with pointed ears, black cape, armored suit, brooding expression, gothic night city, moonlit shadows',
-  },
-  {
-    aliases: ['superman', 'super homem', 'super-homem'],
-    visual:
-      'Superman, classic heroic man, blue suit, red cape, strong jaw, black hair with curl, hopeful expression, sunlight sky background',
-  },
-  {
-    aliases: ['neymar', 'neymar jr', 'neymar junior'],
-    visual:
-      'Neymar Jr, Brazilian football star, tan skin, sharp fade haircut, expressive eyebrows, trimmed beard, earrings, yellow and green football kit, stadium lights',
-  },
-  {
-    aliases: ['messi', 'lionel messi'],
-    visual:
-      'Lionel Messi, Argentine football star, short brown hair, full brown beard, calm focused face, sky blue and white football kit, stadium lights',
-  },
-  {
-    aliases: ['yamal', 'lamine yamal'],
-    visual:
-      'Lamine Yamal, young football winger, dark skin, low curly fade haircut, youthful confident smile, red and blue football kit, stadium lights',
-  },
-  {
-    aliases: ['shrek'],
-    visual:
-      'Shrek, green ogre, round green face, trumpet-shaped ears, white tunic, brown vest, friendly ogre grin, swamp background',
-  },
-  {
-    aliases: ['goku', 'son goku'],
-    visual:
-      'Goku, anime martial artist, spiky black hair, orange gi, blue undershirt, blue wristbands, intense heroic expression, glowing energy aura',
-  },
-  {
-    aliases: ['pikachu'],
-    visual:
-      'Pikachu, yellow electric mouse creature, red cheeks, long black-tipped ears, cute determined face, lightning sparks, playful bright background',
-  },
-];
+const BASE_STYLE =
+  'Premium vertical collectible trading card, cinematic poster quality, dark detailed background, dramatic lighting, black and metallic gold frame, high contrast, detailed digital painting, character recognizable, professional game card art.';
+
+const NO_TEXT_RULE = 'No readable text, no letters, no words, no logo, no watermark.';
+
+const CHARACTER_HINTS: Record<string, string> = {
+  pennywise:
+    'Pennywise the dancing clown, sinister white clown face, red vertical face makeup lines, orange hair flaring outward, eerie smile, vintage horror carnival mood, red balloon atmosphere.',
+  thanos:
+    'Thanos, massive purple-skinned titan villain, bald head, deeply furrowed chin, gold and dark blue armor, cosmic battlefield background, intimidating powerful stance.',
+  'darth vader':
+    'Darth Vader, glossy black helmet, triangular breathing mask, black armored suit and cape, red lightsaber glow, dark smoky sci-fi background.',
+  'bruxa ma do oeste':
+    'Wicked Witch of the West, green-skinned witch, long hooked nose, black pointed hat, black robes, sinister expression, magical emerald smoke.',
+  loki:
+    'Loki, sly trickster, sharp pale face, black slicked hair, mischievous smile, emerald green and gold armor, large curved golden horned helmet, green magic glow.',
+  thor:
+    'Thor, muscular thunder god, long blond hair, short blond beard, red cape, dark silver armor with round discs, storm clouds, blue lightning, mighty hammer.',
+  batman:
+    'Batman, dark vigilante, black cowl with pointed ears, black cape, armored suit, brooding expression, gothic night city, moonlit shadows.',
+  superman:
+    'Superman, classic heroic man, blue suit, red cape, strong jaw, black hair with curl, hopeful expression, sunlight breaking through clouds.',
+  'homem aranha':
+    'Spider-Man, agile superhero, red and blue spider suit, web pattern, large white expressive eye lenses, dynamic pose, city skyline, web strands.',
+  'homem de ferro':
+    'Iron Man, red and gold metallic armored hero, glowing blue arc reactor, illuminated helmet eyes, polished metal reflections, cinematic technology background.',
+  hulk:
+    'Hulk, huge muscular green giant superhero, green skin, black messy hair, angry powerful face, massive shoulders, torn purple shorts, rubble background.',
+  neymar:
+    'Neymar Jr, Brazilian football star, tan skin, sharp fade haircut, expressive eyebrows, trimmed beard, earrings, yellow and green football kit, stadium lights.',
+  messi:
+    'Lionel Messi, Argentine football star, short brown hair, full brown beard, calm focused face, sky blue and white football kit, stadium lights.',
+  'cristiano ronaldo':
+    'Cristiano Ronaldo, Portuguese football star, athletic build, sharp cheekbones, short styled dark hair, intense confident expression, red and green football kit, stadium lights.',
+  alok:
+    'Alok, Brazilian DJ, stylish dark hair and beard, black modern outfit, confident stage presence, electronic music festival lights, neon DJ booth atmosphere.',
+  sonic:
+    'Sonic the Hedgehog, blue anthropomorphic hedgehog, swept-back blue quills, tan muzzle, white gloves, red shoes with white stripe, speed trails, golden rings.',
+  mario:
+    'Super Mario, cheerful plumber hero, red cap, thick black mustache, round nose, blue overalls, red shirt, white gloves, colorful mushroom kingdom background.',
+  goku:
+    'Goku, anime martial artist, spiky black hair, orange gi, blue undershirt, blue wristbands, intense heroic expression, glowing energy aura.',
+  naruto:
+    'Naruto Uzumaki, anime ninja, spiky blond hair, whisker-like cheek marks, orange and black ninja outfit, metal forehead protector, swirling chakra energy.',
+  pikachu:
+    'Pikachu, yellow electric mouse creature, red cheeks, long black-tipped ears, cute determined face, lightning sparks, playful energetic background.',
+  shrek:
+    'Shrek, green ogre, round green face, trumpet-shaped ears, white tunic, brown vest, friendly ogre grin, swamp background.',
+};
+
+const CHARACTER_ALIASES: Record<string, string> = {
+  'penny wise': 'pennywise',
+  'darth vader': 'darth vader',
+  'bruxa ma do oeste': 'bruxa ma do oeste',
+  'wicked witch of the west': 'bruxa ma do oeste',
+  'super homem': 'superman',
+  'super-homem': 'superman',
+  'homem-aranha': 'homem aranha',
+  spiderman: 'homem aranha',
+  'spider man': 'homem aranha',
+  'spider-man': 'homem aranha',
+  'homem-de-ferro': 'homem de ferro',
+  'iron man': 'homem de ferro',
+  'tony stark': 'homem de ferro',
+  'neymar jr': 'neymar',
+  'neymar junior': 'neymar',
+  'lionel messi': 'messi',
+  'cristiano': 'cristiano ronaldo',
+  cr7: 'cristiano ronaldo',
+  'super mario': 'mario',
+  'sonic the hedgehog': 'sonic',
+  'son goku': 'goku',
+};
 
 export async function POST(req: NextRequest) {
   try {
     const env = await getRuntimeEnv();
-    const body = (await req.json()) as CharacterRequest;
-    const input = normalizeInput(body);
+    const input = normalizeInput((await req.json()) as CharacterRequest);
 
     if (!input.displayName) {
-      return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Nome ou prompt obrigatorio.' }, { status: 400 });
     }
 
-    const prompt = await buildFinalPrompt(input, env);
-    const seed = stableSeed(`${PROMPT_VERSION}:${input.fullText}`);
-    const width = getNumberEnv(env, 'POLLINATIONS_IMAGE_WIDTH', 768);
-    const height = getNumberEnv(env, 'POLLINATIONS_IMAGE_HEIGHT', 960);
-    const model = getStringEnv(env, 'POLLINATIONS_IMAGE_MODEL') || 'flux';
-    const url = buildInternalImageProxyUrl(prompt, seed, width, height, model);
+    if (!input.description) {
+      const cachedUrl = await findExistingCharacterImage(env, input);
 
-    return NextResponse.json({
-      url,
-      prompt,
-      source: 'internal-pollinations-proxy',
-    });
-  } catch (error: unknown) {
-    console.error('Image generation route error:', error);
-    const message = error instanceof Error ? error.message : 'Internal error';
+      if (cachedUrl) {
+        return NextResponse.json({
+          url: cachedUrl,
+          prompt: '',
+          source: 'existing-character-cache',
+        });
+      }
+    }
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    const finalPrompt = await buildFinalPrompt(input, env);
+    const imageBase64 = await generateOpenAIImage(finalPrompt, env);
+    const imageBytes = base64ToBytes(imageBase64);
+    const key = `characters/${slugify(input.displayName)}-${Date.now()}.png`;
+
+    try {
+      const publicUrl = await uploadImageToR2(env, key, imageBytes, 'image/png');
+
+      return NextResponse.json({
+        url: publicUrl,
+        prompt: finalPrompt,
+        source: 'openai-r2',
+      });
+    } catch (uploadError) {
+      console.warn('R2 upload failed, returning data URL fallback:', uploadError);
+
+      return NextResponse.json({
+        url: `data:image/png;base64,${imageBase64}`,
+        prompt: finalPrompt,
+        source: 'openai-data-url-fallback',
+      });
+    }
+  } catch (error: any) {
+    console.error('OpenAI image generation route error:', error);
+    return NextResponse.json({ error: error.message || 'Nao foi possivel gerar a imagem.' }, { status: 500 });
   }
 }
 
@@ -201,9 +174,7 @@ async function getRuntimeEnv(): Promise<RuntimeEnv> {
     try {
       const context = getCloudflareContext() as unknown as { env: RuntimeEnv };
       Object.assign(merged, context.env);
-    } catch {
-      // Fora do Cloudflare/OpenNext.
-    }
+    } catch {}
   }
 
   return merged;
@@ -214,69 +185,30 @@ function getStringEnv(env: RuntimeEnv, key: string) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function getNumberEnv(env: RuntimeEnv, key: string, fallback: number) {
-  const value = Number(getStringEnv(env, key));
-
-  if (!Number.isFinite(value)) return fallback;
-
-  return Math.max(384, Math.min(1024, Math.round(value)));
-}
-
 function normalizeInput(body: CharacterRequest): NormalizedCharacterInput {
-  const rawPrompt = String(body.prompt || body.name || '').trim();
+  const rawName = String(body.name || body.prompt || '').trim();
   const rawDescription = String(body.description || '').trim();
-
-  const cleanedPrompt = rawPrompt
-    .replace(/\s+/g, ' ')
-    .replace(/\bRealistic and detailed character portrait\b/gi, '')
-    .replace(/\bCharacter portrait\b/gi, '')
-    .replace(/\bPortrait\b/gi, '')
-    .replace(/\s+([,.])/g, '$1')
-    .replace(/[,.]\s*$/g, '')
-    .trim();
-
-  const appearanceSplit = cleanedPrompt.split(/\s+[—-]\s*apar[eê]ncia\s*:\s*/i);
-  const namePart = appearanceSplit[0] || cleanedPrompt;
-  const extractedDescription = appearanceSplit.length > 1 ? appearanceSplit.slice(1).join(' — aparência: ') : '';
-
-  const displayName = sanitizeCharacterName(namePart);
-  const description = sanitizeDescription(rawDescription || extractedDescription);
-  const fullText = description ? `${displayName} — aparência: ${description}` : displayName;
-
-  return {
-    displayName,
-    description,
-    fullText,
-    normalizedName: normalizeSearchText(displayName),
-  };
-}
-
-function sanitizeCharacterName(value: string) {
-  return value
+  const cleanedName = rawName
     .replace(/^personagem\s*:\s*/i, '')
     .replace(/^nome\s*:\s*/i, '')
     .replace(/\s+/g, ' ')
     .replace(/[,.]\s*$/g, '')
     .trim()
     .slice(0, 90);
-}
 
-function sanitizeDescription(value: string) {
-  return value
-    .replace(/\s+/g, ' ')
-    .replace(/[,.]\s*$/g, '')
-    .trim()
-    .slice(0, 260);
+  return {
+    displayName: cleanedName,
+    description: rawDescription.replace(/\s+/g, ' ').replace(/[,.]\s*$/g, '').trim().slice(0, 300),
+    normalizedName: normalizeSearchText(cleanedName),
+  };
 }
 
 async function buildFinalPrompt(input: NormalizedCharacterInput, env: RuntimeEnv) {
   const groqPrompt = await buildPromptWithGroq(input, env);
 
-  if (groqPrompt) {
-    return groqPrompt;
-  }
+  if (groqPrompt) return groqPrompt;
 
-  return buildDirectPrompt(input);
+  return buildFallbackPrompt(input);
 }
 
 async function buildPromptWithGroq(input: NormalizedCharacterInput, env: RuntimeEnv) {
@@ -284,9 +216,8 @@ async function buildPromptWithGroq(input: NormalizedCharacterInput, env: Runtime
 
   if (!apiKey) return '';
 
-  const hint = getCharacterHint(input);
   const model = getStringEnv(env, 'GROQ_MODEL') || 'llama-3.3-70b-versatile';
-  const description = input.description || 'no extra user appearance details';
+  const hint = getCharacterHint(input);
 
   try {
     const response = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
@@ -298,28 +229,28 @@ async function buildPromptWithGroq(input: NormalizedCharacterInput, env: Runtime
       body: JSON.stringify({
         model,
         temperature: 0.2,
-        max_tokens: 520,
+        max_tokens: 450,
         messages: [
           {
             role: 'system',
             content:
-              'You write concise English prompts for AI image generation. Return only the final prompt text. No markdown. No JSON. No explanations.',
+              'You write concise English image-generation prompts. Return only the prompt text. No markdown, no JSON, no explanations.',
           },
           {
             role: 'user',
-            content: `Create one concise image prompt.
+            content: `Create a visual prompt for OpenAI image generation.
 
-Character name: ${input.displayName}
-User appearance details: ${description}
-Known visual identity: ${hint || 'infer the most recognizable visual identity from the character name if known'}
+Character: ${input.displayName}
+Known visual hints: ${hint || 'infer the most recognizable public visual identity from the character name'}
+User description: ${input.description || 'none'}
 
-The result must look like the named character, not a generic avatar.
+Required style:
+${BASE_STYLE}
 
-Style:
-premium vertical collectible trading card, cinematic digital painting, polished fan-art, centered chest-up character, recognizable face, accurate costume, iconic colors, iconic accessories, iconic silhouette, dynamic background related to the character, dramatic lighting, black and metallic gold card border.
+The character must be recognizable and not a generic avatar. Emphasize accurate costume, face, colors, accessories, silhouette, and environment.
 
-Avoid:
-flat vector, simple geometric avatar, emoji, childish drawing, stick figure, generic face, generic costume, placeholder, readable text, letters, words, watermark, logo, official logo.`,
+Hard negative rule:
+${NO_TEXT_RULE}`,
           },
         ],
       }),
@@ -328,82 +259,235 @@ flat vector, simple geometric avatar, emoji, childish drawing, stick figure, gen
     const payload = (await safeJson(response)) as GroqChatResponse | null;
 
     if (!response.ok) {
-      console.warn('Groq prompt generation failed:', response.status, payload?.error?.message || response.statusText);
+      console.warn('Groq prompt build failed:', response.status, payload?.error?.message || response.statusText);
       return '';
     }
 
-    const text = payload?.choices?.[0]?.message?.content?.trim() || '';
+    const prompt = payload?.choices?.[0]?.message?.content?.trim();
+    if (!prompt) return '';
 
-    if (!text) return '';
-
-    return clampPrompt(enforcePromptRules(text, input));
+    return clampPrompt(`${prompt} ${NO_TEXT_RULE}`);
   } catch (error) {
-    console.warn('Groq prompt generation request failed:', error);
+    console.warn('Groq prompt request failed:', error);
     return '';
   }
 }
 
-function buildDirectPrompt(input: NormalizedCharacterInput) {
+function buildFallbackPrompt(input: NormalizedCharacterInput) {
   const hint = getCharacterHint(input);
-  const description = input.description ? `User details: ${input.description}.` : '';
-  const identity = hint || `use the most recognizable visual identity of ${input.displayName}`;
+  const description = input.description ? `User-provided visual details: ${input.description}.` : '';
 
-  return clampPrompt(`
-Premium vertical collectible trading card illustration.
-Character: ${input.displayName}.
-Visual identity: ${identity}.
-${description}
-Make the image immediately recognizable as ${input.displayName}.
-Cinematic digital painting, polished fan-art, centered chest-up character, expressive face, accurate hair, accurate costume, iconic colors, iconic accessories, dynamic character-related background, dramatic lighting, crisp details, black and metallic gold card border.
-No flat vector, no simple geometric avatar, no emoji, no childish drawing, no stick figure, no generic face, no generic costume, no placeholder, no readable text, no letters, no watermark, no logo.
-`.trim());
+  return clampPrompt(
+    `${BASE_STYLE} Character: ${input.displayName}. ${
+      hint ? `Recognizable visual identity: ${hint}.` : `Use the most recognizable visual identity of ${input.displayName}.`
+    } ${description} Centered chest-up composition inside a premium card frame, cinematic poster texture, dramatic rim light, detailed face, accurate costume, iconic colors, professional game card art. ${NO_TEXT_RULE}`,
+  );
 }
 
-function enforcePromptRules(prompt: string, input: NormalizedCharacterInput) {
-  const hint = getCharacterHint(input);
-  const description = input.description ? ` User details: ${input.description}.` : '';
+async function generateOpenAIImage(prompt: string, env: RuntimeEnv) {
+  const apiKey = getStringEnv(env, 'OPENAI_API_KEY');
 
-  return clampPrompt(`
-${prompt}
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY nao esta configurada.');
+  }
 
-Hard requirement: This must be ${input.displayName}.
-${hint ? `Visual identity: ${hint}.` : ''}
-${description}
-Do not create a generic avatar or flat vector.
-Use cinematic digital painting, premium collectible card, black and metallic gold border.
-No readable text, no letters, no watermark, no logos.
-`.trim());
-}
+  const model = getStringEnv(env, 'OPENAI_IMAGE_MODEL') || 'gpt-image-1';
+  const size = getStringEnv(env, 'OPENAI_IMAGE_SIZE') || '1024x1536';
+  const quality = getStringEnv(env, 'OPENAI_IMAGE_QUALITY') || 'medium';
 
-function getCharacterHint(input: NormalizedCharacterInput) {
-  const normalized = input.normalizedName;
-
-  const exact = CHARACTER_HINTS.find((hint) =>
-    hint.aliases.some((alias) => normalizeSearchText(alias) === normalized),
+  const response = await fetchWithTimeout(
+    'https://api.openai.com/v1/images/generations',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        prompt,
+        size,
+        quality,
+        n: 1,
+      }),
+    },
+    120_000,
   );
 
-  if (exact) return exact.visual;
+  const payload = (await safeJson(response)) as any;
 
-  const partial = CHARACTER_HINTS.find((hint) =>
-    hint.aliases.some((alias) => {
-      const normalizedAlias = normalizeSearchText(alias);
-      return normalizedAlias.length >= 4 && normalized.includes(normalizedAlias);
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || `OpenAI Images API retornou ${response.status}.`);
+  }
+
+  const imageBase64 = payload?.data?.[0]?.b64_json;
+
+  if (typeof imageBase64 !== 'string' || !imageBase64) {
+    throw new Error('OpenAI nao retornou b64_json da imagem.');
+  }
+
+  return imageBase64;
+}
+
+async function uploadImageToR2(env: RuntimeEnv, key: string, bytes: Uint8Array, contentType: string) {
+  const binding = getR2Binding(env);
+
+  if (binding) {
+    await binding.put(key, bytes, {
+      httpMetadata: {
+        contentType,
+      },
+    });
+
+    return buildPublicR2Url(env, key);
+  }
+
+  const accountId = getStringEnv(env, 'R2_ACCOUNT_ID') || getStringEnv(env, 'CLOUDFLARE_ACCOUNT_ID');
+  const accessKeyId = getStringEnv(env, 'R2_ACCESS_KEY_ID');
+  const secretAccessKey = getStringEnv(env, 'R2_SECRET_ACCESS_KEY');
+  const bucket = getStringEnv(env, 'R2_BUCKET_NAME');
+
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
+    throw new Error('Credenciais R2 incompletas.');
+  }
+
+  const client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+  });
+
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: bytes,
+      ContentType: contentType,
     }),
   );
 
-  return partial?.visual || '';
+  return buildPublicR2Url(env, key);
 }
 
-function buildInternalImageProxyUrl(prompt: string, seed: number, width: number, height: number, model: string) {
-  const params = new URLSearchParams();
+function slugify(value: string) {
+  return (
+    normalizeSearchText(value)
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'personagem'
+  );
+}
 
-  params.set('p', base64UrlEncode(prompt));
-  params.set('s', String(seed));
-  params.set('w', String(width));
-  params.set('h', String(height));
-  params.set('m', model);
+function base64ToBytes(value: string) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
 
-  return `/api/generated-character-image?${params.toString()}`;
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes;
+}
+
+async function findExistingCharacterImage(env: RuntimeEnv, input: NormalizedCharacterInput) {
+  const supabaseUrl = getStringEnv(env, 'NEXT_PUBLIC_SUPABASE_URL_GAME') || getStringEnv(env, 'SUPABASE_URL_GAME');
+  const supabaseKey = getStringEnv(env, 'NEXT_PUBLIC_SUPABASE_ANON_KEY_GAME') || getStringEnv(env, 'SUPABASE_ANON_KEY_GAME');
+
+  if (!supabaseUrl || !supabaseKey) return '';
+
+  const search = encodeURIComponent(`*${input.displayName.replace(/[%*_]/g, '').trim()}*`);
+  const url = `${supabaseUrl.replace(/\/+$/, '')}/rest/v1/characters?select=name,image_url&image_url=not.is.null&name=ilike.${search}&limit=10`;
+
+  try {
+    const response = await fetchWithTimeout(url, {
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+      },
+    });
+
+    if (!response.ok) return '';
+
+    const rows = (await response.json()) as SupabaseCharacter[];
+    const exact = rows.find((row) => normalizeSearchText(row.name || '') === input.normalizedName);
+    const candidate = exact || rows.find((row) => isValidCharacterImageUrl(row.image_url || ''));
+
+    if (candidate?.image_url && isValidCharacterImageUrl(candidate.image_url)) {
+      return candidate.image_url.trim();
+    }
+  } catch (error) {
+    console.warn('Character image cache lookup failed:', error);
+  }
+
+  return '';
+}
+
+function getCharacterHint(input: NormalizedCharacterInput) {
+  const aliasTarget = CHARACTER_ALIASES[input.normalizedName] || input.normalizedName;
+
+  if (CHARACTER_HINTS[aliasTarget]) return CHARACTER_HINTS[aliasTarget];
+
+  const partialKey = Object.keys(CHARACTER_HINTS).find((key) => {
+    return aliasTarget.includes(key) || key.includes(aliasTarget);
+  });
+
+  return partialKey ? CHARACTER_HINTS[partialKey] : '';
+}
+
+function getR2Binding(env: RuntimeEnv) {
+  for (const name of ['CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET']) {
+    const candidate = env[name] as { put?: Function } | undefined;
+
+    if (candidate && typeof candidate.put === 'function') {
+      return candidate as {
+        put: (key: string, value: Uint8Array, options?: { httpMetadata?: { contentType?: string } }) => Promise<unknown>;
+      };
+    }
+  }
+
+  return null;
+}
+
+function buildPublicR2Url(env: RuntimeEnv, key: string) {
+  const publicUrl = getStringEnv(env, 'R2_PUBLIC_URL');
+
+  if (!publicUrl) {
+    throw new Error('R2_PUBLIC_URL nao esta configurado.');
+  }
+
+  return `${publicUrl.replace(/\/+$/, '')}/${key}`;
+}
+
+function isValidCharacterImageUrl(value: string) {
+  const url = value.trim().toLowerCase();
+
+  if (!url) return false;
+  if (url.startsWith('data:image/svg')) return false;
+  if (url.includes('fallback-svg')) return false;
+  if (url.includes('source=fallback')) return false;
+  if (url.includes('/official-cards/')) return false;
+  if (url.includes('/standard-cards/')) return false;
+  if (url.includes('/characters/') && url.endsWith('.svg')) return false;
+
+  return true;
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function clampPrompt(prompt: string) {
+  return prompt.replace(/\s+/g, ' ').trim().slice(0, 2400);
 }
 
 function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 40_000) {
@@ -423,43 +507,4 @@ async function safeJson(response: Response) {
   } catch {
     return null;
   }
-}
-
-function stableSeed(value: string) {
-  let hash = 2166136261;
-
-  for (let i = 0; i < value.length; i += 1) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  return Math.abs(hash >>> 0) || 42;
-}
-
-function normalizeSearchText(value: string) {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/g, ' ')
-    .replace(/-/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function clampPrompt(prompt: string) {
-  return prompt.replace(/\s+/g, ' ').trim().slice(0, 1200);
-}
-
-function base64UrlEncode(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  let binary = '';
-  const chunkSize = 0x8000;
-
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...Array.from(chunk));
-  }
-
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }

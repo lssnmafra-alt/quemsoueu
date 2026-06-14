@@ -28,6 +28,7 @@ export default function DeckEditorPage() {
 
   const [charName, setCharName] = useState('');
   const [charDesc, setCharDesc] = useState('');
+  const [charImageFile, setCharImageFile] = useState<File | null>(null);
   const [deckImage, setDeckImage] = useState('');
   const [adding, setAdding] = useState(false);
   const [updatingDeck, setUpdatingDeck] = useState(false);
@@ -174,12 +175,9 @@ export default function DeckEditorPage() {
         }
       }
 
-      const generatedImageUrl = await generateCharacterImage(cleanName, cleanDesc);
-
-      if (!generatedImageUrl) {
-        setErrorChart('Nao foi possivel gerar a imagem. Tente de novo ou descreva melhor a aparencia.');
-        return;
-      }
+      const characterImageUrl = charImageFile
+        ? await uploadCharacterImage(charImageFile)
+        : await generateCharacterImage(cleanName, cleanDesc);
 
       const data = isTemporaryOfficialEditor
         ? await fetch('/api/official-decks/edit', {
@@ -189,7 +187,7 @@ export default function DeckEditorPage() {
               action: 'add-character',
               deckId,
               name: cleanName,
-              imageUrl: generatedImageUrl,
+              imageUrl: characterImageUrl,
             }),
           }).then(async (res) => {
             const result = await res.json().catch(() => ({}));
@@ -202,7 +200,7 @@ export default function DeckEditorPage() {
               .insert({
                 deck_id: deckId,
                 name: cleanName,
-                image_url: generatedImageUrl,
+                image_url: characterImageUrl,
               })
               .select()
               .single()
@@ -224,6 +222,7 @@ export default function DeckEditorPage() {
         }));
         setCharName('');
         setCharDesc('');
+        setCharImageFile(null);
       }
     } catch (error: any) {
       console.error('Failed to add character', error);
@@ -234,33 +233,70 @@ export default function DeckEditorPage() {
   };
 
   const generateCharacterImage = async (name: string, description: string) => {
+    const response = await fetch('/api/generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        description,
+      }),
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || typeof result.url !== 'string') {
+      throw new Error(result.error || 'Nao foi possivel gerar a imagem. Tente enviar uma imagem manualmente.');
+    }
+
+    const cleanUrl = sanitizeGeneratedImageUrl(result.url);
+
+    if (!cleanUrl) {
+      throw new Error('A imagem gerada retornou uma URL invalida.');
+    }
+
+    return cleanUrl;
+  };
+
+  const uploadCharacterImage = async (file: File) => {
+    validateCharacterImageFile(file);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/upload-character-image', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || typeof result.url !== 'string') {
+      throw new Error(result.error || 'Nao foi possivel enviar a imagem. Tente outra imagem.');
+    }
+
+    const cleanUrl = sanitizeGeneratedImageUrl(result.url);
+
+    if (!cleanUrl) {
+      throw new Error('A imagem enviada retornou uma URL invalida.');
+    }
+
+    return cleanUrl;
+  };
+
+  const handleCharacterFileChange = (file?: File | null) => {
+    setErrorChart('');
+
+    if (!file) {
+      setCharImageFile(null);
+      return;
+    }
+
     try {
-      const res = await fetch('/api/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          description,
-          prompt: description ? `${name} — aparência: ${description}` : name,
-        }),
-      });
-
-      const result = await res.json().catch(() => ({}));
-
-      if (!res.ok || !result.url || typeof result.url !== 'string') {
-        throw new Error(result.error || 'Nao foi possivel gerar a imagem do personagem.');
-      }
-
-      const cleanUrl = sanitizeGeneratedImageUrl(result.url);
-
-      if (!cleanUrl) {
-        throw new Error('A imagem gerada foi inválida.');
-      }
-
-      return cleanUrl;
-    } catch (error) {
-      console.error('Failed to generate image', error);
-      return '';
+      validateCharacterImageFile(file);
+      setCharImageFile(file);
+    } catch (error: any) {
+      setCharImageFile(null);
+      setErrorChart(error.message || 'Imagem invalida.');
     }
   };
 
@@ -347,14 +383,15 @@ export default function DeckEditorPage() {
     };
 
     const cleanName = draft.name.trim();
-    const cleanImageUrl = sanitizeGeneratedImageUrl(draft.imageUrl.trim());
+    const rawImageUrl = draft.imageUrl.trim();
+    const cleanImageUrl = rawImageUrl ? sanitizeGeneratedImageUrl(rawImageUrl) : '';
 
     if (!cleanName) {
       alert('O nome do personagem não pode ficar vazio.');
       return;
     }
 
-    if (!cleanImageUrl) {
+    if (rawImageUrl && !cleanImageUrl) {
       alert('Essa URL de imagem é inválida ou é um fallback antigo ruim.');
       return;
     }
@@ -625,7 +662,7 @@ export default function DeckEditorPage() {
                   className="w-full md:w-auto h-12 px-6 btn-squishy-green text-white font-black uppercase text-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                 >
                   {adding ? (
-                    'Gerando imagem...'
+                    charImageFile ? 'Enviando...' : 'Gerando...'
                   ) : (
                     <>
                       <Plus className="w-4 h-4 font-black" /> Inserir Personagem
@@ -634,8 +671,31 @@ export default function DeckEditorPage() {
                 </Button>
               </div>
 
+              <div className="mt-4 flex flex-col md:flex-row gap-3 md:items-center">
+                <label className="w-full md:max-w-md flex flex-col gap-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-4 cursor-pointer hover:border-indigo-200 transition-colors">
+                  <span className="text-xs font-black uppercase text-indigo-700 flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4" /> Imagem do personagem (opcional)
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-400">
+                    PNG, JPG ou WEBP ate 5MB. Sem upload, o app gera com OpenAI.
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="sr-only"
+                    onChange={(event) => handleCharacterFileChange(event.target.files?.[0])}
+                  />
+                </label>
+
+                {charImageFile && (
+                  <div className="text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-xl">
+                    Imagem selecionada: {charImageFile.name}
+                  </div>
+                )}
+              </div>
+
               <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
-                Personagem pouco conhecido? Descreva a aparência dele para a IA criar um avatar mais fiel!
+                A descricao e opcional e ajuda a OpenAI a gerar uma imagem mais fiel quando nao houver upload.
               </p>
             </div>
           </motion.div>
@@ -769,4 +829,17 @@ function isBadCharacterImageUrl(url: string) {
   if (normalized.includes('/characters/') && normalized.endsWith('.svg')) return true;
 
   return false;
+}
+
+function validateCharacterImageFile(file: File) {
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+  const maxBytes = 5 * 1024 * 1024;
+
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Envie uma imagem PNG, JPG ou WEBP.');
+  }
+
+  if (file.size > maxBytes) {
+    throw new Error('A imagem pode ter no maximo 5MB.');
+  }
 }

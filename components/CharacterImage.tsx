@@ -39,8 +39,16 @@ export default function CharacterImage({
 
   if (!src) {
     return (
-      <div className={cn('bg-slate-100 flex items-center justify-center', className, placeholderClassName)}>
-        <ImageIcon className="w-6 h-6 text-slate-400" />
+      <div
+        className={cn(
+          'bg-gradient-to-br from-indigo-50 via-slate-100 to-emerald-50 flex items-center justify-center border border-white/70',
+          className,
+          placeholderClassName,
+        )}
+      >
+        <div className="w-14 h-14 rounded-2xl bg-white/80 border border-indigo-100 shadow-sm flex items-center justify-center">
+          <ImageIcon className="w-6 h-6 text-indigo-300" />
+        </div>
       </div>
     );
   }

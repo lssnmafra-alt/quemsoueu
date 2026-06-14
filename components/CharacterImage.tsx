@@ -23,7 +23,6 @@ export default function CharacterImage({
 }: CharacterImageProps) {
   const sources = useMemo(() => {
     const savedImage = sanitizeImageUrl(imageUrl);
-
     return savedImage ? [savedImage] : [];
   }, [imageUrl]);
 
@@ -68,18 +67,19 @@ function sanitizeImageUrl(value?: string | null) {
 }
 
 function isBadLocalFallback(url: string) {
-  const normalized = url.toLowerCase();
+  const normalized = url.toLowerCase().trim();
 
-  return (
-    normalized.startsWith('data:image/svg') ||
-    normalized.includes('fallback-svg') ||
-    normalized.includes('source=fallback') ||
-    normalized.includes('placeholder') ||
-    normalized.includes('generic') ||
-    normalized.startsWith('/official-cards/') ||
-    normalized.startsWith('/standard-cards/') ||
-    normalized.includes('/official-cards/') ||
-    normalized.includes('/standard-cards/') ||
-    (normalized.includes('/characters/') && normalized.endsWith('.svg'))
-  );
+  if (normalized.startsWith('data:image/svg')) return true;
+  if (normalized.includes('fallback-svg')) return true;
+  if (normalized.includes('source=fallback')) return true;
+
+  if (normalized.startsWith('/official-cards/')) return true;
+  if (normalized.startsWith('/standard-cards/')) return true;
+
+  if (normalized.includes('/official-cards/')) return true;
+  if (normalized.includes('/standard-cards/')) return true;
+
+  if (normalized.includes('/characters/') && normalized.endsWith('.svg')) return true;
+
+  return false;
 }

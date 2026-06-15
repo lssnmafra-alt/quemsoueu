@@ -1,6 +1,6 @@
 'use client';
 
-import { DEFAULT_AVATAR_CONFIG, normalizeAvatarConfig, type AvatarConfig } from '@/lib/avatarConfig';
+import { AVATAR_OPTIONS, DEFAULT_AVATAR_CONFIG, normalizeAvatarConfig, type AvatarConfig } from '@/lib/avatarConfig';
 import { cn } from '@/lib/utils';
 
 type AvatarRendererProps = {
@@ -9,371 +9,273 @@ type AvatarRendererProps = {
   className?: string;
 };
 
-const skinColors: Record<string, string> = {
-  'skin-01': '#f2c7a2',
-  'skin-02': '#c78245',
-  'skin-03': '#a76635',
-  'skin-04': '#70432b',
-  'skin-05': '#3f261a',
-  'skin-06': '#2fbf64',
-  'skin-07': '#8b5cf6',
-  'skin-08': '#38bdf8',
-  'skin-09': '#94a3b8',
+type Point = {
+  x: number;
+  y: number;
 };
 
-const backgrounds: Record<string, [string, string, string]> = {
-  'bg-01': ['#080b22', '#4338ca', '#020617'],
-  'bg-02': ['#240202', '#991b1b', '#fb923c'],
-  'bg-03': ['#082f49', '#0ea5e9', '#e0f2fe'],
-  'bg-04': ['#13072e', '#6d28d9', '#22d3ee'],
-  'bg-05': ['#020617', '#1e293b', '#475569'],
-  'bg-06': ['#052e16', '#15803d', '#bef264'],
-  'bg-07': ['#2a0308', '#9f1239', '#fca5a5'],
-  'bg-08': ['#020617', '#312e81', '#f59e0b'],
-  'bg-09': ['#020617', '#111827', '#64748b'],
-  'bg-10': ['#064e3b', '#16a34a', '#facc15'],
-  'bg-11': ['#1c120b', '#6b3a16', '#facc15'],
-  'bg-12': ['#042f2e', '#0891b2', '#a5f3fc'],
-  'bg-13': ['#020617', '#164e63', '#22d3ee'],
-  'bg-14': ['#111827', '#7f1d1d', '#2563eb'],
+const backgroundThemes: Record<string, { from: string; mid: string; to: string; glow: string; line: string }> = {
+  'bg-01': { from: '#0f172a', mid: '#312e81', to: '#020617', glow: '#38bdf8', line: '#818cf8' },
+  'bg-02': { from: '#1c1917', mid: '#7f1d1d', to: '#020617', glow: '#f97316', line: '#fb7185' },
+  'bg-03': { from: '#082f49', mid: '#075985', to: '#020617', glow: '#7dd3fc', line: '#bae6fd' },
+  'bg-04': { from: '#111827', mid: '#4c1d95', to: '#020617', glow: '#a78bfa', line: '#f0abfc' },
+  'bg-05': { from: '#020617', mid: '#1e293b', to: '#111827', glow: '#22d3ee', line: '#64748b' },
+  'bg-06': { from: '#052e16', mid: '#166534', to: '#020617', glow: '#86efac', line: '#22c55e' },
+  'bg-07': { from: '#1e1b4b', mid: '#831843', to: '#020617', glow: '#fb7185', line: '#f472b6' },
+  'bg-08': { from: '#09090b', mid: '#581c87', to: '#020617', glow: '#c084fc', line: '#facc15' },
+  'bg-09': { from: '#0f172a', mid: '#450a0a', to: '#020617', glow: '#ef4444', line: '#94a3b8' },
+  'bg-10': { from: '#052e16', mid: '#0f766e', to: '#020617', glow: '#bef264', line: '#facc15' },
+  'bg-11': { from: '#1c1917', mid: '#431407', to: '#020617', glow: '#f59e0b', line: '#fbbf24' },
+  'bg-12': { from: '#082f49', mid: '#0f766e', to: '#020617', glow: '#67e8f9', line: '#2dd4bf' },
+  'bg-13': { from: '#020617', mid: '#0f172a', to: '#111827', glow: '#22d3ee', line: '#38bdf8' },
+  'bg-14': { from: '#111827', mid: '#312e81', to: '#020617', glow: '#e879f9', line: '#c084fc' },
+  'bg-15': { from: '#1c1917', mid: '#7c2d12', to: '#020617', glow: '#fbbf24', line: '#38bdf8' },
+  'bg-16': { from: '#020617', mid: '#172554', to: '#111827', glow: '#60a5fa', line: '#22d3ee' },
 };
 
-const frames: Record<string, { light: string; main: string; dark: string; glow: string }> = {
-  'frame-common': { light: '#f8fafc', main: '#cbd5e1', dark: '#334155', glow: '#94a3b8' },
-  'frame-rare': { light: '#dbeafe', main: '#60a5fa', dark: '#1e3a8a', glow: '#38bdf8' },
-  'frame-epic': { light: '#ede9fe', main: '#a78bfa', dark: '#4c1d95', glow: '#8b5cf6' },
-  'frame-legendary': { light: '#fef3c7', main: '#facc15', dark: '#92400e', glow: '#f59e0b' },
-  'frame-horror': { light: '#fee2e2', main: '#ef4444', dark: '#7f1d1d', glow: '#dc2626' },
-  'frame-speed': { light: '#fef9c3', main: '#facc15', dark: '#991b1b', glow: '#fb923c' },
-  'frame-tech': { light: '#cffafe', main: '#22d3ee', dark: '#155e75', glow: '#06b6d4' },
-  'frame-ocean': { light: '#ccfbf1', main: '#2dd4bf', dark: '#115e59', glow: '#14b8a6' },
+const frameThemes: Record<string, { a: string; b: string; c: string; text: string }> = {
+  'frame-common': { a: '#64748b', b: '#e2e8f0', c: '#334155', text: 'STREET' },
+  'frame-rare': { a: '#2563eb', b: '#67e8f9', c: '#1e3a8a', text: 'ELITE' },
+  'frame-epic': { a: '#7c3aed', b: '#f0abfc', c: '#312e81', text: 'EPIC' },
+  'frame-legendary': { a: '#f59e0b', b: '#fde68a', c: '#7c2d12', text: 'LEGEND' },
+  'frame-horror': { a: '#dc2626', b: '#fb7185', c: '#450a0a', text: 'DARK' },
+  'frame-speed': { a: '#06b6d4', b: '#fde047', c: '#155e75', text: 'PULSE' },
+  'frame-tech': { a: '#22d3ee', b: '#a5f3fc', c: '#0f172a', text: 'TECH' },
+  'frame-ocean': { a: '#0d9488', b: '#99f6e4', c: '#134e4a', text: 'OCEAN' },
+  'frame-royal': { a: '#f59e0b', b: '#fef3c7', c: '#581c87', text: 'ROYAL' },
+  'frame-ice': { a: '#38bdf8', b: '#e0f2fe', c: '#075985', text: 'ICE' },
 };
 
-export default function AvatarRenderer({ config, name, className }: AvatarRendererProps) {
+export default function AvatarRenderer({ config, name = 'Personagem', className }: AvatarRendererProps) {
   const avatar = normalizeAvatarConfig(config || DEFAULT_AVATAR_CONFIG);
-  const skin = skinColors[avatar.skin] || skinColors['skin-02'];
-  const bg = backgrounds[avatar.background] || backgrounds['bg-01'];
-  const frame = frames[avatar.frame] || frames['frame-rare'];
-  const uid = `avatar-${avatar.skin}-${avatar.face}-${avatar.hair}-${avatar.clothes}-${avatar.frame}`.replace(/[^a-z0-9-]/gi, '');
+  const skin = getOptionColor('skin', avatar.skin, '#d99a5b');
+  const skinLight = shade(skin, 18);
+  const skinShadow = shade(skin, -18);
+  const skinDeep = shade(skin, -32);
+  const outfit = avatar.clothesColor;
+  const outfitLight = shade(outfit, 22);
+  const outfitDark = shade(outfit, -30);
+  const hair = avatar.hairColor;
+  const bg = backgroundThemes[avatar.background] || backgroundThemes['bg-01'];
+  const frame = frameThemes[avatar.frame] || frameThemes['frame-rare'];
+  const isRobot = avatar.skin === 'skin-09' || avatar.face === 'face-09' || avatar.body === 'body-05';
+  const isFeral = avatar.skin === 'skin-06' || avatar.mouth === 'mouth-06';
+  const bodyShape = getBodyShape(avatar.body);
+  const facePath = getFacePath(avatar.face);
+  const displayName = name.trim() || 'Personagem';
 
   return (
-    <svg
-      viewBox="0 0 300 420"
-      role="img"
-      aria-label="Avatar do personagem"
-      className={cn('h-full w-full', className)}
-    >
-      <defs>
-        <linearGradient id={`${uid}-bg`} x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor={bg[0]} />
-          <stop offset="52%" stopColor={bg[1]} />
-          <stop offset="100%" stopColor={bg[2]} />
-        </linearGradient>
+    <div className={cn('relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-slate-950', className)}>
+      <svg viewBox="0 0 360 480" role="img" aria-label={displayName} className="h-full w-full">
+        <defs>
+          <linearGradient id="avatarBg" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor={bg.from} />
+            <stop offset="52%" stopColor={bg.mid} />
+            <stop offset="100%" stopColor={bg.to} />
+          </linearGradient>
+          <radialGradient id="avatarGlow" cx="50%" cy="32%" r="60%">
+            <stop offset="0%" stopColor={bg.glow} stopOpacity="0.72" />
+            <stop offset="48%" stopColor={bg.glow} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={bg.glow} stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id="frameGradient" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor={frame.b} />
+            <stop offset="45%" stopColor={frame.a} />
+            <stop offset="100%" stopColor={frame.c} />
+          </linearGradient>
+          <linearGradient id="skinGradient" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor={skinLight} />
+            <stop offset="55%" stopColor={skin} />
+            <stop offset="100%" stopColor={skinShadow} />
+          </linearGradient>
+          <linearGradient id="outfitGradient" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor={outfitLight} />
+            <stop offset="58%" stopColor={outfit} />
+            <stop offset="100%" stopColor={outfitDark} />
+          </linearGradient>
+          <linearGradient id="hairGradient" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor={shade(hair, 25)} />
+            <stop offset="50%" stopColor={hair} />
+            <stop offset="100%" stopColor={shade(hair, -24)} />
+          </linearGradient>
+          <linearGradient id="metalGradient" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="#e2e8f0" />
+            <stop offset="40%" stopColor="#94a3b8" />
+            <stop offset="70%" stopColor="#475569" />
+            <stop offset="100%" stopColor="#cbd5e1" />
+          </linearGradient>
+          <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="0" dy="18" stdDeviation="16" floodColor="#000000" floodOpacity="0.36" />
+          </filter>
+          <filter id="cardGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor={frame.a} floodOpacity="0.55" />
+          </filter>
+          <clipPath id="cardClip">
+            <rect x="18" y="18" width="324" height="444" rx="30" />
+          </clipPath>
+          <clipPath id="faceClip">
+            <path d={facePath} />
+          </clipPath>
+        </defs>
 
-        <radialGradient id={`${uid}-spot`} cx="50%" cy="24%" r="76%">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5" />
-          <stop offset="42%" stopColor="#ffffff" stopOpacity="0.08" />
-          <stop offset="100%" stopColor="#020617" stopOpacity="0.72" />
-        </radialGradient>
+        <rect width="360" height="480" fill="url(#avatarBg)" />
+        <rect width="360" height="480" fill="url(#avatarGlow)" />
+        <BackgroundDetails background={avatar.background} glow={bg.glow} line={bg.line} />
 
-        <linearGradient id={`${uid}-skin`} x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor={tint(skin, 26)} />
-          <stop offset="52%" stopColor={skin} />
-          <stop offset="100%" stopColor={shade(skin, 34)} />
-        </linearGradient>
-
-        <linearGradient id={`${uid}-hair`} x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor={tint(avatar.hairColor, 16)} />
-          <stop offset="100%" stopColor={shade(avatar.hairColor, 34)} />
-        </linearGradient>
-
-        <linearGradient id={`${uid}-clothes`} x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor={tint(avatar.clothesColor, 22)} />
-          <stop offset="56%" stopColor={avatar.clothesColor} />
-          <stop offset="100%" stopColor={shade(avatar.clothesColor, 42)} />
-        </linearGradient>
-
-        <filter id={`${uid}-shadow`} x="-40%" y="-40%" width="180%" height="180%">
-          <feDropShadow dx="0" dy="16" stdDeviation="12" floodColor="#020617" floodOpacity="0.5" />
-        </filter>
-
-        <filter id={`${uid}-small-shadow`} x="-35%" y="-35%" width="170%" height="170%">
-          <feDropShadow dx="0" dy="7" stdDeviation="5" floodColor="#020617" floodOpacity="0.28" />
-        </filter>
-
-        <filter id={`${uid}-glow`} x="-60%" y="-60%" width="220%" height="220%">
-          <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor={frame.glow} floodOpacity="0.72" />
-        </filter>
-
-        <clipPath id={`${uid}-portrait`}>
-          <rect x="42" y="42" width="216" height="306" rx="28" />
-        </clipPath>
-
-        <clipPath id={`${uid}-face`}>
-          {faceClipPath(avatar.face)}
-        </clipPath>
-      </defs>
-
-      <rect x="0" y="0" width="300" height="420" rx="38" fill="#020617" />
-      <rect x="8" y="8" width="284" height="404" rx="35" fill="#f8fafc" />
-      <rect x="18" y="18" width="264" height="384" rx="33" fill="#020617" />
-
-      <rect x="26" y="26" width="248" height="368" rx="30" fill={`url(#${uid}-bg)`} />
-      <rect x="26" y="26" width="248" height="368" rx="30" fill={`url(#${uid}-spot)`} />
-
-      <g clipPath={`url(#${uid}-portrait)`}>
-        {renderBackgroundDetails(avatar.background)}
-        <circle cx="84" cy="74" r="35" fill="#ffffff" opacity="0.12" />
-        <circle cx="236" cy="284" r="52" fill="#ffffff" opacity="0.12" />
-        <path d="M38 128 C94 64 204 54 268 104" stroke="#ffffff" strokeWidth="7" opacity="0.14" fill="none" />
-        <path d="M42 296 C108 228 200 224 266 276" stroke="#ffffff" strokeWidth="8" opacity="0.13" fill="none" />
-      </g>
-
-      {renderCardFrame(frame, avatar.frame)}
-
-      <g clipPath={`url(#${uid}-portrait)`} filter={`url(#${uid}-shadow)`}>
-        {renderBackLayer(avatar.outerwear, avatar.clothesColor, avatar.frame)}
-        {renderBody(avatar.body, avatar.clothes, avatar.outerwear, uid)}
-        {renderNeck(uid, skin)}
-        {renderHeadBase(avatar.face, uid)}
-        {renderEars(uid)}
-        <g clipPath={`url(#${uid}-face)`}>
-          {renderFaceDepth()}
-          {renderHairBack(avatar.hair, uid)}
-          {renderFaceShading()}
-          {renderFacialHair(avatar.facialHair, avatar.hairColor)}
-          {renderNose(avatar.nose, skin)}
-          {renderMouth(avatar.mouth)}
-          {renderEyes(avatar.eyes)}
-          {renderEyebrows(avatar.eyebrows, avatar.hairColor)}
-          {renderHairFront(avatar.hair, uid)}
+        <g filter="url(#cardGlow)">
+          <rect x="14" y="14" width="332" height="452" rx="34" fill="none" stroke="url(#frameGradient)" strokeWidth="8" />
+          <rect x="28" y="28" width="304" height="424" rx="24" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="1.5" />
         </g>
-        {renderHeadwear(avatar.headwear, uid, frame)}
-        {renderAccessory(avatar.accessory, frame)}
-      </g>
 
-      {renderFrameDecor(avatar.frame, frame)}
-      {renderNamePlate(name || 'PERSONAGEM', frame)}
-    </svg>
+        <g clipPath="url(#cardClip)">
+          <ellipse cx="180" cy="420" rx="112" ry="24" fill="#020617" opacity="0.42" />
+          <g filter="url(#softShadow)">
+            {avatar.outerwear === 'outerwear-cape' && <Cape outfit={outfitDark} frame={frame.a} />}
+            {avatar.outerwear === 'outerwear-robe' && <RobeBack color={outfitDark} accent={frame.a} />}
+
+            <g>
+              <path
+                d={`M${bodyShape.leftShoulder} 292 C${bodyShape.leftShoulder - 28} 304 ${bodyShape.leftWaist - 28} 348 ${bodyShape.leftWaist} 434 L${bodyShape.rightWaist} 434 C${bodyShape.rightWaist + 28} 348 ${bodyShape.rightShoulder + 28} 304 ${bodyShape.rightShoulder} 292 C220 276 140 276 ${bodyShape.leftShoulder} 292Z`}
+                fill={isRobot ? 'url(#metalGradient)' : 'url(#outfitGradient)'}
+              />
+              <path d="M132 298 C145 322 154 362 158 434 L202 434 C206 362 215 322 228 298 C203 288 157 288 132 298Z" fill="rgba(255,255,255,0.10)" />
+              <OutfitDetails clothes={avatar.clothes} color={outfit} dark={outfitDark} light={outfitLight} accent={frame.a} isRobot={isRobot} />
+              <Outerwear outerwear={avatar.outerwear} color={outfitDark} accent={frame.a} />
+            </g>
+
+            <g>
+              <path d="M148 254 C148 282 158 304 180 304 C202 304 212 282 212 254 L148 254Z" fill={isRobot ? 'url(#metalGradient)' : 'url(#skinGradient)'} />
+              <path d="M154 282 C168 294 192 294 206 282 C201 306 159 306 154 282Z" fill={skinDeep} opacity="0.22" />
+            </g>
+
+            <g>
+              <path d={facePath} fill={isRobot ? 'url(#metalGradient)' : 'url(#skinGradient)'} />
+              <path d="M132 178 C142 148 164 134 188 138 C165 150 151 174 151 212 C151 242 163 266 184 278 C148 274 128 244 126 208 C125 198 127 187 132 178Z" fill="#ffffff" opacity="0.10" clipPath="url(#faceClip)" />
+              <path d="M222 168 C232 190 232 236 215 260 C226 247 236 226 236 202 C236 184 231 173 222 168Z" fill="#020617" opacity="0.12" clipPath="url(#faceClip)" />
+              {isRobot && <RobotFaceLines accent={frame.a} />}
+              {avatar.face === 'face-10' && <AquaticMarks accent={bg.glow} />}
+              {avatar.face === 'face-06' && <FaceMask accent={frame.a} />}
+            </g>
+
+            <Ears skin={isRobot ? '#94a3b8' : skin} shadow={skinShadow} feral={isFeral || avatar.accessory === 'accessory-06'} />
+            <Hair hair={avatar.hair} color={hair} />
+            <Headwear headwear={avatar.headwear} hairColor={hair} accent={frame.a} />
+            <Eyes eyes={avatar.eyes} accent={frame.a} glow={bg.glow} />
+            <Eyebrows eyebrows={avatar.eyebrows} hairColor={hair} />
+            <Nose nose={avatar.nose} color={skinDeep} isRobot={isRobot} accent={frame.a} />
+            <Mouth mouth={avatar.mouth} color={skinDeep} feral={isFeral} />
+            <FacialHair facialHair={avatar.facialHair} color={hair} />
+            <Accessory accessory={avatar.accessory} accent={frame.a} glow={bg.glow} />
+          </g>
+        </g>
+
+        <g>
+          <rect x="38" y="398" width="284" height="44" rx="16" fill="#020617" opacity="0.58" />
+          <rect x="40" y="400" width="280" height="40" rx="14" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.16)" />
+          <text x="180" y="423" textAnchor="middle" fill="#ffffff" fontSize="18" fontWeight="900" letterSpacing="1.8" fontFamily="Arial, Helvetica, sans-serif">
+            {displayName.toUpperCase().slice(0, 24)}
+          </text>
+          <text x="180" y="438" textAnchor="middle" fill={frame.b} fontSize="8" fontWeight="900" letterSpacing="2.4" fontFamily="Arial, Helvetica, sans-serif">
+            {frame.text} AVATAR
+          </text>
+        </g>
+      </svg>
+    </div>
   );
 }
 
-function faceClipPath(face: string) {
-  const paths: Record<string, string> = {
-    'face-01': 'M92 118 C92 72 116 48 150 48 C184 48 208 72 208 118 V152 C208 194 184 224 150 224 C116 224 92 194 92 152 Z',
-    'face-02': 'M88 126 C88 78 114 50 150 50 C186 50 212 78 212 126 C212 180 186 224 150 224 C114 224 88 180 88 126 Z',
-    'face-03': 'M94 72 H206 V158 C206 200 182 224 150 224 C118 224 94 200 94 158 Z',
-    'face-04': 'M104 92 C108 58 126 46 150 46 C174 46 192 58 196 92 L206 154 C206 196 180 226 150 226 C120 226 94 196 94 154 Z',
-    'face-05': 'M84 104 C84 62 112 44 150 44 C188 44 216 62 216 104 V152 C216 200 188 228 150 228 C112 228 84 200 84 152 Z',
-    'face-06': 'M96 78 H204 L216 150 C212 200 186 228 150 228 C114 228 88 200 84 150 Z',
-    'face-07': 'M94 96 L118 52 H182 L206 96 L202 166 L150 228 L98 166 Z',
-    'face-08': 'M96 92 C104 58 124 44 150 44 C176 44 196 58 204 92 L210 152 C210 200 184 228 150 228 C116 228 90 200 90 152 Z',
-    'face-09': 'M96 66 H204 L218 122 L202 212 H98 L82 122 Z',
-    'face-10': 'M92 100 C92 62 118 44 150 44 C182 44 208 62 208 100 L216 150 C208 200 184 226 150 226 C116 226 92 200 84 150 Z',
-  };
-
-  return <path d={paths[face] || paths['face-01']} />;
-}
-
-function renderBackgroundDetails(background: string) {
-  if (background === 'bg-02') {
+function BackgroundDetails({ background, glow, line }: { background: string; glow: string; line: string }) {
+  if (background === 'bg-10') {
     return (
-      <g opacity="0.62">
-        <path d="M28 394 C66 306 38 252 86 174 C80 260 140 286 106 398 Z" fill="#fb923c" />
-        <path d="M204 404 C250 320 208 252 250 184 C268 262 300 306 258 404 Z" fill="#facc15" />
+      <g opacity="0.72">
+        <path d="M38 274 C94 244 262 244 322 274" fill="none" stroke={line} strokeWidth="3" opacity="0.55" />
+        <path d="M58 304 C112 284 248 284 302 304" fill="none" stroke="#ffffff" strokeWidth="1" opacity="0.18" />
+        <circle cx="78" cy="146" r="3" fill="#fef3c7" />
+        <circle cx="280" cy="134" r="3" fill="#fef3c7" />
+        <circle cx="180" cy="102" r="4" fill="#fef3c7" />
       </g>
     );
   }
 
-  if (background === 'bg-04') {
+  if (background === 'bg-13' || background === 'bg-16') {
     return (
-      <g stroke="#fef08a" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" opacity="0.72" fill="none">
-        <path d="M54 82 L88 142 L66 142 L116 228" />
-        <path d="M244 72 L202 150 L232 146 L178 252" />
-      </g>
-    );
-  }
-
-  if (background === 'bg-05') {
-    return (
-      <g fill="#020617" opacity="0.72">
-        <rect x="26" y="174" width="34" height="178" />
-        <rect x="74" y="132" width="50" height="220" />
-        <rect x="172" y="152" width="44" height="200" />
-        <rect x="234" y="110" width="34" height="242" />
+      <g opacity="0.76">
+        {Array.from({ length: 8 }).map((_, index) => (
+          <path key={index} d={`M${34 + index * 42} 68 V340`} stroke={line} strokeWidth="1" opacity="0.16" />
+        ))}
+        <path d="M54 132 H306 M34 214 H326 M70 316 H292" stroke={line} strokeWidth="1.5" opacity="0.24" />
+        <circle cx="286" cy="116" r="18" fill="none" stroke={glow} strokeWidth="2" opacity="0.5" />
       </g>
     );
   }
 
   if (background === 'bg-08') {
     return (
-      <g opacity="0.66">
-        <circle cx="68" cy="68" r="2.5" fill="#fff" />
-        <circle cx="120" cy="52" r="4" fill="#fff" />
-        <circle cx="238" cy="98" r="2.5" fill="#fff" />
-        <circle cx="222" cy="270" r="44" fill="#f59e0b" opacity="0.35" />
+      <g opacity="0.75">
+        <circle cx="82" cy="102" r="2" fill="#fff" />
+        <circle cx="270" cy="88" r="2.5" fill="#fff" />
+        <circle cx="296" cy="204" r="1.8" fill="#fff" />
+        <circle cx="58" cy="250" r="1.8" fill="#fff" />
+        <ellipse cx="272" cy="142" rx="34" ry="12" fill="none" stroke={line} strokeWidth="2" opacity="0.45" transform="rotate(-20 272 142)" />
       </g>
     );
   }
 
-  if (background === 'bg-10') {
+  if (background === 'bg-03') {
     return (
-      <g opacity="0.44">
-        <rect x="24" y="284" width="252" height="112" fill="#14532d" />
-        <path d="M30 320 H270 M70 284 V396 M230 284 V396" stroke="#f8fafc" strokeWidth="4" />
-        <circle cx="150" cy="320" r="32" stroke="#f8fafc" strokeWidth="3" fill="none" />
+      <g opacity="0.62">
+        <path d="M62 118 L94 90 L126 118 M250 90 L282 122 L314 90" fill="none" stroke={line} strokeWidth="2" />
+        <path d="M74 328 L106 290 L136 328 M224 330 L258 286 L292 330" fill="none" stroke="#e0f2fe" strokeWidth="2" opacity="0.4" />
       </g>
     );
   }
 
-  if (background === 'bg-11') {
-    return (
-      <g opacity="0.48">
-        <rect x="42" y="86" width="216" height="190" fill="#3f2414" />
-        {Array.from({ length: 8 }).map((_, index) => (
-          <rect key={index} x={54 + index * 25} y="100" width="16" height="150" fill={index % 2 ? '#7c2d12' : '#1e3a8a'} />
-        ))}
-      </g>
-    );
-  }
-
-  if (background === 'bg-13') {
-    return (
-      <g opacity="0.58" stroke="#22d3ee" strokeWidth="3.5" fill="none">
-        <path d="M30 116 H104 V68 H186 V146 H270" />
-        <path d="M38 310 H122 V260 H204 V318 H270" />
-        <circle cx="104" cy="68" r="6" fill="#22d3ee" />
-        <circle cx="204" cy="260" r="6" fill="#22d3ee" />
-      </g>
-    );
-  }
-
-  return null;
-}
-
-function renderCardFrame(frame: { light: string; main: string; dark: string; glow: string }, frameId: string) {
   return (
-    <g>
-      <rect x="36" y="36" width="228" height="322" rx="30" fill="none" stroke="#ffffff" strokeWidth="8" opacity="0.95" />
-      <rect x="47" y="47" width="206" height="300" rx="24" fill="none" stroke="#020617" strokeWidth="10" opacity="0.92" />
-      <rect x="58" y="58" width="184" height="278" rx="18" fill="none" stroke={frame.main} strokeWidth="6" filter={`url(#${frameId})`} />
-      <rect x="68" y="68" width="164" height="258" rx="14" fill="none" stroke={frame.dark} strokeWidth="4" opacity="0.75" />
+    <g opacity="0.64">
+      <circle cx="76" cy="112" r="54" fill={glow} opacity="0.14" />
+      <circle cx="292" cy="282" r="78" fill={glow} opacity="0.12" />
+      <path d="M42 112 C112 76 242 74 316 118" fill="none" stroke={line} strokeWidth="2" opacity="0.34" />
+      <path d="M50 344 C124 304 248 304 312 346" fill="none" stroke="#ffffff" strokeWidth="1" opacity="0.16" />
     </g>
   );
 }
 
-function renderBackLayer(outerwear: string, color: string, frame: string) {
-  if (outerwear === 'outerwear-cape') {
-    const cape = frame === 'frame-speed' ? '#991b1b' : '#020617';
-    return <path d="M56 390 C50 272 88 216 132 204 L150 244 L168 204 C212 216 250 272 244 390 Z" fill={cape} opacity="0.94" />;
-  }
+function Cape({ outfit, frame }: { outfit: string; frame: string }) {
+  return <path d="M112 282 C86 328 72 382 62 444 L298 444 C288 382 274 328 248 282 C218 302 142 302 112 282Z" fill={outfit} opacity="0.88" stroke={frame} strokeOpacity="0.28" strokeWidth="2" />;
+}
 
-  if (outerwear === 'outerwear-robe') {
-    return <path d="M48 392 C64 282 96 218 150 204 C204 218 236 282 252 392 Z" fill="#020617" opacity="0.9" />;
-  }
+function RobeBack({ color, accent }: { color: string; accent: string }) {
+  return <path d="M114 288 C92 326 84 376 78 444 L282 444 C276 376 268 326 246 288 C216 304 144 304 114 288Z" fill={color} opacity="0.86" stroke={accent} strokeOpacity="0.22" strokeWidth="2" />;
+}
 
-  if (outerwear === 'outerwear-jacket') {
+function OutfitDetails({ clothes, color, dark, light, accent, isRobot }: { clothes: string; color: string; dark: string; light: string; accent: string; isRobot: boolean }) {
+  if (isRobot || clothes === 'clothes-17' || clothes === 'clothes-21') {
     return (
       <g>
-        <path d="M62 388 L102 240 L150 388 Z" fill={shade(color, 42)} opacity="0.94" />
-        <path d="M238 388 L198 240 L150 388 Z" fill={shade(color, 42)} opacity="0.94" />
+        <path d="M118 316 H242 L224 434 H136Z" fill="none" stroke="#e2e8f0" strokeOpacity="0.35" strokeWidth="2" />
+        <path d="M150 318 L180 350 L210 318" fill="none" stroke={accent} strokeWidth="4" opacity="0.8" />
+        <circle cx="180" cy="366" r="15" fill="#020617" stroke={accent} strokeWidth="3" />
+        <path d="M126 338 H156 M204 338 H234 M142 392 H218" stroke="#020617" strokeOpacity="0.34" strokeWidth="5" strokeLinecap="round" />
       </g>
     );
   }
 
-  return null;
-}
-
-function renderBody(body: string, clothes: string, outerwear: string, uid: string) {
-  const width = body === 'body-03' ? 196 : body === 'body-04' ? 138 : body === 'body-05' ? 164 : 170;
-  const left = 150 - width / 2;
-  const right = 150 + width / 2;
-  const shoulderStroke = body === 'body-03' ? 38 : body === 'body-04' ? 23 : 30;
-
-  return (
-    <g>
-      <path d={`M${left} 392 C${left + 10} 292 104 238 150 238 C196 238 ${right - 10} 292 ${right} 392 Z`} fill={`url(#${uid}-clothes)`} />
-
-      <path
-        d="M72 306 C86 260 112 238 150 238 C188 238 214 260 228 306"
-        stroke="#020617"
-        strokeWidth={shoulderStroke}
-        strokeLinecap="round"
-        fill="none"
-        opacity="0.18"
-      />
-
-      {renderClothesDetails(clothes)}
-
-      {outerwear === 'outerwear-armor' && (
-        <g>
-          <path d="M94 252 H206 L190 362 H110 Z" fill="#1e293b" stroke="#cbd5e1" strokeWidth="6" strokeLinejoin="round" />
-          <path d="M112 274 H188 M116 308 H184 M122 340 H178" stroke="#94a3b8" strokeWidth="7" strokeLinecap="round" />
-          <circle cx="150" cy="292" r="18" fill="#e2e8f0" />
-        </g>
-      )}
-
-      {outerwear === 'outerwear-ruff' && (
-        <path
-          d="M80 244 L98 218 L116 244 L134 218 L152 244 L170 218 L188 244 L206 220 L198 270 H90 Z"
-          fill="#f8fafc"
-          stroke="#dc2626"
-          strokeWidth="4"
-          strokeLinejoin="round"
-        />
-      )}
-    </g>
-  );
-}
-
-function renderClothesDetails(clothes: string) {
   if (clothes === 'clothes-02') {
     return (
       <g>
-        <path d="M118 248 H182 L174 392 H126 Z" fill="#f8fafc" opacity="0.88" />
-        <circle cx="150" cy="306" r="20" fill="#f8fafc" opacity="0.9" />
+        <path d="M124 316 L180 344 L236 316" fill="none" stroke="#ffffff" strokeOpacity="0.62" strokeWidth="5" />
+        <text x="180" y="388" textAnchor="middle" fill="#ffffff" fontSize="36" fontWeight="900" opacity="0.74" fontFamily="Arial">10</text>
+        <path d="M118 334 C144 350 216 350 242 334" fill="none" stroke={light} strokeWidth="3" opacity="0.6" />
       </g>
     );
   }
 
-  if (clothes === 'clothes-03') {
+  if (clothes === 'clothes-11') {
     return (
       <g>
-        <path d="M100 254 H200 L188 362 H112 Z" fill="#334155" opacity="0.9" />
-        <circle cx="126" cy="288" r="11" fill="#cbd5e1" />
-        <circle cx="174" cy="288" r="11" fill="#cbd5e1" />
-      </g>
-    );
-  }
-
-  if (clothes === 'clothes-07') {
-    return <path d="M154 246 L126 312 H150 L122 390 L194 290 H164 L184 246 Z" fill="#facc15" />;
-  }
-
-  if (clothes === 'clothes-08') {
-    return (
-      <g>
-        <path d="M106 254 L150 292 L194 254 L178 392 H122 Z" fill="#111827" />
-        <path d="M116 266 Q150 296 184 266 Q166 280 150 254 Q134 280 116 266 Z" fill="#64748b" />
-      </g>
-    );
-  }
-
-  if (clothes === 'clothes-09') {
-    return (
-      <g>
-        <path d="M90 392 L122 250 L150 392 Z M210 392 L178 250 L150 392 Z" fill="#e5e7eb" />
-        <circle cx="150" cy="304" r="9" fill="#dc2626" />
-        <circle cx="150" cy="340" r="9" fill="#dc2626" />
-      </g>
-    );
-  }
-
-  if (clothes === 'clothes-10') {
-    return (
-      <g opacity="0.95">
-        <path d="M112 256 L136 294 L118 322 L150 390 L188 256 L164 314 L182 338 L132 390 Z" fill="#4c1d95" />
-        <path d="M106 300 L122 292 M178 306 L196 294 M132 340 L150 330" stroke="#111827" strokeWidth="5" strokeLinecap="round" />
+        <path d="M124 306 C144 330 216 330 236 306 L228 372 C204 386 156 386 132 372Z" fill={shade(color, -18)} opacity="0.78" />
+        <path d="M138 340 H222" stroke="#ffffff" strokeOpacity="0.42" strokeWidth="5" strokeLinecap="round" />
+        <path d="M154 374 H206" stroke={accent} strokeWidth="5" strokeLinecap="round" />
       </g>
     );
   }
@@ -381,494 +283,171 @@ function renderClothesDetails(clothes: string) {
   if (clothes === 'clothes-12') {
     return (
       <g>
-        <path d="M102 252 H198 L184 392 H116 Z" fill="#020617" opacity="0.88" />
-        <path d="M106 282 H194" stroke="#ef4444" strokeWidth="8" />
+        <path d="M120 306 L180 350 L240 306 L230 434 H130Z" fill={dark} opacity="0.65" />
+        <path d="M146 326 L214 394 M214 326 L146 394" stroke={accent} strokeWidth="4" opacity="0.68" />
       </g>
     );
   }
 
-  if (clothes === 'clothes-14') {
+  if (clothes === 'clothes-14' || clothes === 'clothes-18') {
     return (
       <g>
-        <circle cx="116" cy="288" r="20" fill="#111827" stroke="#22d3ee" strokeWidth="5" />
-        <circle cx="184" cy="288" r="20" fill="#111827" stroke="#22d3ee" strokeWidth="5" />
-        <path d="M136 288 H164" stroke="#22d3ee" strokeWidth="5" />
+        <path d="M120 322 C150 346 210 346 240 322" fill="none" stroke={accent} strokeWidth="4" opacity="0.75" />
+        <circle cx="148" cy="372" r="8" fill={accent} opacity="0.75" />
+        <circle cx="212" cy="372" r="8" fill={accent} opacity="0.75" />
+        <path d="M150 410 H210" stroke="#ffffff" strokeOpacity="0.36" strokeWidth="5" strokeLinecap="round" />
       </g>
     );
   }
 
-  if (clothes === 'clothes-15') {
+  if (clothes === 'clothes-19' || clothes === 'clothes-20') {
     return (
       <g>
-        <path d="M108 252 H192 L180 392 H120 Z" fill="#111827" opacity="0.92" />
-        <path d="M130 252 L150 292 L170 252" fill="none" stroke="#facc15" strokeWidth="5" />
+        <path d="M132 304 L180 342 L228 304 L242 434 H118Z" fill={dark} opacity="0.54" />
+        <path d="M180 344 V432" stroke="#f8fafc" strokeOpacity="0.28" strokeWidth="3" />
+        <path d="M142 334 H164 M196 334 H218" stroke={accent} strokeWidth="4" strokeLinecap="round" opacity="0.65" />
       </g>
     );
   }
 
-  if (clothes === 'clothes-16') {
-    return (
-      <g>
-        <path d="M110 250 H190 L178 392 H122 Z" fill="#0f766e" />
-        <path d="M124 264 L150 300 L176 264" fill="none" stroke="#facc15" strokeWidth="6" strokeLinecap="round" />
-      </g>
-    );
-  }
-
-  if (clothes === 'clothes-17') {
-    return (
-      <g>
-        <path d="M104 250 H196 L188 392 H112 Z" fill="#334155" />
-        <path d="M124 270 H176 M116 310 H184 M126 350 H174" stroke="#22d3ee" strokeWidth="5" strokeLinecap="round" />
-      </g>
-    );
-  }
-
-  if (clothes === 'clothes-18') {
-    return (
-      <g>
-        <path d="M102 252 H198 L184 392 H116 Z" fill="#0f172a" />
-        <path d="M118 284 H182 M126 318 H174" stroke="#38bdf8" strokeWidth="8" strokeLinecap="round" />
-      </g>
-    );
-  }
-
-  return (
-    <g opacity="0.56">
-      <path d="M116 252 L150 286 L184 252" stroke="#ffffff" strokeWidth="6" fill="none" strokeLinecap="round" />
-      <path d="M150 286 V392" stroke="#ffffff" strokeWidth="4" opacity="0.35" />
-    </g>
-  );
-}
-
-function renderNeck(uid: string, skin: string) {
   return (
     <g>
-      <path d="M126 204 H174 L180 250 C166 264 134 264 120 250 Z" fill={`url(#${uid}-skin)`} />
-      <path d="M126 208 H174 V226 C160 236 140 236 126 226 Z" fill={shade(skin, 20)} opacity="0.42" />
+      <path d="M128 308 L180 342 L232 308" fill="none" stroke="#ffffff" strokeOpacity="0.24" strokeWidth="5" />
+      <path d="M150 332 L180 360 L210 332" fill="none" stroke={accent} strokeWidth="4" opacity="0.56" />
+      <path d="M136 400 H224" stroke={light} strokeWidth="5" strokeLinecap="round" opacity="0.35" />
     </g>
   );
 }
 
-function renderHeadBase(face: string, uid: string) {
-  const paths: Record<string, string> = {
-    'face-01': 'M92 118 C92 72 116 48 150 48 C184 48 208 72 208 118 V152 C208 194 184 224 150 224 C116 224 92 194 92 152 Z',
-    'face-02': 'M88 126 C88 78 114 50 150 50 C186 50 212 78 212 126 C212 180 186 224 150 224 C114 224 88 180 88 126 Z',
-    'face-03': 'M94 72 H206 V158 C206 200 182 224 150 224 C118 224 94 200 94 158 Z',
-    'face-04': 'M104 92 C108 58 126 46 150 46 C174 46 192 58 196 92 L206 154 C206 196 180 226 150 226 C120 226 94 196 94 154 Z',
-    'face-05': 'M84 104 C84 62 112 44 150 44 C188 44 216 62 216 104 V152 C216 200 188 228 150 228 C112 228 84 200 84 152 Z',
-    'face-06': 'M96 78 H204 L216 150 C212 200 186 228 150 228 C114 228 88 200 84 150 Z',
-    'face-07': 'M94 96 L118 52 H182 L206 96 L202 166 L150 228 L98 166 Z',
-    'face-08': 'M96 92 C104 58 124 44 150 44 C176 44 196 58 204 92 L210 152 C210 200 184 228 150 228 C116 228 90 200 90 152 Z',
-    'face-09': 'M96 66 H204 L218 122 L202 212 H98 L82 122 Z',
-    'face-10': 'M92 100 C92 62 118 44 150 44 C182 44 208 62 208 100 L216 150 C208 200 184 226 150 226 C116 226 92 200 84 150 Z',
-  };
+function Outerwear({ outerwear, color, accent }: { outerwear: string; color: string; accent: string }) {
+  if (outerwear === 'outerwear-none') return null;
 
-  return <path d={paths[face] || paths['face-01']} fill={`url(#${uid}-skin)`} filter={`url(#${uid}-small-shadow)`} />;
-}
-
-function renderEars(uid: string) {
-  return (
-    <g>
-      <ellipse cx="86" cy="140" rx="14" ry="23" fill={`url(#${uid}-skin)`} />
-      <ellipse cx="214" cy="140" rx="14" ry="23" fill={`url(#${uid}-skin)`} />
-      <ellipse cx="86" cy="140" rx="6" ry="12" fill="#020617" opacity="0.12" />
-      <ellipse cx="214" cy="140" rx="6" ry="12" fill="#020617" opacity="0.12" />
-    </g>
-  );
-}
-
-function renderFaceDepth() {
-  return (
-    <g opacity="0.15">
-      <path d="M150 52 C184 62 202 90 202 144 C200 188 178 216 150 224 C172 198 184 170 184 128 C184 88 172 64 150 52 Z" fill="#020617" />
-    </g>
-  );
-}
-
-function renderFaceShading() {
-  return (
-    <g opacity="0.12">
-      <path d="M92 116 C116 130 184 130 208 116 V150 C188 140 112 140 92 150 Z" fill="#ffffff" />
-      <path d="M96 178 C120 212 180 212 204 178 C194 216 174 230 150 230 C126 230 106 216 96 178 Z" fill="#020617" />
-    </g>
-  );
-}
-
-function renderHairBack(hair: string, uid: string) {
-  if (hair === 'hair-04') {
-    return <path d="M80 102 C78 54 112 30 150 32 C188 30 222 54 220 102 L212 226 H88 Z" fill={`url(#${uid}-hair)`} />;
-  }
-
-  if (hair === 'hair-09') {
-    return <path d="M78 110 C76 54 112 26 150 26 C188 26 224 54 222 110 L214 246 H86 Z" fill="#020617" />;
-  }
-
-  if (hair === 'hair-11') {
-    return <path d="M82 104 C82 46 116 28 150 28 C184 28 218 46 218 104 L206 226 H94 Z" fill={`url(#${uid}-hair)`} />;
-  }
-
-  if (hair === 'hair-12') {
+  if (outerwear === 'outerwear-jacket') {
     return (
-      <g fill={`url(#${uid}-hair)`}>
-        <path d="M90 92 C90 52 118 34 150 34 C182 34 210 52 210 92 H90 Z" />
-        <path d="M84 110 C64 150 66 204 86 246" stroke={`url(#${uid}-hair)`} strokeWidth="14" strokeLinecap="round" />
-        <path d="M216 110 C236 150 234 204 214 246" stroke={`url(#${uid}-hair)`} strokeWidth="14" strokeLinecap="round" />
+      <g>
+        <path d="M108 300 C130 316 150 344 160 434 H118 C114 376 108 334 108 300Z" fill={color} opacity="0.82" />
+        <path d="M252 300 C230 316 210 344 200 434 H242 C246 376 252 334 252 300Z" fill={color} opacity="0.82" />
+        <path d="M126 322 L158 348 M234 322 L202 348" stroke={accent} strokeWidth="3" opacity="0.55" />
       </g>
     );
+  }
+
+  if (outerwear === 'outerwear-armor') {
+    return (
+      <g>
+        <path d="M92 300 C116 284 144 290 158 310 C134 320 110 320 92 300Z" fill="#cbd5e1" opacity="0.88" />
+        <path d="M268 300 C244 284 216 290 202 310 C226 320 250 320 268 300Z" fill="#cbd5e1" opacity="0.88" />
+        <path d="M104 302 H148 M212 302 H256" stroke={accent} strokeWidth="3" opacity="0.65" />
+      </g>
+    );
+  }
+
+  if (outerwear === 'outerwear-ruff') {
+    return <path d="M112 292 C140 322 220 322 248 292 C222 304 138 304 112 292Z" fill="#f8fafc" opacity="0.82" stroke={accent} strokeWidth="2" />;
+  }
+
+  if (outerwear === 'outerwear-robe') {
+    return <path d="M130 304 C152 326 208 326 230 304 L220 434 H140Z" fill={color} opacity="0.46" stroke={accent} strokeOpacity="0.34" />;
   }
 
   return null;
 }
 
-function renderHairFront(hair: string, uid: string) {
+function Ears({ skin, shadow, feral }: { skin: string; shadow: string; feral: boolean }) {
+  if (feral) {
+    return (
+      <g>
+        <path d="M126 183 L102 154 L110 204Z" fill={skin} stroke={shadow} strokeWidth="2" />
+        <path d="M234 183 L258 154 L250 204Z" fill={skin} stroke={shadow} strokeWidth="2" />
+      </g>
+    );
+  }
+
+  return (
+    <g>
+      <path d="M126 190 C108 190 106 226 128 226" fill={skin} opacity="0.96" />
+      <path d="M234 190 C252 190 254 226 232 226" fill={skin} opacity="0.96" />
+    </g>
+  );
+}
+
+function Hair({ hair, color }: { hair: string; color: string }) {
   if (hair === 'hair-08') return null;
 
-  if (hair === 'hair-01') {
-    return <path d="M90 106 C98 58 126 46 150 46 C176 46 202 58 210 106 C180 90 130 88 90 106 Z" fill={`url(#${uid}-hair)`} />;
-  }
-
-  if (hair === 'hair-02') {
-    return <path d="M84 104 L104 48 L122 84 L142 38 L156 84 L180 42 L194 92 L216 76 L208 116 C174 94 124 90 84 104 Z" fill={`url(#${uid}-hair)`} />;
-  }
-
-  if (hair === 'hair-03') {
-    return (
-      <g fill={`url(#${uid}-hair)`}>
-        <circle cx="100" cy="90" r="24" />
-        <circle cx="126" cy="64" r="27" />
-        <circle cx="158" cy="60" r="28" />
-        <circle cx="190" cy="84" r="25" />
-        <circle cx="210" cy="114" r="20" />
-        <circle cx="86" cy="118" r="20" />
-      </g>
-    );
-  }
-
-  if (hair === 'hair-04') {
-    return <path d="M86 110 C94 56 122 36 150 36 C178 36 206 56 214 110 C178 86 126 86 86 110 Z" fill={`url(#${uid}-hair)`} />;
-  }
-
-  if (hair === 'hair-05') {
-    return <path d="M86 112 C96 62 126 52 148 54 C176 56 198 46 216 32 C212 72 200 100 180 114 C146 96 116 96 86 112 Z" fill={`url(#${uid}-hair)`} />;
-  }
-
-  if (hair === 'hair-06') {
-    return <path d="M128 94 L150 26 L172 94 C158 86 142 86 128 94 Z" fill={`url(#${uid}-hair)`} />;
-  }
-
-  if (hair === 'hair-07') {
-    return <path d="M84 110 C98 62 136 44 188 64 C206 74 214 90 218 114 C174 94 132 90 84 110 Z" fill={`url(#${uid}-hair)`} />;
-  }
-
   if (hair === 'hair-09') {
-    return (
-      <g>
-        <path d="M84 116 C84 62 112 34 150 34 C188 34 216 62 216 116 C192 96 108 96 84 116 Z" fill="#020617" />
-        <path d="M104 116 C116 88 134 74 150 74 C166 74 184 88 196 116 C178 106 122 106 104 116 Z" fill="#1f2937" />
-      </g>
-    );
+    return <path d="M106 206 C106 138 144 104 180 104 C216 104 254 138 254 206 C240 160 218 138 180 138 C142 138 120 160 106 206Z" fill={shade(color, -25)} opacity="0.94" />;
   }
 
-  if (hair === 'hair-10') {
-    return <path d="M76 114 L106 52 L130 86 L150 34 L172 86 L202 52 L224 114 C184 90 116 90 76 114 Z" fill={`url(#${uid}-hair)`} />;
+  if (hair === 'hair-01') return <path d="M124 174 C132 126 162 112 198 118 C222 122 238 142 240 174 C216 156 170 150 124 174Z" fill="url(#hairGradient)" />;
+  if (hair === 'hair-02') return <path d="M122 170 L138 120 L158 152 L178 106 L196 152 L222 116 L238 172 C206 154 158 154 122 170Z" fill="url(#hairGradient)" />;
+  if (hair === 'hair-03') {
+    const circles: Point[] = [
+      { x: 128, y: 164 },
+      { x: 144, y: 134 },
+      { x: 174, y: 126 },
+      { x: 204, y: 132 },
+      { x: 230, y: 160 },
+      { x: 118, y: 190 },
+      { x: 240, y: 190 },
+    ];
+    return <g>{circles.map((circle) => <circle key={`${circle.x}-${circle.y}`} cx={circle.x} cy={circle.y} r="25" fill="url(#hairGradient)" />)}</g>;
   }
-
-  if (hair === 'hair-11') {
-    return <path d="M82 112 C86 56 116 36 150 36 C184 36 214 56 218 112 C188 90 164 88 150 114 C136 88 112 90 82 112 Z" fill={`url(#${uid}-hair)`} />;
-  }
-
+  if (hair === 'hair-04') return <path d="M118 164 C116 118 152 100 184 106 C226 112 248 146 244 194 C240 248 226 286 202 306 C216 244 214 176 180 146 C154 172 142 240 158 306 C128 278 116 226 118 164Z" fill="url(#hairGradient)" />;
+  if (hair === 'hair-05') return <path d="M128 166 C140 122 168 96 222 116 C208 122 196 136 190 156 C168 144 148 148 128 166Z" fill="url(#hairGradient)" />;
+  if (hair === 'hair-06') return <path d="M158 164 L174 88 L190 164 C180 158 168 158 158 164Z" fill="url(#hairGradient)" />;
+  if (hair === 'hair-07') return <path d="M120 174 C132 116 190 104 238 134 C200 138 166 156 132 194Z" fill="url(#hairGradient)" />;
+  if (hair === 'hair-10') return <path d="M116 178 L142 118 L158 154 L180 94 L202 154 L232 116 L244 180 C210 152 152 152 116 178Z" fill="url(#hairGradient)" />;
+  if (hair === 'hair-11') return <path d="M116 168 C136 106 222 102 244 170 C234 158 218 152 200 150 L190 206 L174 150 C150 152 132 158 116 168Z" fill="url(#hairGradient)" />;
   if (hair === 'hair-12') {
-    return <path d="M90 102 C94 60 122 40 150 40 C178 40 206 60 210 102 C176 86 124 86 90 102 Z" fill={`url(#${uid}-hair)`} />;
+    return (
+      <g>
+        <path d="M126 168 C138 116 220 116 234 168 C198 150 162 150 126 168Z" fill="url(#hairGradient)" />
+        {[138, 154, 206, 222].map((x) => <path key={x} d={`M${x} 168 C${x - 12} 212 ${x - 10} 254 ${x + 2} 298`} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round" />)}
+      </g>
+    );
   }
-
-  if (hair === 'hair-13') {
-    return <path d="M78 108 L102 62 L118 84 L136 48 L152 86 L176 48 L186 84 L214 60 L222 114 C180 90 126 88 78 108 Z" fill={`url(#${uid}-hair)`} />;
-  }
-
-  if (hair === 'hair-14') {
-    return <path d="M82 110 C90 68 126 42 172 54 C204 62 218 86 220 114 C178 94 122 96 82 110 Z" fill={`url(#${uid}-hair)`} />;
-  }
-
-  if (hair === 'hair-15') {
-    return <path d="M88 106 C100 64 128 50 150 50 C176 50 200 64 212 106 C178 92 128 92 88 106 Z" fill={`url(#${uid}-hair)`} />;
-  }
+  if (hair === 'hair-13') return <path d="M118 170 C128 112 166 104 190 122 L212 104 L236 130 L228 174 C196 154 158 154 118 170Z" fill="url(#hairGradient)" />;
+  if (hair === 'hair-14') return <path d="M122 176 C132 126 182 106 238 134 C218 150 178 160 126 196Z" fill="url(#hairGradient)" />;
+  if (hair === 'hair-15') return <path d="M124 168 C138 122 186 108 232 134 C202 142 166 152 128 180Z" fill="url(#hairGradient)" />;
 
   return null;
 }
 
-function renderEyes(eyes: string) {
-  if (eyes === 'eyes-06') {
-    return (
-      <g>
-        <path d="M104 130 H196 L186 156 H114 Z" fill="#020617" opacity="0.86" />
-        <path d="M118 142 H138 M162 142 H182" stroke="#f8fafc" strokeWidth="5" strokeLinecap="round" />
-      </g>
-    );
-  }
+function Headwear({ headwear, hairColor, accent }: { headwear: string; hairColor: string; accent: string }) {
+  if (headwear === 'headwear-none') return null;
 
-  if (eyes === 'eyes-08' || eyes === 'eyes-09' || eyes === 'eyes-12') {
-    const color = eyes === 'eyes-12' ? '#22d3ee' : '#ef4444';
-
-    return (
-      <g>
-        <path d="M104 132 H196 L188 154 H112 Z" fill="#020617" opacity="0.84" />
-        <rect x="116" y="138" width="25" height="7" rx="4" fill={color} />
-        <rect x="159" y="138" width="25" height="7" rx="4" fill={color} />
-      </g>
-    );
-  }
-
-  if (eyes === 'eyes-10') {
-    return (
-      <g>
-        <circle cx="124" cy="142" r="16" fill="none" stroke="#111827" strokeWidth="5" />
-        <circle cx="176" cy="142" r="16" fill="none" stroke="#111827" strokeWidth="5" />
-        <path d="M140 142 H160" stroke="#111827" strokeWidth="5" strokeLinecap="round" />
-        <path d="M120 142 H128 M172 142 H180" stroke="#111827" strokeWidth="5" strokeLinecap="round" />
-      </g>
-    );
-  }
-
-  if (eyes === 'eyes-05') {
-    return (
-      <g>
-        <ellipse cx="124" cy="142" rx="12" ry="16" fill="#ffffff" opacity="0.94" />
-        <ellipse cx="176" cy="142" rx="12" ry="16" fill="#ffffff" opacity="0.94" />
-        <circle cx="124" cy="144" r="5" fill="#111827" />
-        <circle cx="176" cy="144" r="5" fill="#111827" />
-      </g>
-    );
-  }
-
-  if (eyes === 'eyes-07') {
-    return (
-      <g>
-        <path d="M108 140 Q124 128 140 140" stroke="#111827" strokeWidth="6" strokeLinecap="round" fill="none" />
-        <path d="M160 140 Q176 128 192 140" stroke="#111827" strokeWidth="6" strokeLinecap="round" fill="none" />
-        <path d="M119 148 H131 M169 148 H181" stroke="#111827" strokeWidth="5" strokeLinecap="round" />
-      </g>
-    );
-  }
-
-  if (eyes === 'eyes-02') {
-    return (
-      <g>
-        <path d="M112 144 Q124 134 136 144" stroke="#111827" strokeWidth="5" strokeLinecap="round" fill="none" />
-        <path d="M164 144 Q176 134 188 144" stroke="#111827" strokeWidth="5" strokeLinecap="round" fill="none" />
-      </g>
-    );
-  }
-
-  if (eyes === 'eyes-03') {
-    return (
-      <g>
-        <path d="M112 142 H136" stroke="#111827" strokeWidth="6" strokeLinecap="round" />
-        <path d="M164 142 H188" stroke="#111827" strokeWidth="6" strokeLinecap="round" />
-        <circle cx="126" cy="147" r="4" fill="#111827" />
-        <circle cx="174" cy="147" r="4" fill="#111827" />
-      </g>
-    );
-  }
-
-  if (eyes === 'eyes-04') {
-    return (
-      <g>
-        <path d="M112 144 Q124 150 136 144" stroke="#111827" strokeWidth="5" strokeLinecap="round" fill="none" />
-        <path d="M164 144 Q176 150 188 144" stroke="#111827" strokeWidth="5" strokeLinecap="round" fill="none" />
-      </g>
-    );
-  }
-
-  return (
-    <g>
-      <path d="M114 142 H136" stroke="#111827" strokeWidth="6" strokeLinecap="round" />
-      <path d="M164 142 H186" stroke="#111827" strokeWidth="6" strokeLinecap="round" />
-    </g>
-  );
-}
-
-function renderEyebrows(eyebrows: string, color: string) {
-  if (eyebrows === 'brows-06') return null;
-
-  if (eyebrows === 'brows-02') {
-    return (
-      <g stroke={shade(color, 28)} strokeWidth="6" strokeLinecap="round">
-        <path d="M108 124 Q124 114 140 122" />
-        <path d="M160 122 Q176 114 192 124" />
-      </g>
-    );
-  }
-
-  if (eyebrows === 'brows-03') {
-    return (
-      <g stroke={shade(color, 34)} strokeWidth="7" strokeLinecap="round">
-        <path d="M106 122 L140 130" />
-        <path d="M194 122 L160 130" />
-      </g>
-    );
-  }
-
-  if (eyebrows === 'brows-04') {
-    return (
-      <g stroke={shade(color, 34)} strokeWidth="7" strokeLinecap="round">
-        <path d="M106 118 L142 130" />
-        <path d="M194 118 L158 130" />
-      </g>
-    );
-  }
-
-  if (eyebrows === 'brows-05') {
-    return (
-      <g stroke={shade(color, 36)} strokeWidth="8" strokeLinecap="round">
-        <path d="M108 124 H140" />
-        <path d="M160 124 H192" />
-      </g>
-    );
-  }
-
-  return (
-    <g stroke={shade(color, 26)} strokeWidth="5" strokeLinecap="round">
-      <path d="M110 124 H138" />
-      <path d="M162 124 H190" />
-    </g>
-  );
-}
-
-function renderNose(nose: string, skin: string) {
-  if (nose === 'nose-06') {
-    return <path d="M150 150 L164 178 H136 Z" fill="#64748b" opacity="0.75" />;
-  }
-
-  if (nose === 'nose-02') {
-    return <path d="M150 154 Q144 170 154 172" stroke={shade(skin, 34)} strokeWidth="4" strokeLinecap="round" fill="none" />;
-  }
-
-  if (nose === 'nose-03') {
-    return <path d="M152 150 L140 178 Q150 184 162 178" stroke={shade(skin, 40)} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />;
-  }
-
-  if (nose === 'nose-04') {
-    return <path d="M144 150 Q134 180 150 184 Q166 180 156 150" stroke={shade(skin, 38)} strokeWidth="5" strokeLinecap="round" fill="none" />;
-  }
-
-  if (nose === 'nose-05') {
-    return <path d="M152 150 L132 178 L158 176" stroke={shade(skin, 38)} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />;
-  }
-
-  return <path d="M150 152 Q142 174 154 178" stroke={shade(skin, 35)} strokeWidth="5" strokeLinecap="round" fill="none" />;
-}
-
-function renderMouth(mouth: string) {
-  if (mouth === 'mouth-01') {
-    return <path d="M124 188 Q150 204 176 188" stroke="#3f1f16" strokeWidth="6" strokeLinecap="round" fill="none" />;
-  }
-
-  if (mouth === 'mouth-02') {
-    return <path d="M128 192 H172" stroke="#3f1f16" strokeWidth="5" strokeLinecap="round" />;
-  }
-
-  if (mouth === 'mouth-03') {
-    return <path d="M126 198 Q150 184 174 198" stroke="#3f1f16" strokeWidth="6" strokeLinecap="round" fill="none" />;
-  }
-
-  if (mouth === 'mouth-04') {
-    return <path d="M126 190 Q150 200 174 190" stroke="#3f1f16" strokeWidth="6" strokeLinecap="round" fill="none" />;
-  }
-
-  if (mouth === 'mouth-05') {
-    return (
-      <g>
-        <path d="M120 188 Q150 212 180 188" fill="#111827" />
-        <path d="M130 190 L138 202 L146 190 L154 204 L162 190 L170 202" stroke="#f8fafc" strokeWidth="3" strokeLinecap="round" />
-      </g>
-    );
-  }
-
-  if (mouth === 'mouth-06') {
-    return <path d="M118 188 Q150 212 182 188" stroke="#3f1f16" strokeWidth="7" strokeLinecap="round" fill="none" />;
-  }
-
-  return null;
-}
-
-function renderFacialHair(facialHair: string, color: string) {
-  if (facialHair === 'facial-none') return null;
-
-  if (facialHair === 'facial-01') {
-    return <path d="M118 184 Q150 218 182 184 Q174 222 150 228 Q126 222 118 184 Z" fill={shade(color, 10)} opacity="0.82" />;
-  }
-
-  if (facialHair === 'facial-02') {
-    return (
-      <g fill={shade(color, 12)}>
-        <path d="M134 184 Q150 198 166 184 Q164 220 150 228 Q136 220 134 184 Z" />
-        <path d="M130 178 Q150 172 170 178 Q150 186 130 178 Z" />
-      </g>
-    );
-  }
-
-  if (facialHair === 'facial-03') {
-    return <path d="M126 180 Q144 172 150 182 Q156 172 174 180 Q158 192 150 184 Q142 192 126 180 Z" fill={shade(color, 12)} />;
-  }
-
-  if (facialHair === 'facial-04' || facialHair === 'facial-05') {
-    return (
-      <g fill={shade(color, 10)}>
-        <path d="M108 172 Q150 204 192 172 Q188 226 150 234 Q112 226 108 172 Z" opacity="0.86" />
-        {facialHair === 'facial-05' && <path d="M124 178 Q150 166 176 178 Q150 190 124 178 Z" fill={tint(color, 10)} />}
-      </g>
-    );
-  }
-
-  return null;
-}
-
-function renderHeadwear(headwear: string, uid: string, frame: { light: string; main: string; dark: string; glow: string }) {
   if (headwear === 'headwear-01') {
     return (
       <g>
-        <circle cx="124" cy="88" r="15" fill="none" stroke="#111827" strokeWidth="5" />
-        <circle cx="176" cy="88" r="15" fill="none" stroke="#111827" strokeWidth="5" />
-        <path d="M139 88 H161" stroke="#111827" strokeWidth="5" />
+        <path d="M134 148 C160 138 202 138 228 148" fill="none" stroke="#020617" strokeWidth="8" strokeLinecap="round" />
+        <circle cx="154" cy="148" r="13" fill="#0f172a" stroke={accent} strokeWidth="3" />
+        <circle cx="208" cy="148" r="13" fill="#0f172a" stroke={accent} strokeWidth="3" />
       </g>
     );
   }
 
   if (headwear === 'headwear-02') {
-    return (
-      <path
-        d="M100 72 L120 42 L142 70 L150 34 L158 70 L180 42 L200 72 L194 96 H106 Z"
-        fill="#facc15"
-        stroke="#92400e"
-        strokeWidth="4"
-        strokeLinejoin="round"
-      />
-    );
+    return <path d="M140 128 L156 92 L180 126 L204 92 L220 128 L140 128Z" fill={accent} stroke="#fef3c7" strokeWidth="3" />;
   }
 
   if (headwear === 'headwear-03') {
-    return <path d="M82 114 L100 54 L130 86 L150 50 L170 86 L200 54 L218 114 C186 94 114 94 82 114 Z" fill="#020617" />;
+    return <path d="M112 192 C116 120 150 90 180 90 C210 90 244 120 248 192 C228 150 210 134 180 134 C150 134 132 150 112 192Z" fill={shade(hairColor, -30)} opacity="0.92" />;
   }
 
   if (headwear === 'headwear-04') {
-    return <path d="M146 74 L160 92 H150 L160 118 L136 88 H148 Z" fill="#facc15" stroke="#111827" strokeWidth="2" />;
+    return <path d="M178 134 L190 158 L180 158 L188 184 L166 152 L178 152Z" fill={accent} opacity="0.95" />;
   }
 
   if (headwear === 'headwear-05') {
-    return (
-      <g>
-        <path d="M88 112 C92 64 116 40 150 40 C184 40 208 64 212 112 H88 Z" fill="#334155" stroke="#cbd5e1" strokeWidth="4" />
-        <path d="M112 108 H188" stroke={frame.main} strokeWidth="5" strokeLinecap="round" />
-      </g>
-    );
+    return <path d="M112 178 C118 114 154 90 180 90 C206 90 242 114 248 178 L226 164 C202 146 158 146 134 164Z" fill="url(#metalGradient)" stroke={accent} strokeWidth="3" opacity="0.96" />;
   }
 
   if (headwear === 'headwear-06') {
     return (
       <g>
-        <path d="M92 106 C96 66 120 48 150 48 C180 48 204 66 208 106 H92 Z" fill={`url(#${uid}-hair)`} />
-        <path d="M102 100 H224 C218 120 186 126 154 120 Z" fill="#111827" />
+        <path d="M126 144 C150 112 208 112 234 144 L228 166 C198 154 160 154 132 166Z" fill="#0f172a" />
+        <path d="M132 144 C156 136 204 136 228 144" stroke={accent} strokeWidth="5" strokeLinecap="round" />
+        <path d="M220 150 L258 160" stroke="#0f172a" strokeWidth="14" strokeLinecap="round" />
       </g>
     );
   }
@@ -876,201 +455,187 @@ function renderHeadwear(headwear: string, uid: string, frame: { light: string; m
   return null;
 }
 
-function renderAccessory(accessory: string, frame: { light: string; main: string; dark: string; glow: string }) {
-  if (accessory === 'accessory-01') {
+function Eyes({ eyes, accent, glow }: { eyes: string; accent: string; glow: string }) {
+  if (eyes === 'eyes-06') return <path d="M136 198 C154 184 206 184 224 198 C208 216 152 216 136 198Z" fill="#020617" opacity="0.86" />;
+  if (eyes === 'eyes-08' || eyes === 'eyes-09' || eyes === 'eyes-12') {
     return (
       <g>
-        <circle cx="124" cy="142" r="18" fill="none" stroke="#020617" strokeWidth="5" />
-        <circle cx="176" cy="142" r="18" fill="none" stroke="#020617" strokeWidth="5" />
-        <path d="M142 142 H158" stroke="#020617" strokeWidth="5" />
+        <path d="M132 198 H228" stroke="#020617" strokeWidth="18" strokeLinecap="round" />
+        <path d="M142 198 H218" stroke={eyes === 'eyes-12' ? accent : glow} strokeWidth="5" strokeLinecap="round" />
+        {eyes === 'eyes-12' && <circle cx="198" cy="198" r="7" fill={glow} />}
       </g>
     );
   }
-
-  if (accessory === 'accessory-02') {
-    return <path d="M96 126 H204 L194 166 H106 Z" fill="#020617" opacity="0.8" />;
-  }
-
-  if (accessory === 'accessory-03') {
-    return <path d="M178 116 L164 152 M190 142 L166 170" stroke="#7f1d1d" strokeWidth="4" strokeLinecap="round" />;
-  }
-
-  if (accessory === 'accessory-04') {
-    return <path d="M232 86 L202 146 H226 L178 236" stroke="#facc15" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none" />;
-  }
-
-  if (accessory === 'accessory-05') {
-    return <path d="M104 76 L124 46 L146 76 L150 40 L154 76 L176 46 L196 76 L190 98 H110 Z" fill="#facc15" stroke="#92400e" strokeWidth="4" />;
-  }
-
-  if (accessory === 'accessory-06') {
-    return (
-      <g fill="#020617">
-        <path d="M96 62 L76 24 L126 52 Z" />
-        <path d="M204 62 L224 24 L174 52 Z" />
-      </g>
-    );
-  }
-
-  if (accessory === 'accessory-07') {
+  if (eyes === 'eyes-10') {
     return (
       <g>
-        <circle cx="226" cy="210" r="26" fill="#facc15" stroke="#b45309" strokeWidth="5" />
-        <circle cx="216" cy="202" r="4" fill="#fff" opacity="0.8" />
-        <path d="M216 236 C208 262 200 284 214 302" stroke="#facc15" strokeWidth="4" fill="none" />
+        <circle cx="156" cy="200" r="17" fill="none" stroke="#0f172a" strokeWidth="4" />
+        <circle cx="204" cy="200" r="17" fill="none" stroke="#0f172a" strokeWidth="4" />
+        <path d="M173 200 H187" stroke="#0f172a" strokeWidth="4" />
+        <EyePair mood="calm" accent={accent} />
       </g>
     );
   }
 
-  if (accessory === 'accessory-08') {
-    return (
-      <g>
-        <path d="M82 116 C88 56 116 30 150 30 C184 30 212 56 218 116" fill="#334155" stroke="#cbd5e1" strokeWidth="4" />
-        <rect x="108" y="124" width="84" height="30" rx="10" fill="#020617" />
-        <rect x="120" y="136" width="60" height="7" rx="4" fill="#22d3ee" />
-      </g>
-    );
-  }
-
-  if (accessory === 'accessory-09') {
-    return <path d="M224 108 L258 52 M248 48 L264 64 M218 118 L238 138" stroke="#e5e7eb" strokeWidth="6" strokeLinecap="round" />;
-  }
-
-  if (accessory === 'accessory-10') {
-    return (
-      <g>
-        <rect x="218" y="206" width="16" height="70" rx="8" fill="#111827" />
-        <circle cx="226" cy="198" r="18" fill="#334155" stroke="#cbd5e1" strokeWidth="4" />
-      </g>
-    );
-  }
-
-  if (accessory === 'accessory-11') {
-    return <path d="M218 94 L252 42 M246 44 L258 32 M238 58 L254 66" stroke="#facc15" strokeWidth="5" strokeLinecap="round" />;
-  }
-
-  if (accessory === 'accessory-12') {
-    return <path d="M226 74 V242 M206 98 C206 78 226 78 226 98 C226 78 246 78 246 98" stroke="#facc15" strokeWidth="6" strokeLinecap="round" fill="none" />;
-  }
-
-  if (accessory === 'accessory-13') {
-    return (
-      <g>
-        <circle cx="228" cy="242" r="26" fill="#facc15" stroke="#92400e" strokeWidth="5" />
-        <circle cx="220" cy="236" r="5" fill={frame.main} />
-        <circle cx="232" cy="234" r="5" fill="#22d3ee" />
-        <circle cx="238" cy="248" r="5" fill="#ef4444" />
-      </g>
-    );
-  }
-
-  if (accessory === 'accessory-14') {
-    return (
-      <g>
-        <rect x="205" y="232" width="52" height="34" rx="8" fill="#111827" />
-        <circle cx="232" cy="249" r="12" fill="#38bdf8" />
-        <rect x="214" y="222" width="22" height="12" rx="4" fill="#334155" />
-      </g>
-    );
-  }
-
-  return null;
+  const mood = eyes === 'eyes-02' ? 'happy' : eyes === 'eyes-03' || eyes === 'eyes-07' ? 'angry' : eyes === 'eyes-04' ? 'calm' : eyes === 'eyes-05' ? 'wide' : eyes === 'eyes-11' ? 'aqua' : 'focused';
+  return <EyePair mood={mood} accent={eyes === 'eyes-11' ? glow : accent} />;
 }
 
-function renderFrameDecor(frameId: string, frame: { light: string; main: string; dark: string; glow: string }) {
-  if (frameId === 'frame-tech') {
-    return (
-      <g fill="none" stroke={frame.main} strokeWidth="4" opacity="0.9">
-        <path d="M38 64 H76 M224 64 H262 M38 356 H76 M224 356 H262" />
-        <path d="M64 38 V76 M236 38 V76 M64 344 V382 M236 344 V382" />
-      </g>
-    );
+function EyePair({ mood, accent }: { mood: string; accent: string }) {
+  const pupil = mood === 'aqua' ? accent : '#020617';
+  const eyeFill = mood === 'angry' ? '#f8fafc' : '#ffffff';
+  const leftD = mood === 'happy' ? 'M140 198 C150 188 164 188 174 198 C164 204 150 204 140 198Z' : mood === 'calm' ? 'M140 201 C152 196 162 196 174 201' : 'M138 198 C150 186 164 186 176 198 C164 208 150 208 138 198Z';
+  const rightD = mood === 'happy' ? 'M186 198 C196 188 210 188 220 198 C210 204 196 204 186 198Z' : mood === 'calm' ? 'M186 201 C198 196 208 196 220 201' : 'M184 198 C196 186 210 186 222 198 C210 208 196 208 184 198Z';
+
+  if (mood === 'calm') {
+    return <g><path d={leftD} fill="none" stroke="#020617" strokeWidth="4" strokeLinecap="round" /><path d={rightD} fill="none" stroke="#020617" strokeWidth="4" strokeLinecap="round" /></g>;
   }
 
-  if (frameId === 'frame-speed') {
-    return (
-      <g stroke={frame.main} strokeWidth="5" strokeLinecap="round" fill="none" opacity="0.92">
-        <path d="M44 88 L76 88 L58 124 H88" />
-        <path d="M256 332 H224 L242 296 H212" />
-      </g>
-    );
-  }
-
-  if (frameId === 'frame-horror') {
-    return (
-      <g fill={frame.main} opacity="0.82">
-        <path d="M40 50 C48 76 28 88 42 116 C58 88 48 72 62 50 Z" />
-        <path d="M258 50 C250 76 270 88 256 116 C240 88 250 72 236 50 Z" />
-      </g>
-    );
-  }
-
-  return (
-    <g fill="none" stroke={frame.light} strokeWidth="3" opacity="0.72">
-      <path d="M40 42 H82 M218 42 H260 M40 378 H82 M218 378 H260" />
-      <path d="M42 40 V82 M258 40 V82 M42 338 V380 M258 338 V380" />
-    </g>
-  );
-}
-
-function renderNamePlate(name: string, frame: { light: string; main: string; dark: string; glow: string }) {
   return (
     <g>
-      <rect x="48" y="344" width="204" height="38" rx="13" fill="#020617" opacity="0.78" />
-      <rect x="56" y="352" width="188" height="22" rx="8" fill={frame.dark} opacity="0.88" />
-      <rect x="56" y="352" width="188" height="22" rx="8" fill={frame.main} opacity="0.12" />
-      <text
-        x="150"
-        y="368"
-        textAnchor="middle"
-        fontFamily="Arial, Helvetica, sans-serif"
-        fontSize="15"
-        fontWeight="900"
-        fill="#ffffff"
-      >
-        {truncateName(name)}
-      </text>
+      <path d={leftD} fill={eyeFill} />
+      <path d={rightD} fill={eyeFill} />
+      <circle cx="158" cy="198" r={mood === 'wide' ? 5 : 4} fill={pupil} />
+      <circle cx="204" cy="198" r={mood === 'wide' ? 5 : 4} fill={pupil} />
+      {mood === 'aqua' && <path d="M145 213 C160 224 200 224 215 213" fill="none" stroke={accent} strokeWidth="2" opacity="0.65" />}
     </g>
   );
 }
 
-function truncateName(name: string) {
-  const clean = String(name || 'PERSONAGEM').trim().toUpperCase();
-  return clean.length > 18 ? `${clean.slice(0, 18)}...` : clean;
+function Eyebrows({ eyebrows, hairColor }: { eyebrows: string; hairColor: string }) {
+  if (eyebrows === 'brows-06') return null;
+
+  if (eyebrows === 'brows-02') return <g><path d="M138 182 C150 174 164 174 176 182" stroke={hairColor} strokeWidth="5" strokeLinecap="round" fill="none" /><path d="M184 182 C198 174 212 174 224 182" stroke={hairColor} strokeWidth="5" strokeLinecap="round" fill="none" /></g>;
+  if (eyebrows === 'brows-03') return <g><path d="M136 184 L174 176" stroke={hairColor} strokeWidth="6" strokeLinecap="round" /><path d="M224 184 L186 176" stroke={hairColor} strokeWidth="6" strokeLinecap="round" /></g>;
+  if (eyebrows === 'brows-04') return <g><path d="M136 178 L174 188" stroke={hairColor} strokeWidth="6" strokeLinecap="round" /><path d="M224 178 L186 188" stroke={hairColor} strokeWidth="6" strokeLinecap="round" /></g>;
+  if (eyebrows === 'brows-05') return <g><path d="M136 180 H174" stroke={hairColor} strokeWidth="7" strokeLinecap="round" /><path d="M186 180 H224" stroke={hairColor} strokeWidth="7" strokeLinecap="round" /></g>;
+
+  return <g><path d="M140 182 C152 178 164 178 174 182" stroke={hairColor} strokeWidth="5" strokeLinecap="round" fill="none" /><path d="M186 182 C198 178 210 178 220 182" stroke={hairColor} strokeWidth="5" strokeLinecap="round" fill="none" /></g>;
 }
 
-function tint(hex: string, amount: number) {
-  return mix(hex, '#ffffff', amount);
+function Nose({ nose, color, isRobot, accent }: { nose: string; color: string; isRobot: boolean; accent: string }) {
+  if (isRobot || nose === 'nose-06') return <path d="M176 214 L188 214 L192 242 L180 250 L168 242Z" fill="#64748b" stroke={accent} strokeWidth="2" opacity="0.85" />;
+  if (nose === 'nose-02') return <path d="M181 214 C174 228 174 236 184 242" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" opacity="0.55" />;
+  if (nose === 'nose-03') return <path d="M180 212 C172 230 170 242 186 248" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" opacity="0.58" />;
+  if (nose === 'nose-04') return <path d="M174 216 C164 236 170 248 180 248 C190 248 196 236 186 216" fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" opacity="0.58" />;
+  if (nose === 'nose-05') return <path d="M181 210 C170 232 172 244 192 246" fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" opacity="0.62" />;
+
+  return <path d="M180 212 C176 228 174 240 186 246" fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" opacity="0.52" />;
+}
+
+function Mouth({ mouth, color, feral }: { mouth: string; color: string; feral: boolean }) {
+  if (mouth === 'mouth-01') return <path d="M158 260 C168 272 194 272 204 260" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" />;
+  if (mouth === 'mouth-02') return <path d="M162 262 H202" stroke={color} strokeWidth="4" strokeLinecap="round" />;
+  if (mouth === 'mouth-03') return <path d="M160 266 C174 260 190 260 204 266" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" />;
+  if (mouth === 'mouth-05') return <path d="M154 260 C168 282 196 282 210 260 C194 268 170 268 154 260Z" fill="#450a0a" stroke={color} strokeWidth="2" />;
+  if (mouth === 'mouth-06' || feral) {
+    return (
+      <g>
+        <path d="M150 258 C166 284 198 284 214 258 C194 272 170 272 150 258Z" fill="#451a03" stroke={color} strokeWidth="2" />
+        <path d="M166 266 L172 280 L178 266 M190 266 L196 280 L202 266" stroke="#ffffff" strokeWidth="2" fill="none" />
+      </g>
+    );
+  }
+
+  return <path d="M156 260 C166 268 194 268 204 260" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" />;
+}
+
+function FacialHair({ facialHair, color }: { facialHair: string; color: string }) {
+  if (facialHair === 'facial-none') return null;
+  if (facialHair === 'facial-01') return <path d="M150 254 C158 290 202 290 210 254 C202 274 158 274 150 254Z" fill={color} opacity="0.5" />;
+  if (facialHair === 'facial-02') return <path d="M166 268 C170 294 190 294 194 268 C186 276 174 276 166 268Z" fill={color} opacity="0.72" />;
+  if (facialHair === 'facial-03') return <path d="M150 252 C162 244 174 248 180 256 C186 248 198 244 210 252 C198 262 188 262 180 256 C172 262 162 262 150 252Z" fill={color} opacity="0.8" />;
+  if (facialHair === 'facial-04') return <path d="M136 238 C146 304 214 304 224 238 C210 286 150 286 136 238Z" fill={color} opacity="0.62" />;
+  return <path d="M146 248 C160 284 200 284 214 248 C198 272 162 272 146 248Z" fill={color} opacity="0.6" />;
+}
+
+function Accessory({ accessory, accent, glow }: { accessory: string; accent: string; glow: string }) {
+  if (accessory === 'none') return null;
+
+  if (accessory === 'accessory-01') {
+    return <path d="M132 198 H228" stroke="#020617" strokeWidth="10" strokeLinecap="round" opacity="0.84" />;
+  }
+  if (accessory === 'accessory-02') {
+    return <path d="M130 222 C154 236 206 236 230 222 L222 250 C198 264 162 264 138 250Z" fill="#020617" opacity="0.72" stroke={accent} strokeWidth="2" />;
+  }
+  if (accessory === 'accessory-03') return <path d="M208 172 L190 224" stroke="#7f1d1d" strokeWidth="4" strokeLinecap="round" opacity="0.7" />;
+  if (accessory === 'accessory-04') return <path d="M276 108 L248 172 H274 L236 252" fill="none" stroke={glow} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.82" />;
+  if (accessory === 'accessory-05') return <circle cx="238" cy="292" r="10" fill={accent} stroke="#fef3c7" strokeWidth="3" />;
+  if (accessory === 'accessory-06') return null;
+  if (accessory === 'accessory-07') return <circle cx="282" cy="174" r="20" fill={glow} opacity="0.74" stroke="#ffffff" strokeOpacity="0.62" strokeWidth="2" />;
+  if (accessory === 'accessory-08') return <circle cx="180" cy="110" r="54" fill="none" stroke={accent} strokeWidth="4" opacity="0.48" />;
+  if (accessory === 'accessory-09') return <path d="M264 304 L308 248" stroke="#e2e8f0" strokeWidth="7" strokeLinecap="round" />;
+  if (accessory === 'accessory-10') return <path d="M244 292 L282 334" stroke="#0f172a" strokeWidth="8" strokeLinecap="round" />;
+  if (accessory === 'accessory-11') return <path d="M82 250 L116 406" stroke="#78350f" strokeWidth="8" strokeLinecap="round" />;
+  if (accessory === 'accessory-12') return <path d="M280 240 V394 M260 262 L280 240 L300 262" stroke={accent} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />;
+  if (accessory === 'accessory-13') return <circle cx="88" cy="328" r="18" fill={accent} opacity="0.82" stroke="#fef3c7" strokeWidth="3" />;
+  if (accessory === 'accessory-14') return <rect x="252" y="312" width="38" height="26" rx="8" fill="#0f172a" stroke={accent} strokeWidth="3" />;
+  if (accessory === 'accessory-15') return <path d="M118 198 C118 166 140 146 180 146 C220 146 242 166 242 198" fill="none" stroke="#0f172a" strokeWidth="8" strokeLinecap="round" />;
+  if (accessory === 'accessory-16') return <path d="M224 326 L246 338 L224 350 L202 338Z" fill={accent} opacity="0.84" />;
+
+  return null;
+}
+
+function RobotFaceLines({ accent }: { accent: string }) {
+  return (
+    <g opacity="0.66">
+      <path d="M142 170 H218 M138 230 H222" stroke="#020617" strokeWidth="2" />
+      <path d="M150 154 L132 190 M210 154 L228 190" stroke={accent} strokeWidth="2" />
+      <circle cx="180" cy="164" r="5" fill={accent} />
+    </g>
+  );
+}
+
+function AquaticMarks({ accent }: { accent: string }) {
+  return (
+    <g opacity="0.7">
+      <path d="M132 214 C122 226 120 238 126 250" fill="none" stroke={accent} strokeWidth="3" strokeLinecap="round" />
+      <path d="M228 214 C238 226 240 238 234 250" fill="none" stroke={accent} strokeWidth="3" strokeLinecap="round" />
+    </g>
+  );
+}
+
+function FaceMask({ accent }: { accent: string }) {
+  return <path d="M126 188 C150 168 210 168 234 188 L226 224 C206 210 154 210 134 224Z" fill="#020617" opacity="0.28" stroke={accent} strokeOpacity="0.55" strokeWidth="2" />;
+}
+
+function getFacePath(face: string) {
+  if (face === 'face-02') return 'M126 196 C126 148 148 124 180 124 C212 124 234 148 234 196 C234 250 212 284 180 284 C148 284 126 250 126 196Z';
+  if (face === 'face-03') return 'M124 184 C124 142 150 122 180 122 C210 122 236 142 236 184 L228 246 C222 272 204 286 180 286 C156 286 138 272 132 246Z';
+  if (face === 'face-04') return 'M132 190 C132 144 152 122 180 122 C208 122 228 144 228 190 C228 238 204 292 180 292 C156 292 132 238 132 190Z';
+  if (face === 'face-05') return 'M118 186 C118 142 148 118 180 118 C212 118 242 142 242 186 L232 246 C224 276 204 292 180 292 C156 292 136 276 128 246Z';
+  if (face === 'face-06') return 'M124 190 C124 144 150 120 180 120 C210 120 236 144 236 190 C236 246 212 284 180 284 C148 284 124 246 124 190Z';
+  if (face === 'face-07') return 'M124 184 C132 138 154 118 180 118 C206 118 228 138 236 184 L222 252 L180 292 L138 252Z';
+  if (face === 'face-08') return 'M128 188 C128 142 152 118 180 118 C208 118 232 142 232 188 C232 238 208 286 180 286 C152 286 128 238 128 188Z';
+  if (face === 'face-09') return 'M122 180 C122 138 150 116 180 116 C210 116 238 138 238 180 L230 250 C222 274 204 288 180 288 C156 288 138 274 130 250Z';
+  if (face === 'face-10') return 'M126 190 C126 144 150 120 180 120 C210 120 234 144 234 190 C234 246 210 286 180 286 C150 286 126 246 126 190Z';
+
+  return 'M126 188 C126 142 150 120 180 120 C210 120 234 142 234 188 C234 240 212 286 180 286 C148 286 126 240 126 188Z';
+}
+
+function getBodyShape(body: string) {
+  if (body === 'body-03') return { leftShoulder: 92, rightShoulder: 268, leftWaist: 112, rightWaist: 248 };
+  if (body === 'body-04') return { leftShoulder: 122, rightShoulder: 238, leftWaist: 138, rightWaist: 222 };
+  if (body === 'body-05') return { leftShoulder: 96, rightShoulder: 264, leftWaist: 116, rightWaist: 244 };
+  if (body === 'body-01') return { leftShoulder: 112, rightShoulder: 248, leftWaist: 126, rightWaist: 234 };
+  return { leftShoulder: 102, rightShoulder: 258, leftWaist: 120, rightWaist: 240 };
+}
+
+function getOptionColor(category: keyof typeof AVATAR_OPTIONS, id: string, fallback: string) {
+  const option = AVATAR_OPTIONS[category].find((item) => item.id === id) as { color?: string } | undefined;
+  return option?.color || fallback;
 }
 
 function shade(hex: string, amount: number) {
-  return mix(hex, '#000000', amount);
-}
+  const cleanHex = hex.replace('#', '');
+  const value = Number.parseInt(cleanHex.length === 3 ? cleanHex.split('').map((part) => part + part).join('') : cleanHex, 16);
 
-function mix(hex: string, target: string, amount: number) {
-  const safeHex = /^#[0-9a-f]{6}$/i.test(hex) ? hex : '#888888';
-  const safeTarget = /^#[0-9a-f]{6}$/i.test(target) ? target : '#000000';
+  if (Number.isNaN(value)) return hex;
 
-  const value = safeHex.replace('#', '');
-  const targetValue = safeTarget.replace('#', '');
+  const clamp = (input: number) => Math.max(0, Math.min(255, input));
+  const r = clamp((value >> 16) + amount);
+  const g = clamp(((value >> 8) & 0x00ff) + amount);
+  const b = clamp((value & 0x0000ff) + amount);
 
-  const r = parseInt(value.slice(0, 2), 16);
-  const g = parseInt(value.slice(2, 4), 16);
-  const b = parseInt(value.slice(4, 6), 16);
-
-  const tr = parseInt(targetValue.slice(0, 2), 16);
-  const tg = parseInt(targetValue.slice(2, 4), 16);
-  const tb = parseInt(targetValue.slice(4, 6), 16);
-
-  const ratio = Math.max(0, Math.min(100, amount)) / 100;
-
-  const nr = Math.round(r + (tr - r) * ratio);
-  const ng = Math.round(g + (tg - g) * ratio);
-  const nb = Math.round(b + (tb - b) * ratio);
-
-  return `#${toHex(nr)}${toHex(ng)}${toHex(nb)}`;
-}
-
-function toHex(value: number) {
-  return value.toString(16).padStart(2, '0');
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }

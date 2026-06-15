@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import {
-  BadgeSparkles,
   Crown,
   Palette,
   RotateCcw,
@@ -148,7 +147,7 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
 
             <div className="mt-3 rounded-3xl border border-white/10 bg-white/[0.06] p-3 backdrop-blur-xl">
               <div className="flex items-center gap-2 text-white">
-                <BadgeSparkles className="w-4 h-4 text-amber-300" />
+                <Sparkles className="w-4 h-4 text-amber-300" />
                 <p className="text-[11px] font-black uppercase tracking-[0.2em]">Presets premium</p>
               </div>
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1 xl:grid xl:max-h-[178px] xl:grid-cols-2 xl:overflow-y-auto xl:pr-1">

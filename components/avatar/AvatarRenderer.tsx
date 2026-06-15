@@ -65,8 +65,8 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
   const displayName = name.trim() || 'Personagem';
 
   return (
-    <div className={cn('relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-slate-950', className)}>
-      <svg viewBox="0 0 360 480" role="img" aria-label={displayName} className="h-full w-full">
+    <div className={cn('relative aspect-[3/4] w-full min-w-0 max-w-full overflow-hidden rounded-2xl bg-slate-950', className)}>
+      <svg viewBox="0 0 360 480" role="img" aria-label={displayName} preserveAspectRatio="xMidYMid meet" className="block h-full w-full">
         <defs>
           <linearGradient id="avatarBg" x1="0" x2="1" y1="0" y2="1">
             <stop offset="0%" stopColor={bg.from} />

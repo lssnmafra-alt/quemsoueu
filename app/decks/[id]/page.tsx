@@ -858,7 +858,7 @@ export default function DeckEditorPage() {
 
               {!isTemporaryOfficialEditor ? (
                 <>
-                  <div className="mt-4">
+                  <div className="mt-4 max-w-full overflow-hidden">
                       <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
                   </div>
 

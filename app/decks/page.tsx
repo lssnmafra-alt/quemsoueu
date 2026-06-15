@@ -384,8 +384,8 @@ export default function DeckEditorPage() {
                 </Button>
               </div>
 
-              <div className="mt-5 bg-slate-50/70 border-2 border-slate-100 rounded-2xl p-4">
-                <p className="text-xs font-black uppercase text-indigo-700 mb-3">Criar Avatar</p>
+              <div className="mt-5 max-w-full overflow-hidden rounded-2xl border-2 border-slate-100 bg-slate-50/70 p-2.5 sm:p-4">
+                <p className="mb-3 text-xs font-black uppercase text-indigo-700">Criar Avatar</p>
                 <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
               </div>
 

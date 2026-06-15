@@ -28,9 +28,9 @@ export default function CharacterImage({
   ...props
 }: CharacterImageProps) {
   const sources = useMemo(() => {
-    const savedImage = isOfficial ? sanitizeImageUrl(imageUrl) : undefined;
+    const savedImage = sanitizeImageUrl(imageUrl);
     return savedImage ? [savedImage] : [];
-  }, [imageUrl, isOfficial]);
+  }, [imageUrl]);
 
   const [brokenUrls, setBrokenUrls] = useState<Record<string, true>>({});
   const src = sources.find((candidate) => !brokenUrls[candidate]);

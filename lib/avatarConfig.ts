@@ -127,7 +127,7 @@ export const AVATAR_OPTIONS = {
     { id: 'hair-10', label: 'Pontas de anime' },
     { id: 'hair-11', label: 'Longo gotico' },
     { id: 'hair-12', label: 'Trancas laterais' },
-    { id: 'hair-13', label: 'Messy médio' },
+    { id: 'hair-13', label: 'Messy medio' },
     { id: 'hair-14', label: 'Ondulado praia' },
     { id: 'hair-15', label: 'Executivo penteado' },
     { id: 'hair-16', label: 'Bob moderno' },
@@ -215,7 +215,7 @@ export const AVATAR_OPTIONS = {
   accessory: [
     { id: 'none', label: 'Nenhum' },
     { id: 'accessory-01', label: 'Oculos de sol' },
-    { id: 'accessory-02', label: 'Mascara tática' },
+    { id: 'accessory-02', label: 'Mascara tatica' },
     { id: 'accessory-03', label: 'Cicatriz' },
     { id: 'accessory-04', label: 'Energia eletrica' },
     { id: 'accessory-05', label: 'Joia real' },
@@ -283,6 +283,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     nose: 'nose-01',
     mouth: 'mouth-04',
     hair: 'hair-05',
+    hairSide: 'side-fade-high',
     hairColor: '#111827',
     body: 'body-02',
     clothes: 'clothes-13',
@@ -300,6 +301,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     nose: 'nose-02',
     mouth: 'mouth-03',
     hair: 'hair-13',
+    hairSide: 'side-long',
     hairColor: '#2f1b12',
     body: 'body-04',
     clothes: 'clothes-15',
@@ -339,6 +341,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     nose: 'nose-03',
     mouth: 'mouth-04',
     hair: 'hair-07',
+    hairSide: 'side-shaved-line',
     hairColor: '#0f172a',
     body: 'body-02',
     clothes: 'clothes-02',
@@ -411,6 +414,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     nose: 'nose-02',
     mouth: 'mouth-04',
     hair: 'hair-15',
+    hairSide: 'side-taper',
     hairColor: '#facc15',
     body: 'body-01',
     clothes: 'clothes-05',
@@ -448,6 +452,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     nose: 'nose-03',
     mouth: 'mouth-04',
     hair: 'hair-04',
+    hairSide: 'side-long',
     hairColor: '#3b2415',
     body: 'body-01',
     clothes: 'clothes-16',
@@ -486,6 +491,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     nose: 'nose-05',
     mouth: 'mouth-05',
     hair: 'hair-11',
+    hairSide: 'side-taper',
     hairColor: '#020617',
     body: 'body-04',
     clothes: 'clothes-15',
@@ -504,6 +510,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     nose: 'nose-04',
     mouth: 'mouth-04',
     hair: 'hair-01',
+    hairSide: 'side-fade-low',
     hairColor: '#111827',
     facialHair: 'facial-04',
     body: 'body-01',
@@ -525,6 +532,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     nose: 'nose-03',
     mouth: 'mouth-04',
     hair: 'hair-03',
+    hairSide: 'side-undercut',
     hairColor: '#16a34a',
     body: 'body-01',
     clothes: 'clothes-14',
@@ -543,6 +551,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     nose: 'nose-03',
     mouth: 'mouth-02',
     hair: 'hair-15',
+    hairSide: 'side-taper',
     hairColor: '#3b2415',
     facialHair: 'facial-03',
     body: 'body-01',
@@ -563,6 +572,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     nose: 'nose-05',
     mouth: 'mouth-04',
     hair: 'hair-04',
+    hairSide: 'side-long',
     hairColor: '#111827',
     facialHair: 'facial-04',
     headwear: 'headwear-06',
@@ -583,6 +593,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     nose: 'nose-02',
     mouth: 'mouth-02',
     hair: 'hair-04',
+    hairSide: 'side-long',
     hairColor: '#e0f2fe',
     body: 'body-04',
     clothes: 'clothes-04',
@@ -660,7 +671,7 @@ export function randomAvatarConfig(): AvatarConfig {
   ];
   const cleanPresets = AVATAR_PRESETS.filter((presetItem) => premiumHumanPresetIds.includes(presetItem.id));
 
-  if (Math.random() < 0.62) {
+  if (Math.random() < 0.76) {
     return cleanPresets[Math.floor(Math.random() * cleanPresets.length)].config;
   }
 
@@ -668,6 +679,7 @@ export function randomAvatarConfig(): AvatarConfig {
   const humanFaces = ['face-01', 'face-02', 'face-03', 'face-04', 'face-07', 'face-08'];
   const cleanBrows = ['brows-01', 'brows-02', 'brows-03', 'brows-05'];
   const cleanEyes = ['eyes-01', 'eyes-02', 'eyes-03', 'eyes-04', 'eyes-05', 'eyes-10'];
+  const coveredHairEyes = ['eyes-01', 'eyes-02', 'eyes-04', 'eyes-05'];
   const cleanNoses = ['nose-01', 'nose-02', 'nose-03', 'nose-04'];
   const cleanMouths = ['mouth-01', 'mouth-02', 'mouth-03', 'mouth-04'];
   const cleanHair = ['hair-01', 'hair-02', 'hair-03', 'hair-04', 'hair-05', 'hair-07', 'hair-12', 'hair-14', 'hair-15', 'hair-16', 'hair-17', 'hair-18', 'hair-19', 'hair-20'];
@@ -677,6 +689,7 @@ export function randomAvatarConfig(): AvatarConfig {
   const cleanClothes = ['clothes-01', 'clothes-02', 'clothes-05', 'clothes-11', 'clothes-13', 'clothes-14', 'clothes-18', 'clothes-19'];
   const cleanOuterwear = ['outerwear-none', 'outerwear-none', 'outerwear-jacket', 'outerwear-cape'];
   const cleanAccessories = ['none', 'none', 'none', 'accessory-01', 'accessory-10', 'accessory-14', 'accessory-15', 'accessory-16'];
+  const longHairAccessories = ['none', 'none', 'accessory-10', 'accessory-14'];
   const cleanHeadwear = ['headwear-none', 'headwear-none', 'headwear-none', 'headwear-01', 'headwear-06'];
   const cleanMarkings = ['marking-none', 'marking-none', 'marking-none', 'marking-freckles', 'marking-scar', 'marking-royal'];
   const cleanAuras = ['aura-backlight', 'aura-backlight', 'aura-none', 'aura-neon', 'aura-stadium'];
@@ -687,25 +700,28 @@ export function randomAvatarConfig(): AvatarConfig {
 
   const selectedClothes = randomFrom(cleanClothes);
   const selectedHair = randomFrom(cleanHair);
+  const hasLongHair = longHairStyles.has(selectedHair);
+  const selectedHeadwear = hasLongHair ? randomFrom(['headwear-none', 'headwear-none', 'headwear-02']) : randomFrom(cleanHeadwear);
+  const selectedEyes = hasLongHair ? randomFrom(coveredHairEyes) : randomFrom(cleanEyes);
 
   return normalizeAvatarConfig({
     skin: randomFrom(humanSkins),
     face: randomFrom(humanFaces),
     eyebrows: randomFrom(cleanBrows),
-    eyes: randomFrom(cleanEyes),
+    eyes: selectedEyes,
     nose: randomFrom(cleanNoses),
     mouth: randomFrom(cleanMouths),
     hair: selectedHair,
-    hairSide: longHairStyles.has(selectedHair) ? randomFrom(['side-none', 'side-long']) : randomFrom(cleanHairSides),
+    hairSide: hasLongHair ? randomFrom(['side-none', 'side-long']) : randomFrom(cleanHairSides),
     hairColor: randomFrom(hairColors),
     facialHair: Math.random() < 0.76 ? 'facial-none' : randomFrom(['facial-01', 'facial-02', 'facial-03', 'facial-04', 'facial-05']),
-    headwear: randomFrom(cleanHeadwear),
+    headwear: selectedHeadwear,
     marking: randomFrom(cleanMarkings),
     body: selectedClothes === 'clothes-11' ? 'body-03' : randomFrom(cleanBodies),
     clothes: selectedClothes,
     clothesColor: randomFrom(clothesColors),
     outerwear: selectedClothes === 'clothes-05' ? 'outerwear-jacket' : randomFrom(cleanOuterwear),
-    accessory: randomFrom(cleanAccessories),
+    accessory: randomFrom(hasLongHair ? longHairAccessories : cleanAccessories),
     aura: selectedClothes === 'clothes-02' ? 'aura-stadium' : randomFrom(cleanAuras),
     background: randomFrom(cleanBackgrounds),
     frame: randomFrom(cleanFrames),

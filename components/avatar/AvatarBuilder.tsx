@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import {
+  ChevronDown,
   Crown,
   Palette,
   RotateCcw,
@@ -100,6 +101,7 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
   const config = normalizeAvatarConfig(value || DEFAULT_AVATAR_CONFIG);
   const [activeGroup, setActiveGroup] = useState(groups[0].id);
   const [active, setActive] = useState<AvatarCategory>('skin');
+  const [showPresets, setShowPresets] = useState(false);
 
   const visibleGroup = groups.find((group) => group.id === activeGroup) || groups[0];
   const activeCategory = useMemo(() => flatCategories.find((category) => category.key === active) || flatCategories[0], [active]);
@@ -120,18 +122,18 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
   };
 
   return (
-    <div className={cn('w-full max-w-full overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950 shadow-2xl shadow-indigo-950/30 sm:rounded-[2rem]', className)}>
-      <div className="relative max-w-full overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.32),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.22),_transparent_34%),linear-gradient(135deg,_#020617,_#0f172a_45%,_#111827)] p-2.5 sm:p-4 lg:p-5">
+    <div className={cn('w-full max-w-full overflow-hidden rounded-[1.25rem] border border-white/10 bg-slate-950 shadow-2xl shadow-indigo-950/30 sm:rounded-[2rem]', className)}>
+      <div className="relative max-w-full overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.32),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.22),_transparent_34%),linear-gradient(135deg,_#020617,_#0f172a_45%,_#111827)] p-2 sm:p-4 lg:p-5">
         <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
-        <div className="relative grid min-w-0 max-w-full items-start gap-3 sm:gap-4 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
+        <div className="relative grid min-w-0 max-w-full items-start gap-2.5 sm:gap-4 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
           <aside className="min-w-0 max-w-full xl:sticky xl:top-4">
-            <div className="mx-auto w-full max-w-[270px] rounded-[1.45rem] border border-white/15 bg-white/[0.07] p-1.5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:max-w-[320px] sm:rounded-[1.7rem] sm:p-2 xl:max-w-none">
-              <div className="relative w-full overflow-hidden rounded-[1.15rem] border border-white/15 bg-slate-950 sm:rounded-[1.35rem]">
+            <div className="mx-auto w-full max-w-[210px] rounded-[1.2rem] border border-white/15 bg-white/[0.07] p-1.5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:max-w-[320px] sm:rounded-[1.7rem] sm:p-2 xl:max-w-none">
+              <div className="relative w-full overflow-hidden rounded-[1rem] border border-white/15 bg-slate-950 sm:rounded-[1.35rem]">
                 <AvatarRenderer config={config} name={name || 'Personagem'} className="w-full min-w-0 max-w-full" />
               </div>
             </div>
 
-            <div className="mx-auto mt-3 grid w-full max-w-[320px] grid-cols-2 gap-2 xl:max-w-none">
+            <div className="mx-auto mt-2 grid w-full max-w-[320px] grid-cols-2 gap-2 xl:mt-3 xl:max-w-none">
               <Button
                 type="button"
                 onClick={() => onChange(randomAvatarConfig())}
@@ -148,12 +150,19 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
               </Button>
             </div>
 
-            <div className="mx-auto mt-3 w-full max-w-[360px] rounded-3xl border border-white/10 bg-white/[0.06] p-3 backdrop-blur-xl xl:max-w-none">
-              <div className="flex items-center gap-2 text-white">
-                <Sparkles className="w-4 h-4 text-amber-300" />
-                <p className="text-[11px] font-black uppercase tracking-[0.2em]">Presets premium</p>
-              </div>
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1 xl:grid xl:max-h-[178px] xl:grid-cols-2 xl:overflow-y-auto xl:pr-1">
+            <div className="mx-auto mt-2 w-full max-w-[360px] rounded-2xl border border-white/10 bg-white/[0.06] p-2.5 backdrop-blur-xl sm:mt-3 sm:rounded-3xl sm:p-3 xl:max-w-none">
+              <button
+                type="button"
+                onClick={() => setShowPresets((current) => !current)}
+                className="flex w-full items-center justify-between gap-2 text-white xl:pointer-events-none"
+              >
+                <span className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span className="text-[11px] font-black uppercase tracking-[0.2em]">Presets premium</span>
+                </span>
+                <ChevronDown className={cn('h-4 w-4 text-slate-300 transition-transform xl:hidden', showPresets && 'rotate-180')} />
+              </button>
+              <div className={cn('mt-3 gap-2 overflow-x-auto pb-1 xl:grid xl:max-h-[178px] xl:grid-cols-2 xl:overflow-y-auto xl:pr-1', showPresets ? 'flex' : 'hidden xl:grid')}>
                 {AVATAR_PRESETS.map((presetItem) => (
                   <button
                     key={presetItem.id}
@@ -171,17 +180,17 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
           <section className="min-w-0 max-w-full rounded-[1.35rem] border border-white/10 bg-white/[0.08] shadow-2xl shadow-black/20 backdrop-blur-xl sm:rounded-[1.7rem]">
             <div className="border-b border-white/10 p-2.5 sm:p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
+                <div className="hidden sm:block">
                   <p className="text-[9px] font-black uppercase tracking-[0.24em] text-cyan-200 sm:text-[10px] sm:tracking-[0.35em]">Avatar Studio</p>
                   <h3 className="mt-1 text-lg font-black uppercase tracking-tight text-white sm:text-2xl">Criador de personagem</h3>
                   <p className="mt-1 text-xs font-semibold text-slate-300">Monte um visual original em camadas, pronto para card de jogo.</p>
                 </div>
-                <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-emerald-100">
+                <div className="hidden rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-emerald-100 sm:block">
                   SVG sem imagem externa
                 </div>
               </div>
 
-              <div className="mt-4 flex snap-x gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-5">
+              <div className="flex snap-x gap-2 overflow-x-auto pb-1 sm:mt-4 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-5">
                 {groups.map((group) => {
                   const Icon = group.icon;
                   const isActive = activeGroup === group.id;
@@ -192,13 +201,13 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
                       type="button"
                       onClick={() => chooseGroup(group)}
                       className={cn(
-                        'group flex h-12 min-w-[132px] snap-start items-center gap-2 rounded-2xl border px-2.5 text-left transition-all sm:h-14 sm:min-w-0 sm:px-3',
+                        'group flex h-11 min-w-[124px] snap-start items-center gap-2 rounded-2xl border px-2.5 text-left transition-all sm:h-14 sm:min-w-0 sm:px-3',
                         isActive
                           ? 'border-cyan-300/60 bg-cyan-300/15 text-white shadow-lg shadow-cyan-950/30'
                           : 'border-white/10 bg-white/[0.06] text-slate-300 hover:border-white/25 hover:bg-white/[0.1]',
                       )}
                     >
-                      <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl border', isActive ? 'border-cyan-200/40 bg-cyan-200/20 text-cyan-100' : 'border-white/10 bg-white/5 text-slate-400')}>
+                      <span className={cn('flex h-7 w-7 items-center justify-center rounded-xl border sm:h-8 sm:w-8', isActive ? 'border-cyan-200/40 bg-cyan-200/20 text-cyan-100' : 'border-white/10 bg-white/5 text-slate-400')}>
                         <Icon className="h-4 w-4" />
                       </span>
                       <span className="min-w-0">
@@ -220,7 +229,7 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
                       type="button"
                       onClick={() => setActive(category.key)}
                       className={cn(
-                        'min-w-[128px] snap-start rounded-2xl border px-3 py-2.5 text-left transition-all lg:min-w-0 lg:py-3',
+                        'min-w-[120px] snap-start rounded-2xl border px-3 py-2 text-left transition-all lg:min-w-0 lg:py-3',
                         active === category.key
                           ? 'border-indigo-300/60 bg-indigo-400/20 text-white shadow-lg shadow-indigo-950/30'
                           : 'border-white/10 bg-white/[0.06] text-slate-300 hover:border-white/25 hover:bg-white/[0.1]',
@@ -252,7 +261,7 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
                   </div>
                 </div>
 
-                <div className="max-h-[52vh] min-h-[260px] overflow-y-auto pr-1 sm:max-h-[410px]">
+                <div className="max-h-[48vh] min-h-[220px] overflow-y-auto pr-1 sm:max-h-[410px] sm:min-h-[260px]">
                   <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                     {AVATAR_OPTIONS[active].map((option) => {
                       const isSelected = config[active] === option.id;

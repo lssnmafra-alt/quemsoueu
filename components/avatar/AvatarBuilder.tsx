@@ -34,19 +34,19 @@ const groups: BuilderGroup[] = [
     label: 'Identidade',
     categories: [
       { key: 'skin', label: 'Tom de pele', hint: 'humano, monstro, metal' },
-      { key: 'body', label: 'Corpo', hint: 'porte e presença' },
+      { key: 'body', label: 'Corpo', hint: 'porte e presenca' },
       { key: 'background', label: 'Cena', hint: 'clima do card' },
       { key: 'frame', label: 'Moldura', hint: 'raridade e tema' },
     ],
   },
   {
     id: 'head',
-    label: 'Cabeça',
+    label: 'Cabeca',
     categories: [
-      { key: 'face', label: 'Modelo do rosto', hint: 'silhueta e mandíbula' },
-      { key: 'eyes', label: 'Olhos', hint: 'olhar, visor e óculos' },
-      { key: 'eyebrows', label: 'Sobrancelha', hint: 'expressão' },
-      { key: 'nose', label: 'Nariz', hint: 'perfil e marcação' },
+      { key: 'face', label: 'Modelo do rosto', hint: 'silhueta e mandibula' },
+      { key: 'eyes', label: 'Olhos', hint: 'olhar, visor e oculos' },
+      { key: 'eyebrows', label: 'Sobrancelha', hint: 'expressao' },
+      { key: 'nose', label: 'Nariz', hint: 'perfil e marcacao' },
       { key: 'mouth', label: 'Boca', hint: 'humor e atitude' },
       { key: 'facialHair', label: 'Barba', hint: 'bigode, cavanhaque, cheia' },
     ],
@@ -56,7 +56,7 @@ const groups: BuilderGroup[] = [
     label: 'Penteado',
     categories: [
       { key: 'hair', label: 'Corte', hint: 'cabelo, capuz ou careca' },
-      { key: 'headwear', label: 'Cabeça extra', hint: 'boné, capacete, marca' },
+      { key: 'headwear', label: 'Cabeca extra', hint: 'bone, capacete, marca' },
     ],
   },
   {
@@ -65,7 +65,7 @@ const groups: BuilderGroup[] = [
     categories: [
       { key: 'clothes', label: 'Roupa base', hint: 'uniforme, bruxo, tech' },
       { key: 'outerwear', label: 'Camada', hint: 'manto, capa, jaqueta' },
-      { key: 'accessory', label: 'Objeto', hint: 'varinha, tridente, câmera' },
+      { key: 'accessory', label: 'Objeto', hint: 'varinha, tridente, camera' },
     ],
   },
 ] as const;
@@ -120,7 +120,7 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
         <div className="p-3 border-b-2 border-slate-100 bg-slate-50/80">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="w-4 h-4 text-indigo-600" />
-            <p className="text-xs font-black uppercase text-indigo-950">Presets rápidos</p>
+            <p className="text-xs font-black uppercase text-indigo-950">Presets rapidos</p>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {AVATAR_PRESETS.map((preset) => (
@@ -245,3 +245,4 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
     </label>
   );
 }
+

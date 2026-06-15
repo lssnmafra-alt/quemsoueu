@@ -4,7 +4,7 @@ import { TEMP_OFFICIAL_DECK_EDITING_ENABLED } from '@/lib/officialDecks';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
-const BINDING_NAMES = ['CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
+const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
 
 export async function POST(req: NextRequest) {
   try {

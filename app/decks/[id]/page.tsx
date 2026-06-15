@@ -39,7 +39,7 @@ export default function DeckEditorPage() {
   const isCreator = deck?.creator_id === user?.id;
   const isTemporaryOfficialEditor = TEMP_OFFICIAL_DECK_EDITING_ENABLED && isOfficialDeckId(deckId);
   const canEditDeck = isCreator || isTemporaryOfficialEditor;
-  const canCreateCharacters = isCreator && !isTemporaryOfficialEditor;
+  const canCreateCharacters = isCreator || isTemporaryOfficialEditor;
   const canDeleteCharacters = isCreator;
 
   useEffect(() => {
@@ -171,18 +171,33 @@ export default function DeckEditorPage() {
         return;
       }
 
-      const data = (
-        await supabaseGame
-          .from('characters')
-          .insert({
-            deck_id: deckId,
-            name: cleanName,
-            image_url: '',
-            avatar_config: avatarConfig,
+      const data = isTemporaryOfficialEditor
+        ? await fetch('/api/official-decks/edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'add-character',
+              deckId,
+              name: cleanName,
+              imageUrl: '',
+            }),
+          }).then(async (res) => {
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(result.error || 'Nao foi possivel inserir o personagem oficial.');
+            return result.character;
           })
-          .select()
-          .single()
-      ).data;
+        : (
+            await supabaseGame
+              .from('characters')
+              .insert({
+                deck_id: deckId,
+                name: cleanName,
+                image_url: '',
+                avatar_config: avatarConfig,
+              })
+              .select()
+              .single()
+          ).data;
 
       if (data) {
         const sanitizedCharacter = {
@@ -562,13 +577,21 @@ export default function DeckEditorPage() {
                 </Button>
               </div>
 
-              <div className="mt-4">
-                <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
-              </div>
+                {!isTemporaryOfficialEditor ? (
+                  <>
+                    <div className="mt-4">
+                      <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
+                    </div>
 
-              <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
-                Personalize o personagem em camadas. Cards criados por jogadores nao usam imagem externa.
-              </p>
+                    <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
+                      Personalize o personagem em camadas. Cards criados por jogadores nao usam imagem externa.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-slate-400 font-bold mt-3 pl-1 italic">
+                    Crie o personagem oficial e use o botao Anexar imagem no card.
+                  </p>
+                )}
             </div>
           </motion.div>
         )}

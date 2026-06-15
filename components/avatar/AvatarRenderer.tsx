@@ -306,8 +306,13 @@ function renderMouth(eyes: string) {
 function renderHair(hair: string, color: string) {
   const hairColor = color || '#111827';
   const shapes: Record<string, ReactNode> = {
-    'hair-01': <path d="M76 113 C78 72 112 60 150 76 C166 84 170 104 166 122 C142 104 108 102 76 113 Z" fill={hairColor} />,
-    'hair-02': <path d="M72 116 L86 72 L98 102 L112 62 L124 102 L142 66 L150 106 L170 90 L164 124 C136 104 104 104 72 116 Z" fill={hairColor} />,
+    'hair-01': <path d="M76 118 C78 80 112 66 150 82 C166 90 170 110 166 128 C142 110 108 108 76 118 Z" fill={hairColor} />,
+    'hair-02': (
+      <g fill={hairColor}>
+        <path d="M72 120 L86 80 L98 108 L112 72 L124 108 L142 76 L150 112 L170 96 L164 128 C136 110 104 110 72 120 Z" />
+        <path d="M78 124 C94 106 144 106 162 124 C138 116 104 116 78 124 Z" fill={shade(hairColor)} opacity="0.45" />
+      </g>
+    ),
     'hair-03': (
       <g fill={hairColor}>
         {Array.from({ length: 13 }).map((_, i) => <circle key={i} cx={72 + i * 8} cy={86 + (i % 3) * 8} r="13" />)}
@@ -315,13 +320,18 @@ function renderHair(hair: string, color: string) {
       </g>
     ),
     'hair-04': <path d="M74 110 C78 66 164 66 168 110 L178 196 C156 184 150 140 160 112 C134 104 106 104 80 112 C90 140 84 184 62 196 Z" fill={hairColor} />,
-    'hair-05': <path d="M74 110 C86 70 124 60 166 82 C142 82 136 94 170 110 C136 100 106 102 74 118 Z" fill={hairColor} />,
-    'hair-06': <path d="M102 110 L116 48 L128 110 C118 104 110 104 102 110 Z M80 118 C92 96 148 96 160 118 C132 104 108 104 80 118 Z" fill={hairColor} />,
+    'hair-05': <path d="M74 118 C86 80 124 70 166 90 C142 90 136 100 170 118 C136 108 106 110 74 126 Z" fill={hairColor} />,
+    'hair-06': <path d="M102 116 L116 58 L128 116 C118 110 110 110 102 116 Z M80 124 C92 104 148 104 160 124 C132 112 108 112 80 124 Z" fill={hairColor} />,
     'hair-07': <path d="M60 118 C68 74 96 58 126 72 C154 84 160 104 158 130 C130 104 98 104 76 126 Z M158 118 C176 128 182 154 174 182 C160 154 152 132 158 118 Z" fill={hairColor} />,
     'hair-08': <path d="M86 106 C96 72 146 72 156 106 C132 98 110 98 86 106 Z" fill={shade(hairColor)} opacity="0.12" />,
     'hair-09': <path d="M66 116 C66 66 174 66 174 116 L162 174 C148 138 92 138 78 174 Z" fill={hairColor} />,
-    'hair-10': <path d="M66 120 L86 66 L98 100 L118 42 L128 100 L154 52 L150 106 L176 82 L164 130 C136 104 102 104 66 120 Z" fill={hairColor} />,
-    'hair-11': <path d="M72 112 C78 62 166 62 168 112 C150 98 130 96 120 112 C108 94 90 98 72 112 Z M78 112 L60 180 L88 156 Z M162 112 L180 180 L152 156 Z" fill={hairColor} />,
+    'hair-10': (
+      <g fill={hairColor}>
+        <path d="M66 124 L86 76 L98 108 L118 54 L128 108 L154 64 L150 114 L176 92 L164 132 C136 110 102 110 66 124 Z" />
+        <path d="M78 128 C100 112 140 112 162 128 C138 120 102 120 78 128 Z" fill={shade(hairColor)} opacity="0.42" />
+      </g>
+    ),
+    'hair-11': <path d="M72 118 C78 70 166 70 168 118 C150 104 130 102 120 118 C108 100 90 104 72 118 Z M78 118 L60 180 L88 156 Z M162 118 L180 180 L152 156 Z" fill={hairColor} />,
     'hair-12': (
       <g stroke={hairColor} strokeWidth="8" strokeLinecap="round" fill="none">
         <path d="M84 104 C74 134 70 158 76 188" />

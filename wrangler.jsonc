@@ -10,5 +10,11 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
-  }
+  },
+  "r2_buckets": [
+    {
+      "binding": "atuem",
+      "bucket_name": "atuem"
+    }
+  ]
 }

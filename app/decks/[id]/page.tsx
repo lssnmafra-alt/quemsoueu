@@ -824,7 +824,7 @@ export default function DeckEditorPage() {
               <div className="flex flex-col md:flex-row gap-4 items-start w-full">
                 <div className="w-full md:max-w-md space-y-1">
                   <Input
-                    placeholder="NOME DO PERSONAGEM, EX: SHREK, HARRY POTTER..."
+                    placeholder="NOME DO PERSONAGEM, EX: HEROI URBANO, MAGO DE GELO..."
                     value={charName}
                     maxLength={35}
                     onChange={(e) => {

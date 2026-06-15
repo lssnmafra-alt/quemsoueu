@@ -9,11 +9,13 @@ export type AvatarConfig = {
   hairColor: string;
   facialHair: string;
   headwear: string;
+  marking: string;
   body: string;
   clothes: string;
   clothesColor: string;
   outerwear: string;
   accessory: string;
+  aura: string;
   background: string;
   frame: string;
 };
@@ -37,11 +39,13 @@ export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
   hairColor: '#111827',
   facialHair: 'facial-none',
   headwear: 'headwear-none',
+  marking: 'marking-none',
   body: 'body-02',
   clothes: 'clothes-01',
   clothesColor: '#2563eb',
   outerwear: 'outerwear-none',
   accessory: 'none',
+  aura: 'aura-backlight',
   background: 'bg-01',
   frame: 'frame-rare',
 };
@@ -142,6 +146,16 @@ export const AVATAR_OPTIONS = {
     { id: 'headwear-05', label: 'Capacete aberto' },
     { id: 'headwear-06', label: 'Bone urbano' },
   ],
+  marking: [
+    { id: 'marking-none', label: 'Sem marca' },
+    { id: 'marking-scar', label: 'Cicatriz facial' },
+    { id: 'marking-freckles', label: 'Sardas sutis' },
+    { id: 'marking-warpaint', label: 'Pintura de guerra' },
+    { id: 'marking-arcane', label: 'Selo arcano' },
+    { id: 'marking-cyber', label: 'Linhas cyber' },
+    { id: 'marking-royal', label: 'Brilho nobre' },
+    { id: 'marking-shadow', label: 'Sombra dramatica' },
+  ],
   body: [
     { id: 'body-01', label: 'Equilibrado' },
     { id: 'body-02', label: 'Atletico' },
@@ -199,6 +213,17 @@ export const AVATAR_OPTIONS = {
     { id: 'accessory-15', label: 'Fones gamer' },
     { id: 'accessory-16', label: 'Patch detetive' },
   ],
+  aura: [
+    { id: 'aura-none', label: 'Sem aura' },
+    { id: 'aura-backlight', label: 'Luz de recorte' },
+    { id: 'aura-neon', label: 'Anel neon' },
+    { id: 'aura-embers', label: 'Brasas' },
+    { id: 'aura-frost', label: 'Cristais de gelo' },
+    { id: 'aura-shadow', label: 'Sombra viva' },
+    { id: 'aura-cosmic', label: 'Particulas cosmicas' },
+    { id: 'aura-stadium', label: 'Luzes de arena' },
+    { id: 'aura-tech', label: 'Scan digital' },
+  ],
   background: [
     { id: 'bg-01', label: 'Arena premium' },
     { id: 'bg-02', label: 'Inferno abstrato' },
@@ -245,6 +270,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothes: 'clothes-13',
     clothesColor: '#2563eb',
     outerwear: 'outerwear-cape',
+    aura: 'aura-backlight',
     background: 'bg-01',
     frame: 'frame-epic',
   }),
@@ -262,6 +288,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothesColor: '#111827',
     outerwear: 'outerwear-robe',
     accessory: 'accessory-11',
+    marking: 'marking-arcane',
+    aura: 'aura-shadow',
     background: 'bg-11',
     frame: 'frame-horror',
     headwear: 'headwear-04',
@@ -280,6 +308,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothesColor: '#6d28d9',
     outerwear: 'outerwear-armor',
     accessory: 'accessory-13',
+    marking: 'marking-royal',
+    aura: 'aura-cosmic',
     background: 'bg-08',
     frame: 'frame-legendary',
   }),
@@ -296,6 +326,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothes: 'clothes-02',
     clothesColor: '#16a34a',
     accessory: 'none',
+    aura: 'aura-stadium',
     background: 'bg-10',
     frame: 'frame-speed',
   }),
@@ -313,6 +344,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothesColor: '#64748b',
     outerwear: 'outerwear-armor',
     accessory: 'accessory-08',
+    marking: 'marking-cyber',
+    aura: 'aura-tech',
     background: 'bg-13',
     frame: 'frame-tech',
   }),
@@ -329,6 +362,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothes: 'clothes-12',
     clothesColor: '#111827',
     accessory: 'accessory-02',
+    marking: 'marking-shadow',
+    aura: 'aura-shadow',
     background: 'bg-05',
     frame: 'frame-rare',
   }),
@@ -345,6 +380,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-03',
     clothes: 'clothes-11',
     clothesColor: '#dc2626',
+    marking: 'marking-scar',
+    aura: 'aura-embers',
     background: 'bg-04',
     frame: 'frame-epic',
   }),
@@ -362,6 +399,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothesColor: '#e11d48',
     outerwear: 'outerwear-jacket',
     accessory: 'accessory-01',
+    marking: 'marking-royal',
+    aura: 'aura-backlight',
     background: 'bg-14',
     frame: 'frame-rare',
   }),
@@ -378,6 +417,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothes: 'clothes-10',
     clothesColor: '#4c1d95',
     accessory: 'accessory-06',
+    marking: 'marking-warpaint',
+    aura: 'aura-embers',
     background: 'bg-02',
     frame: 'frame-legendary',
   }),
@@ -396,6 +437,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     outerwear: 'outerwear-cape',
     headwear: 'headwear-02',
     accessory: 'accessory-05',
+    marking: 'marking-royal',
+    aura: 'aura-backlight',
     background: 'bg-01',
     frame: 'frame-royal',
   }),
@@ -412,6 +455,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothes: 'clothes-17',
     clothesColor: '#475569',
     accessory: 'accessory-08',
+    marking: 'marking-cyber',
+    aura: 'aura-tech',
     background: 'bg-13',
     frame: 'frame-tech',
   }),
@@ -428,6 +473,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothes: 'clothes-15',
     clothesColor: '#7f1d1d',
     outerwear: 'outerwear-cape',
+    marking: 'marking-shadow',
+    aura: 'aura-shadow',
     background: 'bg-09',
     frame: 'frame-horror',
   }),
@@ -446,6 +493,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothesColor: '#0f172a',
     outerwear: 'outerwear-jacket',
     accessory: 'accessory-15',
+    marking: 'marking-none',
+    aura: 'aura-neon',
     background: 'bg-14',
     frame: 'frame-common',
     headwear: 'headwear-06',
@@ -463,6 +512,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothes: 'clothes-14',
     clothesColor: '#7c3aed',
     accessory: 'accessory-15',
+    marking: 'marking-cyber',
+    aura: 'aura-neon',
     background: 'bg-14',
     frame: 'frame-speed',
   }),
@@ -481,6 +532,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothesColor: '#92400e',
     outerwear: 'outerwear-jacket',
     accessory: 'accessory-16',
+    marking: 'marking-shadow',
+    aura: 'aura-backlight',
     background: 'bg-05',
     frame: 'frame-rare',
   }),
@@ -499,6 +552,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothes: 'clothes-20',
     clothesColor: '#7f1d1d',
     accessory: 'accessory-09',
+    marking: 'marking-scar',
+    aura: 'aura-backlight',
     background: 'bg-15',
     frame: 'frame-royal',
   }),
@@ -516,6 +571,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     clothesColor: '#38bdf8',
     outerwear: 'outerwear-robe',
     accessory: 'accessory-11',
+    marking: 'marking-arcane',
+    aura: 'aura-frost',
     background: 'bg-03',
     frame: 'frame-ice',
   }),
@@ -534,6 +591,8 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     outerwear: 'outerwear-armor',
     headwear: 'headwear-05',
     accessory: 'accessory-02',
+    marking: 'marking-cyber',
+    aura: 'aura-tech',
     background: 'bg-16',
     frame: 'frame-tech',
   }),
@@ -555,11 +614,13 @@ export function normalizeAvatarConfig(value: unknown): AvatarConfig {
     hairColor: isHexColor(draft.hairColor) ? draft.hairColor! : DEFAULT_AVATAR_CONFIG.hairColor,
     facialHair: pickOption('facialHair', draft.facialHair),
     headwear: pickOption('headwear', draft.headwear),
+    marking: pickOption('marking', draft.marking),
     body: pickOption('body', draft.body),
     clothes: pickOption('clothes', draft.clothes),
     clothesColor: isHexColor(draft.clothesColor) ? draft.clothesColor! : DEFAULT_AVATAR_CONFIG.clothesColor,
     outerwear: pickOption('outerwear', draft.outerwear),
     accessory: pickOption('accessory', draft.accessory),
+    aura: pickOption('aura', draft.aura),
     background: pickOption('background', draft.background),
     frame: pickOption('frame', draft.frame),
   };
@@ -596,6 +657,8 @@ export function randomAvatarConfig(): AvatarConfig {
   const cleanOuterwear = ['outerwear-none', 'outerwear-none', 'outerwear-jacket', 'outerwear-cape'];
   const cleanAccessories = ['none', 'none', 'none', 'accessory-01', 'accessory-10', 'accessory-14', 'accessory-15', 'accessory-16'];
   const cleanHeadwear = ['headwear-none', 'headwear-none', 'headwear-none', 'headwear-01', 'headwear-06'];
+  const cleanMarkings = ['marking-none', 'marking-none', 'marking-none', 'marking-freckles', 'marking-scar', 'marking-royal'];
+  const cleanAuras = ['aura-backlight', 'aura-backlight', 'aura-none', 'aura-neon', 'aura-stadium'];
   const cleanBackgrounds = ['bg-01', 'bg-03', 'bg-04', 'bg-05', 'bg-06', 'bg-10', 'bg-14', 'bg-16'];
   const cleanFrames = ['frame-common', 'frame-rare', 'frame-epic', 'frame-speed', 'frame-tech'];
   const hairColors = ['#111827', '#1f2937', '#3b2415', '#7c2d12', '#92400e', '#facc15', '#6d28d9', '#be123c', '#16a34a', '#e5e7eb'];
@@ -614,11 +677,13 @@ export function randomAvatarConfig(): AvatarConfig {
     hairColor: randomFrom(hairColors),
     facialHair: Math.random() < 0.76 ? 'facial-none' : randomFrom(['facial-01', 'facial-02', 'facial-03', 'facial-04', 'facial-05']),
     headwear: randomFrom(cleanHeadwear),
+    marking: randomFrom(cleanMarkings),
     body: selectedClothes === 'clothes-11' ? 'body-03' : randomFrom(cleanBodies),
     clothes: selectedClothes,
     clothesColor: randomFrom(clothesColors),
     outerwear: selectedClothes === 'clothes-05' ? 'outerwear-jacket' : randomFrom(cleanOuterwear),
     accessory: randomFrom(cleanAccessories),
+    aura: selectedClothes === 'clothes-02' ? 'aura-stadium' : randomFrom(cleanAuras),
     background: randomFrom(cleanBackgrounds),
     frame: randomFrom(cleanFrames),
   });

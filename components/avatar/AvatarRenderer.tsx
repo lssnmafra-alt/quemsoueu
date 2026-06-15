@@ -48,6 +48,7 @@ const frameThemes: Record<string, { a: string; b: string; c: string; text: strin
 
 export default function AvatarRenderer({ config, name = 'Personagem', className }: AvatarRendererProps) {
   const avatar = normalizeAvatarConfig(config || DEFAULT_AVATAR_CONFIG);
+  const ids = buildSvgIds(avatar, name);
   const skin = getOptionColor('skin', avatar.skin, '#d99a5b');
   const skinLight = shade(skin, 18);
   const skinShadow = shade(skin, -18);
@@ -68,75 +69,76 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
     <div className={cn('relative aspect-[3/4] w-full min-w-0 max-w-full overflow-hidden rounded-2xl bg-slate-950', className)}>
       <svg viewBox="0 0 360 480" role="img" aria-label={displayName} preserveAspectRatio="xMidYMid meet" className="block h-full w-full">
         <defs>
-          <linearGradient id="avatarBg" x1="0" x2="1" y1="0" y2="1">
+          <linearGradient id={ids.avatarBg} x1="0" x2="1" y1="0" y2="1">
             <stop offset="0%" stopColor={bg.from} />
             <stop offset="52%" stopColor={bg.mid} />
             <stop offset="100%" stopColor={bg.to} />
           </linearGradient>
-          <radialGradient id="avatarGlow" cx="50%" cy="32%" r="60%">
+          <radialGradient id={ids.avatarGlow} cx="50%" cy="32%" r="60%">
             <stop offset="0%" stopColor={bg.glow} stopOpacity="0.72" />
             <stop offset="48%" stopColor={bg.glow} stopOpacity="0.18" />
             <stop offset="100%" stopColor={bg.glow} stopOpacity="0" />
           </radialGradient>
-          <linearGradient id="frameGradient" x1="0" x2="1" y1="0" y2="1">
+          <linearGradient id={ids.frameGradient} x1="0" x2="1" y1="0" y2="1">
             <stop offset="0%" stopColor={frame.b} />
             <stop offset="45%" stopColor={frame.a} />
             <stop offset="100%" stopColor={frame.c} />
           </linearGradient>
-          <linearGradient id="skinGradient" x1="0" x2="1" y1="0" y2="1">
+          <linearGradient id={ids.skinGradient} x1="0" x2="1" y1="0" y2="1">
             <stop offset="0%" stopColor={skinLight} />
             <stop offset="55%" stopColor={skin} />
             <stop offset="100%" stopColor={skinShadow} />
           </linearGradient>
-          <linearGradient id="outfitGradient" x1="0" x2="1" y1="0" y2="1">
+          <linearGradient id={ids.outfitGradient} x1="0" x2="1" y1="0" y2="1">
             <stop offset="0%" stopColor={outfitLight} />
             <stop offset="58%" stopColor={outfit} />
             <stop offset="100%" stopColor={outfitDark} />
           </linearGradient>
-          <linearGradient id="hairGradient" x1="0" x2="1" y1="0" y2="1">
+          <linearGradient id={ids.hairGradient} x1="0" x2="1" y1="0" y2="1">
             <stop offset="0%" stopColor={shade(hair, 25)} />
             <stop offset="50%" stopColor={hair} />
             <stop offset="100%" stopColor={shade(hair, -24)} />
           </linearGradient>
-          <linearGradient id="metalGradient" x1="0" x2="1" y1="0" y2="1">
+          <linearGradient id={ids.metalGradient} x1="0" x2="1" y1="0" y2="1">
             <stop offset="0%" stopColor="#e2e8f0" />
             <stop offset="40%" stopColor="#94a3b8" />
             <stop offset="70%" stopColor="#475569" />
             <stop offset="100%" stopColor="#cbd5e1" />
           </linearGradient>
-          <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+          <filter id={ids.softShadow} x="-30%" y="-30%" width="160%" height="160%">
             <feDropShadow dx="0" dy="18" stdDeviation="16" floodColor="#000000" floodOpacity="0.36" />
           </filter>
-          <filter id="cardGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <filter id={ids.cardGlow} x="-20%" y="-20%" width="140%" height="140%">
             <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor={frame.a} floodOpacity="0.55" />
           </filter>
-          <clipPath id="cardClip">
+          <clipPath id={ids.cardClip}>
             <rect x="18" y="18" width="324" height="444" rx="30" />
           </clipPath>
-          <clipPath id="faceClip">
+          <clipPath id={ids.faceClip}>
             <path d={facePath} />
           </clipPath>
         </defs>
 
-        <rect width="360" height="480" fill="url(#avatarBg)" />
-        <rect width="360" height="480" fill="url(#avatarGlow)" />
+        <rect width="360" height="480" fill={`url(#${ids.avatarBg})`} />
+        <rect width="360" height="480" fill={`url(#${ids.avatarGlow})`} />
         <BackgroundDetails background={avatar.background} glow={bg.glow} line={bg.line} />
+        <Aura aura={avatar.aura} accent={frame.a} glow={bg.glow} />
 
-        <g filter="url(#cardGlow)">
-          <rect x="14" y="14" width="332" height="452" rx="34" fill="none" stroke="url(#frameGradient)" strokeWidth="8" />
+        <g filter={`url(#${ids.cardGlow})`}>
+          <rect x="14" y="14" width="332" height="452" rx="34" fill="none" stroke={`url(#${ids.frameGradient})`} strokeWidth="8" />
           <rect x="28" y="28" width="304" height="424" rx="24" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="1.5" />
         </g>
 
-        <g clipPath="url(#cardClip)">
+        <g clipPath={`url(#${ids.cardClip})`}>
           <ellipse cx="180" cy="420" rx="112" ry="24" fill="#020617" opacity="0.42" />
-          <g filter="url(#softShadow)">
+          <g filter={`url(#${ids.softShadow})`}>
             {avatar.outerwear === 'outerwear-cape' && <Cape outfit={outfitDark} frame={frame.a} />}
             {avatar.outerwear === 'outerwear-robe' && <RobeBack color={outfitDark} accent={frame.a} />}
 
             <g>
               <path
                 d={`M${bodyShape.leftShoulder} 292 C${bodyShape.leftShoulder - 28} 304 ${bodyShape.leftWaist - 28} 348 ${bodyShape.leftWaist} 434 L${bodyShape.rightWaist} 434 C${bodyShape.rightWaist + 28} 348 ${bodyShape.rightShoulder + 28} 304 ${bodyShape.rightShoulder} 292 C220 276 140 276 ${bodyShape.leftShoulder} 292Z`}
-                fill={isRobot ? 'url(#metalGradient)' : 'url(#outfitGradient)'}
+                fill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.outfitGradient})`}
               />
               <path d="M132 298 C145 322 154 362 158 434 L202 434 C206 362 215 322 228 298 C203 288 157 288 132 298Z" fill="rgba(255,255,255,0.10)" />
               <OutfitDetails clothes={avatar.clothes} color={outfit} dark={outfitDark} light={outfitLight} accent={frame.a} isRobot={isRobot} />
@@ -144,22 +146,23 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
             </g>
 
             <g>
-              <path d="M148 254 C148 282 158 304 180 304 C202 304 212 282 212 254 L148 254Z" fill={isRobot ? 'url(#metalGradient)' : 'url(#skinGradient)'} />
+              <path d="M148 254 C148 282 158 304 180 304 C202 304 212 282 212 254 L148 254Z" fill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.skinGradient})`} />
               <path d="M154 282 C168 294 192 294 206 282 C201 306 159 306 154 282Z" fill={skinDeep} opacity="0.22" />
             </g>
 
             <g>
-              <path d={facePath} fill={isRobot ? 'url(#metalGradient)' : 'url(#skinGradient)'} />
-              <path d="M132 178 C142 148 164 134 188 138 C165 150 151 174 151 212 C151 242 163 266 184 278 C148 274 128 244 126 208 C125 198 127 187 132 178Z" fill="#ffffff" opacity="0.10" clipPath="url(#faceClip)" />
-              <path d="M222 168 C232 190 232 236 215 260 C226 247 236 226 236 202 C236 184 231 173 222 168Z" fill="#020617" opacity="0.12" clipPath="url(#faceClip)" />
+              <path d={facePath} fill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.skinGradient})`} />
+              <path d="M132 178 C142 148 164 134 188 138 C165 150 151 174 151 212 C151 242 163 266 184 278 C148 274 128 244 126 208 C125 198 127 187 132 178Z" fill="#ffffff" opacity="0.10" clipPath={`url(#${ids.faceClip})`} />
+              <path d="M222 168 C232 190 232 236 215 260 C226 247 236 226 236 202 C236 184 231 173 222 168Z" fill="#020617" opacity="0.12" clipPath={`url(#${ids.faceClip})`} />
+              <Marking marking={avatar.marking} accent={frame.a} glow={bg.glow} skinDeep={skinDeep} />
               {isRobot && <RobotFaceLines accent={frame.a} />}
               {avatar.face === 'face-10' && <AquaticMarks accent={bg.glow} />}
               {avatar.face === 'face-06' && <FaceMask accent={frame.a} />}
             </g>
 
             <Ears skin={isRobot ? '#94a3b8' : skin} shadow={skinShadow} feral={isFeral || avatar.accessory === 'accessory-06'} />
-            <Hair hair={avatar.hair} color={hair} />
-            <Headwear headwear={avatar.headwear} hairColor={hair} accent={frame.a} />
+            <Hair hair={avatar.hair} color={hair} ids={ids} />
+            <Headwear headwear={avatar.headwear} hairColor={hair} accent={frame.a} ids={ids} />
             <Eyes eyes={avatar.eyes} accent={frame.a} glow={bg.glow} />
             <Eyebrows eyebrows={avatar.eyebrows} hairColor={hair} />
             <Nose nose={avatar.nose} color={skinDeep} isRobot={isRobot} accent={frame.a} />
@@ -182,6 +185,31 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
       </svg>
     </div>
   );
+}
+
+function buildSvgIds(avatar: AvatarConfig, name: string) {
+  const seed = `${name}-${avatar.skin}-${avatar.face}-${avatar.hair}-${avatar.clothes}-${avatar.background}-${avatar.frame}-${avatar.aura}-${avatar.marking}`;
+  let hash = 0;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) % 1000000007;
+  }
+
+  const prefix = `av-${Math.abs(hash).toString(36)}`;
+
+  return {
+    avatarBg: `${prefix}-bg`,
+    avatarGlow: `${prefix}-glow`,
+    frameGradient: `${prefix}-frame`,
+    skinGradient: `${prefix}-skin`,
+    outfitGradient: `${prefix}-outfit`,
+    hairGradient: `${prefix}-hair`,
+    metalGradient: `${prefix}-metal`,
+    softShadow: `${prefix}-shadow`,
+    cardGlow: `${prefix}-card-glow`,
+    cardClip: `${prefix}-card-clip`,
+    faceClip: `${prefix}-face-clip`,
+  };
 }
 
 function BackgroundDetails({ background, glow, line }: { background: string; glow: string; line: string }) {
@@ -240,8 +268,98 @@ function BackgroundDetails({ background, glow, line }: { background: string; glo
   );
 }
 
+function Aura({ aura, accent, glow }: { aura: string; accent: string; glow: string }) {
+  if (aura === 'aura-none') return null;
+
+  if (aura === 'aura-neon') {
+    return (
+      <g opacity="0.75">
+        <ellipse cx="180" cy="238" rx="118" ry="162" fill="none" stroke={accent} strokeWidth="3" strokeDasharray="10 12" />
+        <ellipse cx="180" cy="238" rx="92" ry="134" fill="none" stroke={glow} strokeWidth="1.5" opacity="0.55" />
+      </g>
+    );
+  }
+
+  if (aura === 'aura-embers') {
+    return (
+      <g fill={glow} opacity="0.82">
+        {[72, 112, 244, 286, 308].map((x, index) => (
+          <path key={x} d={`M${x} ${302 - index * 34} C${x - 10} ${282 - index * 34} ${x + 10} ${270 - index * 34} ${x} ${246 - index * 34} C${x + 18} ${270 - index * 34} ${x + 10} ${288 - index * 34} ${x} ${302 - index * 34}Z`} />
+        ))}
+      </g>
+    );
+  }
+
+  if (aura === 'aura-frost') {
+    return (
+      <g stroke="#e0f2fe" strokeWidth="2" opacity="0.72">
+        <path d="M70 142 L96 168 M83 130 V184 M108 142 L66 176" />
+        <path d="M272 116 L300 144 M288 104 V160 M312 118 L264 154" />
+        <path d="M70 332 L104 360 M88 318 V378 M116 332 L62 368" />
+      </g>
+    );
+  }
+
+  if (aura === 'aura-shadow') {
+    return (
+      <g fill="#020617" opacity="0.46">
+        <path d="M72 438 C92 312 106 204 72 92 C126 164 124 326 118 438Z" />
+        <path d="M288 438 C268 312 254 204 288 92 C234 164 236 326 242 438Z" />
+      </g>
+    );
+  }
+
+  if (aura === 'aura-cosmic') {
+    return (
+      <g opacity="0.8">
+        {[58, 96, 270, 304, 248, 80].map((x, index) => (
+          <circle key={x} cx={x} cy={90 + index * 44} r={index % 2 ? 2.5 : 4} fill={index % 2 ? '#ffffff' : accent} />
+        ))}
+        <path d="M42 214 C102 168 246 166 318 218" fill="none" stroke={accent} strokeWidth="2" opacity="0.38" />
+      </g>
+    );
+  }
+
+  if (aura === 'aura-stadium') {
+    return (
+      <g opacity="0.58">
+        <path d="M48 86 L130 246 M312 86 L230 246" stroke="#fef3c7" strokeWidth="5" opacity="0.22" />
+        <circle cx="82" cy="96" r="8" fill="#fef3c7" />
+        <circle cx="278" cy="96" r="8" fill="#fef3c7" />
+      </g>
+    );
+  }
+
+  if (aura === 'aura-tech') {
+    return (
+      <g stroke={glow} fill="none" opacity="0.7">
+        <path d="M54 154 H112 V116 H164" strokeWidth="2" />
+        <path d="M306 292 H246 V328 H188" strokeWidth="2" />
+        <circle cx="112" cy="116" r="5" fill={glow} />
+        <circle cx="246" cy="328" r="5" fill={glow} />
+      </g>
+    );
+  }
+
+  return <ellipse cx="180" cy="250" rx="118" ry="168" fill={glow} opacity="0.14" />;
+}
+
 function Cape({ outfit, frame }: { outfit: string; frame: string }) {
   return <path d="M112 282 C86 328 72 382 62 444 L298 444 C288 382 274 328 248 282 C218 302 142 302 112 282Z" fill={outfit} opacity="0.88" stroke={frame} strokeOpacity="0.28" strokeWidth="2" />;
+}
+
+function Marking({ marking, accent, glow, skinDeep }: { marking: string; accent: string; glow: string; skinDeep: string }) {
+  if (marking === 'marking-none') return null;
+
+  if (marking === 'marking-scar') return <path d="M208 172 L192 230 M202 184 L214 192 M196 210 L208 218" stroke="#7f1d1d" strokeWidth="3" strokeLinecap="round" opacity="0.68" />;
+  if (marking === 'marking-freckles') return <g fill={skinDeep} opacity="0.38"><circle cx="142" cy="224" r="2" /><circle cx="154" cy="232" r="1.8" /><circle cx="220" cy="224" r="2" /><circle cx="208" cy="234" r="1.8" /></g>;
+  if (marking === 'marking-warpaint') return <g stroke={accent} strokeWidth="5" strokeLinecap="round" opacity="0.72"><path d="M132 214 L166 206" /><path d="M194 206 L228 214" /></g>;
+  if (marking === 'marking-arcane') return <g stroke={glow} fill="none" opacity="0.78"><circle cx="180" cy="164" r="12" strokeWidth="2" /><path d="M180 152 L190 170 H170 Z" strokeWidth="2" /></g>;
+  if (marking === 'marking-cyber') return <g stroke={glow} strokeWidth="2.5" opacity="0.82"><path d="M132 236 H156 V250 H172" /><path d="M228 236 H204 V250 H188" /><circle cx="172" cy="250" r="3" fill={glow} /><circle cx="188" cy="250" r="3" fill={glow} /></g>;
+  if (marking === 'marking-royal') return <path d="M166 154 C176 148 184 148 194 154 C190 162 170 162 166 154Z" fill={accent} opacity="0.72" />;
+  if (marking === 'marking-shadow') return <path d="M132 176 C148 164 164 162 180 166 C160 184 148 210 146 242 C134 222 128 198 132 176Z" fill="#020617" opacity="0.16" />;
+
+  return null;
 }
 
 function RobeBack({ color, accent }: { color: string; accent: string }) {
@@ -371,15 +489,17 @@ function Ears({ skin, shadow, feral }: { skin: string; shadow: string; feral: bo
   );
 }
 
-function Hair({ hair, color }: { hair: string; color: string }) {
+function Hair({ hair, color, ids }: { hair: string; color: string; ids: ReturnType<typeof buildSvgIds> }) {
   if (hair === 'hair-08') return null;
 
   if (hair === 'hair-09') {
     return <path d="M106 206 C106 138 144 104 180 104 C216 104 254 138 254 206 C240 160 218 138 180 138 C142 138 120 160 106 206Z" fill={shade(color, -25)} opacity="0.94" />;
   }
 
-  if (hair === 'hair-01') return <path d="M124 174 C132 126 162 112 198 118 C222 122 238 142 240 174 C216 156 170 150 124 174Z" fill="url(#hairGradient)" />;
-  if (hair === 'hair-02') return <path d="M122 170 L138 120 L158 152 L178 106 L196 152 L222 116 L238 172 C206 154 158 154 122 170Z" fill="url(#hairGradient)" />;
+  const hairFill = `url(#${ids.hairGradient})`;
+
+  if (hair === 'hair-01') return <path d="M124 174 C132 126 162 112 198 118 C222 122 238 142 240 174 C216 156 170 150 124 174Z" fill={hairFill} />;
+  if (hair === 'hair-02') return <path d="M122 170 L138 120 L158 152 L178 106 L196 152 L222 116 L238 172 C206 154 158 154 122 170Z" fill={hairFill} />;
   if (hair === 'hair-03') {
     const circles: Point[] = [
       { x: 128, y: 164 },
@@ -390,30 +510,30 @@ function Hair({ hair, color }: { hair: string; color: string }) {
       { x: 118, y: 190 },
       { x: 240, y: 190 },
     ];
-    return <g>{circles.map((circle) => <circle key={`${circle.x}-${circle.y}`} cx={circle.x} cy={circle.y} r="25" fill="url(#hairGradient)" />)}</g>;
+    return <g>{circles.map((circle) => <circle key={`${circle.x}-${circle.y}`} cx={circle.x} cy={circle.y} r="25" fill={hairFill} />)}</g>;
   }
-  if (hair === 'hair-04') return <path d="M118 164 C116 118 152 100 184 106 C226 112 248 146 244 194 C240 248 226 286 202 306 C216 244 214 176 180 146 C154 172 142 240 158 306 C128 278 116 226 118 164Z" fill="url(#hairGradient)" />;
-  if (hair === 'hair-05') return <path d="M128 166 C140 122 168 96 222 116 C208 122 196 136 190 156 C168 144 148 148 128 166Z" fill="url(#hairGradient)" />;
-  if (hair === 'hair-06') return <path d="M158 164 L174 88 L190 164 C180 158 168 158 158 164Z" fill="url(#hairGradient)" />;
-  if (hair === 'hair-07') return <path d="M120 174 C132 116 190 104 238 134 C200 138 166 156 132 194Z" fill="url(#hairGradient)" />;
-  if (hair === 'hair-10') return <path d="M116 178 L142 118 L158 154 L180 94 L202 154 L232 116 L244 180 C210 152 152 152 116 178Z" fill="url(#hairGradient)" />;
-  if (hair === 'hair-11') return <path d="M116 168 C136 106 222 102 244 170 C234 158 218 152 200 150 L190 206 L174 150 C150 152 132 158 116 168Z" fill="url(#hairGradient)" />;
+  if (hair === 'hair-04') return <path d="M118 164 C116 118 152 100 184 106 C226 112 248 146 244 194 C240 248 226 286 202 306 C216 244 214 176 180 146 C154 172 142 240 158 306 C128 278 116 226 118 164Z" fill={hairFill} />;
+  if (hair === 'hair-05') return <path d="M128 166 C140 122 168 96 222 116 C208 122 196 136 190 156 C168 144 148 148 128 166Z" fill={hairFill} />;
+  if (hair === 'hair-06') return <path d="M158 164 L174 88 L190 164 C180 158 168 158 158 164Z" fill={hairFill} />;
+  if (hair === 'hair-07') return <path d="M120 174 C132 116 190 104 238 134 C200 138 166 156 132 194Z" fill={hairFill} />;
+  if (hair === 'hair-10') return <path d="M116 178 L142 118 L158 154 L180 94 L202 154 L232 116 L244 180 C210 152 152 152 116 178Z" fill={hairFill} />;
+  if (hair === 'hair-11') return <path d="M116 168 C136 106 222 102 244 170 C234 158 218 152 200 150 L190 206 L174 150 C150 152 132 158 116 168Z" fill={hairFill} />;
   if (hair === 'hair-12') {
     return (
       <g>
-        <path d="M126 168 C138 116 220 116 234 168 C198 150 162 150 126 168Z" fill="url(#hairGradient)" />
+        <path d="M126 168 C138 116 220 116 234 168 C198 150 162 150 126 168Z" fill={hairFill} />
         {[138, 154, 206, 222].map((x) => <path key={x} d={`M${x} 168 C${x - 12} 212 ${x - 10} 254 ${x + 2} 298`} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round" />)}
       </g>
     );
   }
-  if (hair === 'hair-13') return <path d="M118 170 C128 112 166 104 190 122 L212 104 L236 130 L228 174 C196 154 158 154 118 170Z" fill="url(#hairGradient)" />;
-  if (hair === 'hair-14') return <path d="M122 176 C132 126 182 106 238 134 C218 150 178 160 126 196Z" fill="url(#hairGradient)" />;
-  if (hair === 'hair-15') return <path d="M124 168 C138 122 186 108 232 134 C202 142 166 152 128 180Z" fill="url(#hairGradient)" />;
+  if (hair === 'hair-13') return <path d="M118 170 C128 112 166 104 190 122 L212 104 L236 130 L228 174 C196 154 158 154 118 170Z" fill={hairFill} />;
+  if (hair === 'hair-14') return <path d="M122 176 C132 126 182 106 238 134 C218 150 178 160 126 196Z" fill={hairFill} />;
+  if (hair === 'hair-15') return <path d="M124 168 C138 122 186 108 232 134 C202 142 166 152 128 180Z" fill={hairFill} />;
 
   return null;
 }
 
-function Headwear({ headwear, hairColor, accent }: { headwear: string; hairColor: string; accent: string }) {
+function Headwear({ headwear, hairColor, accent, ids }: { headwear: string; hairColor: string; accent: string; ids: ReturnType<typeof buildSvgIds> }) {
   if (headwear === 'headwear-none') return null;
 
   if (headwear === 'headwear-01') {
@@ -439,7 +559,7 @@ function Headwear({ headwear, hairColor, accent }: { headwear: string; hairColor
   }
 
   if (headwear === 'headwear-05') {
-    return <path d="M112 178 C118 114 154 90 180 90 C206 90 242 114 248 178 L226 164 C202 146 158 146 134 164Z" fill="url(#metalGradient)" stroke={accent} strokeWidth="3" opacity="0.96" />;
+    return <path d="M112 178 C118 114 154 90 180 90 C206 90 242 114 248 178 L226 164 C202 146 158 146 134 164Z" fill={`url(#${ids.metalGradient})`} stroke={accent} strokeWidth="3" opacity="0.96" />;
   }
 
   if (headwear === 'headwear-06') {

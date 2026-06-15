@@ -58,6 +58,7 @@ const groups: BuilderGroup[] = [
       { key: 'eyebrows', label: 'Sobrancelhas', hint: 'expressao do personagem' },
       { key: 'nose', label: 'Nariz', hint: 'perfil e marcacao facial' },
       { key: 'mouth', label: 'Boca', hint: 'atitude e humor' },
+      { key: 'marking', label: 'Marcas', hint: 'cicatriz, pintura, tatuagem e detalhes' },
       { key: 'facialHair', label: 'Barba', hint: 'estilo facial opcional' },
     ],
   },
@@ -85,6 +86,7 @@ const groups: BuilderGroup[] = [
     icon: Crown,
     categories: [
       { key: 'accessory', label: 'Acessorio', hint: 'item visual independente' },
+      { key: 'aura', label: 'Aura', hint: 'iluminacao e energia ao redor' },
       { key: 'background', label: 'Fundo', hint: 'cenario e atmosfera do card' },
       { key: 'frame', label: 'Moldura', hint: 'acabamento premium do preview' },
     ],

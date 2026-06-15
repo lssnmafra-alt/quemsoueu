@@ -6,7 +6,7 @@ import { useUserStore } from '@/lib/store';
 import { supabaseGame } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Plus, Trash2, Globe, Lock, Trash, Star, StarOff, Layers, ImagePlus } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Globe, Lock, Trash, Star, StarOff, Layers, ImagePlus, ImageOff } from 'lucide-react';
 import { moderateText } from '@/app/actions/moderate';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -27,6 +27,9 @@ export default function DeckEditorPage() {
   const [characters, setCharacters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [deckImage, setDeckImage] = useState('');
+  const [updatingDeck, setUpdatingDeck] = useState(false);
+  const [uploadingDeckImage, setUploadingDeckImage] = useState(false);
 
   const [charName, setCharName] = useState('');
   const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(DEFAULT_AVATAR_CONFIG);
@@ -65,6 +68,7 @@ export default function DeckEditorPage() {
           setCharacters([]);
           setCharacterDrafts({});
           setIsFavorited(false);
+          setDeckImage('');
           setLoading(false);
           return;
         }
@@ -108,6 +112,7 @@ export default function DeckEditorPage() {
         }));
 
         setDeck({ ...dData, creator_nickname: creatorNickname });
+        setDeckImage(sanitizeStoredCharacterImageUrl(dData.cover_url || dData.image_url));
         setCharacters(sanitizedCharacters);
         setCharacterDrafts(
           Object.fromEntries(
@@ -253,6 +258,112 @@ export default function DeckEditorPage() {
     setDeck({ ...deck, is_public: newStatus });
   };
 
+  const saveDeckImageUrl = async (imageUrl: string) => {
+    if (!canEditDeck) return;
+
+    const rawImageUrl = imageUrl.trim();
+    const cleanImageUrl = rawImageUrl ? sanitizeGeneratedImageUrl(rawImageUrl) : '';
+
+    if (rawImageUrl && !cleanImageUrl) {
+      throw new Error('Essa URL de imagem e invalida ou e um fallback antigo ruim.');
+    }
+
+    const updated = isTemporaryOfficialEditor
+      ? await fetch('/api/official-decks/edit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update-cover',
+            deckId,
+            coverUrl: cleanImageUrl,
+          }),
+        }).then(async (res) => {
+          const result = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(result.error || 'Nao foi possivel salvar a imagem do deck.');
+          return result.deck;
+        })
+      : (
+          await supabaseGame
+            .from('decks')
+            .update({ cover_url: cleanImageUrl })
+            .eq('id', deckId)
+            .eq('creator_id', user?.id)
+            .select()
+            .single()
+        ).data;
+
+    if (!updated) throw new Error('Nao foi possivel salvar a imagem do deck.');
+
+    const sanitizedCoverUrl = sanitizeStoredCharacterImageUrl(updated.cover_url || updated.image_url);
+
+    setDeck((current: any) => ({
+      ...current,
+      ...updated,
+      creator_nickname: current?.creator_nickname,
+      cover_url: sanitizedCoverUrl,
+    }));
+    setDeckImage(sanitizedCoverUrl);
+  };
+
+  const handleUpdateDeckImage = async () => {
+    if (!canEditDeck) return;
+
+    setUpdatingDeck(true);
+
+    try {
+      await saveDeckImageUrl(deckImage);
+    } catch (error: any) {
+      alert(error.message || 'Nao foi possivel salvar a imagem do deck.');
+    } finally {
+      setUpdatingDeck(false);
+    }
+  };
+
+  const handleAttachDeckImage = async (file?: File) => {
+    if (!canEditDeck || !file) return;
+
+    setUploadingDeckImage(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('scope', 'decks');
+
+      const uploadResponse = await fetch('/api/upload-official-card-image', {
+        method: 'POST',
+        body: formData,
+      });
+      const uploadResult = await uploadResponse.json().catch(() => ({}));
+
+      if (!uploadResponse.ok) {
+        throw new Error(uploadResult.error || 'Nao foi possivel anexar a imagem do deck.');
+      }
+
+      const imageUrl = String(uploadResult.url || '').trim();
+      if (!imageUrl) throw new Error('Upload concluido sem URL publica.');
+
+      await saveDeckImageUrl(imageUrl);
+    } catch (error: any) {
+      alert(error.message || 'Nao foi possivel anexar a imagem do deck.');
+    } finally {
+      setUploadingDeckImage(false);
+    }
+  };
+
+  const handleRemoveDeckImage = async () => {
+    if (!canEditDeck) return;
+
+    setUpdatingDeck(true);
+
+    try {
+      await saveDeckImageUrl('');
+    } catch (error: any) {
+      alert(error.message || 'Nao foi possivel remover a imagem do deck.');
+    } finally {
+      setUpdatingDeck(false);
+    }
+  };
+
   const handleSaveCharacter = async (char: any) => {
     if (!canEditDeck) return;
 
@@ -271,7 +382,7 @@ export default function DeckEditorPage() {
       return;
     }
 
-    if (isTemporaryOfficialEditor && rawImageUrl && !cleanImageUrl) {
+    if (rawImageUrl && !cleanImageUrl) {
       alert('Essa URL de imagem e invalida ou e um fallback antigo ruim.');
       return;
     }
@@ -300,10 +411,11 @@ export default function DeckEditorPage() {
               .from('characters')
               .update({
                 name: cleanName,
-                image_url: '',
+                image_url: cleanImageUrl,
                 avatar_config: draft.avatarConfig || DEFAULT_AVATAR_CONFIG,
               })
               .eq('id', char.id)
+              .eq('deck_id', deckId)
               .select()
               .single()
           ).data;
@@ -332,14 +444,15 @@ export default function DeckEditorPage() {
     }
   };
 
-  const handleAttachOfficialImage = async (char: any, file?: File) => {
-    if (!isTemporaryOfficialEditor || !file) return;
+  const handleAttachCharacterImage = async (char: any, file?: File) => {
+    if (!canEditDeck || !file) return;
 
     setUploadingCharacterId(char.id);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('scope', 'characters');
 
       const uploadResponse = await fetch('/api/upload-official-card-image', {
         method: 'POST',
@@ -354,40 +467,133 @@ export default function DeckEditorPage() {
       const imageUrl = String(uploadResult.url || '').trim();
       if (!imageUrl) throw new Error('Upload concluido sem URL publica.');
 
-      const saveResponse = await fetch('/api/official-decks/edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update-character',
-          deckId,
-          characterId: char.id,
-          name: characterDrafts[char.id]?.name ?? char.name ?? '',
-          imageUrl,
-        }),
-      });
-      const saveResult = await saveResponse.json().catch(() => ({}));
+      const draft = characterDrafts[char.id] || {
+        name: char.name || '',
+        imageUrl: char.image_url || '',
+        avatarConfig: char.avatar_config || DEFAULT_AVATAR_CONFIG,
+      };
+      const cleanName = draft.name.trim() || char.name || '';
 
-      if (!saveResponse.ok) {
-        throw new Error(saveResult.error || 'Imagem anexada, mas nao foi possivel salvar o card.');
-      }
+      const updated = isTemporaryOfficialEditor
+        ? await fetch('/api/official-decks/edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'update-character',
+              deckId,
+              characterId: char.id,
+              name: cleanName,
+              imageUrl,
+            }),
+          }).then(async (res) => {
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(result.error || 'Imagem anexada, mas nao foi possivel salvar o card.');
+            return {
+              ...result.character,
+              image_url: sanitizeStoredCharacterImageUrl(result.character?.image_url),
+              avatar_config: result.character?.avatar_config || char.avatar_config || DEFAULT_AVATAR_CONFIG,
+            };
+          })
+        : (
+            await supabaseGame
+              .from('characters')
+              .update({
+                name: cleanName,
+                image_url: imageUrl,
+                avatar_config: draft.avatarConfig || char.avatar_config || DEFAULT_AVATAR_CONFIG,
+              })
+              .eq('id', char.id)
+              .eq('deck_id', deckId)
+              .select()
+              .single()
+          ).data;
 
-      const updated = {
-        ...saveResult.character,
-        image_url: sanitizeStoredCharacterImageUrl(saveResult.character?.image_url),
-        avatar_config: saveResult.character?.avatar_config || char.avatar_config || DEFAULT_AVATAR_CONFIG,
+      if (!updated) throw new Error('Imagem anexada, mas nao foi possivel salvar o card.');
+
+      const sanitizedUpdated = {
+        ...updated,
+        image_url: sanitizeStoredCharacterImageUrl(updated.image_url),
+        avatar_config: updated.avatar_config || draft.avatarConfig || char.avatar_config || DEFAULT_AVATAR_CONFIG,
       };
 
-      setCharacters((current) => current.map((item) => (item.id === char.id ? updated : item)));
+      setCharacters((current) => current.map((item) => (item.id === char.id ? sanitizedUpdated : item)));
       setCharacterDrafts((current) => ({
         ...current,
         [char.id]: {
-          name: updated.name || '',
-          imageUrl: updated.image_url || '',
-          avatarConfig: updated.avatar_config || DEFAULT_AVATAR_CONFIG,
+          name: sanitizedUpdated.name || '',
+          imageUrl: sanitizedUpdated.image_url || '',
+          avatarConfig: sanitizedUpdated.avatar_config || DEFAULT_AVATAR_CONFIG,
         },
       }));
     } catch (error: any) {
       alert(error.message || 'Nao foi possivel anexar a imagem.');
+    } finally {
+      setUploadingCharacterId('');
+    }
+  };
+
+  const handleRemoveCharacterImage = async (char: any) => {
+    if (!canEditDeck) return;
+
+    const draft = characterDrafts[char.id] || {
+      name: char.name || '',
+      imageUrl: char.image_url || '',
+      avatarConfig: char.avatar_config || DEFAULT_AVATAR_CONFIG,
+    };
+    const cleanName = draft.name.trim() || char.name || '';
+
+    setUploadingCharacterId(char.id);
+
+    try {
+      const updated = isTemporaryOfficialEditor
+        ? await fetch('/api/official-decks/edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'update-character',
+              deckId,
+              characterId: char.id,
+              name: cleanName,
+              imageUrl: '',
+            }),
+          }).then(async (res) => {
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(result.error || 'Nao foi possivel remover a imagem.');
+            return result.character;
+          })
+        : (
+            await supabaseGame
+              .from('characters')
+              .update({
+                name: cleanName,
+                image_url: '',
+                avatar_config: draft.avatarConfig || char.avatar_config || DEFAULT_AVATAR_CONFIG,
+              })
+              .eq('id', char.id)
+              .eq('deck_id', deckId)
+              .select()
+              .single()
+          ).data;
+
+      if (!updated) throw new Error('Nao foi possivel remover a imagem.');
+
+      const sanitizedCharacter = {
+        ...updated,
+        image_url: '',
+        avatar_config: updated.avatar_config || draft.avatarConfig || char.avatar_config || DEFAULT_AVATAR_CONFIG,
+      };
+
+      setCharacters((current) => current.map((item) => (item.id === char.id ? sanitizedCharacter : item)));
+      setCharacterDrafts((current) => ({
+        ...current,
+        [char.id]: {
+          name: sanitizedCharacter.name || '',
+          imageUrl: '',
+          avatarConfig: sanitizedCharacter.avatar_config || DEFAULT_AVATAR_CONFIG,
+        },
+      }));
+    } catch (error: any) {
+      alert(error.message || 'Nao foi possivel remover a imagem.');
     } finally {
       setUploadingCharacterId('');
     }
@@ -531,6 +737,79 @@ export default function DeckEditorPage() {
           </div>
         </motion.header>
 
+        {canEditDeck && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white border-4 border-indigo-100 p-6 md:p-8 rounded-3xl shadow-md space-y-5 relative"
+          >
+            <h3 className="text-xl font-black text-indigo-950 uppercase tracking-wide flex items-center gap-2">
+              <ImagePlus className="w-6 h-6 text-indigo-500 stroke-[3px]" /> Imagem do Deck
+            </h3>
+
+            <div className="flex flex-col lg:flex-row gap-5">
+              <div className="w-full lg:w-36 h-44 rounded-2xl border-4 border-indigo-50 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
+                {deck.cover_url || deck.image_url ? (
+                  <img
+                    src={deck.cover_url || deck.image_url}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Layers className="w-10 h-10 text-indigo-200" />
+                )}
+              </div>
+
+              <div className="flex-1 space-y-3">
+                <Input
+                  placeholder="Cole a URL da imagem do deck..."
+                  value={deckImage}
+                  onChange={(event) => setDeckImage(event.target.value)}
+                  className="bg-slate-50 border-2 border-slate-200 h-12 rounded-xl text-sm font-bold text-[#1e1b4b] focus-visible:ring-indigo-150"
+                />
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    onClick={handleUpdateDeckImage}
+                    disabled={updatingDeck || uploadingDeckImage || deckImage.trim() === String(deck.cover_url || deck.image_url || '').trim()}
+                    className="h-11 px-5 btn-squishy-indigo text-white font-black text-xs uppercase cursor-pointer"
+                  >
+                    {updatingDeck ? 'Salvando...' : 'Salvar URL'}
+                  </Button>
+
+                  <label className="h-11 px-5 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black uppercase">
+                    <ImagePlus className="w-4 h-4" />
+                    {uploadingDeckImage ? 'Salvando...' : deck.cover_url || deck.image_url ? 'Trocar imagem' : 'Anexar imagem'}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      disabled={uploadingDeckImage}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = '';
+                        void handleAttachDeckImage(file);
+                      }}
+                    />
+                  </label>
+
+                  {(deck.cover_url || deck.image_url) && (
+                    <Button
+                      type="button"
+                      onClick={handleRemoveDeckImage}
+                      disabled={updatingDeck || uploadingDeckImage}
+                      className="h-11 px-5 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 font-black text-xs uppercase cursor-pointer"
+                    >
+                      <ImageOff className="w-4 h-4 mr-1.5" /> Excluir imagem
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {canCreateCharacters && (
           <motion.div
             initial={{ opacity: 0, y: 15 }}
@@ -577,21 +856,21 @@ export default function DeckEditorPage() {
                 </Button>
               </div>
 
-                {!isTemporaryOfficialEditor ? (
-                  <>
-                    <div className="mt-4">
+              {!isTemporaryOfficialEditor ? (
+                <>
+                  <div className="mt-4">
                       <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
-                    </div>
+                  </div>
 
-                    <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
-                      Personalize o personagem em camadas. Cards criados por jogadores nao usam imagem externa.
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-[11px] text-slate-400 font-bold mt-3 pl-1 italic">
-                    Crie o personagem oficial e use o botao Anexar imagem no card.
+                  <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
+                      Personalize o personagem em camadas ou anexe uma imagem no card depois de criar.
                   </p>
-                )}
+                </>
+              ) : (
+                <p className="text-[11px] text-slate-400 font-bold mt-3 pl-1 italic">
+                  Crie o personagem oficial e use o botao Anexar imagem no card.
+                </p>
+              )}
             </div>
           </motion.div>
         )}
@@ -629,10 +908,10 @@ export default function DeckEditorPage() {
 
                     <div className="p-3 bg-white border-t-2 border-slate-50">
                       <span className="text-sm font-black text-[#1e1b4b] truncate block text-center">{char.name}</span>
-                      {isTemporaryOfficialEditor && (
+                      {canEditDeck && (
                         <label className="mt-2 h-8 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-[10px] font-black uppercase">
                           <ImagePlus className="w-3.5 h-3.5" />
-                          {uploadingCharacterId === char.id ? 'Anexando...' : 'Anexar imagem'}
+                          {uploadingCharacterId === char.id ? 'Salvando...' : char.image_url ? 'Trocar imagem' : 'Anexar imagem'}
                           <input
                             type="file"
                             accept="image/png,image/jpeg,image/webp"
@@ -641,10 +920,22 @@ export default function DeckEditorPage() {
                             onChange={(event) => {
                               const file = event.target.files?.[0];
                               event.target.value = '';
-                              void handleAttachOfficialImage(char, file);
+                              void handleAttachCharacterImage(char, file);
                             }}
                           />
                         </label>
+                      )}
+
+                      {canEditDeck && char.image_url && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCharacterImage(char)}
+                          disabled={uploadingCharacterId === char.id}
+                          className="mt-2 h-8 w-full rounded-xl bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-[10px] font-black uppercase disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          <ImageOff className="w-3.5 h-3.5" />
+                          Remover imagem
+                        </button>
                       )}
                     </div>
 
@@ -675,23 +966,23 @@ export default function DeckEditorPage() {
                           placeholder="Nome"
                         />
 
-                        {isTemporaryOfficialEditor ? (
-                          <Input
-                            value={characterDrafts[char.id]?.imageUrl ?? char.image_url ?? ''}
-                            onChange={(event) =>
-                              setCharacterDrafts((current) => ({
-                                ...current,
-                                [char.id]: {
-                                  name: current[char.id]?.name ?? char.name ?? '',
-                                  imageUrl: event.target.value,
-                                  avatarConfig: current[char.id]?.avatarConfig ?? char.avatar_config ?? DEFAULT_AVATAR_CONFIG,
-                                },
-                              }))
-                            }
-                            className="h-8 text-[11px] font-semibold border-slate-200"
-                            placeholder="URL da imagem oficial"
-                          />
-                        ) : (
+                        <Input
+                          value={characterDrafts[char.id]?.imageUrl ?? char.image_url ?? ''}
+                          onChange={(event) =>
+                            setCharacterDrafts((current) => ({
+                              ...current,
+                              [char.id]: {
+                                name: current[char.id]?.name ?? char.name ?? '',
+                                imageUrl: event.target.value,
+                                avatarConfig: current[char.id]?.avatarConfig ?? char.avatar_config ?? DEFAULT_AVATAR_CONFIG,
+                              },
+                            }))
+                          }
+                          className="h-8 text-[11px] font-semibold border-slate-200"
+                          placeholder="URL da imagem"
+                        />
+
+                        {!isTemporaryOfficialEditor && (
                           <Button
                             type="button"
                             onClick={() =>

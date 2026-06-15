@@ -161,13 +161,13 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
             </g>
 
             <Ears skin={isRobot ? '#94a3b8' : skin} shadow={skinShadow} feral={isFeral || avatar.accessory === 'accessory-06'} />
-            <Hair hair={avatar.hair} color={hair} ids={ids} />
-            <Headwear headwear={avatar.headwear} hairColor={hair} accent={frame.a} ids={ids} />
             <Eyes eyes={avatar.eyes} accent={frame.a} glow={bg.glow} />
             <Eyebrows eyebrows={avatar.eyebrows} hairColor={hair} />
             <Nose nose={avatar.nose} color={skinDeep} isRobot={isRobot} accent={frame.a} />
             <Mouth mouth={avatar.mouth} color={skinDeep} feral={isFeral} />
             <FacialHair facialHair={avatar.facialHair} color={hair} />
+            <Hair hair={avatar.hair} side={avatar.hairSide} color={hair} ids={ids} />
+            <Headwear headwear={avatar.headwear} hairColor={hair} accent={frame.a} ids={ids} />
             <Accessory accessory={avatar.accessory} accent={frame.a} glow={bg.glow} />
           </g>
         </g>
@@ -188,7 +188,7 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
 }
 
 function buildSvgIds(avatar: AvatarConfig, name: string) {
-  const seed = `${name}-${avatar.skin}-${avatar.face}-${avatar.hair}-${avatar.clothes}-${avatar.background}-${avatar.frame}-${avatar.aura}-${avatar.marking}`;
+  const seed = `${name}-${avatar.skin}-${avatar.face}-${avatar.hair}-${avatar.hairSide}-${avatar.clothes}-${avatar.background}-${avatar.frame}-${avatar.aura}-${avatar.marking}`;
   let hash = 0;
 
   for (let index = 0; index < seed.length; index += 1) {
@@ -489,17 +489,58 @@ function Ears({ skin, shadow, feral }: { skin: string; shadow: string; feral: bo
   );
 }
 
-function Hair({ hair, color, ids }: { hair: string; color: string; ids: ReturnType<typeof buildSvgIds> }) {
+function Hair({ hair, side, color, ids }: { hair: string; side: string; color: string; ids: ReturnType<typeof buildSvgIds> }) {
   if (hair === 'hair-08') return null;
 
   if (hair === 'hair-09') {
-    return <path d="M106 206 C106 138 144 104 180 104 C216 104 254 138 254 206 C240 160 218 138 180 138 C142 138 120 160 106 206Z" fill={shade(color, -25)} opacity="0.94" />;
+    return <path d="M106 206 C106 138 144 104 180 104 C216 104 254 138 254 206 C240 160 218 138 180 138 C142 138 120 160 106 206Z" fill={shade(color, -25)} />;
   }
 
   const hairFill = `url(#${ids.hairGradient})`;
 
-  if (hair === 'hair-01') return <path d="M124 174 C132 126 162 112 198 118 C222 122 238 142 240 174 C216 156 170 150 124 174Z" fill={hairFill} />;
-  if (hair === 'hair-02') return <path d="M122 170 L138 120 L158 152 L178 106 L196 152 L222 116 L238 172 C206 154 158 154 122 170Z" fill={hairFill} />;
+  return (
+    <g>
+      <HairSide side={side} color={color} fill={hairFill} />
+      <HairTop hair={hair} color={color} fill={hairFill} />
+      <HairShine hair={hair} />
+    </g>
+  );
+}
+
+function HairSide({ side, color, fill }: { side: string; color: string; fill: string }) {
+  if (side === 'side-none') return null;
+  if (side === 'side-long') return <path d="M112 164 C100 206 102 258 122 304 L142 286 C128 236 130 190 144 160 Z M248 164 C260 206 258 258 238 304 L218 286 C232 236 230 190 216 160 Z" fill={fill} />;
+  if (side === 'side-braided') {
+    return (
+      <g fill={shade(color, -10)}>
+        {[176, 202, 228, 254].map((y) => (
+          <g key={y}>
+            <circle cx="122" cy={y} r="9" />
+            <circle cx="238" cy={y} r="9" />
+          </g>
+        ))}
+      </g>
+    );
+  }
+  if (side === 'side-undercut') return <path d="M116 170 C120 136 140 122 162 122 L150 238 C130 228 116 200 116 170Z M244 170 C240 136 220 122 198 122 L210 238 C230 228 244 200 244 170Z" fill={shade(color, -38)} />;
+  if (side === 'side-shaved-line') {
+    return (
+      <g>
+        <path d="M116 172 C120 136 142 122 162 122 L150 234 C130 224 116 200 116 172Z M244 172 C240 136 218 122 198 122 L210 234 C230 224 244 200 244 172Z" fill={shade(color, -34)} />
+        <path d="M132 148 L122 208 M228 148 L238 208" stroke="#f8fafc" strokeWidth="4" strokeLinecap="round" opacity="0.82" />
+      </g>
+    );
+  }
+  if (side === 'side-fade-high') return <path d="M116 172 C120 134 144 120 164 124 L154 218 C132 212 118 194 116 172Z M244 172 C240 134 216 120 196 124 L206 218 C228 212 242 194 244 172Z" fill={shade(color, -42)} />;
+  if (side === 'side-fade-low') return <path d="M122 190 C124 148 146 126 168 124 L158 246 C138 238 124 218 122 190Z M238 190 C236 148 214 126 192 124 L202 246 C222 238 236 218 238 190Z" fill={shade(color, -22)} />;
+  if (side === 'side-taper') return <path d="M120 176 C126 138 148 122 170 124 L162 224 C140 220 122 202 120 176Z M240 176 C234 138 212 122 190 124 L198 224 C220 220 238 202 240 176Z" fill={shade(color, -18)} />;
+
+  return <path d="M118 180 C122 140 146 122 168 124 L158 232 C136 226 120 204 118 180Z M242 180 C238 140 214 122 192 124 L202 232 C224 226 240 204 242 180Z" fill={shade(color, -30)} />;
+}
+
+function HairTop({ hair, color, fill }: { hair: string; color: string; fill: string }) {
+  if (hair === 'hair-01') return <path d="M122 174 C128 130 158 112 196 116 C226 120 242 142 242 176 C208 154 160 152 122 174Z" fill={fill} />;
+  if (hair === 'hair-02') return <path d="M120 172 L138 116 L158 150 L178 102 L198 150 L224 112 L242 174 C206 154 156 154 120 172Z" fill={fill} />;
   if (hair === 'hair-03') {
     const circles: Point[] = [
       { x: 128, y: 164 },
@@ -510,27 +551,40 @@ function Hair({ hair, color, ids }: { hair: string; color: string; ids: ReturnTy
       { x: 118, y: 190 },
       { x: 240, y: 190 },
     ];
-    return <g>{circles.map((circle) => <circle key={`${circle.x}-${circle.y}`} cx={circle.x} cy={circle.y} r="25" fill={hairFill} />)}</g>;
+    return <g>{circles.map((circle) => <circle key={`${circle.x}-${circle.y}`} cx={circle.x} cy={circle.y} r="25" fill={fill} />)}</g>;
   }
-  if (hair === 'hair-04') return <path d="M118 164 C116 118 152 100 184 106 C226 112 248 146 244 194 C240 248 226 286 202 306 C216 244 214 176 180 146 C154 172 142 240 158 306 C128 278 116 226 118 164Z" fill={hairFill} />;
-  if (hair === 'hair-05') return <path d="M128 166 C140 122 168 96 222 116 C208 122 196 136 190 156 C168 144 148 148 128 166Z" fill={hairFill} />;
-  if (hair === 'hair-06') return <path d="M158 164 L174 88 L190 164 C180 158 168 158 158 164Z" fill={hairFill} />;
-  if (hair === 'hair-07') return <path d="M120 174 C132 116 190 104 238 134 C200 138 166 156 132 194Z" fill={hairFill} />;
-  if (hair === 'hair-10') return <path d="M116 178 L142 118 L158 154 L180 94 L202 154 L232 116 L244 180 C210 152 152 152 116 178Z" fill={hairFill} />;
-  if (hair === 'hair-11') return <path d="M116 168 C136 106 222 102 244 170 C234 158 218 152 200 150 L190 206 L174 150 C150 152 132 158 116 168Z" fill={hairFill} />;
+  if (hair === 'hair-04') return <path d="M116 164 C114 118 150 96 184 104 C226 112 250 146 246 194 C242 258 222 302 196 326 C212 246 212 178 180 146 C150 174 138 246 160 326 C130 298 116 232 116 164Z" fill={fill} />;
+  if (hair === 'hair-05') return <path d="M126 168 C138 118 168 92 224 114 C206 122 194 136 188 156 C166 144 146 148 126 168Z" fill={fill} />;
+  if (hair === 'hair-06') return <path d="M156 166 L174 84 L192 166 C180 158 168 158 156 166Z" fill={fill} />;
+  if (hair === 'hair-07') return <path d="M116 176 C130 116 190 102 240 132 C206 136 172 158 134 206 C126 194 120 184 116 176Z" fill={fill} />;
+  if (hair === 'hair-10') return <path d="M114 180 L142 116 L158 154 L180 92 L204 154 L234 114 L246 182 C210 152 150 152 114 180Z" fill={fill} />;
+  if (hair === 'hair-11') return <path d="M114 168 C134 104 224 100 246 170 C236 158 218 150 200 148 L190 222 L174 148 C150 150 132 158 114 168Z" fill={fill} />;
   if (hair === 'hair-12') {
     return (
       <g>
-        <path d="M126 168 C138 116 220 116 234 168 C198 150 162 150 126 168Z" fill={hairFill} />
+        <path d="M126 168 C138 116 220 116 234 168 C198 150 162 150 126 168Z" fill={fill} />
         {[138, 154, 206, 222].map((x) => <path key={x} d={`M${x} 168 C${x - 12} 212 ${x - 10} 254 ${x + 2} 298`} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round" />)}
       </g>
     );
   }
-  if (hair === 'hair-13') return <path d="M118 170 C128 112 166 104 190 122 L212 104 L236 130 L228 174 C196 154 158 154 118 170Z" fill={hairFill} />;
-  if (hair === 'hair-14') return <path d="M122 176 C132 126 182 106 238 134 C218 150 178 160 126 196Z" fill={hairFill} />;
-  if (hair === 'hair-15') return <path d="M124 168 C138 122 186 108 232 134 C202 142 166 152 128 180Z" fill={hairFill} />;
+  if (hair === 'hair-13') return <path d="M118 172 C128 112 166 104 190 122 L214 104 L238 132 L228 180 C198 154 158 154 118 172Z" fill={fill} />;
+  if (hair === 'hair-14') return <path d="M122 176 C132 126 182 106 238 134 C218 150 178 160 126 196Z" fill={fill} />;
+  if (hair === 'hair-15') return <path d="M124 168 C138 122 186 108 232 134 C202 142 166 152 128 180Z" fill={fill} />;
+  if (hair === 'hair-16') return <path d="M118 166 C126 116 160 100 192 108 C230 118 246 154 238 210 C230 260 208 294 180 308 C202 244 202 182 180 150 C154 180 154 246 180 308 C142 292 116 236 118 166Z" fill={fill} />;
+  if (hair === 'hair-17') return <><path d="M124 168 C136 112 226 112 238 168 C204 146 158 146 124 168Z" fill={fill} /><path d="M218 144 C260 130 286 164 270 204 C256 174 234 164 214 166Z" fill={fill} /></>;
+  if (hair === 'hair-18') return <g>{[{ x: 132, y: 156, r: 30 }, { x: 160, y: 126, r: 34 }, { x: 198, y: 126, r: 34 }, { x: 228, y: 158, r: 30 }, { x: 180, y: 106, r: 32 }].map((c) => <circle key={`${c.x}-${c.y}`} cx={c.x} cy={c.y} r={c.r} fill={fill} />)}</g>;
+  if (hair === 'hair-19') return <path d="M122 170 C132 126 166 106 216 120 C204 130 198 146 196 164 C170 150 146 154 122 180Z" fill={fill} />;
+  if (hair === 'hair-20') return <path d="M116 168 C124 112 154 96 186 104 C232 114 252 150 244 208 C240 246 226 284 206 310 C216 244 210 190 184 154 C162 188 146 238 154 310 C126 286 112 230 116 168Z" fill={fill} />;
 
   return null;
+}
+
+function HairShine({ hair }: { hair: string }) {
+  if (hair === 'hair-08' || hair === 'hair-09') return null;
+  if (['hair-04', 'hair-11', 'hair-16', 'hair-20'].includes(hair)) {
+    return <path d="M144 142 C158 124 196 120 220 142" fill="none" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" opacity="0.14" />;
+  }
+  return <path d="M144 132 C158 122 190 120 212 134" fill="none" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" opacity="0.16" />;
 }
 
 function Headwear({ headwear, hairColor, accent, ids }: { headwear: string; hairColor: string; accent: string; ids: ReturnType<typeof buildSvgIds> }) {

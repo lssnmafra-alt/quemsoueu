@@ -6,6 +6,7 @@ export type AvatarConfig = {
   nose: string;
   mouth: string;
   hair: string;
+  hairSide: string;
   hairColor: string;
   facialHair: string;
   headwear: string;
@@ -36,6 +37,7 @@ export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
   nose: 'nose-01',
   mouth: 'mouth-04',
   hair: 'hair-01',
+  hairSide: 'side-fade-mid',
   hairColor: '#111827',
   facialHair: 'facial-none',
   headwear: 'headwear-none',
@@ -113,21 +115,37 @@ export const AVATAR_OPTIONS = {
     { id: 'mouth-06', label: 'Feral' },
   ],
   hair: [
-    { id: 'hair-01', label: 'Fade curto' },
-    { id: 'hair-02', label: 'Espetado premium' },
-    { id: 'hair-03', label: 'Cacheado' },
-    { id: 'hair-04', label: 'Longo solto' },
-    { id: 'hair-05', label: 'Topete' },
-    { id: 'hair-06', label: 'Moicano' },
-    { id: 'hair-07', label: 'Lateral assimetrico' },
+    { id: 'hair-01', label: 'Crop texturizado' },
+    { id: 'hair-02', label: 'Spikes premium' },
+    { id: 'hair-03', label: 'Cacheado volumoso' },
+    { id: 'hair-04', label: 'Longo em camadas' },
+    { id: 'hair-05', label: 'Topete alto' },
+    { id: 'hair-06', label: 'Moicano limpo' },
+    { id: 'hair-07', label: 'Franja lateral' },
     { id: 'hair-08', label: 'Careca' },
     { id: 'hair-09', label: 'Capuz baixo' },
-    { id: 'hair-10', label: 'Pontas heroicas' },
-    { id: 'hair-11', label: 'Goth moderno' },
-    { id: 'hair-12', label: 'Trancas' },
-    { id: 'hair-13', label: 'Baguncado mistico' },
-    { id: 'hair-14', label: 'Surfista' },
-    { id: 'hair-15', label: 'Executivo' },
+    { id: 'hair-10', label: 'Pontas de anime' },
+    { id: 'hair-11', label: 'Longo gotico' },
+    { id: 'hair-12', label: 'Trancas laterais' },
+    { id: 'hair-13', label: 'Messy médio' },
+    { id: 'hair-14', label: 'Ondulado praia' },
+    { id: 'hair-15', label: 'Executivo penteado' },
+    { id: 'hair-16', label: 'Bob moderno' },
+    { id: 'hair-17', label: 'Rabo alto' },
+    { id: 'hair-18', label: 'Crespo alto' },
+    { id: 'hair-19', label: 'Pixie elegante' },
+    { id: 'hair-20', label: 'Cortina longa' },
+  ],
+  hairSide: [
+    { id: 'side-none', label: 'Sem lateral' },
+    { id: 'side-fade-low', label: 'Fade baixo' },
+    { id: 'side-fade-mid', label: 'Fade medio' },
+    { id: 'side-fade-high', label: 'Fade alto' },
+    { id: 'side-taper', label: 'Taper classico' },
+    { id: 'side-undercut', label: 'Undercut' },
+    { id: 'side-shaved-line', label: 'Risco navalhado' },
+    { id: 'side-long', label: 'Lateral longa' },
+    { id: 'side-braided', label: 'Lateral trancada' },
   ],
   facialHair: [
     { id: 'facial-none', label: 'Nenhuma' },
@@ -611,6 +629,7 @@ export function normalizeAvatarConfig(value: unknown): AvatarConfig {
     nose: pickOption('nose', draft.nose),
     mouth: pickOption('mouth', draft.mouth),
     hair: pickOption('hair', draft.hair),
+    hairSide: pickOption('hairSide', draft.hairSide),
     hairColor: isHexColor(draft.hairColor) ? draft.hairColor! : DEFAULT_AVATAR_CONFIG.hairColor,
     facialHair: pickOption('facialHair', draft.facialHair),
     headwear: pickOption('headwear', draft.headwear),
@@ -651,7 +670,9 @@ export function randomAvatarConfig(): AvatarConfig {
   const cleanEyes = ['eyes-01', 'eyes-02', 'eyes-03', 'eyes-04', 'eyes-05', 'eyes-10'];
   const cleanNoses = ['nose-01', 'nose-02', 'nose-03', 'nose-04'];
   const cleanMouths = ['mouth-01', 'mouth-02', 'mouth-03', 'mouth-04'];
-  const cleanHair = ['hair-01', 'hair-02', 'hair-03', 'hair-04', 'hair-05', 'hair-07', 'hair-12', 'hair-14', 'hair-15'];
+  const cleanHair = ['hair-01', 'hair-02', 'hair-03', 'hair-04', 'hair-05', 'hair-07', 'hair-12', 'hair-14', 'hair-15', 'hair-16', 'hair-17', 'hair-18', 'hair-19', 'hair-20'];
+  const cleanHairSides = ['side-fade-low', 'side-fade-mid', 'side-fade-high', 'side-taper', 'side-undercut', 'side-shaved-line', 'side-long'];
+  const longHairStyles = new Set(['hair-04', 'hair-11', 'hair-16', 'hair-17', 'hair-20']);
   const cleanBodies = ['body-01', 'body-02', 'body-04'];
   const cleanClothes = ['clothes-01', 'clothes-02', 'clothes-05', 'clothes-11', 'clothes-13', 'clothes-14', 'clothes-18', 'clothes-19'];
   const cleanOuterwear = ['outerwear-none', 'outerwear-none', 'outerwear-jacket', 'outerwear-cape'];
@@ -665,6 +686,7 @@ export function randomAvatarConfig(): AvatarConfig {
   const clothesColors = ['#2563eb', '#16a34a', '#dc2626', '#7c3aed', '#ea580c', '#0f766e', '#111827', '#e11d48', '#64748b', '#facc15'];
 
   const selectedClothes = randomFrom(cleanClothes);
+  const selectedHair = randomFrom(cleanHair);
 
   return normalizeAvatarConfig({
     skin: randomFrom(humanSkins),
@@ -673,7 +695,8 @@ export function randomAvatarConfig(): AvatarConfig {
     eyes: randomFrom(cleanEyes),
     nose: randomFrom(cleanNoses),
     mouth: randomFrom(cleanMouths),
-    hair: randomFrom(cleanHair),
+    hair: selectedHair,
+    hairSide: longHairStyles.has(selectedHair) ? randomFrom(['side-none', 'side-long']) : randomFrom(cleanHairSides),
     hairColor: randomFrom(hairColors),
     facialHair: Math.random() < 0.76 ? 'facial-none' : randomFrom(['facial-01', 'facial-02', 'facial-03', 'facial-04', 'facial-05']),
     headwear: randomFrom(cleanHeadwear),

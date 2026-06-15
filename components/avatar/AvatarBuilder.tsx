@@ -67,7 +67,8 @@ const groups: BuilderGroup[] = [
     label: 'Cabelo',
     icon: WandSparkles,
     categories: [
-      { key: 'hair', label: 'Penteado', hint: 'corte principal sem acessorios misturados' },
+      { key: 'hair', label: 'Penteado', hint: 'topo, volume, franja e comprimento' },
+      { key: 'hairSide', label: 'Lateral', hint: 'fade, taper, risco, undercut ou longo' },
       { key: 'headwear', label: 'Cabeca extra', hint: 'bone, coroa, capacete ou marca' },
     ],
   },

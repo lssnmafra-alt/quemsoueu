@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, type ImgHTMLAttributes, type SyntheticEvent } from 'react';
-import { Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AvatarRenderer from '@/components/avatar/AvatarRenderer';
 import type { AvatarConfig } from '@/lib/avatarConfig';
@@ -49,9 +49,24 @@ export default function CharacterImage({
     }
 
     return (
-      <div className={cn('bg-gradient-to-br from-indigo-50 via-slate-100 to-emerald-50 flex items-center justify-center border border-white/70', className, placeholderClassName)}>
-        <div className="w-14 h-14 rounded-2xl bg-white/80 border border-indigo-100 shadow-sm flex items-center justify-center">
-          <ImageIcon className="w-6 h-6 text-indigo-300" />
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-2xl border border-white/20 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.35),_transparent_34%),linear-gradient(135deg,_#020617,_#111827_52%,_#312e81)] flex items-center justify-center shadow-inner',
+          className,
+          placeholderClassName,
+        )}
+      >
+        <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:24px_24px]" />
+        <div className="relative flex flex-col items-center gap-3 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-cyan-200/30 bg-white/10 shadow-2xl shadow-cyan-950/30 backdrop-blur">
+            <ImageIcon className="h-7 w-7 text-cyan-100" />
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 backdrop-blur">
+            <div className="flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100">
+              <Sparkles className="h-3 w-3" /> Oficial
+            </div>
+            <p className="mt-1 max-w-[150px] truncate text-xs font-black uppercase text-white">{name || 'Personagem'}</p>
+          </div>
         </div>
       </div>
     );

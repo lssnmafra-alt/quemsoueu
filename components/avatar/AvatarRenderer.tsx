@@ -135,43 +135,44 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
             {avatar.outerwear === 'outerwear-cape' && <Cape outfit={outfitDark} frame={frame.a} />}
             {avatar.outerwear === 'outerwear-robe' && <RobeBack color={outfitDark} accent={frame.a} />}
 
-            <g transform="translate(0 -8)">
+            <g transform="translate(0 -12)">
               <path
-                d={`M${bodyShape.leftShoulder} 292 C${bodyShape.leftShoulder - 28} 304 ${bodyShape.leftWaist - 28} 348 ${bodyShape.leftWaist} 434 L${bodyShape.rightWaist} 434 C${bodyShape.rightWaist + 28} 348 ${bodyShape.rightShoulder + 28} 304 ${bodyShape.rightShoulder} 292 C220 276 140 276 ${bodyShape.leftShoulder} 292Z`}
+                d={`M${bodyShape.leftShoulder} 286 C${bodyShape.leftShoulder - 30} 300 ${bodyShape.leftWaist - 30} 342 ${bodyShape.leftWaist} 434 L${bodyShape.rightWaist} 434 C${bodyShape.rightWaist + 30} 342 ${bodyShape.rightShoulder + 30} 300 ${bodyShape.rightShoulder} 286 C218 268 142 268 ${bodyShape.leftShoulder} 286Z`}
                 fill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.outfitGradient})`}
               />
-              <path d="M132 298 C145 322 154 362 158 434 L202 434 C206 362 215 322 228 298 C203 288 157 288 132 298Z" fill="rgba(255,255,255,0.10)" />
+              <path d="M126 292 C144 318 154 360 158 434 L202 434 C206 360 216 318 234 292 C206 280 154 280 126 292Z" fill="rgba(255,255,255,0.11)" />
+              <path d="M104 296 C122 318 140 326 160 326 M256 296 C238 318 220 326 200 326" fill="none" stroke="#020617" strokeOpacity="0.16" strokeWidth="4" strokeLinecap="round" />
               <OutfitDetails clothes={avatar.clothes} color={outfit} dark={outfitDark} light={outfitLight} accent={frame.a} isRobot={isRobot} />
               <Outerwear outerwear={avatar.outerwear} color={outfitDark} accent={frame.a} />
             </g>
 
-            <g>
-              <path d="M148 254 C148 282 158 304 180 304 C202 304 212 282 212 254 L148 254Z" fill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.skinGradient})`} />
-              <path d="M154 282 C168 294 192 294 206 282 C201 306 159 306 154 282Z" fill={skinDeep} opacity="0.22" />
+            <g transform="translate(0 -2)">
+              <path d="M150 248 C150 276 160 296 180 296 C200 296 210 276 210 248 L150 248Z" fill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.skinGradient})`} />
+              <path d="M156 276 C170 288 190 288 204 276 C200 300 160 300 156 276Z" fill={skinDeep} opacity="0.20" />
             </g>
 
-            <g>
+            <g transform="translate(0 -2)">
               <path d={facePath} fill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.skinGradient})`} />
-              <path d="M132 178 C142 148 164 134 188 138 C165 150 151 174 151 212 C151 242 163 266 184 278 C148 274 128 244 126 208 C125 198 127 187 132 178Z" fill="#ffffff" opacity="0.10" clipPath={`url(#${ids.faceClip})`} />
-              <path d="M222 168 C232 190 232 236 215 260 C226 247 236 226 236 202 C236 184 231 173 222 168Z" fill="#020617" opacity="0.12" clipPath={`url(#${ids.faceClip})`} />
+              <path d="M134 176 C144 150 164 136 188 140 C166 152 154 176 154 210 C154 238 164 258 184 270 C150 268 130 240 128 206 C127 194 129 184 134 176Z" fill="#ffffff" opacity="0.11" clipPath={`url(#${ids.faceClip})`} />
+              <path d="M218 168 C228 190 228 230 214 254 C224 244 232 222 232 202 C232 184 227 173 218 168Z" fill="#020617" opacity="0.11" clipPath={`url(#${ids.faceClip})`} />
               <Marking marking={avatar.marking} accent={frame.a} glow={bg.glow} skinDeep={skinDeep} />
               {isRobot && <RobotFaceLines accent={frame.a} />}
               {avatar.face === 'face-10' && <AquaticMarks accent={bg.glow} />}
               {avatar.face === 'face-06' && <FaceMask accent={frame.a} />}
             </g>
 
-            <g transform="translate(0 -8)">
+            <g transform="translate(0 -10)">
               <Ears skin={isRobot ? '#94a3b8' : skin} shadow={skinShadow} feral={isFeral || avatar.accessory === 'accessory-06'} />
               <Hair hair={avatar.hair} side={avatar.hairSide} color={hair} ids={ids} />
             </g>
-            <g transform="translate(0 -8)">
-            <Eyes eyes={avatar.eyes} accent={frame.a} glow={bg.glow} />
-            <Eyebrows eyebrows={avatar.eyebrows} hairColor={hair} />
-            <Nose nose={avatar.nose} color={skinDeep} isRobot={isRobot} accent={frame.a} />
-            <Mouth mouth={avatar.mouth} color={skinDeep} feral={isFeral} />
-            <FacialHair facialHair={avatar.facialHair} color={hair} />
-            <Headwear headwear={avatar.headwear} hairColor={hair} accent={frame.a} ids={ids} />
-            <Accessory accessory={avatar.accessory} accent={frame.a} glow={bg.glow} />
+            <g transform="translate(0 -10)">
+              <Eyes eyes={avatar.eyes} accent={frame.a} glow={bg.glow} />
+              <Eyebrows eyebrows={avatar.eyebrows} hairColor={hair} />
+              <Nose nose={avatar.nose} color={skinDeep} isRobot={isRobot} accent={frame.a} />
+              <Mouth mouth={avatar.mouth} color={skinDeep} feral={isFeral} />
+              <FacialHair facialHair={avatar.facialHair} color={hair} />
+              <Headwear headwear={avatar.headwear} hairColor={hair} accent={frame.a} ids={ids} />
+              <Accessory accessory={avatar.accessory} accent={frame.a} glow={bg.glow} />
             </g>
           </g>
         </g>
@@ -368,13 +369,15 @@ function RobeBack({ color, accent }: { color: string; accent: string }) {
 }
 
 function OutfitDetails({ clothes, color, dark, light, accent, isRobot }: { clothes: string; color: string; dark: string; light: string; accent: string; isRobot: boolean }) {
-  if (isRobot || clothes === 'clothes-17' || clothes === 'clothes-21') {
+  if (isRobot || clothes === 'clothes-06' || clothes === 'clothes-17' || clothes === 'clothes-21') {
     return (
       <g>
-        <path d="M118 316 H242 L224 434 H136Z" fill="none" stroke="#e2e8f0" strokeOpacity="0.35" strokeWidth="2" />
-        <path d="M150 318 L180 350 L210 318" fill="none" stroke={accent} strokeWidth="4" opacity="0.8" />
+        <path d="M112 304 L150 318 L180 350 L210 318 L248 304 L228 434 H132Z" fill="#020617" opacity="0.22" />
+        <path d="M118 316 H242 L224 434 H136Z" fill="none" stroke="#e2e8f0" strokeOpacity="0.38" strokeWidth="2.5" />
+        <path d="M150 318 L180 350 L210 318" fill="none" stroke={accent} strokeWidth="5" opacity="0.82" />
         <circle cx="180" cy="366" r="15" fill="#020617" stroke={accent} strokeWidth="3" />
-        <path d="M126 338 H156 M204 338 H234 M142 392 H218" stroke="#020617" strokeOpacity="0.34" strokeWidth="5" strokeLinecap="round" />
+        <path d="M126 338 H156 M204 338 H234 M142 392 H218" stroke="#020617" strokeOpacity="0.36" strokeWidth="5" strokeLinecap="round" />
+        <path d="M142 414 H166 M194 414 H218" stroke="#e2e8f0" strokeOpacity="0.28" strokeWidth="4" strokeLinecap="round" />
       </g>
     );
   }
@@ -427,8 +430,9 @@ function OutfitDetails({ clothes, color, dark, light, accent, isRobot }: { cloth
   if (clothes === 'clothes-11') {
     return (
       <g>
-        <path d="M124 306 C144 330 216 330 236 306 L228 372 C204 386 156 386 132 372Z" fill={shade(color, -18)} opacity="0.78" />
-        <path d="M138 340 H222" stroke="#ffffff" strokeOpacity="0.42" strokeWidth="5" strokeLinecap="round" />
+        <path d="M116 304 C140 326 220 326 244 304 L230 382 C206 398 154 398 130 382Z" fill={shade(color, -18)} opacity="0.82" />
+        <path d="M128 326 C148 342 212 342 232 326" fill="none" stroke="#ffffff" strokeOpacity="0.42" strokeWidth="5" strokeLinecap="round" />
+        <path d="M140 362 H220" stroke="#020617" strokeOpacity="0.25" strokeWidth="10" strokeLinecap="round" />
         <path d="M154 374 H206" stroke={accent} strokeWidth="5" strokeLinecap="round" />
       </g>
     );
@@ -460,6 +464,58 @@ function OutfitDetails({ clothes, color, dark, light, accent, isRobot }: { cloth
         <path d="M132 304 L180 342 L228 304 L242 434 H118Z" fill={dark} opacity="0.54" />
         <path d="M180 344 V432" stroke="#f8fafc" strokeOpacity="0.28" strokeWidth="3" />
         <path d="M142 334 H164 M196 334 H218" stroke={accent} strokeWidth="4" strokeLinecap="round" opacity="0.65" />
+      </g>
+    );
+  }
+
+  if (clothes === 'clothes-03') {
+    return (
+      <g>
+        <path d="M118 306 L180 336 L242 306 L228 434 H132Z" fill={shade(color, -24)} opacity="0.56" />
+        <path d="M136 318 H224 L214 398 H146Z" fill="none" stroke="#e2e8f0" strokeOpacity="0.42" strokeWidth="3" />
+        <path d="M148 338 L180 360 L212 338 M148 382 H212" stroke={accent} strokeWidth="4" strokeLinecap="round" opacity="0.74" />
+        <circle cx="180" cy="390" r="8" fill={accent} opacity="0.82" />
+      </g>
+    );
+  }
+
+  if (clothes === 'clothes-07') {
+    return (
+      <g>
+        <path d="M122 306 L180 342 L238 306 L230 434 H130Z" fill={dark} opacity="0.44" />
+        <path d="M190 318 L158 372 H182 L160 426 L218 354 H192 L214 318Z" fill="#fde047" opacity="0.92" />
+        <path d="M128 326 C152 344 208 344 232 326" stroke="#ffffff" strokeOpacity="0.32" strokeWidth="4" fill="none" />
+      </g>
+    );
+  }
+
+  if (clothes === 'clothes-08') {
+    return (
+      <g>
+        <path d="M118 304 L180 346 L242 304 L230 434 H130Z" fill="#020617" opacity="0.62" />
+        <path d="M150 324 L180 354 L210 324" stroke={accent} strokeWidth="4" strokeLinecap="round" opacity="0.78" />
+        <path d="M136 368 C158 386 202 386 224 368" fill="none" stroke="#94a3b8" strokeOpacity="0.36" strokeWidth="5" />
+      </g>
+    );
+  }
+
+  if (clothes === 'clothes-09') {
+    return (
+      <g>
+        <path d="M118 306 C142 330 218 330 242 306 L228 434 H132Z" fill={shade(color, -22)} opacity="0.62" />
+        <path d="M126 314 C150 350 210 350 234 314" fill="none" stroke="#f8fafc" strokeOpacity="0.48" strokeWidth="8" strokeLinecap="round" />
+        <circle cx="164" cy="374" r="7" fill={accent} opacity="0.78" />
+        <circle cx="196" cy="374" r="7" fill={accent} opacity="0.78" />
+      </g>
+    );
+  }
+
+  if (clothes === 'clothes-10') {
+    return (
+      <g>
+        <path d="M118 306 L180 342 L242 306 L224 434 H136Z" fill={dark} opacity="0.56" />
+        <path d="M140 326 L160 346 L180 326 L202 346 L224 326" fill="none" stroke="#ffffff" strokeOpacity="0.22" strokeWidth="4" />
+        <path d="M144 388 C160 378 172 396 188 386 C202 376 214 392 226 382" fill="none" stroke={accent} strokeOpacity="0.5" strokeWidth="5" strokeLinecap="round" />
       </g>
     );
   }
@@ -556,7 +612,7 @@ function Hair({ hair, side, color, ids }: { hair: string; side: string; color: s
 
 function HairSide({ side, color, fill }: { side: string; color: string; fill: string }) {
   if (side === 'side-none') return null;
-  if (side === 'side-long') return <path d="M116 160 C104 202 108 254 128 292 L148 274 C135 228 136 188 148 158 Z M244 160 C256 202 252 254 232 292 L212 274 C225 228 224 188 212 158 Z" fill={fill} />;
+  if (side === 'side-long') return <path d="M118 160 C108 198 112 244 130 282 L150 268 C138 226 140 188 150 160 Z M242 160 C252 198 248 244 230 282 L210 268 C222 226 220 188 210 160 Z" fill={fill} />;
   if (side === 'side-braided') {
     return (
       <g fill={shade(color, -10)}>
@@ -569,67 +625,91 @@ function HairSide({ side, color, fill }: { side: string; color: string; fill: st
       </g>
     );
   }
-  if (side === 'side-undercut') return <path d="M116 170 C120 136 140 122 162 122 L150 238 C130 228 116 200 116 170Z M244 170 C240 136 220 122 198 122 L210 238 C230 228 244 200 244 170Z" fill={shade(color, -38)} />;
+  if (side === 'side-undercut') return <path d="M118 170 C122 138 142 124 162 124 L152 224 C132 216 118 198 118 170Z M242 170 C238 138 218 124 198 124 L208 224 C228 216 242 198 242 170Z" fill={shade(color, -38)} />;
   if (side === 'side-shaved-line') {
     return (
       <g>
-        <path d="M116 172 C120 136 142 122 162 122 L150 234 C130 224 116 200 116 172Z M244 172 C240 136 218 122 198 122 L210 234 C230 224 244 200 244 172Z" fill={shade(color, -34)} />
-        <path d="M132 148 L122 208 M228 148 L238 208" stroke="#f8fafc" strokeWidth="4" strokeLinecap="round" opacity="0.82" />
+        <path d="M118 172 C122 138 144 124 162 124 L152 222 C132 214 118 198 118 172Z M242 172 C238 138 216 124 198 124 L208 222 C228 214 242 198 242 172Z" fill={shade(color, -34)} />
+        <path d="M134 148 L126 202 M226 148 L234 202" stroke="#f8fafc" strokeWidth="3" strokeLinecap="round" opacity="0.78" />
       </g>
     );
   }
-  if (side === 'side-fade-high') return <path d="M116 172 C120 134 144 120 164 124 L154 218 C132 212 118 194 116 172Z M244 172 C240 134 216 120 196 124 L206 218 C228 212 242 194 244 172Z" fill={shade(color, -42)} />;
-  if (side === 'side-fade-low') return <path d="M122 190 C124 148 146 126 168 124 L158 246 C138 238 124 218 122 190Z M238 190 C236 148 214 126 192 124 L202 246 C222 238 236 218 238 190Z" fill={shade(color, -22)} />;
-  if (side === 'side-taper') return <path d="M120 176 C126 138 148 122 170 124 L162 224 C140 220 122 202 120 176Z M240 176 C234 138 212 122 190 124 L198 224 C220 220 238 202 240 176Z" fill={shade(color, -18)} />;
+  if (side === 'side-fade-high') return <path d="M118 170 C122 138 144 124 164 126 L156 210 C136 206 120 190 118 170Z M242 170 C238 138 216 124 196 126 L204 210 C224 206 240 190 242 170Z" fill={shade(color, -42)} />;
+  if (side === 'side-fade-low') return <path d="M122 188 C126 150 146 128 168 126 L160 236 C140 230 126 212 122 188Z M238 188 C234 150 214 128 192 126 L200 236 C220 230 234 212 238 188Z" fill={shade(color, -22)} />;
+  if (side === 'side-taper') return <path d="M122 176 C128 140 150 126 170 128 L164 216 C144 214 126 198 122 176Z M238 176 C232 140 210 126 190 128 L196 216 C216 214 234 198 238 176Z" fill={shade(color, -18)} />;
 
   return <path d="M118 180 C122 140 146 122 168 124 L158 232 C136 226 120 204 118 180Z M242 180 C238 140 214 122 192 124 L202 232 C224 226 240 204 242 180Z" fill={shade(color, -30)} />;
 }
 
 function HairTop({ hair, color, fill }: { hair: string; color: string; fill: string }) {
-  if (hair === 'hair-01') return <path d="M122 174 C128 130 158 112 196 116 C226 120 242 142 242 176 C208 154 160 152 122 174Z" fill={fill} />;
-  if (hair === 'hair-02') return <path d="M120 172 L138 116 L158 150 L178 102 L198 150 L224 112 L242 174 C206 154 156 154 120 172Z" fill={fill} />;
+  if (hair === 'hair-01') {
+    return (
+      <g>
+        <path d="M122 170 C128 134 158 116 194 118 C224 120 240 140 240 172 C210 154 160 152 122 170Z" fill={fill} />
+        <path d="M148 140 L136 168 M174 128 L166 158 M204 130 L194 158" stroke={shade(color, 24)} strokeWidth="4" strokeLinecap="round" opacity="0.28" />
+      </g>
+    );
+  }
+  if (hair === 'hair-02') return <path d="M122 172 L140 128 L156 154 L178 118 L200 154 L222 128 L240 172 C204 154 158 154 122 172Z" fill={fill} />;
   if (hair === 'hair-03') {
-    const circles: Point[] = [
-      { x: 128, y: 164 },
-      { x: 144, y: 134 },
-      { x: 174, y: 126 },
-      { x: 204, y: 132 },
-      { x: 230, y: 160 },
-      { x: 118, y: 190 },
-      { x: 240, y: 190 },
+    const curls: Point[] = [
+      { x: 134, y: 160 },
+      { x: 152, y: 134 },
+      { x: 180, y: 124 },
+      { x: 208, y: 134 },
+      { x: 226, y: 160 },
+      { x: 150, y: 176 },
+      { x: 210, y: 176 },
     ];
-    return <g>{circles.map((circle) => <circle key={`${circle.x}-${circle.y}`} cx={circle.x} cy={circle.y} r="25" fill={fill} />)}</g>;
+    return <g>{curls.map((curl) => <circle key={`${curl.x}-${curl.y}`} cx={curl.x} cy={curl.y} r="21" fill={fill} />)}</g>;
   }
   if (hair === 'hair-04') {
     return (
       <g>
-        <path d="M118 166 C116 120 150 98 184 106 C224 114 246 148 242 192 C238 244 220 284 198 306 C208 246 204 184 180 150 C156 184 152 246 162 306 C136 282 116 228 118 166Z" fill={fill} />
-        <path d="M136 166 C150 140 166 128 188 130" fill="none" stroke={shade(color, 24)} strokeWidth="5" strokeLinecap="round" opacity="0.34" />
+        <path d="M122 164 C122 124 152 104 184 110 C222 118 240 148 236 190 C232 236 214 270 198 294 C202 238 198 188 180 154 C160 188 156 238 162 294 C140 270 120 226 122 164Z" fill={fill} />
+        <path d="M138 164 C154 138 168 128 190 130" fill="none" stroke={shade(color, 22)} strokeWidth="4" strokeLinecap="round" opacity="0.3" />
       </g>
     );
   }
-  if (hair === 'hair-05') return <path d="M126 168 C138 118 168 92 224 114 C206 122 194 136 188 156 C166 144 146 148 126 168Z" fill={fill} />;
-  if (hair === 'hair-06') return <path d="M156 166 L174 84 L192 166 C180 158 168 158 156 166Z" fill={fill} />;
-  if (hair === 'hair-07') return <path d="M116 176 C130 116 190 102 240 132 C206 136 172 158 134 206 C126 194 120 184 116 176Z" fill={fill} />;
-  if (hair === 'hair-10') return <path d="M114 180 L142 116 L158 154 L180 92 L204 154 L234 114 L246 182 C210 152 150 152 114 180Z" fill={fill} />;
-  if (hair === 'hair-11') return <path d="M116 166 C136 108 222 104 244 168 C232 158 214 150 198 148 L194 194 C184 184 176 184 166 194 L162 148 C144 150 128 158 116 166Z" fill={fill} />;
+  if (hair === 'hair-05') return <path d="M126 168 C136 126 164 104 220 116 C204 126 194 140 190 156 C168 146 148 150 126 168Z" fill={fill} />;
+  if (hair === 'hair-06') return <path d="M158 166 C160 136 168 108 178 90 C190 112 196 138 194 166 C182 158 170 158 158 166Z" fill={fill} />;
+  if (hair === 'hair-07') return <path d="M120 172 C134 124 188 108 238 134 C206 138 174 154 134 190 C128 184 124 178 120 172Z" fill={fill} />;
+  if (hair === 'hair-10') return <path d="M116 174 L140 124 L158 152 L180 110 L202 152 L226 124 L244 174 C208 154 152 154 116 174Z" fill={fill} />;
+  if (hair === 'hair-11') return <path d="M120 166 C140 112 220 110 240 166 C228 158 210 150 196 148 L190 186 C184 180 176 180 170 186 L164 148 C148 150 132 158 120 166Z" fill={fill} />;
   if (hair === 'hair-12') {
     return (
       <g>
-        <path d="M126 168 C138 116 220 116 234 168 C198 150 162 150 126 168Z" fill={fill} />
-        {[136, 224].map((x) => <path key={x} d={`M${x} 170 C${x - (x < 180 ? 12 : -12)} 212 ${x - (x < 180 ? 6 : -6)} 248 ${x + (x < 180 ? 8 : -8)} 282`} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round" />)}
-        {[152, 208].map((x) => <path key={x} d={`M${x} 160 C${x - (x < 180 ? 7 : -7)} 198 ${x - (x < 180 ? 2 : -2)} 232 ${x + (x < 180 ? 8 : -8)} 260`} fill="none" stroke={shade(color, -12)} strokeWidth="7" strokeLinecap="round" />)}
+        <path d="M128 168 C140 122 220 122 232 168 C198 150 162 150 128 168Z" fill={fill} />
+        {[136, 224].map((x) => <path key={x} d={`M${x} 170 C${x - (x < 180 ? 12 : -12)} 208 ${x - (x < 180 ? 4 : -4)} 242 ${x + (x < 180 ? 8 : -8)} 274`} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" />)}
+        {[152, 208].map((x) => <path key={x} d={`M${x} 162 C${x - (x < 180 ? 6 : -6)} 198 ${x - (x < 180 ? 1 : -1)} 226 ${x + (x < 180 ? 7 : -7)} 252`} fill="none" stroke={shade(color, -12)} strokeWidth="6" strokeLinecap="round" />)}
       </g>
     );
   }
-  if (hair === 'hair-13') return <path d="M118 172 C128 112 166 104 190 122 L214 104 L238 132 L228 180 C198 154 158 154 118 172Z" fill={fill} />;
-  if (hair === 'hair-14') return <path d="M122 176 C132 126 182 106 238 134 C218 150 178 160 126 196Z" fill={fill} />;
-  if (hair === 'hair-15') return <path d="M124 168 C138 122 186 108 232 134 C202 142 166 152 128 180Z" fill={fill} />;
-  if (hair === 'hair-16') return <path d="M120 166 C128 118 162 102 192 110 C226 120 242 154 236 204 C230 248 208 282 184 300 C198 236 198 182 180 150 C158 182 154 238 170 300 C142 284 118 232 120 166Z" fill={fill} />;
-  if (hair === 'hair-17') return <><path d="M124 168 C136 114 226 114 238 168 C204 148 158 148 124 168Z" fill={fill} /><path d="M220 146 C258 134 280 164 266 198 C252 174 232 164 214 166Z" fill={fill} /></>;
-  if (hair === 'hair-18') return <g>{[{ x: 132, y: 156, r: 30 }, { x: 160, y: 126, r: 34 }, { x: 198, y: 126, r: 34 }, { x: 228, y: 158, r: 30 }, { x: 180, y: 106, r: 32 }].map((c) => <circle key={`${c.x}-${c.y}`} cx={c.x} cy={c.y} r={c.r} fill={fill} />)}</g>;
-  if (hair === 'hair-19') return <path d="M122 170 C132 126 166 106 216 120 C204 130 198 146 196 164 C170 150 146 154 122 180Z" fill={fill} />;
-  if (hair === 'hair-20') return <path d="M118 168 C126 114 156 98 186 106 C230 116 248 150 240 204 C236 242 222 278 206 300 C212 240 206 190 184 154 C164 188 150 236 158 300 C132 278 114 228 118 168Z" fill={fill} />;
+  if (hair === 'hair-13') return <path d="M120 172 C130 124 164 112 188 126 L210 114 L236 136 L226 174 C198 156 158 156 120 172Z" fill={fill} />;
+  if (hair === 'hair-14') return <path d="M122 174 C134 132 178 112 232 136 C210 150 174 158 128 190Z" fill={fill} />;
+  if (hair === 'hair-15') return <path d="M124 168 C138 126 184 112 230 136 C200 142 166 152 128 178Z" fill={fill} />;
+  if (hair === 'hair-16') return <path d="M122 166 C130 122 162 108 192 114 C226 124 240 154 234 196 C230 230 210 260 188 278 C196 230 196 184 180 152 C160 184 156 232 172 278 C144 260 120 222 122 166Z" fill={fill} />;
+  if (hair === 'hair-17') {
+    return (
+      <>
+        <path d="M126 168 C138 122 222 122 236 168 C204 150 158 150 126 168Z" fill={fill} />
+        <path d="M216 146 C252 132 274 158 262 192 C248 172 230 162 214 164Z" fill={fill} />
+      </>
+    );
+  }
+  if (hair === 'hair-18') {
+    const curls: Point[] = [
+      { x: 136, y: 154 },
+      { x: 158, y: 128 },
+      { x: 186, y: 118 },
+      { x: 212, y: 132 },
+      { x: 230, y: 158 },
+      { x: 180, y: 148 },
+    ];
+    return <g>{curls.map((curl) => <circle key={`${curl.x}-${curl.y}`} cx={curl.x} cy={curl.y} r="22" fill={fill} />)}</g>;
+  }
+  if (hair === 'hair-19') return <path d="M124 170 C134 132 168 112 212 124 C202 132 196 146 194 160 C168 150 146 154 124 176Z" fill={fill} />;
+  if (hair === 'hair-20') return <path d="M120 166 C128 118 158 104 188 112 C228 122 244 152 238 198 C234 232 220 262 204 284 C208 232 204 188 184 156 C164 188 152 232 158 284 C134 264 116 222 120 166Z" fill={fill} />;
 
   return null;
 }
@@ -685,44 +765,44 @@ function Headwear({ headwear, hairColor, accent, ids }: { headwear: string; hair
 }
 
 function Eyes({ eyes, accent, glow }: { eyes: string; accent: string; glow: string }) {
-  if (eyes === 'eyes-06') return <path d="M136 198 C154 184 206 184 224 198 C208 216 152 216 136 198Z" fill="#020617" opacity="0.86" />;
+  if (eyes === 'eyes-06') return <path d="M140 198 C156 188 204 188 220 198 C204 212 156 212 140 198Z" fill="#020617" opacity="0.82" />;
   if (eyes === 'eyes-08' || eyes === 'eyes-09' || eyes === 'eyes-12') {
     return (
       <g>
-        <path d="M132 198 H228" stroke="#020617" strokeWidth="18" strokeLinecap="round" />
-        <path d="M142 198 H218" stroke={eyes === 'eyes-12' ? accent : glow} strokeWidth="5" strokeLinecap="round" />
-        {eyes === 'eyes-12' && <circle cx="198" cy="198" r="7" fill={glow} />}
+        <path d="M136 198 H224" stroke="#020617" strokeWidth="15" strokeLinecap="round" />
+        <path d="M146 198 H214" stroke={eyes === 'eyes-12' ? accent : glow} strokeWidth="4" strokeLinecap="round" />
+        {eyes === 'eyes-12' && <circle cx="198" cy="198" r="5" fill={glow} />}
       </g>
     );
   }
   if (eyes === 'eyes-10') {
     return (
       <g>
-        <circle cx="156" cy="200" r="17" fill="none" stroke="#0f172a" strokeWidth="4" />
-        <circle cx="204" cy="200" r="17" fill="none" stroke="#0f172a" strokeWidth="4" />
-        <path d="M173 200 H187" stroke="#0f172a" strokeWidth="4" />
+        <circle cx="158" cy="199" r="14" fill="rgba(255,255,255,0.16)" stroke="#0f172a" strokeWidth="3.5" />
+        <circle cx="202" cy="199" r="14" fill="rgba(255,255,255,0.16)" stroke="#0f172a" strokeWidth="3.5" />
+        <path d="M172 199 H188" stroke="#0f172a" strokeWidth="3.5" />
         <EyePair mood="calm" accent={accent} />
       </g>
     );
   }
 
-  const mood = eyes === 'eyes-02' ? 'happy' : eyes === 'eyes-03' || eyes === 'eyes-07' ? 'angry' : eyes === 'eyes-04' ? 'calm' : eyes === 'eyes-05' ? 'wide' : eyes === 'eyes-11' ? 'aqua' : 'focused';
+  const mood = eyes === 'eyes-02' ? 'happy' : eyes === 'eyes-03' || eyes === 'eyes-07' ? 'intense' : eyes === 'eyes-04' ? 'calm' : eyes === 'eyes-05' ? 'open' : eyes === 'eyes-11' ? 'aqua' : 'focused';
   return <EyePair mood={mood} accent={eyes === 'eyes-11' ? glow : accent} />;
 }
 
 function EyePair({ mood, accent }: { mood: string; accent: string }) {
-  const iris = mood === 'aqua' ? accent : mood === 'wide' ? '#2563eb' : mood === 'happy' ? '#0f766e' : '#334155';
+  const iris = mood === 'aqua' ? accent : mood === 'open' ? '#2563eb' : mood === 'happy' ? '#0f766e' : '#334155';
   const pupil = '#020617';
-  const eyeFill = mood === 'angry' ? '#f1f5f9' : '#fff7ed';
-  const leftD = mood === 'happy' ? 'M140 198 C150 188 164 188 174 198 C164 204 150 204 140 198Z' : mood === 'calm' ? 'M140 201 C152 196 162 196 174 201' : 'M138 198 C150 186 164 186 176 198 C164 208 150 208 138 198Z';
-  const rightD = mood === 'happy' ? 'M186 198 C196 188 210 188 220 198 C210 204 196 204 186 198Z' : mood === 'calm' ? 'M186 201 C198 196 208 196 220 201' : 'M184 198 C196 186 210 186 222 198 C210 208 196 208 184 198Z';
+  const eyeFill = '#fff7ed';
+  const leftD = mood === 'happy' ? 'M144 198 C152 190 164 190 172 198 C164 203 152 203 144 198Z' : mood === 'calm' ? 'M144 200 C154 196 162 196 172 200' : mood === 'open' ? 'M143 198 C152 188 164 188 173 198 C164 206 152 206 143 198Z' : 'M144 198 C153 190 164 190 174 198 C164 205 153 205 144 198Z';
+  const rightD = mood === 'happy' ? 'M188 198 C196 190 208 190 216 198 C208 203 196 203 188 198Z' : mood === 'calm' ? 'M188 200 C198 196 206 196 216 200' : mood === 'open' ? 'M187 198 C196 188 208 188 217 198 C208 206 196 206 187 198Z' : 'M186 198 C196 190 207 190 216 198 C207 205 196 205 186 198Z';
 
   if (mood === 'calm') {
     return (
       <g>
-        <path d={leftD} fill="none" stroke="#020617" strokeWidth="4" strokeLinecap="round" />
-        <path d={rightD} fill="none" stroke="#020617" strokeWidth="4" strokeLinecap="round" />
-        <path d="M142 194 C154 188 164 188 174 194 M186 194 C198 188 208 188 220 194" fill="none" stroke="#020617" strokeOpacity="0.22" strokeWidth="2" strokeLinecap="round" />
+        <path d={leftD} fill="none" stroke="#020617" strokeWidth="3.4" strokeLinecap="round" />
+        <path d={rightD} fill="none" stroke="#020617" strokeWidth="3.4" strokeLinecap="round" />
+        <path d="M144 194 C154 190 162 190 172 194 M188 194 C198 190 206 190 216 194" fill="none" stroke="#020617" strokeOpacity="0.18" strokeWidth="2" strokeLinecap="round" />
       </g>
     );
   }
@@ -731,13 +811,13 @@ function EyePair({ mood, accent }: { mood: string; accent: string }) {
     <g>
       <path d={leftD} fill={eyeFill} stroke="#020617" strokeOpacity="0.18" strokeWidth="1.5" />
       <path d={rightD} fill={eyeFill} stroke="#020617" strokeOpacity="0.18" strokeWidth="1.5" />
-      <circle cx="158" cy="198" r={mood === 'wide' ? 6 : 5} fill={iris} opacity={mood === 'angry' ? 0.75 : 0.92} />
-      <circle cx="204" cy="198" r={mood === 'wide' ? 6 : 5} fill={iris} opacity={mood === 'angry' ? 0.75 : 0.92} />
-      <circle cx="158" cy="198" r={mood === 'wide' ? 3 : 2.5} fill={pupil} />
-      <circle cx="204" cy="198" r={mood === 'wide' ? 3 : 2.5} fill={pupil} />
-      <circle cx="160" cy="196" r="1.4" fill="#ffffff" opacity="0.95" />
-      <circle cx="206" cy="196" r="1.4" fill="#ffffff" opacity="0.95" />
-      <path d="M140 190 C152 184 164 184 176 190 M184 190 C196 184 210 184 222 190" fill="none" stroke="#020617" strokeOpacity="0.2" strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="158" cy="198" r={mood === 'open' ? 4.8 : 4.2} fill={iris} opacity={mood === 'intense' ? 0.78 : 0.92} />
+      <circle cx="202" cy="198" r={mood === 'open' ? 4.8 : 4.2} fill={iris} opacity={mood === 'intense' ? 0.78 : 0.92} />
+      <circle cx="158" cy="198" r="2.2" fill={pupil} />
+      <circle cx="202" cy="198" r="2.2" fill={pupil} />
+      <circle cx="159.5" cy="196.5" r="1.2" fill="#ffffff" opacity="0.95" />
+      <circle cx="203.5" cy="196.5" r="1.2" fill="#ffffff" opacity="0.95" />
+      <path d="M144 191 C154 186 164 186 174 191 M186 191 C196 186 206 186 216 191" fill="none" stroke="#020617" strokeOpacity="0.18" strokeWidth="2" strokeLinecap="round" />
       {mood === 'aqua' && <path d="M145 213 C160 224 200 224 215 213" fill="none" stroke={accent} strokeWidth="2" opacity="0.65" />}
     </g>
   );
@@ -746,39 +826,39 @@ function EyePair({ mood, accent }: { mood: string; accent: string }) {
 function Eyebrows({ eyebrows, hairColor }: { eyebrows: string; hairColor: string }) {
   if (eyebrows === 'brows-06') return null;
 
-  if (eyebrows === 'brows-02') return <g><path d="M138 182 C150 174 164 174 176 182" stroke={hairColor} strokeWidth="5" strokeLinecap="round" fill="none" /><path d="M184 182 C198 174 212 174 224 182" stroke={hairColor} strokeWidth="5" strokeLinecap="round" fill="none" /></g>;
-  if (eyebrows === 'brows-03') return <g><path d="M136 184 L174 176" stroke={hairColor} strokeWidth="6" strokeLinecap="round" /><path d="M224 184 L186 176" stroke={hairColor} strokeWidth="6" strokeLinecap="round" /></g>;
-  if (eyebrows === 'brows-04') return <g><path d="M136 178 L174 188" stroke={hairColor} strokeWidth="6" strokeLinecap="round" /><path d="M224 178 L186 188" stroke={hairColor} strokeWidth="6" strokeLinecap="round" /></g>;
-  if (eyebrows === 'brows-05') return <g><path d="M136 180 H174" stroke={hairColor} strokeWidth="7" strokeLinecap="round" /><path d="M186 180 H224" stroke={hairColor} strokeWidth="7" strokeLinecap="round" /></g>;
+  if (eyebrows === 'brows-02') return <g><path d="M142 182 C152 176 164 176 174 182" stroke={hairColor} strokeWidth="4.2" strokeLinecap="round" fill="none" /><path d="M186 182 C196 176 208 176 218 182" stroke={hairColor} strokeWidth="4.2" strokeLinecap="round" fill="none" /></g>;
+  if (eyebrows === 'brows-03') return <g><path d="M140 184 L174 178" stroke={hairColor} strokeWidth="5" strokeLinecap="round" /><path d="M220 184 L186 178" stroke={hairColor} strokeWidth="5" strokeLinecap="round" /></g>;
+  if (eyebrows === 'brows-04') return <g><path d="M140 180 L174 187" stroke={hairColor} strokeWidth="5" strokeLinecap="round" /><path d="M220 180 L186 187" stroke={hairColor} strokeWidth="5" strokeLinecap="round" /></g>;
+  if (eyebrows === 'brows-05') return <g><path d="M140 181 H174" stroke={hairColor} strokeWidth="5.4" strokeLinecap="round" /><path d="M186 181 H220" stroke={hairColor} strokeWidth="5.4" strokeLinecap="round" /></g>;
 
-  return <g><path d="M140 182 C152 178 164 178 174 182" stroke={hairColor} strokeWidth="5" strokeLinecap="round" fill="none" /><path d="M186 182 C198 178 210 178 220 182" stroke={hairColor} strokeWidth="5" strokeLinecap="round" fill="none" /></g>;
+  return <g><path d="M142 183 C152 180 164 180 174 183" stroke={hairColor} strokeWidth="4.2" strokeLinecap="round" fill="none" /><path d="M186 183 C196 180 208 180 218 183" stroke={hairColor} strokeWidth="4.2" strokeLinecap="round" fill="none" /></g>;
 }
 
 function Nose({ nose, color, isRobot, accent }: { nose: string; color: string; isRobot: boolean; accent: string }) {
-  if (isRobot || nose === 'nose-06') return <path d="M176 214 L188 214 L192 242 L180 250 L168 242Z" fill="#64748b" stroke={accent} strokeWidth="2" opacity="0.85" />;
-  if (nose === 'nose-02') return <path d="M181 214 C174 228 174 236 184 242" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" opacity="0.55" />;
-  if (nose === 'nose-03') return <path d="M180 212 C172 230 170 242 186 248" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" opacity="0.58" />;
-  if (nose === 'nose-04') return <path d="M174 216 C164 236 170 248 180 248 C190 248 196 236 186 216" fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" opacity="0.58" />;
-  if (nose === 'nose-05') return <path d="M181 210 C170 232 172 244 192 246" fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" opacity="0.62" />;
+  if (isRobot || nose === 'nose-06') return <path d="M176 216 L188 216 L191 238 L180 246 L169 238Z" fill="#64748b" stroke={accent} strokeWidth="2" opacity="0.82" />;
+  if (nose === 'nose-02') return <path d="M181 216 C176 228 176 235 184 240" fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" opacity="0.48" />;
+  if (nose === 'nose-03') return <path d="M180 214 C174 228 174 238 186 244" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" opacity="0.52" />;
+  if (nose === 'nose-04') return <path d="M174 218 C168 234 172 244 180 244 C188 244 192 234 186 218" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" opacity="0.5" />;
+  if (nose === 'nose-05') return <path d="M181 214 C174 230 176 240 191 242" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" opacity="0.54" />;
 
-  return <path d="M180 212 C176 228 174 240 186 246" fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" opacity="0.52" />;
+  return <path d="M180 216 C176 228 176 238 186 242" fill="none" stroke={color} strokeWidth="2.8" strokeLinecap="round" opacity="0.46" />;
 }
 
 function Mouth({ mouth, color, feral }: { mouth: string; color: string; feral: boolean }) {
-  if (mouth === 'mouth-01') return <path d="M158 260 C168 272 194 272 204 260" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" />;
-  if (mouth === 'mouth-02') return <path d="M162 262 H202" stroke={color} strokeWidth="4" strokeLinecap="round" />;
-  if (mouth === 'mouth-03') return <path d="M160 266 C174 260 190 260 204 266" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" />;
-  if (mouth === 'mouth-05') return <path d="M154 260 C168 282 196 282 210 260 C194 268 170 268 154 260Z" fill="#450a0a" stroke={color} strokeWidth="2" />;
+  if (mouth === 'mouth-01') return <path d="M160 258 C170 266 190 266 200 258" fill="none" stroke={color} strokeWidth="3.2" strokeLinecap="round" />;
+  if (mouth === 'mouth-02') return <path d="M164 260 H198" stroke={color} strokeWidth="3.2" strokeLinecap="round" />;
+  if (mouth === 'mouth-03') return <path d="M162 264 C174 259 188 259 200 264" fill="none" stroke={color} strokeWidth="3.2" strokeLinecap="round" />;
+  if (mouth === 'mouth-05') return <path d="M156 258 C170 276 194 276 208 258 C192 266 172 266 156 258Z" fill="#450a0a" stroke={color} strokeWidth="1.8" />;
   if (mouth === 'mouth-06' || feral) {
     return (
       <g>
-        <path d="M150 258 C166 284 198 284 214 258 C194 272 170 272 150 258Z" fill="#451a03" stroke={color} strokeWidth="2" />
-        <path d="M166 266 L172 280 L178 266 M190 266 L196 280 L202 266" stroke="#ffffff" strokeWidth="2" fill="none" />
+        <path d="M152 258 C168 280 196 280 212 258 C194 270 170 270 152 258Z" fill="#451a03" stroke={color} strokeWidth="2" />
+        <path d="M166 266 L172 278 L178 266 M190 266 L196 278 L202 266" stroke="#ffffff" strokeWidth="2" fill="none" />
       </g>
     );
   }
 
-  return <path d="M156 260 C166 268 194 268 204 260" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" />;
+  return <path d="M158 258 C168 266 192 266 202 258" fill="none" stroke={color} strokeWidth="3.3" strokeLinecap="round" />;
 }
 
 function FacialHair({ facialHair, color }: { facialHair: string; color: string }) {
@@ -841,25 +921,25 @@ function FaceMask({ accent }: { accent: string }) {
 }
 
 function getFacePath(face: string) {
-  if (face === 'face-02') return 'M126 196 C126 148 148 124 180 124 C212 124 234 148 234 196 C234 250 212 284 180 284 C148 284 126 250 126 196Z';
-  if (face === 'face-03') return 'M124 184 C124 142 150 122 180 122 C210 122 236 142 236 184 L228 246 C222 272 204 286 180 286 C156 286 138 272 132 246Z';
-  if (face === 'face-04') return 'M132 190 C132 144 152 122 180 122 C208 122 228 144 228 190 C228 238 204 292 180 292 C156 292 132 238 132 190Z';
-  if (face === 'face-05') return 'M118 186 C118 142 148 118 180 118 C212 118 242 142 242 186 L232 246 C224 276 204 292 180 292 C156 292 136 276 128 246Z';
-  if (face === 'face-06') return 'M124 190 C124 144 150 120 180 120 C210 120 236 144 236 190 C236 246 212 284 180 284 C148 284 124 246 124 190Z';
-  if (face === 'face-07') return 'M124 184 C132 138 154 118 180 118 C206 118 228 138 236 184 L222 252 L180 292 L138 252Z';
-  if (face === 'face-08') return 'M128 188 C128 142 152 118 180 118 C208 118 232 142 232 188 C232 238 208 286 180 286 C152 286 128 238 128 188Z';
-  if (face === 'face-09') return 'M122 180 C122 138 150 116 180 116 C210 116 238 138 238 180 L230 250 C222 274 204 288 180 288 C156 288 138 274 130 250Z';
-  if (face === 'face-10') return 'M126 190 C126 144 150 120 180 120 C210 120 234 144 234 190 C234 246 210 286 180 286 C150 286 126 246 126 190Z';
+  if (face === 'face-02') return 'M130 194 C130 150 152 128 180 128 C208 128 230 150 230 194 C230 240 208 274 180 274 C152 274 130 240 130 194Z';
+  if (face === 'face-03') return 'M126 184 C126 146 150 126 180 126 C210 126 234 146 234 184 L226 240 C220 264 202 278 180 278 C158 278 140 264 134 240Z';
+  if (face === 'face-04') return 'M134 190 C134 148 154 126 180 126 C206 126 226 148 226 190 C226 234 204 280 180 280 C156 280 134 234 134 190Z';
+  if (face === 'face-05') return 'M122 186 C122 146 150 124 180 124 C210 124 238 146 238 186 L230 240 C222 268 202 282 180 282 C158 282 138 268 130 240Z';
+  if (face === 'face-06') return 'M126 190 C126 148 150 126 180 126 C210 126 234 148 234 190 C234 240 212 276 180 276 C148 276 126 240 126 190Z';
+  if (face === 'face-07') return 'M126 184 C134 144 156 124 180 124 C204 124 226 144 234 184 L222 246 L180 280 L138 246Z';
+  if (face === 'face-08') return 'M130 188 C130 146 152 124 180 124 C208 124 230 146 230 188 C230 234 208 278 180 278 C152 278 130 234 130 188Z';
+  if (face === 'face-09') return 'M124 180 C124 140 150 120 180 120 C210 120 236 140 236 180 L228 246 C220 270 202 282 180 282 C158 282 140 270 132 246Z';
+  if (face === 'face-10') return 'M128 190 C128 148 150 126 180 126 C210 126 232 148 232 190 C232 240 210 278 180 278 C150 278 128 240 128 190Z';
 
-  return 'M126 188 C126 142 150 120 180 120 C210 120 234 142 234 188 C234 240 212 286 180 286 C148 286 126 240 126 188Z';
+  return 'M128 188 C128 146 152 126 180 126 C208 126 232 146 232 188 C232 236 210 278 180 278 C150 278 128 236 128 188Z';
 }
 
 function getBodyShape(body: string) {
-  if (body === 'body-03') return { leftShoulder: 92, rightShoulder: 268, leftWaist: 112, rightWaist: 248 };
-  if (body === 'body-04') return { leftShoulder: 122, rightShoulder: 238, leftWaist: 138, rightWaist: 222 };
-  if (body === 'body-05') return { leftShoulder: 96, rightShoulder: 264, leftWaist: 116, rightWaist: 244 };
-  if (body === 'body-01') return { leftShoulder: 112, rightShoulder: 248, leftWaist: 126, rightWaist: 234 };
-  return { leftShoulder: 102, rightShoulder: 258, leftWaist: 120, rightWaist: 240 };
+  if (body === 'body-03') return { leftShoulder: 86, rightShoulder: 274, leftWaist: 108, rightWaist: 252 };
+  if (body === 'body-04') return { leftShoulder: 116, rightShoulder: 244, leftWaist: 132, rightWaist: 228 };
+  if (body === 'body-05') return { leftShoulder: 90, rightShoulder: 270, leftWaist: 112, rightWaist: 248 };
+  if (body === 'body-01') return { leftShoulder: 106, rightShoulder: 254, leftWaist: 122, rightWaist: 238 };
+  return { leftShoulder: 96, rightShoulder: 264, leftWaist: 116, rightWaist: 244 };
 }
 
 function getOptionColor(category: keyof typeof AVATAR_OPTIONS, id: string, fallback: string) {

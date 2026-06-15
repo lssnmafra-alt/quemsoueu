@@ -28,20 +28,37 @@ export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
   nose: 'nose-01',
   mouth: 'mouth-01',
   hair: 'hair-01',
-  hairColor: '#1f2937',
+  hairColor: '#111827',
   facialHair: 'facial-none',
   headwear: 'headwear-none',
-  body: 'body-01',
+  body: 'body-02',
   clothes: 'clothes-01',
   clothesColor: '#2563eb',
   outerwear: 'outerwear-none',
   accessory: 'none',
   background: 'bg-01',
-  frame: 'frame-common',
+  frame: 'frame-rare',
 };
 
 export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarConfig }> = [
-  preset('wizard', 'Harry Potter', {
+  preset('hero', 'Heroi', {
+    skin: 'skin-02',
+    face: 'face-01',
+    eyebrows: 'brows-03',
+    eyes: 'eyes-01',
+    nose: 'nose-01',
+    mouth: 'mouth-04',
+    hair: 'hair-05',
+    hairColor: '#111827',
+    body: 'body-02',
+    clothes: 'clothes-13',
+    clothesColor: '#2563eb',
+    outerwear: 'outerwear-cape',
+    accessory: 'none',
+    background: 'bg-01',
+    frame: 'frame-epic',
+  }),
+  preset('wizard', 'Mago', {
     skin: 'skin-01',
     face: 'face-01',
     eyebrows: 'brows-02',
@@ -59,7 +76,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     frame: 'frame-rare',
     headwear: 'headwear-04',
   }),
-  preset('atlantean', 'Namor', {
+  preset('atlantean', 'Atlante', {
     skin: 'skin-03',
     face: 'face-10',
     eyebrows: 'brows-03',
@@ -76,7 +93,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     background: 'bg-12',
     frame: 'frame-ocean',
   }),
-  preset('tech-villain', 'Ultron', {
+  preset('tech-villain', 'Robo', {
     skin: 'skin-09',
     face: 'face-09',
     eyebrows: 'brows-06',
@@ -93,7 +110,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     background: 'bg-13',
     frame: 'frame-tech',
   }),
-  preset('cosmic-brute', 'Thanos', {
+  preset('cosmic-brute', 'Cosmico', {
     skin: 'skin-07',
     face: 'face-05',
     eyebrows: 'brows-03',
@@ -110,7 +127,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     background: 'bg-08',
     frame: 'frame-legendary',
   }),
-  preset('streamer', 'Casimiro', {
+  preset('streamer', 'Streamer', {
     skin: 'skin-02',
     face: 'face-02',
     eyebrows: 'brows-05',
@@ -129,9 +146,12 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     frame: 'frame-common',
     headwear: 'headwear-06',
   }),
-  preset('speedster', 'The Flash', {
+  preset('speedster', 'Velocista', {
+    skin: 'skin-01',
+    face: 'face-01',
     eyebrows: 'brows-03',
     eyes: 'eyes-03',
+    nose: 'nose-01',
     mouth: 'mouth-03',
     hair: 'hair-02',
     hairColor: '#7f1d1d',
@@ -142,10 +162,12 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     background: 'bg-04',
     frame: 'frame-speed',
   }),
-  preset('night-hero', 'Batman', {
+  preset('night-hero', 'Sombrio', {
+    skin: 'skin-02',
     face: 'face-03',
     eyebrows: 'brows-03',
     eyes: 'eyes-06',
+    nose: 'nose-03',
     mouth: 'mouth-03',
     hair: 'hair-01',
     hairColor: '#020617',
@@ -157,7 +179,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     background: 'bg-05',
     frame: 'frame-epic',
   }),
-  preset('clown-horror', 'Pennywise', {
+  preset('clown-horror', 'Terror', {
     skin: 'skin-01',
     face: 'face-02',
     eyebrows: 'brows-04',
@@ -173,7 +195,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     background: 'bg-07',
     frame: 'frame-horror',
   }),
-  preset('monster', 'Hulk', {
+  preset('monster', 'Monstro', {
     skin: 'skin-06',
     face: 'face-05',
     eyebrows: 'brows-03',
@@ -197,7 +219,7 @@ export const AVATAR_OPTIONS = {
     { id: 'skin-03', label: 'Dourada', color: '#b8733f' },
     { id: 'skin-04', label: 'Marrom', color: '#8b4f2f' },
     { id: 'skin-05', label: 'Escura', color: '#5b2e1f' },
-    { id: 'skin-06', label: 'Verde' , color: '#22c55e' },
+    { id: 'skin-06', label: 'Verde', color: '#22c55e' },
     { id: 'skin-07', label: 'Roxa', color: '#7c3aed' },
     { id: 'skin-08', label: 'Azul', color: '#38bdf8' },
     { id: 'skin-09', label: 'Metal', color: '#94a3b8' },
@@ -211,7 +233,7 @@ export const AVATAR_OPTIONS = {
     { id: 'face-06', label: 'Mascara' },
     { id: 'face-07', label: 'Angular' },
     { id: 'face-08', label: 'Nobre' },
-    { id: 'face-09', label: 'Robótico' },
+    { id: 'face-09', label: 'Robotico' },
     { id: 'face-10', label: 'Atlante' },
   ],
   eyebrows: [
@@ -393,31 +415,48 @@ export function normalizeAvatarConfig(value: unknown): AvatarConfig {
 }
 
 export function randomAvatarConfig(): AvatarConfig {
-  if (Math.random() < 0.4) {
-    return AVATAR_PRESETS[Math.floor(Math.random() * AVATAR_PRESETS.length)].config;
+  const cleanPresets = AVATAR_PRESETS.filter((preset) =>
+    ['hero', 'wizard', 'atlantean', 'streamer', 'speedster', 'night-hero'].includes(preset.id),
+  );
+
+  if (Math.random() < 0.55) {
+    return cleanPresets[Math.floor(Math.random() * cleanPresets.length)].config;
   }
 
-  const hairColors = ['#111827', '#7c2d12', '#92400e', '#facc15', '#6d28d9', '#be123c', '#ea580c', '#16a34a', '#e5e7eb'];
+  const humanSkins = ['skin-01', 'skin-02', 'skin-03', 'skin-04', 'skin-05'];
+  const humanFaces = ['face-01', 'face-02', 'face-03', 'face-04', 'face-08'];
+  const cleanBrows = ['brows-01', 'brows-02', 'brows-03', 'brows-05'];
+  const cleanEyes = ['eyes-01', 'eyes-02', 'eyes-03', 'eyes-05', 'eyes-10'];
+  const cleanNoses = ['nose-01', 'nose-02', 'nose-03', 'nose-04'];
+  const cleanMouths = ['mouth-01', 'mouth-02', 'mouth-03', 'mouth-04'];
+  const cleanHair = ['hair-01', 'hair-02', 'hair-03', 'hair-04', 'hair-05', 'hair-07', 'hair-12', 'hair-14', 'hair-15'];
+  const cleanBodies = ['body-01', 'body-02', 'body-04'];
+  const cleanClothes = ['clothes-01', 'clothes-02', 'clothes-05', 'clothes-11', 'clothes-13', 'clothes-14', 'clothes-18'];
+  const cleanOuterwear = ['outerwear-none', 'outerwear-cape', 'outerwear-jacket'];
+  const cleanAccessories = ['none', 'accessory-01', 'accessory-05', 'accessory-10', 'accessory-14'];
+  const cleanBackgrounds = ['bg-01', 'bg-03', 'bg-04', 'bg-05', 'bg-06', 'bg-10', 'bg-14'];
+  const cleanFrames = ['frame-common', 'frame-rare', 'frame-epic', 'frame-speed'];
+  const hairColors = ['#111827', '#1f2937', '#7c2d12', '#92400e', '#facc15', '#6d28d9', '#be123c', '#16a34a', '#e5e7eb'];
   const clothesColors = ['#2563eb', '#16a34a', '#dc2626', '#7c3aed', '#ea580c', '#0f766e', '#111827', '#e11d48', '#64748b'];
 
   return {
-    skin: randomOption('skin'),
-    face: randomOption('face'),
-    eyebrows: randomOption('eyebrows'),
-    eyes: randomOption('eyes'),
-    nose: randomOption('nose'),
-    mouth: randomOption('mouth'),
-    hair: randomOption('hair'),
-    hairColor: hairColors[Math.floor(Math.random() * hairColors.length)],
-    facialHair: randomOption('facialHair'),
-    headwear: randomOption('headwear'),
-    body: randomOption('body'),
-    clothes: randomOption('clothes'),
-    clothesColor: clothesColors[Math.floor(Math.random() * clothesColors.length)],
-    outerwear: randomOption('outerwear'),
-    accessory: randomOption('accessory'),
-    background: randomOption('background'),
-    frame: randomOption('frame'),
+    skin: randomFrom(humanSkins),
+    face: randomFrom(humanFaces),
+    eyebrows: randomFrom(cleanBrows),
+    eyes: randomFrom(cleanEyes),
+    nose: randomFrom(cleanNoses),
+    mouth: randomFrom(cleanMouths),
+    hair: randomFrom(cleanHair),
+    hairColor: randomFrom(hairColors),
+    facialHair: Math.random() < 0.72 ? 'facial-none' : randomFrom(['facial-01', 'facial-02', 'facial-03', 'facial-04']),
+    headwear: Math.random() < 0.72 ? 'headwear-none' : randomFrom(['headwear-01', 'headwear-02', 'headwear-06']),
+    body: randomFrom(cleanBodies),
+    clothes: randomFrom(cleanClothes),
+    clothesColor: randomFrom(clothesColors),
+    outerwear: randomFrom(cleanOuterwear),
+    accessory: randomFrom(cleanAccessories),
+    background: randomFrom(cleanBackgrounds),
+    frame: randomFrom(cleanFrames),
   };
 }
 
@@ -438,6 +477,10 @@ function pickOption(category: AvatarCategory, value?: string) {
 function randomOption(category: AvatarCategory) {
   const options = AVATAR_OPTIONS[category];
   return options[Math.floor(Math.random() * options.length)].id;
+}
+
+function randomFrom<T>(items: T[]) {
+  return items[Math.floor(Math.random() * items.length)];
 }
 
 function isHexColor(value?: string) {

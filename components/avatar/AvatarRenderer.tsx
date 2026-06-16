@@ -443,11 +443,11 @@ function ArmsLayer({
     if (arms === 'arms-open' || arms === 'arms-caster') {
       return (
         <g opacity="0.96">
-          <path d="M108 300 C74 322 56 358 48 402" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
-          <path d="M252 300 C286 322 304 358 312 402" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
-          <circle cx="48" cy="404" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
-          <circle cx="312" cy="404" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
-          {arms === 'arms-caster' && <g fill={glow} opacity="0.82"><circle cx="48" cy="404" r="4" /><circle cx="312" cy="404" r="4" /><path d="M42 390 L54 418 M306 390 L318 418" stroke={glow} strokeWidth="3" strokeLinecap="round" /></g>}
+          <path d="M112 304 C88 326 72 358 64 394" fill="none" stroke={armFill} strokeWidth="18" strokeLinecap="round" />
+          <path d="M248 304 C272 326 288 358 296 394" fill="none" stroke={armFill} strokeWidth="18" strokeLinecap="round" />
+          <circle cx="64" cy="396" r="10" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+          <circle cx="296" cy="396" r="10" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+          {arms === 'arms-caster' && <g fill={glow} opacity="0.82"><circle cx="64" cy="396" r="4" /><circle cx="296" cy="396" r="4" /><path d="M58 382 L70 410 M290 382 L302 410" stroke={glow} strokeWidth="3" strokeLinecap="round" /></g>}
         </g>
       );
     }
@@ -455,10 +455,10 @@ function ArmsLayer({
     if (arms === 'arms-raised') {
       return (
         <g opacity="0.96">
-          <path d="M108 302 C76 326 66 366 70 414" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
-          <path d="M252 300 C286 266 292 224 278 180" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
-          <circle cx="70" cy="416" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
-          <circle cx="278" cy="178" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+          <path d="M112 304 C92 332 86 368 92 408" fill="none" stroke={armFill} strokeWidth="18" strokeLinecap="round" />
+          <path d="M248 304 C272 274 276 236 266 194" fill="none" stroke={armFill} strokeWidth="18" strokeLinecap="round" />
+          <circle cx="92" cy="410" r="10" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+          <circle cx="266" cy="194" r="10" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
         </g>
       );
     }
@@ -466,9 +466,9 @@ function ArmsLayer({
     if (arms === 'arms-tentacle') {
       return (
         <g fill="none" opacity="0.82">
-          <path d="M106 304 C62 326 50 366 84 398 C112 424 72 444 48 424" stroke={shade(outfitDark, -6)} strokeWidth="18" strokeLinecap="round" />
-          <path d="M254 304 C298 326 310 366 276 398 C248 424 288 444 312 424" stroke={shade(outfitDark, -6)} strokeWidth="18" strokeLinecap="round" />
-          <path d="M78 396 C92 388 102 388 112 396 M282 396 C268 388 258 388 248 396" stroke={accent} strokeWidth="3" opacity="0.65" />
+          <path d="M112 306 C78 328 70 362 96 392 C116 416 84 432 64 416" stroke={shade(outfitDark, -6)} strokeWidth="15" strokeLinecap="round" />
+          <path d="M248 306 C282 328 290 362 264 392 C244 416 276 432 296 416" stroke={shade(outfitDark, -6)} strokeWidth="18" strokeLinecap="round" />
+          <path d="M90 392 C102 386 112 386 120 392 M270 392 C258 386 248 386 240 392" stroke={accent} strokeWidth="3" opacity="0.65" />
         </g>
       );
     }
@@ -478,12 +478,12 @@ function ArmsLayer({
     const rightHandY = arms === 'arms-down' ? 430 : 408;
     return (
       <g opacity="0.96">
-        <path d={`M108 302 C82 332 74 372 82 ${leftHandY}`} fill="none" stroke={armFill} strokeWidth={creature ? 26 : 22} strokeLinecap="round" />
-        <path d={`M252 302 C278 332 286 372 278 ${rightHandY}`} fill="none" stroke={armFill} strokeWidth={creature ? 26 : 22} strokeLinecap="round" />
-        <circle cx="82" cy={leftHandY} r={fist ? 15 : 12} fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
-        <circle cx="278" cy={rightHandY} r={fist ? 15 : 12} fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
-        {creature && <g stroke={accent} strokeWidth="3" strokeLinecap="round" opacity="0.72"><path d="M70 414 L58 428 M82 421 L74 438 M94 414 L104 428" /><path d="M290 414 L302 428 M278 421 L286 438 M266 414 L256 428" /></g>}
-        {(isRobot || sleeves === 'sleeves-robot' || arms === 'arms-robot') && <g stroke={stroke} strokeWidth="4" strokeLinecap="round"><path d="M84 342 H108 M252 342 H276" /><path d="M82 382 H104 M256 382 H278" /></g>}
+        <path d={`M116 306 C98 334 94 372 100 ${leftHandY}`} fill="none" stroke={armFill} strokeWidth={creature ? 21 : 18} strokeLinecap="round" />
+        <path d={`M244 306 C262 334 266 372 260 ${rightHandY}`} fill="none" stroke={armFill} strokeWidth={creature ? 21 : 18} strokeLinecap="round" />
+        <circle cx="100" cy={leftHandY} r={fist ? 12 : 9} fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+        <circle cx="260" cy={rightHandY} r={fist ? 12 : 9} fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+        {creature && <g stroke={accent} strokeWidth="3" strokeLinecap="round" opacity="0.72"><path d="M90 412 L80 424 M100 418 L96 432 M110 412 L120 424" /><path d="M270 412 L280 424 M260 418 L264 432 M250 412 L240 424" /></g>}
+        {(isRobot || sleeves === 'sleeves-robot' || arms === 'arms-robot') && <g stroke={stroke} strokeWidth="4" strokeLinecap="round"><path d="M100 344 H118 M242 344 H260" /><path d="M98 382 H114 M246 382 H262" /></g>}
       </g>
     );
   }
@@ -491,11 +491,11 @@ function ArmsLayer({
   if (arms === 'arms-crossed') {
     return (
       <g opacity="0.98">
-        <path d="M104 334 C140 360 178 374 236 384" fill="none" stroke={armFill} strokeWidth="23" strokeLinecap="round" />
-        <path d="M256 334 C220 360 182 374 124 384" fill="none" stroke={armFill} strokeWidth="23" strokeLinecap="round" />
-        <circle cx="236" cy="384" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
-        <circle cx="124" cy="384" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
-        <path d="M126 372 C154 382 206 382 234 372" fill="none" stroke="#020617" strokeOpacity="0.18" strokeWidth="5" strokeLinecap="round" />
+        <path d="M114 338 C144 356 178 368 228 376" fill="none" stroke={armFill} strokeWidth="18" strokeLinecap="round" />
+        <path d="M246 338 C216 356 182 368 132 376" fill="none" stroke={armFill} strokeWidth="18" strokeLinecap="round" />
+        <circle cx="228" cy="376" r="10" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+        <circle cx="132" cy="376" r="10" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+        <path d="M134 366 C158 374 202 374 226 366" fill="none" stroke="#020617" strokeOpacity="0.18" strokeWidth="5" strokeLinecap="round" />
       </g>
     );
   }
@@ -503,10 +503,10 @@ function ArmsLayer({
   if (arms === 'arms-waist') {
     return (
       <g opacity="0.98">
-        <path d="M110 318 C84 350 92 386 128 386" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
-        <path d="M250 318 C276 350 268 386 232 386" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
-        <circle cx="128" cy="386" r="12" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
-        <circle cx="232" cy="386" r="12" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+        <path d="M116 322 C98 348 104 378 132 378" fill="none" stroke={armFill} strokeWidth="18" strokeLinecap="round" />
+        <path d="M244 322 C262 348 256 378 228 378" fill="none" stroke={armFill} strokeWidth="18" strokeLinecap="round" />
+        <circle cx="132" cy="378" r="10" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+        <circle cx="228" cy="378" r="10" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
       </g>
     );
   }
@@ -514,11 +514,11 @@ function ArmsLayer({
   if (arms === 'arms-holding') {
     return (
       <g opacity="0.98">
-        <path d="M110 326 C138 356 158 378 176 396" fill="none" stroke={armFill} strokeWidth="21" strokeLinecap="round" />
-        <path d="M250 326 C222 356 202 378 184 396" fill="none" stroke={armFill} strokeWidth="21" strokeLinecap="round" />
-        <circle cx="176" cy="396" r="12" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
-        <circle cx="184" cy="396" r="12" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
-        <path d="M180 348 V430" stroke={accent} strokeWidth="7" strokeLinecap="round" />
+        <path d="M116 330 C140 354 158 374 176 390" fill="none" stroke={armFill} strokeWidth="18" strokeLinecap="round" />
+        <path d="M244 330 C220 354 202 374 184 390" fill="none" stroke={armFill} strokeWidth="18" strokeLinecap="round" />
+        <circle cx="176" cy="390" r="10" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+        <circle cx="184" cy="390" r="10" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+        <path d="M180 350 V424" stroke={accent} strokeWidth="7" strokeLinecap="round" />
         <circle cx="180" cy="342" r="13" fill="#020617" stroke={accent} strokeWidth="4" />
       </g>
     );
@@ -531,23 +531,23 @@ function SleevesLayer({ sleeves, arms, outfitFill, outfitDark, accent }: { sleev
   if (sleeves === 'sleeves-none' || arms === 'arms-crossed' || arms === 'arms-waist' || arms === 'arms-holding') return null;
 
   if (sleeves === 'sleeves-short') {
-    return <g opacity="0.9"><path d="M98 296 C112 286 130 286 144 300 C132 314 110 318 94 306Z" fill={outfitFill} /><path d="M262 296 C248 286 230 286 216 300 C228 314 250 318 266 306Z" fill={outfitFill} /></g>;
+    return <g opacity="0.9"><path d="M106 298 C118 290 132 292 142 304 C130 314 114 316 102 308Z" fill={outfitFill} /><path d="M254 298 C242 290 228 292 218 304 C230 314 246 316 258 308Z" fill={outfitFill} /></g>;
   }
 
   if (sleeves === 'sleeves-long' || sleeves === 'sleeves-jacket') {
-    return <g opacity="0.88"><path d="M98 304 C82 332 78 374 84 408" fill="none" stroke={sleeves === 'sleeves-jacket' ? shade(outfitDark, -10) : outfitFill} strokeWidth="24" strokeLinecap="round" /><path d="M262 304 C278 332 282 374 276 408" fill="none" stroke={sleeves === 'sleeves-jacket' ? shade(outfitDark, -10) : outfitFill} strokeWidth="24" strokeLinecap="round" /></g>;
+    return <g opacity="0.88"><path d="M110 306 C96 334 94 374 100 406" fill="none" stroke={sleeves === 'sleeves-jacket' ? shade(outfitDark, -10) : outfitFill} strokeWidth="19" strokeLinecap="round" /><path d="M250 306 C264 334 266 374 260 406" fill="none" stroke={sleeves === 'sleeves-jacket' ? shade(outfitDark, -10) : outfitFill} strokeWidth="19" strokeLinecap="round" /></g>;
   }
 
   if (sleeves === 'sleeves-armor' || sleeves === 'sleeves-robot') {
-    return <g opacity="0.92"><path d="M88 310 L126 292 L144 320 L114 344Z" fill="#cbd5e1" stroke={accent} strokeWidth="3" /><path d="M272 310 L234 292 L216 320 L246 344Z" fill="#cbd5e1" stroke={accent} strokeWidth="3" /><path d="M92 354 H118 M242 354 H268 M88 386 H110 M250 386 H272" stroke={accent} strokeWidth="4" strokeLinecap="round" /></g>;
+    return <g opacity="0.92"><path d="M100 312 L128 296 L142 320 L118 338Z" fill="#cbd5e1" stroke={accent} strokeWidth="3" /><path d="M260 312 L232 296 L218 320 L242 338Z" fill="#cbd5e1" stroke={accent} strokeWidth="3" /><path d="M102 352 H120 M240 352 H258 M100 382 H116 M244 382 H260" stroke={accent} strokeWidth="4" strokeLinecap="round" /></g>;
   }
 
   if (sleeves === 'sleeves-gloves') {
-    return <g opacity="0.9"><path d="M82 362 C76 382 76 398 84 414" fill="none" stroke={shade(outfitDark, -18)} strokeWidth="20" strokeLinecap="round" /><path d="M278 362 C284 382 284 398 276 414" fill="none" stroke={shade(outfitDark, -18)} strokeWidth="20" strokeLinecap="round" /></g>;
+    return <g opacity="0.9"><path d="M100 360 C94 380 94 396 100 410" fill="none" stroke={shade(outfitDark, -18)} strokeWidth="16" strokeLinecap="round" /><path d="M260 360 C266 380 266 396 260 410" fill="none" stroke={shade(outfitDark, -18)} strokeWidth="16" strokeLinecap="round" /></g>;
   }
 
   if (sleeves === 'sleeves-torn') {
-    return <g fill={outfitFill} opacity="0.88"><path d="M94 298 L144 296 L130 326 L118 314 L106 330Z" /><path d="M266 298 L216 296 L230 326 L242 314 L254 330Z" /></g>;
+    return <g fill={outfitFill} opacity="0.88"><path d="M102 300 L142 298 L130 322 L118 312 L110 326Z" /><path d="M258 300 L218 298 L230 322 L242 312 L250 326Z" /></g>;
   }
 
   return null;

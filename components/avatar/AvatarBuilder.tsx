@@ -70,7 +70,8 @@ const categoryText: Record<AvatarCategory, BuilderCategory> = {
   hair: { key: 'hair', label: 'Penteado', hint: 'topo, volume, franja e comprimento' },
   hairSide: { key: 'hairSide', label: 'Lateral', hint: 'fade, taper, risco ou undercut' },
   headwear: { key: 'headwear', label: 'Cabeca', hint: 'bone, coroa, capacete, capuz ou marca' },
-  clothes: { key: 'clothes', label: 'Roupa base', hint: 'traje principal do personagem' },
+  clothes: { key: 'clothes', label: 'Modelo da roupa', hint: 'formato real: camiseta, vestido, armadura, manto ou terno' },
+  clothesDetail: { key: 'clothesDetail', label: 'Detalhe da roupa', hint: 'opcional: numero, raio, estrela, gema, faixa ou sem detalhe' },
   sleeves: { key: 'sleeves', label: 'Mangas', hint: 'sem manga, curta, longa, luva ou armadura' },
   arms: { key: 'arms', label: 'Bracos / pose', hint: 'gesto, mao, braco cruzado ou garras' },
   outerwear: { key: 'outerwear', label: 'Camada externa', hint: 'capa, jaqueta, manto ou armadura' },
@@ -121,7 +122,7 @@ function getBuilderGroups(kind: AvatarKind): BuilderGroup[] {
       id: 'outfit',
       label: 'Roupa',
       icon: Shirt,
-      categories: [categoryText.silhouette, categoryText.clothes, categoryText.sleeves, categoryText.arms, categoryText.outerwear],
+      categories: [categoryText.silhouette, categoryText.clothes, categoryText.clothesDetail, categoryText.sleeves, categoryText.arms, categoryText.outerwear],
     },
     {
       id: 'extras',
@@ -355,10 +356,10 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
                     {active === 'hair' && (
                       <ColorField label="Cor do cabelo" value={config.hairColor} onChange={(color) => update({ hairColor: color })} />
                     )}
-                    {['clothes', 'sleeves', 'outerwear'].includes(active) && (
+                    {['clothes', 'clothesDetail', 'sleeves', 'outerwear'].includes(active) && (
                       <>
                         <ColorField label="Cor principal" value={config.clothesColor} onChange={(color) => update({ clothesColor: color })} />
-                        <ColorField label="Cor dos detalhes" value={config.detailColor} onChange={(color) => update({ detailColor: color })} />
+                        <ColorField label="Cor do detalhe" value={config.detailColor} onChange={(color) => update({ detailColor: color })} />
                       </>
                     )}
                   </div>

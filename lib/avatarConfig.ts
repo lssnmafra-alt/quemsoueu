@@ -21,6 +21,7 @@ export type AvatarConfig = {
   sleeves: string;
   arms: string;
   clothesColor: string;
+  detailColor: string;
   outerwear: string;
   accessory: string;
   aura: string;
@@ -72,6 +73,7 @@ export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
   sleeves: 'sleeves-short',
   arms: 'arms-neutral',
   clothesColor: '#2563eb',
+  detailColor: '#facc15',
   outerwear: 'outerwear-none',
   accessory: 'none',
   aura: 'aura-backlight',
@@ -220,27 +222,36 @@ export const AVATAR_OPTIONS = {
     { id: 'silhouette-alien', label: 'Alien' },
   ],
   clothes: [
-    { id: 'clothes-01', label: 'Casual premium' },
-    { id: 'clothes-02', label: 'Atleta estrela' },
-    { id: 'clothes-03', label: 'Guerreiro' },
-    { id: 'clothes-04', label: 'Mago urbano' },
-    { id: 'clothes-05', label: 'Jaqueta elite' },
+    { id: 'clothes-01', label: 'Camiseta casual' },
+    { id: 'clothes-02', label: 'Uniforme esportivo' },
+    { id: 'clothes-03', label: 'Armadura guerreiro' },
+    { id: 'clothes-04', label: 'Manto arcano' },
+    { id: 'clothes-05', label: 'Jaqueta street' },
     { id: 'clothes-06', label: 'Traje espacial' },
-    { id: 'clothes-07', label: 'Velocidade' },
+    { id: 'clothes-07', label: 'Traje raio' },
     { id: 'clothes-08', label: 'Vigilante' },
-    { id: 'clothes-09', label: 'Performer sombrio' },
-    { id: 'clothes-10', label: 'Monstro' },
+    { id: 'clothes-09', label: 'Performer palco' },
+    { id: 'clothes-10', label: 'Pele monstro' },
     { id: 'clothes-11', label: 'Lutador' },
     { id: 'clothes-12', label: 'Ninja' },
     { id: 'clothes-13', label: 'Heroi urbano' },
     { id: 'clothes-14', label: 'DJ neon' },
-    { id: 'clothes-15', label: 'Bruxo sombrio' },
-    { id: 'clothes-16', label: 'Oceano real' },
-    { id: 'clothes-17', label: 'Tech armor' },
-    { id: 'clothes-18', label: 'Streamer' },
-    { id: 'clothes-19', label: 'Detetive' },
+    { id: 'clothes-15', label: 'Bruxaria sombria' },
+    { id: 'clothes-16', label: 'Realeza oceano' },
+    { id: 'clothes-17', label: 'Armadura tech' },
+    { id: 'clothes-18', label: 'Moletom streamer' },
+    { id: 'clothes-19', label: 'Detetive blazer' },
     { id: 'clothes-20', label: 'Pirata nobre' },
     { id: 'clothes-21', label: 'Soldado futurista' },
+    { id: 'clothes-22', label: 'Body heroina' },
+    { id: 'clothes-23', label: 'Luxo branco' },
+    { id: 'clothes-24', label: 'Vestido bruxa' },
+    { id: 'clothes-25', label: 'Pop star' },
+    { id: 'clothes-26', label: 'Academia magica' },
+    { id: 'clothes-27', label: 'Vestido real' },
+    { id: 'clothes-28', label: 'Vitoriano' },
+    { id: 'clothes-29', label: 'Couro moto' },
+    { id: 'clothes-30', label: 'Terno branco' },
   ],
   sleeves: [
     { id: 'sleeves-none', label: 'Sem manga' },
@@ -351,7 +362,7 @@ const KIND_OPTION_RULES: Record<AvatarKind, Partial<Record<AvatarCategory, reado
     silhouette: ['silhouette-balanced', 'silhouette-slim', 'silhouette-hero', 'silhouette-wide', 'silhouette-armor'],
     sleeves: ['sleeves-none', 'sleeves-short', 'sleeves-long', 'sleeves-jacket', 'sleeves-armor', 'sleeves-gloves'],
     arms: ['arms-neutral', 'arms-down', 'arms-open', 'arms-crossed', 'arms-waist', 'arms-power', 'arms-raised', 'arms-holding', 'arms-robot'],
-    clothes: ['clothes-01', 'clothes-02', 'clothes-03', 'clothes-05', 'clothes-06', 'clothes-07', 'clothes-08', 'clothes-11', 'clothes-12', 'clothes-13', 'clothes-14', 'clothes-17', 'clothes-18', 'clothes-19', 'clothes-20', 'clothes-21'],
+    clothes: ['clothes-01', 'clothes-02', 'clothes-03', 'clothes-05', 'clothes-06', 'clothes-07', 'clothes-08', 'clothes-11', 'clothes-12', 'clothes-13', 'clothes-14', 'clothes-17', 'clothes-18', 'clothes-19', 'clothes-20', 'clothes-21', 'clothes-28', 'clothes-29', 'clothes-30'],
     outerwear: ['outerwear-none', 'outerwear-cape', 'outerwear-armor', 'outerwear-jacket'],
   },
   female: {
@@ -368,7 +379,7 @@ const KIND_OPTION_RULES: Record<AvatarKind, Partial<Record<AvatarCategory, reado
     silhouette: ['silhouette-balanced', 'silhouette-slim', 'silhouette-hero', 'silhouette-dress', 'silhouette-armor'],
     sleeves: ['sleeves-none', 'sleeves-short', 'sleeves-long', 'sleeves-jacket', 'sleeves-gloves', 'sleeves-torn'],
     arms: ['arms-neutral', 'arms-down', 'arms-open', 'arms-crossed', 'arms-waist', 'arms-raised', 'arms-caster', 'arms-holding'],
-    clothes: ['clothes-01', 'clothes-04', 'clothes-05', 'clothes-06', 'clothes-08', 'clothes-13', 'clothes-14', 'clothes-15', 'clothes-16', 'clothes-18', 'clothes-19'],
+    clothes: ['clothes-01', 'clothes-04', 'clothes-05', 'clothes-06', 'clothes-08', 'clothes-13', 'clothes-14', 'clothes-15', 'clothes-16', 'clothes-18', 'clothes-19', 'clothes-22', 'clothes-23', 'clothes-24', 'clothes-25', 'clothes-26', 'clothes-27', 'clothes-28', 'clothes-30'],
     outerwear: ['outerwear-none', 'outerwear-cape', 'outerwear-robe', 'outerwear-ruff', 'outerwear-jacket'],
   },
   creature: {
@@ -385,7 +396,7 @@ const KIND_OPTION_RULES: Record<AvatarKind, Partial<Record<AvatarCategory, reado
     silhouette: ['silhouette-wide', 'silhouette-armor', 'silhouette-monster', 'silhouette-robot', 'silhouette-alien'],
     sleeves: ['sleeves-none', 'sleeves-long', 'sleeves-armor', 'sleeves-torn', 'sleeves-robot'],
     arms: ['arms-neutral', 'arms-open', 'arms-power', 'arms-raised', 'arms-creature', 'arms-robot', 'arms-tentacle'],
-    clothes: ['clothes-03', 'clothes-04', 'clothes-06', 'clothes-10', 'clothes-11', 'clothes-15', 'clothes-17', 'clothes-21'],
+    clothes: ['clothes-03', 'clothes-04', 'clothes-06', 'clothes-10', 'clothes-11', 'clothes-15', 'clothes-17', 'clothes-21', 'clothes-24', 'clothes-28'],
     outerwear: ['outerwear-none', 'outerwear-cape', 'outerwear-robe', 'outerwear-armor'],
   },
 };
@@ -412,6 +423,7 @@ const KIND_DEFAULT_PATCHES: Record<AvatarKind, Partial<AvatarConfig>> = {
     sleeves: 'sleeves-short',
     arms: 'arms-neutral',
     clothesColor: '#2563eb',
+    detailColor: '#facc15',
     outerwear: 'outerwear-none',
     accessory: 'none',
     aura: 'aura-backlight',
@@ -439,6 +451,7 @@ const KIND_DEFAULT_PATCHES: Record<AvatarKind, Partial<AvatarConfig>> = {
     sleeves: 'sleeves-jacket',
     arms: 'arms-neutral',
     clothesColor: '#db2777',
+    detailColor: '#facc15',
     outerwear: 'outerwear-jacket',
     accessory: 'none',
     aura: 'aura-backlight',
@@ -466,6 +479,7 @@ const KIND_DEFAULT_PATCHES: Record<AvatarKind, Partial<AvatarConfig>> = {
     sleeves: 'sleeves-torn',
     arms: 'arms-creature',
     clothesColor: '#4c1d95',
+    detailColor: '#facc15',
     outerwear: 'outerwear-none',
     accessory: 'accessory-06',
     aura: 'aura-embers',
@@ -513,6 +527,7 @@ export function switchAvatarKind(config: AvatarConfig, kind: AvatarKind): Avatar
     sleeves: defaults.sleeves,
     arms: defaults.arms,
     clothesColor: defaults.clothesColor,
+    detailColor: defaults.detailColor,
     outerwear: defaults.outerwear,
     accessory: defaults.accessory,
     marking: defaults.marking,
@@ -534,6 +549,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-04',
     clothes: 'clothes-05',
     clothesColor: '#db2777',
+    detailColor: '#facc15',
     outerwear: 'outerwear-jacket',
     marking: 'marking-freckles',
     aura: 'aura-backlight',
@@ -554,6 +570,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-04',
     clothes: 'clothes-04',
     clothesColor: '#38bdf8',
+    detailColor: '#facc15',
     outerwear: 'outerwear-robe',
     accessory: 'accessory-11',
     marking: 'marking-arcane',
@@ -575,6 +592,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-03',
     clothes: 'clothes-10',
     clothesColor: '#4c1d95',
+    detailColor: '#facc15',
     accessory: 'accessory-06',
     marking: 'marking-warpaint',
     aura: 'aura-embers',
@@ -595,6 +613,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-05',
     clothes: 'clothes-17',
     clothesColor: '#475569',
+    detailColor: '#facc15',
     outerwear: 'outerwear-armor',
     accessory: 'accessory-08',
     marking: 'marking-cyber',
@@ -615,6 +634,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-02',
     clothes: 'clothes-13',
     clothesColor: '#2563eb',
+    detailColor: '#facc15',
     outerwear: 'outerwear-cape',
     aura: 'aura-backlight',
     background: 'bg-01',
@@ -633,6 +653,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-04',
     clothes: 'clothes-15',
     clothesColor: '#111827',
+    detailColor: '#facc15',
     outerwear: 'outerwear-robe',
     accessory: 'accessory-11',
     marking: 'marking-arcane',
@@ -653,6 +674,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-03',
     clothes: 'clothes-06',
     clothesColor: '#6d28d9',
+    detailColor: '#facc15',
     outerwear: 'outerwear-armor',
     accessory: 'accessory-13',
     marking: 'marking-royal',
@@ -673,6 +695,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-02',
     clothes: 'clothes-02',
     clothesColor: '#16a34a',
+    detailColor: '#facc15',
     accessory: 'none',
     aura: 'aura-stadium',
     background: 'bg-10',
@@ -690,6 +713,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-05',
     clothes: 'clothes-17',
     clothesColor: '#64748b',
+    detailColor: '#facc15',
     outerwear: 'outerwear-armor',
     accessory: 'accessory-08',
     marking: 'marking-cyber',
@@ -709,6 +733,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-02',
     clothes: 'clothes-12',
     clothesColor: '#111827',
+    detailColor: '#facc15',
     accessory: 'accessory-02',
     marking: 'marking-shadow',
     aura: 'aura-shadow',
@@ -728,6 +753,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-03',
     clothes: 'clothes-11',
     clothesColor: '#dc2626',
+    detailColor: '#facc15',
     marking: 'marking-scar',
     aura: 'aura-embers',
     background: 'bg-04',
@@ -746,6 +772,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-01',
     clothes: 'clothes-05',
     clothesColor: '#e11d48',
+    detailColor: '#facc15',
     outerwear: 'outerwear-jacket',
     accessory: 'none',
     marking: 'marking-royal',
@@ -766,6 +793,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-03',
     clothes: 'clothes-10',
     clothesColor: '#4c1d95',
+    detailColor: '#facc15',
     accessory: 'accessory-06',
     marking: 'marking-warpaint',
     aura: 'aura-embers',
@@ -786,6 +814,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-01',
     clothes: 'clothes-16',
     clothesColor: '#7c3aed',
+    detailColor: '#facc15',
     outerwear: 'outerwear-cape',
     headwear: 'headwear-02',
     accessory: 'accessory-05',
@@ -807,6 +836,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-05',
     clothes: 'clothes-17',
     clothesColor: '#475569',
+    detailColor: '#facc15',
     accessory: 'accessory-08',
     marking: 'marking-cyber',
     aura: 'aura-tech',
@@ -826,6 +856,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-04',
     clothes: 'clothes-15',
     clothesColor: '#7f1d1d',
+    detailColor: '#facc15',
     outerwear: 'outerwear-cape',
     marking: 'marking-shadow',
     aura: 'aura-shadow',
@@ -846,6 +877,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-01',
     clothes: 'clothes-18',
     clothesColor: '#0f172a',
+    detailColor: '#facc15',
     outerwear: 'outerwear-jacket',
     accessory: 'accessory-15',
     marking: 'marking-none',
@@ -867,6 +899,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-01',
     clothes: 'clothes-14',
     clothesColor: '#7c3aed',
+    detailColor: '#facc15',
     accessory: 'accessory-15',
     marking: 'marking-cyber',
     aura: 'aura-neon',
@@ -887,6 +920,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-01',
     clothes: 'clothes-19',
     clothesColor: '#92400e',
+    detailColor: '#facc15',
     outerwear: 'outerwear-jacket',
     accessory: 'accessory-16',
     marking: 'marking-shadow',
@@ -909,6 +943,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-02',
     clothes: 'clothes-20',
     clothesColor: '#7f1d1d',
+    detailColor: '#facc15',
     accessory: 'accessory-09',
     marking: 'marking-scar',
     aura: 'aura-backlight',
@@ -929,6 +964,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-04',
     clothes: 'clothes-04',
     clothesColor: '#38bdf8',
+    detailColor: '#facc15',
     outerwear: 'outerwear-robe',
     accessory: 'accessory-11',
     marking: 'marking-arcane',
@@ -948,6 +984,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     body: 'body-02',
     clothes: 'clothes-21',
     clothesColor: '#475569',
+    detailColor: '#facc15',
     outerwear: 'outerwear-armor',
     headwear: 'headwear-05',
     accessory: 'none',
@@ -985,6 +1022,7 @@ export function normalizeAvatarConfig(value: unknown): AvatarConfig {
     sleeves: pickOption('sleeves', draft.sleeves),
     arms: pickOption('arms', draft.arms),
     clothesColor: isHexColor(draft.clothesColor) ? draft.clothesColor! : DEFAULT_AVATAR_CONFIG.clothesColor,
+    detailColor: isHexColor(draft.detailColor) ? draft.detailColor! : DEFAULT_AVATAR_CONFIG.detailColor,
     outerwear: pickOption('outerwear', draft.outerwear),
     accessory: pickOption('accessory', draft.accessory),
     aura: pickOption('aura', draft.aura),
@@ -1011,6 +1049,7 @@ export function randomAvatarConfig(kind?: AvatarKind): AvatarConfig {
   const shortHairSides = ['side-fade-low', 'side-fade-mid', 'side-fade-high', 'side-taper', 'side-undercut', 'side-shaved-line'];
   const hairColors = ['#111827', '#1f2937', '#3b2415', '#7c2d12', '#92400e', '#d97706', '#facc15', '#e5e7eb'];
   const urbanColors = ['#2563eb', '#7c3aed', '#0f766e', '#111827', '#e11d48'];
+  const detailColors = ['#facc15', '#38bdf8', '#f8fafc', '#fb7185', '#a78bfa', '#22c55e'];
   const athleteColors = ['#16a34a', '#2563eb', '#dc2626', '#facc15', '#0f766e'];
   const elegantColors = ['#111827', '#334155', '#7f1d1d', '#92400e', '#581c87'];
 
@@ -1045,6 +1084,7 @@ export function randomAvatarConfig(kind?: AvatarKind): AvatarConfig {
       aura: randomFrom(['aura-backlight', 'aura-backlight', 'aura-none', 'aura-neon']),
       background: randomFrom(['bg-01', 'bg-05', 'bg-06', 'bg-14', 'bg-16']),
       frame: randomFrom(['frame-common', 'frame-rare', 'frame-epic']),
+      detailColor: randomFrom(detailColors),
       ...patch,
     };
   };
@@ -1054,8 +1094,9 @@ export function randomAvatarConfig(kind?: AvatarKind): AvatarConfig {
       weight: 34,
       build: () => humanBase({
         body: randomFrom(['body-01', 'body-02']),
-        clothes: randomFrom(['clothes-01', 'clothes-05', 'clothes-18', 'clothes-14']),
+        clothes: randomFrom(['clothes-01', 'clothes-05', 'clothes-18', 'clothes-14', 'clothes-28', 'clothes-29', 'clothes-30']),
         clothesColor: randomFrom(urbanColors),
+        detailColor: '#facc15',
         outerwear: randomFrom(['outerwear-none', 'outerwear-jacket']),
         background: randomFrom(['bg-01', 'bg-05', 'bg-14', 'bg-16']),
         frame: randomFrom(['frame-common', 'frame-rare', 'frame-epic']),
@@ -1070,6 +1111,7 @@ export function randomAvatarConfig(kind?: AvatarKind): AvatarConfig {
         body: randomFrom(['body-02', 'body-03']),
         clothes: randomFrom(['clothes-02', 'clothes-07', 'clothes-11']),
         clothesColor: randomFrom(athleteColors),
+        detailColor: '#facc15',
         outerwear: 'outerwear-none',
         accessory: randomFrom(['none', 'none', 'accessory-10']),
         aura: 'aura-stadium',
@@ -1084,8 +1126,9 @@ export function randomAvatarConfig(kind?: AvatarKind): AvatarConfig {
         eyes: randomFrom(['eyes-01', 'eyes-02', 'eyes-04', 'eyes-10']),
         hair: randomFrom(['hair-01', 'hair-03', 'hair-13', 'hair-15', 'hair-18']),
         body: randomFrom(['body-01', 'body-02']),
-        clothes: randomFrom(['clothes-05', 'clothes-19', 'clothes-01']),
+        clothes: randomFrom(['clothes-05', 'clothes-19', 'clothes-01', 'clothes-28', 'clothes-30']),
         clothesColor: randomFrom(elegantColors),
+        detailColor: '#facc15',
         outerwear: randomFrom(['outerwear-jacket', 'outerwear-none']),
         accessory: randomFrom(['none', 'none', 'accessory-16']),
         aura: 'aura-backlight',
@@ -1109,6 +1152,7 @@ export function randomAvatarConfig(kind?: AvatarKind): AvatarConfig {
         body: randomFrom(['body-02', 'body-05']),
         clothes: randomFrom(['clothes-06', 'clothes-17', 'clothes-21']),
         clothesColor: randomFrom(['#334155', '#475569', '#0f766e', '#2563eb']),
+        detailColor: '#facc15',
         outerwear: 'outerwear-armor',
         accessory: randomFrom(['none', 'accessory-08']),
         marking: 'marking-cyber',
@@ -1131,8 +1175,9 @@ export function randomAvatarConfig(kind?: AvatarKind): AvatarConfig {
         hairSide: randomFrom(['side-none', 'side-long']),
         hairColor: randomFrom(['#020617', '#2f1b12', '#e0f2fe', '#6d28d9']),
         body: randomFrom(['body-04', 'body-01']),
-        clothes: randomFrom(['clothes-04', 'clothes-15', 'clothes-16']),
+        clothes: randomFrom(['clothes-04', 'clothes-15', 'clothes-16', 'clothes-22', 'clothes-23', 'clothes-24', 'clothes-25', 'clothes-27']),
         clothesColor: randomFrom(['#111827', '#7c3aed', '#38bdf8', '#7f1d1d']),
+        detailColor: '#facc15',
         outerwear: randomFrom(['outerwear-robe', 'outerwear-cape']),
         accessory: randomFrom(['none', 'accessory-11', 'accessory-05']),
         marking: randomFrom(['marking-arcane', 'marking-shadow', 'marking-royal']),
@@ -1157,6 +1202,7 @@ export function randomAvatarConfig(kind?: AvatarKind): AvatarConfig {
         body: 'body-03',
         clothes: randomFrom(['clothes-10', 'clothes-11']),
         clothesColor: randomFrom(['#4c1d95', '#064e3b', '#7f1d1d']),
+        detailColor: '#facc15',
         outerwear: 'outerwear-none',
         accessory: randomFrom(['none', 'accessory-06']),
         marking: randomFrom(['marking-warpaint', 'marking-scar']),
@@ -1181,6 +1227,7 @@ export function randomAvatarConfig(kind?: AvatarKind): AvatarConfig {
         body: 'body-05',
         clothes: randomFrom(['clothes-17', 'clothes-21']),
         clothesColor: randomFrom(['#475569', '#64748b', '#334155']),
+        detailColor: '#facc15',
         outerwear: 'outerwear-armor',
         accessory: randomFrom(['none', 'accessory-08']),
         marking: 'marking-cyber',
@@ -1217,6 +1264,7 @@ function normalizePreset(config: AvatarConfig): AvatarConfig {
     ...config,
     hairColor: isHexColor(config.hairColor) ? config.hairColor : DEFAULT_AVATAR_CONFIG.hairColor,
     clothesColor: isHexColor(config.clothesColor) ? config.clothesColor : DEFAULT_AVATAR_CONFIG.clothesColor,
+    detailColor: isHexColor(config.detailColor) ? config.detailColor : DEFAULT_AVATAR_CONFIG.detailColor,
   });
 }
 
@@ -1288,8 +1336,11 @@ function randomKindAvatar(kind: AvatarKind): AvatarConfig {
     ? ['#111827', '#3b2415', '#7c2d12', '#92400e', '#facc15', '#e0f2fe', '#db2777']
     : ['#064e3b', '#111827', '#94a3b8', '#e0f2fe', '#7c3aed'];
   const clothesColors = kind === 'female'
-    ? ['#db2777', '#7c3aed', '#0f766e', '#111827', '#38bdf8', '#e11d48']
+    ? ['#db2777', '#7c3aed', '#0f766e', '#111827', '#38bdf8', '#e11d48', '#f8fafc']
     : ['#4c1d95', '#064e3b', '#7f1d1d', '#475569', '#38bdf8'];
+  const detailColors = kind === 'female'
+    ? ['#facc15', '#f8fafc', '#38bdf8', '#fb7185', '#a78bfa']
+    : ['#facc15', '#94a3b8', '#38bdf8', '#ef4444'];
 
   return normalizeAvatarConfig({
     ...getDefaultAvatarConfigForKind(kind),
@@ -1308,6 +1359,7 @@ function randomKindAvatar(kind: AvatarKind): AvatarConfig {
     sleeves: randomFrom(getAvatarOptionsForKind('sleeves', kind).map((option) => option.id)),
     arms: randomFrom(getAvatarOptionsForKind('arms', kind).map((option) => option.id)),
     clothesColor: randomFrom(clothesColors),
+    detailColor: randomFrom(detailColors),
     outerwear: randomFrom(getAvatarOptionsForKind('outerwear', kind).map((option) => option.id)),
     accessory: kind === 'female'
       ? randomFrom(['none', 'none', 'accessory-05', 'accessory-10', 'accessory-11', 'accessory-15'])

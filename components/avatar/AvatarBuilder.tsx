@@ -355,8 +355,11 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
                     {active === 'hair' && (
                       <ColorField label="Cor do cabelo" value={config.hairColor} onChange={(color) => update({ hairColor: color })} />
                     )}
-                    {active === 'clothes' && (
-                      <ColorField label="Cor da roupa" value={config.clothesColor} onChange={(color) => update({ clothesColor: color })} />
+                    {['clothes', 'sleeves', 'outerwear'].includes(active) && (
+                      <>
+                        <ColorField label="Cor principal" value={config.clothesColor} onChange={(color) => update({ clothesColor: color })} />
+                        <ColorField label="Cor dos detalhes" value={config.detailColor} onChange={(color) => update({ detailColor: color })} />
+                      </>
                     )}
                   </div>
                 </div>

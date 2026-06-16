@@ -7,6 +7,7 @@ export type AvatarConfig = {
   mouth: string;
   hair: string;
   hairSide: string;
+  hairline: AvatarHairline;
   hairColor: string;
   facialHair: string;
   headwear: string;
@@ -29,6 +30,14 @@ type AvatarOption = {
   color?: string;
 };
 
+export const AVATAR_HAIRLINE_OPTIONS = [
+  { id: 'hairline-low', label: 'Baixa' },
+  { id: 'hairline-medium', label: 'Media' },
+  { id: 'hairline-high', label: 'Alta' },
+] as const;
+
+export type AvatarHairline = (typeof AVATAR_HAIRLINE_OPTIONS)[number]['id'];
+
 export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
   skin: 'skin-02',
   face: 'face-01',
@@ -38,6 +47,7 @@ export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
   mouth: 'mouth-04',
   hair: 'hair-01',
   hairSide: 'side-fade-mid',
+  hairline: 'hairline-low',
   hairColor: '#111827',
   facialHair: 'facial-none',
   headwear: 'headwear-none',
@@ -641,6 +651,7 @@ export function normalizeAvatarConfig(value: unknown): AvatarConfig {
     mouth: pickOption('mouth', draft.mouth),
     hair: pickOption('hair', draft.hair),
     hairSide: pickOption('hairSide', draft.hairSide),
+    hairline: pickHairline(draft.hairline),
     hairColor: isHexColor(draft.hairColor) ? draft.hairColor! : DEFAULT_AVATAR_CONFIG.hairColor,
     facialHair: pickOption('facialHair', draft.facialHair),
     headwear: pickOption('headwear', draft.headwear),
@@ -688,6 +699,7 @@ export function randomAvatarConfig(): AvatarConfig {
       mouth: randomFrom(humanMouths),
       hair,
       hairSide: compatibleHairSide(hair),
+      hairline: randomFrom<AvatarHairline>(['hairline-low', 'hairline-low', 'hairline-medium']),
       hairColor: randomFrom(hairColors),
       facialHair: Math.random() < 0.82 ? 'facial-none' : randomFrom(['facial-01', 'facial-02', 'facial-03', 'facial-04']),
       headwear: 'headwear-none',
@@ -876,6 +888,12 @@ function pickOption(category: AvatarCategory, value?: string) {
   return AVATAR_OPTIONS[category].some((option) => option.id === value)
     ? value!
     : DEFAULT_AVATAR_CONFIG[category];
+}
+
+function pickHairline(value?: string): AvatarHairline {
+  return AVATAR_HAIRLINE_OPTIONS.some((option) => option.id === value)
+    ? (value as AvatarHairline)
+    : DEFAULT_AVATAR_CONFIG.hairline;
 }
 
 function randomFrom<T>(items: T[]) {

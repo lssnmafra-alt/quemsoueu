@@ -1,6 +1,6 @@
 'use client';
 
-import { AVATAR_OPTIONS, DEFAULT_AVATAR_CONFIG, normalizeAvatarConfig, type AvatarConfig } from '@/lib/avatarConfig';
+import { AVATAR_OPTIONS, DEFAULT_AVATAR_CONFIG, normalizeAvatarConfig, type AvatarConfig, type AvatarHairline } from '@/lib/avatarConfig';
 import { cn } from '@/lib/utils';
 
 type AvatarRendererProps = {
@@ -153,7 +153,7 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
             </g>
 
             <g transform="translate(0 -10)">
-              <HairSide side={avatar.hairSide} color={hair} fill={hairFill} />
+              <HairSide hair={avatar.hair} side={avatar.hairSide} color={hair} fill={hairFill} />
             </g>
 
             <g transform="translate(0 -2)">
@@ -168,6 +168,7 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
 
             <g transform="translate(0 -10)">
               <Ears skin={isRobot ? '#94a3b8' : skin} shadow={skinShadow} feral={isFeral || avatar.accessory === 'accessory-06'} />
+              <HairFoundation hair={avatar.hair} hairline={avatar.hairline} color={hair} fill={hairFill} />
               <HairTop hair={avatar.hair} color={hair} fill={hairFill} />
               <HairShine hair={avatar.hair} />
             </g>
@@ -598,8 +599,8 @@ function Ears({ skin, shadow, feral }: { skin: string; shadow: string; feral: bo
   );
 }
 
-function HairSide({ side, color, fill }: { side: string; color: string; fill: string }) {
-  if (side === 'side-none') return null;
+function HairSide({ hair, side, color, fill }: { hair: string; side: string; color: string; fill: string }) {
+  if (hair === 'hair-08' || hair === 'hair-09' || side === 'side-none') return null;
   if (side === 'side-long') return <path d="M118 160 C108 198 112 244 130 282 L150 268 C138 226 140 188 150 160 Z M242 160 C252 198 248 244 230 282 L210 268 C222 226 220 188 210 160 Z" fill={fill} />;
   if (side === 'side-braided') {
     return (
@@ -629,6 +630,48 @@ function HairSide({ side, color, fill }: { side: string; color: string; fill: st
   return <path d="M118 180 C122 140 146 122 168 124 L158 232 C136 226 120 204 118 180Z M242 180 C238 140 214 122 192 124 L202 232 C224 226 240 204 242 180Z" fill={shade(color, -30)} />;
 }
 
+function HairFoundation({ hair, hairline, color, fill }: { hair: string; hairline: AvatarHairline; color: string; fill: string }) {
+  if (hair === 'hair-08' || hair === 'hair-09') return null;
+
+  const bottomByHairline: Record<AvatarHairline, number> = {
+    'hairline-low': 178,
+    'hairline-medium': 168,
+    'hairline-high': 158,
+  };
+  const bottom = bottomByHairline[hairline] || bottomByHairline['hairline-low'];
+  const crownTop = ['hair-03', 'hair-18'].includes(hair) ? 106 : ['hair-02', 'hair-10'].includes(hair) ? 112 : 114;
+  const left = ['hair-04', 'hair-11', 'hair-16', 'hair-20'].includes(hair) ? 114 : 118;
+  const right = 360 - left;
+  const sideBottom = Math.max(bottom - 4, 150);
+  const innerY = Math.max(bottom - 18, 140);
+
+  if (hair === 'hair-06') {
+    return (
+      <g>
+        <path d={`M154 ${sideBottom} C158 128 168 100 180 88 C192 100 202 128 206 ${sideBottom} C190 ${innerY} 170 ${innerY} 154 ${sideBottom}Z`} fill={fill} />
+        <path d={`M166 ${bottom - 8} C174 ${bottom - 14} 186 ${bottom - 14} 194 ${bottom - 8}`} fill="none" stroke={shade(color, -16)} strokeWidth="3" strokeLinecap="round" opacity="0.28" />
+      </g>
+    );
+  }
+
+  if (hair === 'hair-05' || hair === 'hair-15' || hair === 'hair-17') {
+    const sweepBottom = hairline === 'hairline-low' ? 170 : hairline === 'hairline-medium' ? 160 : 150;
+    return (
+      <g>
+        <path d={`M122 ${sweepBottom} C130 128 164 108 210 116 C232 122 240 140 238 ${sweepBottom - 2} C216 ${sweepBottom - 14} 188 ${sweepBottom - 18} 160 ${sweepBottom - 10} C144 ${sweepBottom - 6} 132 ${sweepBottom - 2} 122 ${sweepBottom}Z`} fill={fill} />
+        <path d={`M136 ${sweepBottom - 6} C162 ${sweepBottom - 28} 196 ${sweepBottom - 30} 226 ${sweepBottom - 14}`} fill="none" stroke={shade(color, 24)} strokeWidth="4" strokeLinecap="round" opacity="0.18" />
+      </g>
+    );
+  }
+
+  return (
+    <g>
+      <path d={`M${left} ${bottom} C${left + 2} 132 148 ${crownTop} 180 ${crownTop} C212 ${crownTop} ${right - 2} 132 ${right} ${bottom} C222 ${sideBottom} 204 ${innerY} 180 ${innerY} C156 ${innerY} 138 ${sideBottom} ${left} ${bottom}Z`} fill={fill} />
+      <path d={`M126 ${bottom - 4} C146 ${bottom - 18} 164 ${bottom - 22} 180 ${bottom - 20} C198 ${bottom - 22} 218 ${bottom - 18} 234 ${bottom - 4}`} fill="none" stroke={shade(color, -18)} strokeWidth="3" strokeLinecap="round" opacity="0.16" />
+    </g>
+  );
+}
+
 function HairTop({ hair, color, fill }: { hair: string; color: string; fill: string }) {
   if (hair === 'hair-08') return null;
 
@@ -643,25 +686,30 @@ function HairTop({ hair, color, fill }: { hair: string; color: string; fill: str
   }
 
   if (hair === 'hair-02') {
-    return <path d="M120 170 L136 134 L148 162 L160 122 L176 158 L190 112 L204 158 L222 130 L240 170 C220 164 204 156 188 174 C172 156 148 178 120 170Z" fill={fill} />;
+    return (
+      <g>
+        <path d="M122 166 L136 132 L148 158 L160 118 L176 154 L190 108 L204 154 L222 126 L238 166 C220 158 204 152 188 162 C172 152 148 166 122 166Z" fill={fill} />
+        <path d="M130 165 C148 156 164 154 180 160 C198 152 216 156 232 164" fill="none" stroke={shade(color, -18)} strokeWidth="3" strokeLinecap="round" opacity="0.22" />
+      </g>
+    );
   }
 
   if (hair === 'hair-03') {
     const curls: Point[] = [
-      { x: 132, y: 162 },
-      { x: 150, y: 138 },
-      { x: 178, y: 124 },
-      { x: 206, y: 136 },
-      { x: 228, y: 160 },
-      { x: 146, y: 184 },
-      { x: 176, y: 174 },
-      { x: 212, y: 182 },
+      { x: 128, y: 158 },
+      { x: 146, y: 136 },
+      { x: 170, y: 122 },
+      { x: 198, y: 124 },
+      { x: 222, y: 142 },
+      { x: 234, y: 162 },
+      { x: 158, y: 162 },
+      { x: 190, y: 158 },
     ];
 
     return (
       <g>
-        {curls.map((curl, index) => <circle key={`${curl.x}-${curl.y}-${index}`} cx={curl.x} cy={curl.y} r={index > 4 ? 18 : 21} fill={fill} />)}
-        <path d="M138 182 C154 172 166 186 180 174 C194 186 208 172 224 182" fill="none" stroke={shade(color, -18)} strokeWidth="4" strokeLinecap="round" opacity="0.22" />
+        {curls.map((curl, index) => <circle key={`${curl.x}-${curl.y}-${index}`} cx={curl.x} cy={curl.y} r={index > 5 ? 17 : 20} fill={fill} />)}
+        <path d="M132 168 C150 156 166 170 180 158 C196 170 214 156 230 168" fill="none" stroke={shade(color, -18)} strokeWidth="4" strokeLinecap="round" opacity="0.22" />
       </g>
     );
   }
@@ -690,7 +738,7 @@ function HairTop({ hair, color, fill }: { hair: string; color: string; fill: str
   }
 
   if (hair === 'hair-07') {
-    return <path d="M120 172 C128 124 178 106 238 130 C212 138 178 150 148 192 C138 188 128 180 120 172Z" fill={fill} />;
+    return <path d="M120 168 C130 124 178 106 238 130 C214 136 188 146 160 170 C146 166 132 166 120 168Z" fill={fill} />;
   }
 
   if (hair === 'hair-09') {
@@ -702,7 +750,7 @@ function HairTop({ hair, color, fill }: { hair: string; color: string; fill: str
     );
   }
 
-  if (hair === 'hair-10') return <path d="M116 174 L136 132 L150 166 L166 120 L180 170 L198 112 L210 166 L228 130 L244 174 C222 164 204 158 190 184 C174 158 146 184 116 174Z" fill={fill} />;
+  if (hair === 'hair-10') return <path d="M116 166 L136 126 L150 158 L166 116 L180 162 L198 108 L210 158 L228 124 L244 166 C222 158 204 152 190 166 C174 152 146 168 116 166Z" fill={fill} />;
 
   if (hair === 'hair-11') {
     return <path d="M120 166 C140 112 220 110 240 166 C224 154 206 146 192 146 L186 180 C182 176 178 176 174 180 L168 146 C150 148 134 156 120 166Z" fill={fill} />;
@@ -751,17 +799,17 @@ function HairTop({ hair, color, fill }: { hair: string; color: string; fill: str
 
   if (hair === 'hair-18') {
     const curls: Point[] = [
-      { x: 134, y: 150 },
-      { x: 154, y: 126 },
-      { x: 184, y: 112 },
-      { x: 214, y: 126 },
-      { x: 234, y: 152 },
-      { x: 180, y: 142 },
-      { x: 154, y: 154 },
-      { x: 208, y: 154 },
+      { x: 132, y: 146 },
+      { x: 154, y: 122 },
+      { x: 184, y: 106 },
+      { x: 214, y: 122 },
+      { x: 236, y: 148 },
+      { x: 180, y: 136 },
+      { x: 152, y: 158 },
+      { x: 208, y: 158 },
     ];
 
-    return <g>{curls.map((curl, index) => <circle key={`${curl.x}-${curl.y}-${index}`} cx={curl.x} cy={curl.y} r={index > 4 ? 20 : 22} fill={fill} />)}</g>;
+    return <g>{curls.map((curl, index) => <circle key={`${curl.x}-${curl.y}-${index}`} cx={curl.x} cy={curl.y} r={index > 4 ? 19 : 22} fill={fill} />)}</g>;
   }
 
   if (hair === 'hair-19') {

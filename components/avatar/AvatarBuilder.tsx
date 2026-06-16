@@ -15,6 +15,7 @@ import {
 import AvatarRenderer from '@/components/avatar/AvatarRenderer';
 import {
   AVATAR_OPTIONS,
+  AVATAR_HAIRLINE_OPTIONS,
   AVATAR_PRESETS,
   DEFAULT_AVATAR_CONFIG,
   normalizeAvatarConfig,
@@ -262,6 +263,36 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
                 </div>
 
                 <div className="max-h-[48vh] min-h-[220px] overflow-y-auto pr-1 sm:max-h-[410px] sm:min-h-[260px]">
+                  {active === 'hair' && (
+                    <div className="mb-3 rounded-3xl border border-cyan-300/20 bg-cyan-300/10 p-3">
+                      <div className="mb-2">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-cyan-100">Linha do cabelo</p>
+                        <p className="text-[10px] font-semibold text-slate-300">Preenche a testa sem descer o penteado para cima dos olhos.</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {AVATAR_HAIRLINE_OPTIONS.map((option) => {
+                          const isSelected = config.hairline === option.id;
+
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => update({ hairline: option.id })}
+                              className={cn(
+                                'min-h-[42px] rounded-2xl border px-3 text-center text-[11px] font-black uppercase tracking-wide transition-all',
+                                isSelected
+                                  ? 'border-cyan-200/80 bg-cyan-300/25 text-white shadow-lg shadow-cyan-950/25'
+                                  : 'border-white/10 bg-white/[0.06] text-slate-200 hover:border-white/25 hover:bg-white/[0.1]',
+                              )}
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                     {AVATAR_OPTIONS[active].map((option) => {
                       const isSelected = config[active] === option.id;

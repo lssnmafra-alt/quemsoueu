@@ -530,24 +530,56 @@ function ArmsLayer({
 function SleevesLayer({ sleeves, arms, outfitFill, outfitDark, accent }: { sleeves: string; arms: string; outfitFill: string; outfitDark: string; accent: string }) {
   if (sleeves === 'sleeves-none' || arms === 'arms-crossed' || arms === 'arms-waist' || arms === 'arms-holding') return null;
 
+  // Importante: ArmsLayer ja desenha o braco inteiro.
+  // Esta camada deve desenhar apenas acabamento da manga, nao outro braco por cima.
   if (sleeves === 'sleeves-short') {
-    return <g opacity="0.9"><path d="M106 298 C118 290 132 292 142 304 C130 314 114 316 102 308Z" fill={outfitFill} /><path d="M254 298 C242 290 228 292 218 304 C230 314 246 316 258 308Z" fill={outfitFill} /></g>;
+    return (
+      <g opacity="0.88">
+        <path d="M108 298 C120 291 132 293 140 304 C130 312 116 314 104 307Z" fill={outfitFill} />
+        <path d="M252 298 C240 291 228 293 220 304 C230 312 244 314 256 307Z" fill={outfitFill} />
+      </g>
+    );
   }
 
   if (sleeves === 'sleeves-long' || sleeves === 'sleeves-jacket') {
-    return <g opacity="0.88"><path d="M110 306 C96 334 94 374 100 406" fill="none" stroke={sleeves === 'sleeves-jacket' ? shade(outfitDark, -10) : outfitFill} strokeWidth="19" strokeLinecap="round" /><path d="M250 306 C264 334 266 374 260 406" fill="none" stroke={sleeves === 'sleeves-jacket' ? shade(outfitDark, -10) : outfitFill} strokeWidth="19" strokeLinecap="round" /></g>;
+    const detail = sleeves === 'sleeves-jacket' ? shade(outfitDark, -16) : shade(outfitDark, -6);
+
+    return (
+      <g opacity="0.7" stroke={detail} strokeLinecap="round">
+        <path d="M106 316 C118 306 130 304 140 312" strokeWidth="4" />
+        <path d="M254 316 C242 306 230 304 220 312" strokeWidth="4" />
+        <path d="M98 392 C104 396 110 396 116 392" strokeWidth="3" />
+        <path d="M262 392 C256 396 250 396 244 392" strokeWidth="3" />
+      </g>
+    );
   }
 
   if (sleeves === 'sleeves-armor' || sleeves === 'sleeves-robot') {
-    return <g opacity="0.92"><path d="M100 312 L128 296 L142 320 L118 338Z" fill="#cbd5e1" stroke={accent} strokeWidth="3" /><path d="M260 312 L232 296 L218 320 L242 338Z" fill="#cbd5e1" stroke={accent} strokeWidth="3" /><path d="M102 352 H120 M240 352 H258 M100 382 H116 M244 382 H260" stroke={accent} strokeWidth="4" strokeLinecap="round" /></g>;
+    return (
+      <g opacity="0.9">
+        <path d="M102 310 L126 296 L140 318 L118 334Z" fill="#cbd5e1" stroke={accent} strokeWidth="2.5" />
+        <path d="M258 310 L234 296 L220 318 L242 334Z" fill="#cbd5e1" stroke={accent} strokeWidth="2.5" />
+        <path d="M100 352 H116 M244 352 H260 M98 382 H114 M246 382 H262" stroke={accent} strokeWidth="3" strokeLinecap="round" opacity="0.8" />
+      </g>
+    );
   }
 
   if (sleeves === 'sleeves-gloves') {
-    return <g opacity="0.9"><path d="M100 360 C94 380 94 396 100 410" fill="none" stroke={shade(outfitDark, -18)} strokeWidth="16" strokeLinecap="round" /><path d="M260 360 C266 380 266 396 260 410" fill="none" stroke={shade(outfitDark, -18)} strokeWidth="16" strokeLinecap="round" /></g>;
+    return (
+      <g opacity="0.86" stroke={shade(outfitDark, -18)} strokeLinecap="round">
+        <path d="M98 392 C104 397 111 397 117 392" strokeWidth="8" />
+        <path d="M262 392 C256 397 249 397 243 392" strokeWidth="8" />
+      </g>
+    );
   }
 
   if (sleeves === 'sleeves-torn') {
-    return <g fill={outfitFill} opacity="0.88"><path d="M102 300 L142 298 L130 322 L118 312 L110 326Z" /><path d="M258 300 L218 298 L230 322 L242 312 L250 326Z" /></g>;
+    return (
+      <g fill={outfitFill} opacity="0.86">
+        <path d="M102 300 L140 298 L130 320 L118 312 L110 324Z" />
+        <path d="M258 300 L220 298 L230 320 L242 312 L250 324Z" />
+      </g>
+    );
   }
 
   return null;

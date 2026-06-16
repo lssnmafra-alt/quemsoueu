@@ -1,6 +1,6 @@
 'use client';
 
-import { AVATAR_OPTIONS, DEFAULT_AVATAR_CONFIG, normalizeAvatarConfig, type AvatarConfig, type AvatarHairline } from '@/lib/avatarConfig';
+import { AVATAR_OPTIONS, DEFAULT_AVATAR_CONFIG, normalizeAvatarConfig, type AvatarConfig, type AvatarHairline, type AvatarKind } from '@/lib/avatarConfig';
 import { cn } from '@/lib/utils';
 
 type AvatarRendererProps = {
@@ -60,9 +60,10 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
   const hairFill = `url(#${ids.hairGradient})`;
   const bg = backgroundThemes[avatar.background] || backgroundThemes['bg-01'];
   const frame = frameThemes[avatar.frame] || frameThemes['frame-rare'];
+  const isCreature = avatar.kind === 'creature';
   const isRobot = avatar.skin === 'skin-09' || avatar.face === 'face-09' || avatar.body === 'body-05';
-  const isFeral = avatar.skin === 'skin-06' || avatar.mouth === 'mouth-06';
-  const bodyShape = getBodyShape(avatar.body);
+  const isFeral = isCreature || avatar.skin === 'skin-06' || avatar.mouth === 'mouth-06';
+  const bodyShape = getBodyShape(avatar.body, avatar.kind);
   const facePath = getFacePath(avatar.face);
   const displayName = name.trim() || 'Personagem';
 
@@ -135,6 +136,7 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
           <g filter={`url(#${ids.softShadow})`}>
             {avatar.outerwear === 'outerwear-cape' && <Cape outfit={outfitDark} frame={frame.a} />}
             {avatar.outerwear === 'outerwear-robe' && <RobeBack color={outfitDark} accent={frame.a} />}
+            {isCreature && <CreatureBackParts skin={skin} accent={frame.a} glow={bg.glow} isRobot={isRobot} />}
 
             <g transform="translate(0 -12)">
               <path
@@ -154,6 +156,7 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
 
             <g transform="translate(0 -10)">
               <HairSide hair={avatar.hair} side={avatar.hairSide} color={hair} fill={hairFill} />
+              <HairBack hair={avatar.hair} kind={avatar.kind} color={hair} fill={hairFill} />
             </g>
 
             <g transform="translate(0 -2)">
@@ -168,6 +171,7 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
 
             <g transform="translate(0 -10)">
               <Ears skin={isRobot ? '#94a3b8' : skin} shadow={skinShadow} feral={isFeral || avatar.accessory === 'accessory-06'} />
+              {isCreature && <CreatureHeadParts skin={isRobot ? '#94a3b8' : skin} shadow={skinShadow} accent={frame.a} isRobot={isRobot} />}
               <HairFoundation hair={avatar.hair} hairline={avatar.hairline} color={hair} fill={hairFill} />
               <HairTop hair={avatar.hair} color={hair} fill={hairFill} />
               <HairShine hair={avatar.hair} />
@@ -197,7 +201,7 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
 }
 
 function buildSvgIds(avatar: AvatarConfig, name: string) {
-  const seed = `${name}-${avatar.skin}-${avatar.face}-${avatar.hair}-${avatar.hairSide}-${avatar.clothes}-${avatar.background}-${avatar.frame}-${avatar.aura}-${avatar.marking}`;
+  const seed = `${name}-${avatar.kind}-${avatar.skin}-${avatar.face}-${avatar.hair}-${avatar.hairSide}-${avatar.clothes}-${avatar.background}-${avatar.frame}-${avatar.aura}-${avatar.marking}`;
   let hash = 0;
 
   for (let index = 0; index < seed.length; index += 1) {
@@ -579,6 +583,76 @@ function Outerwear({ outerwear, color, accent }: { outerwear: string; color: str
   }
 
   return null;
+}
+
+
+function CreatureBackParts({ skin, accent, glow, isRobot }: { skin: string; accent: string; glow: string; isRobot: boolean }) {
+  if (isRobot) {
+    return (
+      <g opacity="0.72">
+        <path d="M92 310 C70 260 78 214 116 190 C102 244 114 286 150 324Z" fill="#475569" stroke={accent} strokeWidth="3" />
+        <path d="M268 310 C290 260 282 214 244 190 C258 244 246 286 210 324Z" fill="#475569" stroke={accent} strokeWidth="3" />
+        <path d="M96 254 H132 M228 254 H264" stroke={glow} strokeWidth="4" strokeLinecap="round" opacity="0.7" />
+      </g>
+    );
+  }
+
+  return (
+    <g opacity="0.86">
+      <path d="M84 330 C48 286 54 232 112 194 C98 246 120 294 158 332Z" fill={shade(skin, -18)} stroke={accent} strokeWidth="2.5" opacity="0.72" />
+      <path d="M276 330 C312 286 306 232 248 194 C262 246 240 294 202 332Z" fill={shade(skin, -18)} stroke={accent} strokeWidth="2.5" opacity="0.72" />
+      <path d="M114 392 C70 384 70 342 106 336 C94 360 112 374 138 372" fill="none" stroke={shade(skin, -24)} strokeWidth="10" strokeLinecap="round" opacity="0.72" />
+    </g>
+  );
+}
+
+function HairBack({ hair, kind, color, fill }: { hair: string; kind: AvatarKind; color: string; fill: string }) {
+  if (kind !== 'female') return null;
+  if (hair === 'hair-08' || hair === 'hair-19') return null;
+
+  if (hair === 'hair-12') {
+    return (
+      <g opacity="0.95">
+        <path d="M116 162 C112 218 118 266 136 300" fill="none" stroke={shade(color, -14)} strokeWidth="14" strokeLinecap="round" />
+        <path d="M244 162 C248 218 242 266 224 300" fill="none" stroke={shade(color, -14)} strokeWidth="14" strokeLinecap="round" />
+      </g>
+    );
+  }
+
+  if (hair === 'hair-17') {
+    return (
+      <g>
+        <path d="M214 130 C270 116 292 168 254 208 C252 176 232 158 204 154Z" fill={fill} opacity="0.96" />
+        <path d="M232 154 C264 166 258 198 234 222" fill="none" stroke={shade(color, -16)} strokeWidth="9" strokeLinecap="round" opacity="0.34" />
+      </g>
+    );
+  }
+
+  if (hair === 'hair-16') {
+    return <path d="M116 164 C118 126 144 106 182 108 C224 110 246 138 246 184 C246 230 222 260 206 278 L190 242 C216 226 224 196 214 166 C194 154 164 154 144 166 C134 196 142 226 170 242 L154 278 C134 260 116 224 116 164Z" fill={fill} opacity="0.94" />;
+  }
+
+  return <path d="M112 170 C112 120 144 98 184 104 C226 110 250 140 248 190 C246 248 220 292 200 326 L184 280 C210 248 220 204 212 166 C190 152 160 154 144 168 C136 206 148 250 176 280 L160 326 C136 292 112 244 112 170Z" fill={fill} opacity="0.92" />;
+}
+
+function CreatureHeadParts({ skin, shadow, accent, isRobot }: { skin: string; shadow: string; accent: string; isRobot: boolean }) {
+  if (isRobot) {
+    return (
+      <g opacity="0.85">
+        <path d="M132 148 L112 116 M228 148 L248 116" stroke={accent} strokeWidth="5" strokeLinecap="round" />
+        <circle cx="108" cy="110" r="7" fill={accent} />
+        <circle cx="252" cy="110" r="7" fill={accent} />
+      </g>
+    );
+  }
+
+  return (
+    <g>
+      <path d="M140 142 C128 112 138 94 158 82 C154 112 166 128 180 138" fill={shade(skin, -12)} stroke={shadow} strokeWidth="2.5" />
+      <path d="M220 142 C232 112 222 94 202 82 C206 112 194 128 180 138" fill={shade(skin, -12)} stroke={shadow} strokeWidth="2.5" />
+      <path d="M154 98 C150 114 158 126 172 136 M206 98 C210 114 202 126 188 136" fill="none" stroke={accent} strokeWidth="2.2" opacity="0.5" />
+    </g>
+  );
 }
 
 function Ears({ skin, shadow, feral }: { skin: string; shadow: string; feral: boolean }) {
@@ -1043,7 +1117,10 @@ function getFacePath(face: string) {
   return 'M128 188 C128 146 152 126 180 126 C208 126 232 146 232 188 C232 236 210 278 180 278 C150 278 128 236 128 188Z';
 }
 
-function getBodyShape(body: string) {
+function getBodyShape(body: string, kind: AvatarKind) {
+  if (kind === 'female') return { leftShoulder: 112, rightShoulder: 248, leftWaist: 130, rightWaist: 230 };
+  if (kind === 'creature' && body === 'body-05') return { leftShoulder: 84, rightShoulder: 276, leftWaist: 112, rightWaist: 248 };
+  if (kind === 'creature') return { leftShoulder: 78, rightShoulder: 282, leftWaist: 104, rightWaist: 256 };
   if (body === 'body-03') return { leftShoulder: 86, rightShoulder: 274, leftWaist: 108, rightWaist: 252 };
   if (body === 'body-04') return { leftShoulder: 116, rightShoulder: 244, leftWaist: 132, rightWaist: 228 };
   if (body === 'body-05') return { leftShoulder: 90, rightShoulder: 270, leftWaist: 112, rightWaist: 248 };

@@ -1,4 +1,7 @@
+export type AvatarKind = 'male' | 'female' | 'creature';
+
 export type AvatarConfig = {
+  kind: AvatarKind;
   skin: string;
   face: string;
   eyebrows: string;
@@ -28,7 +31,14 @@ type AvatarOption = {
   id: string;
   label: string;
   color?: string;
+  kinds?: readonly AvatarKind[];
 };
+
+export const AVATAR_KIND_OPTIONS: Array<{ id: AvatarKind; label: string; hint: string }> = [
+  { id: 'male', label: 'Masculino', hint: 'base masculina, barba e laterais' },
+  { id: 'female', label: 'Feminino', hint: 'base feminina, cabelos longos e sem barba' },
+  { id: 'creature', label: 'Criatura', hint: 'monstro, robo, alien, fera ou fantasia' },
+];
 
 export const AVATAR_HAIRLINE_OPTIONS = [
   { id: 'hairline-low', label: 'Baixa' },
@@ -39,6 +49,7 @@ export const AVATAR_HAIRLINE_OPTIONS = [
 export type AvatarHairline = (typeof AVATAR_HAIRLINE_OPTIONS)[number]['id'];
 
 export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
+  kind: 'male',
   skin: 'skin-02',
   face: 'face-01',
   eyebrows: 'brows-01',
@@ -284,7 +295,251 @@ export const AVATAR_OPTIONS = {
   ],
 } satisfies Record<string, AvatarOption[]>;
 
+const KIND_OPTION_RULES: Record<AvatarKind, Partial<Record<AvatarCategory, readonly string[]>>> = {
+  male: {
+    skin: ['skin-01', 'skin-02', 'skin-03', 'skin-04', 'skin-05', 'skin-09'],
+    face: ['face-01', 'face-03', 'face-05', 'face-06', 'face-07', 'face-08', 'face-09'],
+    eyebrows: ['brows-01', 'brows-02', 'brows-03', 'brows-04', 'brows-05', 'brows-06'],
+    eyes: ['eyes-01', 'eyes-02', 'eyes-03', 'eyes-04', 'eyes-05', 'eyes-06', 'eyes-08', 'eyes-09', 'eyes-10', 'eyes-12'],
+    nose: ['nose-01', 'nose-03', 'nose-04', 'nose-05', 'nose-06'],
+    mouth: ['mouth-01', 'mouth-02', 'mouth-03', 'mouth-04', 'mouth-05'],
+    hair: ['hair-01', 'hair-02', 'hair-03', 'hair-05', 'hair-06', 'hair-07', 'hair-08', 'hair-10', 'hair-13', 'hair-15', 'hair-18'],
+    hairSide: ['side-none', 'side-fade-low', 'side-fade-mid', 'side-fade-high', 'side-taper', 'side-undercut', 'side-shaved-line'],
+    facialHair: ['facial-none', 'facial-01', 'facial-02', 'facial-03', 'facial-04', 'facial-05'],
+    body: ['body-01', 'body-02', 'body-03', 'body-05'],
+    clothes: ['clothes-01', 'clothes-02', 'clothes-03', 'clothes-05', 'clothes-06', 'clothes-07', 'clothes-08', 'clothes-11', 'clothes-12', 'clothes-13', 'clothes-14', 'clothes-17', 'clothes-18', 'clothes-19', 'clothes-20', 'clothes-21'],
+    outerwear: ['outerwear-none', 'outerwear-cape', 'outerwear-armor', 'outerwear-jacket'],
+  },
+  female: {
+    skin: ['skin-01', 'skin-02', 'skin-03', 'skin-04', 'skin-05', 'skin-08'],
+    face: ['face-02', 'face-04', 'face-07', 'face-08', 'face-10'],
+    eyebrows: ['brows-01', 'brows-02', 'brows-03', 'brows-04', 'brows-05'],
+    eyes: ['eyes-01', 'eyes-02', 'eyes-04', 'eyes-05', 'eyes-06', 'eyes-10', 'eyes-11'],
+    nose: ['nose-01', 'nose-02', 'nose-03', 'nose-05'],
+    mouth: ['mouth-01', 'mouth-02', 'mouth-03', 'mouth-04', 'mouth-05'],
+    hair: ['hair-04', 'hair-08', 'hair-11', 'hair-12', 'hair-14', 'hair-16', 'hair-17', 'hair-19', 'hair-20'],
+    hairSide: ['side-none', 'side-long', 'side-braided'],
+    facialHair: ['facial-none'],
+    body: ['body-01', 'body-02', 'body-04'],
+    clothes: ['clothes-01', 'clothes-04', 'clothes-05', 'clothes-06', 'clothes-08', 'clothes-13', 'clothes-14', 'clothes-15', 'clothes-16', 'clothes-18', 'clothes-19'],
+    outerwear: ['outerwear-none', 'outerwear-cape', 'outerwear-robe', 'outerwear-ruff', 'outerwear-jacket'],
+  },
+  creature: {
+    skin: ['skin-06', 'skin-07', 'skin-08', 'skin-09'],
+    face: ['face-05', 'face-06', 'face-09', 'face-10'],
+    eyebrows: ['brows-03', 'brows-04', 'brows-06'],
+    eyes: ['eyes-03', 'eyes-06', 'eyes-07', 'eyes-08', 'eyes-09', 'eyes-11', 'eyes-12'],
+    nose: ['nose-04', 'nose-05', 'nose-06'],
+    mouth: ['mouth-03', 'mouth-05', 'mouth-06'],
+    hair: ['hair-08', 'hair-09', 'hair-10', 'hair-11', 'hair-18'],
+    hairSide: ['side-none', 'side-long'],
+    facialHair: ['facial-none'],
+    body: ['body-03', 'body-05'],
+    clothes: ['clothes-03', 'clothes-04', 'clothes-06', 'clothes-10', 'clothes-11', 'clothes-15', 'clothes-17', 'clothes-21'],
+    outerwear: ['outerwear-none', 'outerwear-cape', 'outerwear-robe', 'outerwear-armor'],
+  },
+};
+
+const KIND_DEFAULT_PATCHES: Record<AvatarKind, Partial<AvatarConfig>> = {
+  male: {
+    kind: 'male',
+    skin: 'skin-02',
+    face: 'face-01',
+    eyebrows: 'brows-01',
+    eyes: 'eyes-01',
+    nose: 'nose-01',
+    mouth: 'mouth-04',
+    hair: 'hair-01',
+    hairSide: 'side-fade-mid',
+    hairline: 'hairline-low',
+    hairColor: '#111827',
+    facialHair: 'facial-none',
+    headwear: 'headwear-none',
+    marking: 'marking-none',
+    body: 'body-02',
+    clothes: 'clothes-01',
+    clothesColor: '#2563eb',
+    outerwear: 'outerwear-none',
+    accessory: 'none',
+    aura: 'aura-backlight',
+    background: 'bg-01',
+    frame: 'frame-rare',
+  },
+  female: {
+    kind: 'female',
+    skin: 'skin-01',
+    face: 'face-02',
+    eyebrows: 'brows-02',
+    eyes: 'eyes-05',
+    nose: 'nose-02',
+    mouth: 'mouth-01',
+    hair: 'hair-16',
+    hairSide: 'side-none',
+    hairline: 'hairline-low',
+    hairColor: '#3b2415',
+    facialHair: 'facial-none',
+    headwear: 'headwear-none',
+    marking: 'marking-freckles',
+    body: 'body-04',
+    clothes: 'clothes-05',
+    clothesColor: '#db2777',
+    outerwear: 'outerwear-jacket',
+    accessory: 'none',
+    aura: 'aura-backlight',
+    background: 'bg-14',
+    frame: 'frame-rare',
+  },
+  creature: {
+    kind: 'creature',
+    skin: 'skin-06',
+    face: 'face-05',
+    eyebrows: 'brows-03',
+    eyes: 'eyes-07',
+    nose: 'nose-04',
+    mouth: 'mouth-06',
+    hair: 'hair-08',
+    hairSide: 'side-none',
+    hairline: 'hairline-high',
+    hairColor: '#064e3b',
+    facialHair: 'facial-none',
+    headwear: 'headwear-none',
+    marking: 'marking-warpaint',
+    body: 'body-03',
+    clothes: 'clothes-10',
+    clothesColor: '#4c1d95',
+    outerwear: 'outerwear-none',
+    accessory: 'accessory-06',
+    aura: 'aura-embers',
+    background: 'bg-02',
+    frame: 'frame-legendary',
+  },
+};
+
+export function getAvatarOptionsForKind(category: AvatarCategory, kind: AvatarKind = 'male') {
+  const selectedKind = pickKind(kind);
+  const allowedIds = KIND_OPTION_RULES[selectedKind][category];
+  const options = AVATAR_OPTIONS[category];
+
+  if (!allowedIds) return options;
+
+  return options.filter((option) => allowedIds.includes(option.id));
+}
+
+export function getDefaultAvatarConfigForKind(kind: AvatarKind = 'male'): AvatarConfig {
+  const selectedKind = pickKind(kind);
+  return normalizeAvatarConfig({ ...DEFAULT_AVATAR_CONFIG, ...KIND_DEFAULT_PATCHES[selectedKind], kind: selectedKind });
+}
+
+export function switchAvatarKind(config: AvatarConfig, kind: AvatarKind): AvatarConfig {
+  const selectedKind = pickKind(kind);
+  const defaults = getDefaultAvatarConfigForKind(selectedKind);
+
+  return normalizeAvatarConfig({
+    ...config,
+    kind: selectedKind,
+    skin: defaults.skin,
+    face: defaults.face,
+    eyebrows: defaults.eyebrows,
+    eyes: defaults.eyes,
+    nose: defaults.nose,
+    mouth: defaults.mouth,
+    hair: defaults.hair,
+    hairSide: defaults.hairSide,
+    hairline: defaults.hairline,
+    hairColor: defaults.hairColor,
+    facialHair: defaults.facialHair,
+    body: defaults.body,
+    clothes: defaults.clothes,
+    clothesColor: defaults.clothesColor,
+    outerwear: defaults.outerwear,
+    accessory: defaults.accessory,
+    marking: defaults.marking,
+  });
+}
+
 export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarConfig }> = [
+  preset('female-studio', 'Heroina Studio', {
+    kind: 'female',
+    skin: 'skin-01',
+    face: 'face-02',
+    eyebrows: 'brows-02',
+    eyes: 'eyes-05',
+    nose: 'nose-02',
+    mouth: 'mouth-01',
+    hair: 'hair-16',
+    hairSide: 'side-none',
+    hairColor: '#3b2415',
+    body: 'body-04',
+    clothes: 'clothes-05',
+    clothesColor: '#db2777',
+    outerwear: 'outerwear-jacket',
+    marking: 'marking-freckles',
+    aura: 'aura-backlight',
+    background: 'bg-14',
+    frame: 'frame-rare',
+  }),
+  preset('female-mage', 'Maga Arcana', {
+    kind: 'female',
+    skin: 'skin-08',
+    face: 'face-04',
+    eyebrows: 'brows-02',
+    eyes: 'eyes-11',
+    nose: 'nose-02',
+    mouth: 'mouth-02',
+    hair: 'hair-20',
+    hairSide: 'side-none',
+    hairColor: '#e0f2fe',
+    body: 'body-04',
+    clothes: 'clothes-04',
+    clothesColor: '#38bdf8',
+    outerwear: 'outerwear-robe',
+    accessory: 'accessory-11',
+    marking: 'marking-arcane',
+    aura: 'aura-frost',
+    background: 'bg-03',
+    frame: 'frame-ice',
+  }),
+  preset('creature-feral', 'Criatura Feral', {
+    kind: 'creature',
+    skin: 'skin-06',
+    face: 'face-05',
+    eyebrows: 'brows-03',
+    eyes: 'eyes-07',
+    nose: 'nose-04',
+    mouth: 'mouth-06',
+    hair: 'hair-08',
+    hairSide: 'side-none',
+    hairColor: '#064e3b',
+    body: 'body-03',
+    clothes: 'clothes-10',
+    clothesColor: '#4c1d95',
+    accessory: 'accessory-06',
+    marking: 'marking-warpaint',
+    aura: 'aura-embers',
+    background: 'bg-02',
+    frame: 'frame-legendary',
+  }),
+  preset('creature-android', 'Androide', {
+    kind: 'creature',
+    skin: 'skin-09',
+    face: 'face-09',
+    eyebrows: 'brows-06',
+    eyes: 'eyes-12',
+    nose: 'nose-06',
+    mouth: 'mouth-02',
+    hair: 'hair-08',
+    hairSide: 'side-none',
+    hairColor: '#94a3b8',
+    body: 'body-05',
+    clothes: 'clothes-17',
+    clothesColor: '#475569',
+    outerwear: 'outerwear-armor',
+    accessory: 'accessory-08',
+    marking: 'marking-cyber',
+    aura: 'aura-tech',
+    background: 'bg-13',
+    frame: 'frame-tech',
+  }),
   preset('urban-hero', 'Heroi Urbano', {
     skin: 'skin-02',
     face: 'face-01',
@@ -437,6 +692,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     frame: 'frame-rare',
   }),
   preset('monster', 'Monstro', {
+    kind: 'creature',
     skin: 'skin-06',
     face: 'face-05',
     eyebrows: 'brows-03',
@@ -455,6 +711,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     frame: 'frame-legendary',
   }),
   preset('royal', 'Rei/Rainha', {
+    kind: 'female',
     skin: 'skin-03',
     face: 'face-08',
     eyebrows: 'brows-02',
@@ -476,6 +733,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     frame: 'frame-royal',
   }),
   preset('robot', 'Robo', {
+    kind: 'creature',
     skin: 'skin-09',
     face: 'face-09',
     eyebrows: 'brows-06',
@@ -596,6 +854,7 @@ export const AVATAR_PRESETS: Array<{ id: string; label: string; config: AvatarCo
     frame: 'frame-royal',
   }),
   preset('ice-mage', 'Mago de Gelo', {
+    kind: 'female',
     skin: 'skin-08',
     face: 'face-04',
     eyebrows: 'brows-02',
@@ -641,8 +900,10 @@ export function normalizeAvatarConfig(value: unknown): AvatarConfig {
   if (!value || typeof value !== 'object') return DEFAULT_AVATAR_CONFIG;
 
   const draft = value as Partial<AvatarConfig>;
+  const kind = pickKind(draft.kind);
 
-  return {
+  return applyKindRules({
+    kind,
     skin: pickOption('skin', draft.skin),
     face: pickOption('face', draft.face),
     eyebrows: pickOption('eyebrows', draft.eyebrows),
@@ -664,18 +925,24 @@ export function normalizeAvatarConfig(value: unknown): AvatarConfig {
     aura: pickOption('aura', draft.aura),
     background: pickOption('background', draft.background),
     frame: pickOption('frame', draft.frame),
-  };
+  });
 }
 
-export function randomAvatarConfig(): AvatarConfig {
+export function randomAvatarConfig(kind?: AvatarKind): AvatarConfig {
+  const targetKind = kind || randomWeightedKind();
+
+  if (targetKind !== 'male') {
+    return randomKindAvatar(targetKind);
+  }
+
   const humanSkins = ['skin-01', 'skin-02', 'skin-03', 'skin-04', 'skin-05'];
-  const humanFaces = ['face-01', 'face-02', 'face-03', 'face-04', 'face-08'];
+  const humanFaces = ['face-01', 'face-03', 'face-05', 'face-07', 'face-08'];
   const humanBrows = ['brows-01', 'brows-02', 'brows-03', 'brows-05'];
   const humanEyes = ['eyes-01', 'eyes-02', 'eyes-04', 'eyes-05'];
-  const humanNoses = ['nose-01', 'nose-02', 'nose-03', 'nose-04'];
+  const humanNoses = ['nose-01', 'nose-03', 'nose-04', 'nose-05'];
   const humanMouths = ['mouth-01', 'mouth-02', 'mouth-03', 'mouth-04'];
-  const safeHair = ['hair-01', 'hair-03', 'hair-05', 'hair-07', 'hair-14', 'hair-15', 'hair-18', 'hair-19'];
-  const longHair = ['hair-04', 'hair-16', 'hair-17', 'hair-20'];
+  const safeHair = ['hair-01', 'hair-02', 'hair-03', 'hair-05', 'hair-06', 'hair-07', 'hair-10', 'hair-13', 'hair-15', 'hair-18'];
+  const longHair = ['hair-13'];
   const shortHairSides = ['side-fade-low', 'side-fade-mid', 'side-fade-high', 'side-taper', 'side-undercut', 'side-shaved-line'];
   const hairColors = ['#111827', '#1f2937', '#3b2415', '#7c2d12', '#92400e', '#d97706', '#facc15', '#e5e7eb'];
   const urbanColors = ['#2563eb', '#7c3aed', '#0f766e', '#111827', '#e11d48'];
@@ -687,10 +954,11 @@ export function randomAvatarConfig(): AvatarConfig {
   const lightAccessories = ['none', 'none', 'none', 'accessory-10', 'accessory-14', 'accessory-16'];
   const noGlassesWithHair = (hair: string) => isLongHair(hair) ? randomFrom(lightAccessories) : randomFrom([...lightAccessories, 'accessory-15']);
 
-  const humanBase = (patch: Partial<AvatarConfig> = {}) => {
+  const humanBase = (patch: Partial<AvatarConfig> = {}): Partial<AvatarConfig> => {
     const hair = patch.hair || randomFrom([...safeHair, ...longHair]);
 
     return {
+      kind: 'male',
       skin: randomFrom(humanSkins),
       face: randomFrom(humanFaces),
       eyebrows: randomFrom(humanBrows),
@@ -704,7 +972,7 @@ export function randomAvatarConfig(): AvatarConfig {
       facialHair: Math.random() < 0.82 ? 'facial-none' : randomFrom(['facial-01', 'facial-02', 'facial-03', 'facial-04']),
       headwear: 'headwear-none',
       marking: randomFrom(['marking-none', 'marking-none', 'marking-none', 'marking-freckles', 'marking-royal']),
-      body: randomFrom(['body-01', 'body-02', 'body-04']),
+      body: randomFrom(['body-01', 'body-02', 'body-03']),
       accessory: noGlassesWithHair(hair),
       aura: randomFrom(['aura-backlight', 'aura-backlight', 'aura-none', 'aura-neon']),
       background: randomFrom(['bg-01', 'bg-05', 'bg-06', 'bg-14', 'bg-16']),
@@ -746,8 +1014,8 @@ export function randomAvatarConfig(): AvatarConfig {
       build: () => humanBase({
         eyebrows: randomFrom(['brows-01', 'brows-02']),
         eyes: randomFrom(['eyes-01', 'eyes-02', 'eyes-04', 'eyes-10']),
-        hair: randomFrom(['hair-04', 'hair-14', 'hair-15', 'hair-16', 'hair-19']),
-        body: randomFrom(['body-01', 'body-04']),
+        hair: randomFrom(['hair-01', 'hair-03', 'hair-13', 'hair-15', 'hair-18']),
+        body: randomFrom(['body-01', 'body-02']),
         clothes: randomFrom(['clothes-05', 'clothes-19', 'clothes-01']),
         clothesColor: randomFrom(elegantColors),
         outerwear: randomFrom(['outerwear-jacket', 'outerwear-none']),
@@ -877,11 +1145,115 @@ function preset(id: string, label: string, patch: Partial<AvatarConfig>) {
 }
 
 function normalizePreset(config: AvatarConfig): AvatarConfig {
-  return {
+  return normalizeAvatarConfig({
     ...config,
     hairColor: isHexColor(config.hairColor) ? config.hairColor : DEFAULT_AVATAR_CONFIG.hairColor,
     clothesColor: isHexColor(config.clothesColor) ? config.clothesColor : DEFAULT_AVATAR_CONFIG.clothesColor,
-  };
+  });
+}
+
+
+function applyKindRules(config: AvatarConfig): AvatarConfig {
+  const kind = pickKind(config.kind);
+  const result = { ...config, kind } as AvatarConfig;
+  const mutable = result as AvatarConfig & Record<AvatarCategory, string>;
+
+  (Object.keys(AVATAR_OPTIONS) as AvatarCategory[]).forEach((category) => {
+    if (!isOptionAllowedForKind(category, mutable[category], kind)) {
+      const fallback = getFallbackOption(category, kind);
+      mutable[category] = fallback;
+    }
+  });
+
+  if (kind !== 'male') {
+    result.facialHair = 'facial-none';
+  }
+
+  if (kind === 'female') {
+    result.hairSide = ['side-long', 'side-braided'].includes(result.hairSide) ? result.hairSide : 'side-none';
+  }
+
+  if (kind === 'creature') {
+    result.hairSide = ['side-long'].includes(result.hairSide) ? result.hairSide : 'side-none';
+    result.hairline = 'hairline-high';
+  }
+
+  return result;
+}
+
+function getFallbackOption(category: AvatarCategory, kind: AvatarKind) {
+  const kindDefault = KIND_DEFAULT_PATCHES[kind][category];
+  const options = getAvatarOptionsForKind(category, kind);
+
+  if (typeof kindDefault === 'string' && options.some((option) => option.id === kindDefault)) {
+    return kindDefault;
+  }
+
+  return options[0]?.id || DEFAULT_AVATAR_CONFIG[category];
+}
+
+function isOptionAllowedForKind(category: AvatarCategory, value: string | undefined, kind: AvatarKind) {
+  if (!value) return false;
+  const options = getAvatarOptionsForKind(category, kind);
+  return options.some((option) => option.id === value);
+}
+
+function pickKind(value?: string): AvatarKind {
+  return value === 'female' || value === 'creature' ? value : 'male';
+}
+
+function randomWeightedKind(): AvatarKind {
+  const roll = Math.random();
+  if (roll < 0.42) return 'male';
+  if (roll < 0.78) return 'female';
+  return 'creature';
+}
+
+function randomKindAvatar(kind: AvatarKind): AvatarConfig {
+  const skin = kind === 'female'
+    ? randomFrom(['skin-01', 'skin-02', 'skin-03', 'skin-04', 'skin-05', 'skin-08'])
+    : randomFrom(['skin-06', 'skin-07', 'skin-08', 'skin-09']);
+  const hair = kind === 'female'
+    ? randomFrom(['hair-04', 'hair-11', 'hair-12', 'hair-14', 'hair-16', 'hair-17', 'hair-19', 'hair-20'])
+    : randomFrom(['hair-08', 'hair-08', 'hair-09', 'hair-10', 'hair-18']);
+  const hairColors = kind === 'female'
+    ? ['#111827', '#3b2415', '#7c2d12', '#92400e', '#facc15', '#e0f2fe', '#db2777']
+    : ['#064e3b', '#111827', '#94a3b8', '#e0f2fe', '#7c3aed'];
+  const clothesColors = kind === 'female'
+    ? ['#db2777', '#7c3aed', '#0f766e', '#111827', '#38bdf8', '#e11d48']
+    : ['#4c1d95', '#064e3b', '#7f1d1d', '#475569', '#38bdf8'];
+
+  return normalizeAvatarConfig({
+    ...getDefaultAvatarConfigForKind(kind),
+    skin,
+    face: randomFrom(getAvatarOptionsForKind('face', kind).map((option) => option.id)),
+    eyebrows: randomFrom(getAvatarOptionsForKind('eyebrows', kind).map((option) => option.id)),
+    eyes: randomFrom(getAvatarOptionsForKind('eyes', kind).map((option) => option.id)),
+    nose: randomFrom(getAvatarOptionsForKind('nose', kind).map((option) => option.id)),
+    mouth: randomFrom(getAvatarOptionsForKind('mouth', kind).map((option) => option.id)),
+    hair,
+    hairSide: kind === 'female' ? randomFrom(['side-none', 'side-none', 'side-long', 'side-braided']) : randomFrom(['side-none', 'side-long']),
+    hairColor: randomFrom(hairColors),
+    body: randomFrom(getAvatarOptionsForKind('body', kind).map((option) => option.id)),
+    clothes: randomFrom(getAvatarOptionsForKind('clothes', kind).map((option) => option.id)),
+    clothesColor: randomFrom(clothesColors),
+    outerwear: randomFrom(getAvatarOptionsForKind('outerwear', kind).map((option) => option.id)),
+    accessory: kind === 'female'
+      ? randomFrom(['none', 'none', 'accessory-05', 'accessory-10', 'accessory-11', 'accessory-15'])
+      : randomFrom(['none', 'accessory-06', 'accessory-07', 'accessory-08', 'accessory-12', 'accessory-13']),
+    marking: kind === 'female'
+      ? randomFrom(['marking-none', 'marking-freckles', 'marking-arcane', 'marking-royal'])
+      : randomFrom(['marking-warpaint', 'marking-cyber', 'marking-arcane', 'marking-shadow']),
+    aura: kind === 'female'
+      ? randomFrom(['aura-backlight', 'aura-neon', 'aura-frost', 'aura-cosmic'])
+      : randomFrom(['aura-embers', 'aura-shadow', 'aura-tech', 'aura-cosmic']),
+    background: kind === 'female'
+      ? randomFrom(['bg-01', 'bg-03', 'bg-05', 'bg-11', 'bg-14'])
+      : randomFrom(['bg-02', 'bg-08', 'bg-09', 'bg-13']),
+    frame: kind === 'female'
+      ? randomFrom(['frame-rare', 'frame-epic', 'frame-royal', 'frame-ice'])
+      : randomFrom(['frame-horror', 'frame-tech', 'frame-legendary']),
+  });
 }
 
 function pickOption(category: AvatarCategory, value?: string) {

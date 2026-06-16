@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ChevronDown,
   Crown,
@@ -14,14 +14,18 @@ import {
 } from 'lucide-react';
 import AvatarRenderer from '@/components/avatar/AvatarRenderer';
 import {
-  AVATAR_OPTIONS,
   AVATAR_HAIRLINE_OPTIONS,
+  AVATAR_KIND_OPTIONS,
   AVATAR_PRESETS,
   DEFAULT_AVATAR_CONFIG,
+  getAvatarOptionsForKind,
+  getDefaultAvatarConfigForKind,
   normalizeAvatarConfig,
   randomAvatarConfig,
+  switchAvatarKind,
   type AvatarCategory,
   type AvatarConfig,
+  type AvatarKind,
 } from '@/lib/avatarConfig';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -33,82 +37,141 @@ type AvatarBuilderProps = {
   className?: string;
 };
 
+type BuilderCategory = {
+  key: AvatarCategory;
+  label: string;
+  hint: string;
+};
+
 type BuilderGroup = {
   id: string;
   label: string;
   icon: typeof UserRound;
-  categories: Array<{ key: AvatarCategory; label: string; hint: string }>;
+  categories: BuilderCategory[];
 };
 
-const groups: BuilderGroup[] = [
-  {
-    id: 'identity',
-    label: 'Identidade',
-    icon: UserRound,
-    categories: [
-      { key: 'skin', label: 'Tom de pele', hint: 'base humana, fantasia ou metal' },
-      { key: 'body', label: 'Corpo', hint: 'silhueta e porte do personagem' },
-      { key: 'face', label: 'Formato', hint: 'estrutura do rosto e queixo' },
-    ],
-  },
-  {
-    id: 'head',
-    label: 'Cabeca',
-    icon: Sparkles,
-    categories: [
-      { key: 'eyes', label: 'Olhos', hint: 'olhar, visor, oculos e intensidade' },
-      { key: 'eyebrows', label: 'Sobrancelhas', hint: 'expressao do personagem' },
-      { key: 'nose', label: 'Nariz', hint: 'perfil e marcacao facial' },
-      { key: 'mouth', label: 'Boca', hint: 'atitude e humor' },
-      { key: 'marking', label: 'Marcas', hint: 'cicatriz, pintura, tatuagem e detalhes' },
-      { key: 'facialHair', label: 'Barba', hint: 'estilo facial opcional' },
-    ],
-  },
-  {
-    id: 'hair',
-    label: 'Cabelo',
-    icon: WandSparkles,
-    categories: [
-      { key: 'hair', label: 'Penteado', hint: 'topo, volume, franja e comprimento' },
-      { key: 'hairSide', label: 'Lateral', hint: 'fade, taper, risco, undercut ou longo' },
-      { key: 'headwear', label: 'Cabeca extra', hint: 'bone, coroa, capacete ou marca' },
-    ],
-  },
-  {
-    id: 'outfit',
-    label: 'Roupa',
-    icon: Shirt,
-    categories: [
-      { key: 'clothes', label: 'Roupa base', hint: 'traje principal do personagem' },
-      { key: 'outerwear', label: 'Camada', hint: 'capa, jaqueta, manto ou armor' },
-    ],
-  },
-  {
-    id: 'extras',
-    label: 'Acessorios',
-    icon: Crown,
-    categories: [
-      { key: 'accessory', label: 'Acessorio', hint: 'item visual independente' },
-      { key: 'aura', label: 'Aura', hint: 'iluminacao e energia ao redor' },
-      { key: 'background', label: 'Fundo', hint: 'cenario e atmosfera do card' },
-      { key: 'frame', label: 'Moldura', hint: 'acabamento premium do preview' },
-    ],
-  },
-];
+type BuilderOption = {
+  id: string;
+  label: string;
+  color?: string;
+};
 
-const flatCategories = groups.flatMap((group) => group.categories);
+const categoryText: Record<AvatarCategory, BuilderCategory> = {
+  skin: { key: 'skin', label: 'Tom de pele', hint: 'cor base humana, fantasia ou metal' },
+  body: { key: 'body', label: 'Corpo', hint: 'silhueta e porte do personagem' },
+  face: { key: 'face', label: 'Formato', hint: 'estrutura do rosto e queixo' },
+  eyes: { key: 'eyes', label: 'Olhos', hint: 'olhar, visor e intensidade' },
+  eyebrows: { key: 'eyebrows', label: 'Sobrancelhas', hint: 'expressao do personagem' },
+  nose: { key: 'nose', label: 'Nariz', hint: 'perfil e marcacao facial' },
+  mouth: { key: 'mouth', label: 'Boca', hint: 'atitude, humor ou presas' },
+  marking: { key: 'marking', label: 'Marcas', hint: 'cicatriz, pintura, tatuagem e detalhes' },
+  facialHair: { key: 'facialHair', label: 'Barba', hint: 'barba, bigode ou cavanhaque' },
+  hair: { key: 'hair', label: 'Penteado', hint: 'topo, volume, franja e comprimento' },
+  hairSide: { key: 'hairSide', label: 'Lateral', hint: 'fade, taper, risco ou undercut' },
+  headwear: { key: 'headwear', label: 'Cabeca', hint: 'bone, coroa, capacete, capuz ou marca' },
+  clothes: { key: 'clothes', label: 'Roupa base', hint: 'traje principal do personagem' },
+  outerwear: { key: 'outerwear', label: 'Camada externa', hint: 'capa, jaqueta, manto ou armadura' },
+  accessory: { key: 'accessory', label: 'Objeto visual', hint: 'oculos, mascara, item, orelhas ou arma' },
+  aura: { key: 'aura', label: 'Aura', hint: 'iluminacao e energia ao redor' },
+  background: { key: 'background', label: 'Fundo', hint: 'cenario e atmosfera do card' },
+  frame: { key: 'frame', label: 'Moldura', hint: 'acabamento premium do preview' },
+};
+
+function getBuilderGroups(kind: AvatarKind): BuilderGroup[] {
+  const isMale = kind === 'male';
+  const isCreature = kind === 'creature';
+
+  return [
+    {
+      id: 'base',
+      label: 'Base',
+      icon: UserRound,
+      categories: [categoryText.skin, categoryText.body, categoryText.face],
+    },
+    {
+      id: 'face',
+      label: 'Rosto',
+      icon: Sparkles,
+      categories: [
+        categoryText.eyes,
+        categoryText.eyebrows,
+        categoryText.nose,
+        categoryText.mouth,
+        categoryText.marking,
+        ...(isMale ? [categoryText.facialHair] : []),
+      ],
+    },
+    {
+      id: isCreature ? 'parts' : 'hair',
+      label: isCreature ? 'Partes' : 'Cabelo',
+      icon: WandSparkles,
+      categories: [
+        {
+          ...categoryText.hair,
+          label: isCreature ? 'Cabelo / juba' : 'Penteado',
+          hint: isCreature ? 'juba, espinhos, capuz ou sem cabelo' : categoryText.hair.hint,
+        },
+        ...(isMale ? [categoryText.hairSide] : []),
+      ],
+    },
+    {
+      id: 'outfit',
+      label: 'Roupa',
+      icon: Shirt,
+      categories: [categoryText.clothes, categoryText.outerwear],
+    },
+    {
+      id: 'extras',
+      label: 'Acessorios',
+      icon: Crown,
+      categories: [categoryText.headwear, categoryText.accessory],
+    },
+    {
+      id: 'card',
+      label: 'Card',
+      icon: Palette,
+      categories: [categoryText.aura, categoryText.background, categoryText.frame],
+    },
+  ];
+}
 
 export default function AvatarBuilder({ value, name, onChange, className }: AvatarBuilderProps) {
   const config = normalizeAvatarConfig(value || DEFAULT_AVATAR_CONFIG);
-  const [activeGroup, setActiveGroup] = useState(groups[0].id);
+  const groups = useMemo(() => getBuilderGroups(config.kind), [config.kind]);
+  const flatCategories = useMemo(() => groups.flatMap((group) => group.categories), [groups]);
+  const [activeGroup, setActiveGroup] = useState(groups[0]?.id || 'base');
   const [active, setActive] = useState<AvatarCategory>('skin');
   const [showPresets, setShowPresets] = useState(false);
 
-  const visibleGroup = groups.find((group) => group.id === activeGroup) || groups[0];
-  const activeCategory = useMemo(() => flatCategories.find((category) => category.key === active) || flatCategories[0], [active]);
+  const fallbackGroup = groups[0] ?? getBuilderGroups('male')[0]!;
+  const visibleGroup = groups.find((group) => group.id === activeGroup) ?? fallbackGroup;
+  const activeCategory = flatCategories.find((category) => category.key === active) || flatCategories[0] || categoryText.skin;
+  const activeOptions = getAvatarOptionsForKind(active, config.kind) as BuilderOption[];
+  const visiblePresets = AVATAR_PRESETS.filter((presetItem) => presetItem.config.kind === config.kind);
+
+  useEffect(() => {
+    const currentGroup = groups.find((group) => group.id === activeGroup);
+
+    if (!currentGroup) {
+      const nextGroup = groups[0] ?? getBuilderGroups('male')[0]!;
+      setActiveGroup(nextGroup.id);
+      setActive(nextGroup.categories[0].key);
+      return;
+    }
+
+    if (!currentGroup.categories.some((category) => category.key === active)) {
+      setActive(currentGroup.categories[0].key);
+    }
+  }, [active, activeGroup, groups]);
 
   const update = (patch: Partial<AvatarConfig>) => {
     onChange(normalizeAvatarConfig({ ...config, ...patch }));
+  };
+
+  const chooseKind = (kind: AvatarKind) => {
+    onChange(switchAvatarKind(config, kind));
+    setActiveGroup('base');
+    setActive('skin');
   };
 
   const chooseGroup = (group: BuilderGroup) => {
@@ -137,14 +200,14 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
             <div className="mx-auto mt-2 grid w-full max-w-[320px] grid-cols-2 gap-2 xl:mt-3 xl:max-w-none">
               <Button
                 type="button"
-                onClick={() => onChange(randomAvatarConfig())}
+                onClick={() => onChange(randomAvatarConfig(config.kind))}
                 className="h-11 rounded-2xl border border-cyan-300/30 bg-cyan-400/15 text-cyan-50 shadow-lg shadow-cyan-950/20 hover:bg-cyan-400/25 font-black uppercase text-[11px] tracking-wide"
               >
                 <Shuffle className="w-4 h-4 mr-1.5" /> Random
               </Button>
               <Button
                 type="button"
-                onClick={() => onChange(DEFAULT_AVATAR_CONFIG)}
+                onClick={() => onChange(getDefaultAvatarConfigForKind(config.kind))}
                 className="h-11 rounded-2xl border border-white/15 bg-white/10 text-white hover:bg-white/15 font-black uppercase text-[11px] tracking-wide"
               >
                 <RotateCcw className="w-4 h-4 mr-1.5" /> Reset
@@ -159,12 +222,12 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
               >
                 <span className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span className="text-[11px] font-black uppercase tracking-[0.2em]">Presets premium</span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.2em]">Presets do tipo</span>
                 </span>
                 <ChevronDown className={cn('h-4 w-4 text-slate-300 transition-transform xl:hidden', showPresets && 'rotate-180')} />
               </button>
               <div className={cn('mt-3 gap-2 overflow-x-auto pb-1 xl:grid xl:max-h-[178px] xl:grid-cols-2 xl:overflow-y-auto xl:pr-1', showPresets ? 'flex' : 'hidden xl:grid')}>
-                {AVATAR_PRESETS.map((presetItem) => (
+                {visiblePresets.map((presetItem) => (
                   <button
                     key={presetItem.id}
                     type="button"
@@ -191,7 +254,40 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
                 </div>
               </div>
 
-              <div className="flex snap-x gap-2 overflow-x-auto pb-1 sm:mt-4 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-5">
+              <div className="mt-3 rounded-3xl border border-white/10 bg-black/15 p-2.5">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100">Tipo de personagem</p>
+                    <p className="text-[10px] font-semibold text-slate-400">Escolha primeiro para separar masculino, feminino e criatura.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {AVATAR_KIND_OPTIONS.map((kindOption) => {
+                    const isSelected = config.kind === kindOption.id;
+
+                    return (
+                      <button
+                        key={kindOption.id}
+                        type="button"
+                        onClick={() => chooseKind(kindOption.id)}
+                        className={cn(
+                          'rounded-2xl border px-3 py-2 text-left transition-all',
+                          isSelected
+                            ? 'border-cyan-300/70 bg-cyan-300/15 text-white shadow-lg shadow-cyan-950/30'
+                            : 'border-white/10 bg-white/[0.06] text-slate-300 hover:border-white/25 hover:bg-white/[0.1]',
+                        )}
+                      >
+                        <span className="block text-[11px] font-black uppercase tracking-wide">{kindOption.label}</span>
+                        <span className={cn('mt-0.5 block text-[10px] font-semibold leading-snug', isSelected ? 'text-cyan-100' : 'text-slate-400')}>
+                          {kindOption.hint}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex snap-x gap-2 overflow-x-auto pb-1 pt-3 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-6">
                 {groups.map((group) => {
                   const Icon = group.icon;
                   const isActive = activeGroup === group.id;
@@ -263,7 +359,7 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
                 </div>
 
                 <div className="max-h-[48vh] min-h-[220px] overflow-y-auto pr-1 sm:max-h-[410px] sm:min-h-[260px]">
-                  {active === 'hair' && (
+                  {active === 'hair' && config.kind !== 'creature' && config.hair !== 'hair-08' && (
                     <div className="mb-3 rounded-3xl border border-cyan-300/20 bg-cyan-300/10 p-3">
                       <div className="mb-2">
                         <p className="text-[11px] font-black uppercase tracking-wide text-cyan-100">Linha do cabelo</p>
@@ -294,8 +390,9 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
                   )}
 
                   <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                    {AVATAR_OPTIONS[active].map((option) => {
+                    {activeOptions.map((option) => {
                       const isSelected = config[active] === option.id;
+                      const optionColor = typeof option.color === 'string' ? option.color : undefined;
 
                       return (
                         <button
@@ -310,10 +407,10 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
                           )}
                         >
                           <span className="flex items-center gap-2">
-                            {'color' in option && option.color && (
+                            {optionColor && (
                               <span
                                 className="inline-block h-5 w-5 shrink-0 rounded-full border border-white/40 shadow-inner"
-                                style={{ backgroundColor: option.color }}
+                                style={{ backgroundColor: optionColor }}
                               />
                             )}
                             <span className="min-w-0">

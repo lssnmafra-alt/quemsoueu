@@ -58,7 +58,8 @@ type BuilderOption = {
 
 const categoryText: Record<AvatarCategory, BuilderCategory> = {
   skin: { key: 'skin', label: 'Tom de pele', hint: 'cor base humana, fantasia ou metal' },
-  body: { key: 'body', label: 'Corpo', hint: 'silhueta e porte do personagem' },
+  body: { key: 'body', label: 'Corpo', hint: 'base fisica e porte do personagem' },
+  silhouette: { key: 'silhouette', label: 'Silhueta', hint: 'largura, queda dos ombros e base do busto' },
   face: { key: 'face', label: 'Formato', hint: 'estrutura do rosto e queixo' },
   eyes: { key: 'eyes', label: 'Olhos', hint: 'olhar, visor e intensidade' },
   eyebrows: { key: 'eyebrows', label: 'Sobrancelhas', hint: 'expressao do personagem' },
@@ -70,6 +71,8 @@ const categoryText: Record<AvatarCategory, BuilderCategory> = {
   hairSide: { key: 'hairSide', label: 'Lateral', hint: 'fade, taper, risco ou undercut' },
   headwear: { key: 'headwear', label: 'Cabeca', hint: 'bone, coroa, capacete, capuz ou marca' },
   clothes: { key: 'clothes', label: 'Roupa base', hint: 'traje principal do personagem' },
+  sleeves: { key: 'sleeves', label: 'Mangas', hint: 'sem manga, curta, longa, luva ou armadura' },
+  arms: { key: 'arms', label: 'Bracos / pose', hint: 'gesto, mao, braco cruzado ou garras' },
   outerwear: { key: 'outerwear', label: 'Camada externa', hint: 'capa, jaqueta, manto ou armadura' },
   accessory: { key: 'accessory', label: 'Objeto visual', hint: 'oculos, mascara, item, orelhas ou arma' },
   aura: { key: 'aura', label: 'Aura', hint: 'iluminacao e energia ao redor' },
@@ -118,7 +121,7 @@ function getBuilderGroups(kind: AvatarKind): BuilderGroup[] {
       id: 'outfit',
       label: 'Roupa',
       icon: Shirt,
-      categories: [categoryText.clothes, categoryText.outerwear],
+      categories: [categoryText.silhouette, categoryText.clothes, categoryText.sleeves, categoryText.arms, categoryText.outerwear],
     },
     {
       id: 'extras',

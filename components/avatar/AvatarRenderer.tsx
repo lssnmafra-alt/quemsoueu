@@ -63,7 +63,7 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
   const isCreature = avatar.kind === 'creature';
   const isRobot = avatar.skin === 'skin-09' || avatar.face === 'face-09' || avatar.body === 'body-05';
   const isFeral = isCreature || avatar.skin === 'skin-06' || avatar.mouth === 'mouth-06';
-  const bodyShape = getBodyShape(avatar.body, avatar.kind);
+  const bodyShape = getBodyShape(avatar.body, avatar.kind, avatar.silhouette);
   const facePath = getFacePath(avatar.face);
   const displayName = name.trim() || 'Personagem';
 
@@ -139,6 +139,19 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
             {isCreature && <CreatureBackParts skin={skin} accent={frame.a} glow={bg.glow} isRobot={isRobot} />}
 
             <g transform="translate(0 -12)">
+              <ArmsLayer
+                arms={avatar.arms}
+                sleeves={avatar.sleeves}
+                phase="back"
+                kind={avatar.kind}
+                isRobot={isRobot}
+                skinFill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.skinGradient})`}
+                skinShadow={skinShadow}
+                outfitFill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.outfitGradient})`}
+                outfitDark={outfitDark}
+                accent={frame.a}
+                glow={bg.glow}
+              />
               <path
                 d={`M${bodyShape.leftShoulder} 286 C${bodyShape.leftShoulder - 30} 300 ${bodyShape.leftWaist - 30} 342 ${bodyShape.leftWaist} 434 L${bodyShape.rightWaist} 434 C${bodyShape.rightWaist + 30} 342 ${bodyShape.rightShoulder + 30} 300 ${bodyShape.rightShoulder} 286 C218 268 142 268 ${bodyShape.leftShoulder} 286Z`}
                 fill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.outfitGradient})`}
@@ -146,7 +159,21 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
               <path d="M126 292 C144 318 154 360 158 434 L202 434 C206 360 216 318 234 292 C206 280 154 280 126 292Z" fill="rgba(255,255,255,0.11)" />
               <path d="M104 296 C122 318 140 326 160 326 M256 296 C238 318 220 326 200 326" fill="none" stroke="#020617" strokeOpacity="0.16" strokeWidth="4" strokeLinecap="round" />
               <OutfitDetails clothes={avatar.clothes} color={outfit} dark={outfitDark} light={outfitLight} accent={frame.a} isRobot={isRobot} />
+              <SleevesLayer sleeves={avatar.sleeves} arms={avatar.arms} outfitFill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.outfitGradient})`} outfitDark={outfitDark} accent={frame.a} />
               <Outerwear outerwear={avatar.outerwear} color={outfitDark} accent={frame.a} />
+              <ArmsLayer
+                arms={avatar.arms}
+                sleeves={avatar.sleeves}
+                phase="front"
+                kind={avatar.kind}
+                isRobot={isRobot}
+                skinFill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.skinGradient})`}
+                skinShadow={skinShadow}
+                outfitFill={isRobot ? `url(#${ids.metalGradient})` : `url(#${ids.outfitGradient})`}
+                outfitDark={outfitDark}
+                accent={frame.a}
+                glow={bg.glow}
+              />
             </g>
 
             <g transform="translate(0 -2)">
@@ -201,7 +228,7 @@ export default function AvatarRenderer({ config, name = 'Personagem', className 
 }
 
 function buildSvgIds(avatar: AvatarConfig, name: string) {
-  const seed = `${name}-${avatar.kind}-${avatar.skin}-${avatar.face}-${avatar.hair}-${avatar.hairSide}-${avatar.clothes}-${avatar.background}-${avatar.frame}-${avatar.aura}-${avatar.marking}`;
+  const seed = `${name}-${avatar.kind}-${avatar.skin}-${avatar.face}-${avatar.hair}-${avatar.hairSide}-${avatar.silhouette}-${avatar.clothes}-${avatar.sleeves}-${avatar.arms}-${avatar.background}-${avatar.frame}-${avatar.aura}-${avatar.marking}`;
   let hash = 0;
 
   for (let index = 0; index < seed.length; index += 1) {
@@ -377,6 +404,153 @@ function Marking({ marking, accent, glow, skinDeep }: { marking: string; accent:
 
 function RobeBack({ color, accent }: { color: string; accent: string }) {
   return <path d="M114 288 C92 326 84 376 78 444 L282 444 C276 376 268 326 246 288 C216 304 144 304 114 288Z" fill={color} opacity="0.86" stroke={accent} strokeOpacity="0.22" strokeWidth="2" />;
+}
+
+
+function ArmsLayer({
+  arms,
+  sleeves,
+  phase,
+  kind,
+  isRobot,
+  skinFill,
+  skinShadow,
+  outfitFill,
+  outfitDark,
+  accent,
+  glow,
+}: {
+  arms: string;
+  sleeves: string;
+  phase: 'back' | 'front';
+  kind: AvatarKind;
+  isRobot: boolean;
+  skinFill: string;
+  skinShadow: string;
+  outfitFill: string;
+  outfitDark: string;
+  accent: string;
+  glow: string;
+}) {
+  const armFill = sleeves === 'sleeves-none' || sleeves === 'sleeves-torn' ? skinFill : outfitFill;
+  const handFill = isRobot ? '#cbd5e1' : skinFill;
+  const stroke = isRobot || sleeves === 'sleeves-robot' || arms === 'arms-robot' ? accent : shade(outfitDark, -10);
+  const creature = kind === 'creature' || arms === 'arms-creature' || arms === 'arms-tentacle';
+
+  if (phase === 'back') {
+    if (arms === 'arms-crossed' || arms === 'arms-waist' || arms === 'arms-holding') return null;
+
+    if (arms === 'arms-open' || arms === 'arms-caster') {
+      return (
+        <g opacity="0.96">
+          <path d="M108 300 C74 322 56 358 48 402" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
+          <path d="M252 300 C286 322 304 358 312 402" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
+          <circle cx="48" cy="404" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+          <circle cx="312" cy="404" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+          {arms === 'arms-caster' && <g fill={glow} opacity="0.82"><circle cx="48" cy="404" r="4" /><circle cx="312" cy="404" r="4" /><path d="M42 390 L54 418 M306 390 L318 418" stroke={glow} strokeWidth="3" strokeLinecap="round" /></g>}
+        </g>
+      );
+    }
+
+    if (arms === 'arms-raised') {
+      return (
+        <g opacity="0.96">
+          <path d="M108 302 C76 326 66 366 70 414" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
+          <path d="M252 300 C286 266 292 224 278 180" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
+          <circle cx="70" cy="416" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+          <circle cx="278" cy="178" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+        </g>
+      );
+    }
+
+    if (arms === 'arms-tentacle') {
+      return (
+        <g fill="none" opacity="0.82">
+          <path d="M106 304 C62 326 50 366 84 398 C112 424 72 444 48 424" stroke={shade(outfitDark, -6)} strokeWidth="18" strokeLinecap="round" />
+          <path d="M254 304 C298 326 310 366 276 398 C248 424 288 444 312 424" stroke={shade(outfitDark, -6)} strokeWidth="18" strokeLinecap="round" />
+          <path d="M78 396 C92 388 102 388 112 396 M282 396 C268 388 258 388 248 396" stroke={accent} strokeWidth="3" opacity="0.65" />
+        </g>
+      );
+    }
+
+    const fist = arms === 'arms-power' || creature;
+    const leftHandY = arms === 'arms-down' ? 430 : 408;
+    const rightHandY = arms === 'arms-down' ? 430 : 408;
+    return (
+      <g opacity="0.96">
+        <path d={`M108 302 C82 332 74 372 82 ${leftHandY}`} fill="none" stroke={armFill} strokeWidth={creature ? 26 : 22} strokeLinecap="round" />
+        <path d={`M252 302 C278 332 286 372 278 ${rightHandY}`} fill="none" stroke={armFill} strokeWidth={creature ? 26 : 22} strokeLinecap="round" />
+        <circle cx="82" cy={leftHandY} r={fist ? 15 : 12} fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+        <circle cx="278" cy={rightHandY} r={fist ? 15 : 12} fill={handFill} stroke={skinShadow} strokeOpacity="0.35" />
+        {creature && <g stroke={accent} strokeWidth="3" strokeLinecap="round" opacity="0.72"><path d="M70 414 L58 428 M82 421 L74 438 M94 414 L104 428" /><path d="M290 414 L302 428 M278 421 L286 438 M266 414 L256 428" /></g>}
+        {(isRobot || sleeves === 'sleeves-robot' || arms === 'arms-robot') && <g stroke={stroke} strokeWidth="4" strokeLinecap="round"><path d="M84 342 H108 M252 342 H276" /><path d="M82 382 H104 M256 382 H278" /></g>}
+      </g>
+    );
+  }
+
+  if (arms === 'arms-crossed') {
+    return (
+      <g opacity="0.98">
+        <path d="M104 334 C140 360 178 374 236 384" fill="none" stroke={armFill} strokeWidth="23" strokeLinecap="round" />
+        <path d="M256 334 C220 360 182 374 124 384" fill="none" stroke={armFill} strokeWidth="23" strokeLinecap="round" />
+        <circle cx="236" cy="384" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+        <circle cx="124" cy="384" r="13" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+        <path d="M126 372 C154 382 206 382 234 372" fill="none" stroke="#020617" strokeOpacity="0.18" strokeWidth="5" strokeLinecap="round" />
+      </g>
+    );
+  }
+
+  if (arms === 'arms-waist') {
+    return (
+      <g opacity="0.98">
+        <path d="M110 318 C84 350 92 386 128 386" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
+        <path d="M250 318 C276 350 268 386 232 386" fill="none" stroke={armFill} strokeWidth="22" strokeLinecap="round" />
+        <circle cx="128" cy="386" r="12" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+        <circle cx="232" cy="386" r="12" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+      </g>
+    );
+  }
+
+  if (arms === 'arms-holding') {
+    return (
+      <g opacity="0.98">
+        <path d="M110 326 C138 356 158 378 176 396" fill="none" stroke={armFill} strokeWidth="21" strokeLinecap="round" />
+        <path d="M250 326 C222 356 202 378 184 396" fill="none" stroke={armFill} strokeWidth="21" strokeLinecap="round" />
+        <circle cx="176" cy="396" r="12" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+        <circle cx="184" cy="396" r="12" fill={handFill} stroke={skinShadow} strokeOpacity="0.32" />
+        <path d="M180 348 V430" stroke={accent} strokeWidth="7" strokeLinecap="round" />
+        <circle cx="180" cy="342" r="13" fill="#020617" stroke={accent} strokeWidth="4" />
+      </g>
+    );
+  }
+
+  return null;
+}
+
+function SleevesLayer({ sleeves, arms, outfitFill, outfitDark, accent }: { sleeves: string; arms: string; outfitFill: string; outfitDark: string; accent: string }) {
+  if (sleeves === 'sleeves-none' || arms === 'arms-crossed' || arms === 'arms-waist' || arms === 'arms-holding') return null;
+
+  if (sleeves === 'sleeves-short') {
+    return <g opacity="0.9"><path d="M98 296 C112 286 130 286 144 300 C132 314 110 318 94 306Z" fill={outfitFill} /><path d="M262 296 C248 286 230 286 216 300 C228 314 250 318 266 306Z" fill={outfitFill} /></g>;
+  }
+
+  if (sleeves === 'sleeves-long' || sleeves === 'sleeves-jacket') {
+    return <g opacity="0.88"><path d="M98 304 C82 332 78 374 84 408" fill="none" stroke={sleeves === 'sleeves-jacket' ? shade(outfitDark, -10) : outfitFill} strokeWidth="24" strokeLinecap="round" /><path d="M262 304 C278 332 282 374 276 408" fill="none" stroke={sleeves === 'sleeves-jacket' ? shade(outfitDark, -10) : outfitFill} strokeWidth="24" strokeLinecap="round" /></g>;
+  }
+
+  if (sleeves === 'sleeves-armor' || sleeves === 'sleeves-robot') {
+    return <g opacity="0.92"><path d="M88 310 L126 292 L144 320 L114 344Z" fill="#cbd5e1" stroke={accent} strokeWidth="3" /><path d="M272 310 L234 292 L216 320 L246 344Z" fill="#cbd5e1" stroke={accent} strokeWidth="3" /><path d="M92 354 H118 M242 354 H268 M88 386 H110 M250 386 H272" stroke={accent} strokeWidth="4" strokeLinecap="round" /></g>;
+  }
+
+  if (sleeves === 'sleeves-gloves') {
+    return <g opacity="0.9"><path d="M82 362 C76 382 76 398 84 414" fill="none" stroke={shade(outfitDark, -18)} strokeWidth="20" strokeLinecap="round" /><path d="M278 362 C284 382 284 398 276 414" fill="none" stroke={shade(outfitDark, -18)} strokeWidth="20" strokeLinecap="round" /></g>;
+  }
+
+  if (sleeves === 'sleeves-torn') {
+    return <g fill={outfitFill} opacity="0.88"><path d="M94 298 L144 296 L130 326 L118 314 L106 330Z" /><path d="M266 298 L216 296 L230 326 L242 314 L254 330Z" /></g>;
+  }
+
+  return null;
 }
 
 function OutfitDetails({ clothes, color, dark, light, accent, isRobot }: { clothes: string; color: string; dark: string; light: string; accent: string; isRobot: boolean }) {
@@ -1117,7 +1291,15 @@ function getFacePath(face: string) {
   return 'M128 188 C128 146 152 126 180 126 C208 126 232 146 232 188 C232 236 210 278 180 278 C150 278 128 236 128 188Z';
 }
 
-function getBodyShape(body: string, kind: AvatarKind) {
+function getBodyShape(body: string, kind: AvatarKind, silhouette = 'silhouette-balanced') {
+  if (silhouette === 'silhouette-slim') return { leftShoulder: 116, rightShoulder: 244, leftWaist: 134, rightWaist: 226 };
+  if (silhouette === 'silhouette-hero') return { leftShoulder: 84, rightShoulder: 276, leftWaist: 116, rightWaist: 244 };
+  if (silhouette === 'silhouette-wide') return { leftShoulder: 76, rightShoulder: 284, leftWaist: 104, rightWaist: 256 };
+  if (silhouette === 'silhouette-dress') return { leftShoulder: 114, rightShoulder: 246, leftWaist: 96, rightWaist: 264 };
+  if (silhouette === 'silhouette-armor') return { leftShoulder: 82, rightShoulder: 278, leftWaist: 110, rightWaist: 250 };
+  if (silhouette === 'silhouette-monster') return { leftShoulder: 70, rightShoulder: 290, leftWaist: 100, rightWaist: 260 };
+  if (silhouette === 'silhouette-robot') return { leftShoulder: 78, rightShoulder: 282, leftWaist: 112, rightWaist: 248 };
+  if (silhouette === 'silhouette-alien') return { leftShoulder: 104, rightShoulder: 256, leftWaist: 118, rightWaist: 242 };
   if (kind === 'female') return { leftShoulder: 112, rightShoulder: 248, leftWaist: 130, rightWaist: 230 };
   if (kind === 'creature' && body === 'body-05') return { leftShoulder: 84, rightShoulder: 276, leftWaist: 112, rightWaist: 248 };
   if (kind === 'creature') return { leftShoulder: 78, rightShoulder: 282, leftWaist: 104, rightWaist: 256 };

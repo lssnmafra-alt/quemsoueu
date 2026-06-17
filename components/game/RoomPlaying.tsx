@@ -125,8 +125,8 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const revealCard = deckChars.find((card) => String(card.name || '').toLowerCase() === String(charName || '').toLowerCase());
     const hasHit = hitPlayers.length > 0;
     const timing = isSuddenDeath
-      ? { preparing: 1000, card: 1200, owner: 800, result: 1500, consequence: 600, eliminated: 1700, breath: 400 }
-      : { preparing: 1200, card: 1400, owner: 1000, result: 1700, consequence: 700, eliminated: 1900, breath: 500 };
+      ? { preparing: 900, card: 1400, owner: 900, result: 1500, consequence: 1000, eliminated: 2200, breath: 500 }
+      : { preparing: 1200, card: 1800, owner: 1200, result: 1700, consequence: 1600, eliminated: 3000, breath: 700 };
 
     setIsRevealing(true);
     setRevealStage('choosing');
@@ -416,8 +416,8 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const voteSeconds = Math.max(5, room.vote_time_seconds || 30);
     const maxDelay = Math.max(1000, voteSeconds * 1000 - 2500);
     const preferredDelay = isSuddenDeath
-      ? (humanPlayers.length === 1 ? 2000 : 2800) + Math.floor(Math.random() * 1400)
-      : (humanPlayers.length === 1 ? 1800 : 4200) + Math.floor(Math.random() * 1400);
+      ? (humanPlayers.length === 1 ? 1200 : 1800) + Math.floor(Math.random() * 900)
+      : (humanPlayers.length === 1 ? 1400 : 2400) + Math.floor(Math.random() * 1200);
     const delay = Math.min(maxDelay, preferredDelay);
 
     const timer = setTimeout(async () => {

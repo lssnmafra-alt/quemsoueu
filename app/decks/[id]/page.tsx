@@ -43,7 +43,7 @@ export default function DeckEditorPage() {
   const isTemporaryOfficialEditor = TEMP_OFFICIAL_DECK_EDITING_ENABLED && isOfficialDeckId(deckId);
   const canEditDeck = isCreator || isTemporaryOfficialEditor;
   const canCreateCharacters = isCreator || isTemporaryOfficialEditor;
-  const canDeleteCharacters = isCreator;
+  const canDeleteCharacters = canEditDeck;
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;

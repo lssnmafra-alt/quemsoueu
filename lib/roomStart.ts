@@ -3,6 +3,12 @@ import { touchRoomActivity } from './roomLifecycle';
 
 const MIN_PLAYERS_TO_START = 4;
 
+function getBotNickname(index: number) {
+  const names = ['Lucas', 'Ana', 'Pedro', 'Rafael', 'Juliana', 'Carlos'];
+  const surnames = ['Costa', 'Souza', 'Lima', 'Santos', 'Alves', 'Rocha'];
+  return `${names[index % names.length]} ${surnames[(index * 2) % surnames.length]}`;
+}
+
 async function countPlayableCharacters() {
   const { data: characters } = await supabaseGame
     .from('characters')
@@ -77,7 +83,7 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
     await supabaseGame.from('room_players').insert({
       room_id: room.id,
       user_id: crypto.randomUUID(),
-      nickname: `Bot Arena ${existingBots.length + i + 1}`,
+      nickname: getBotNickname(existingBots.length + i),
       is_bot: true,
       lives: room.chars_per_player || 3,
       last_seen_at: new Date().toISOString(),
@@ -157,7 +163,7 @@ export async function startRoom(
     participants: botSync.players.length,
     bots: botSync.targetBots,
     botsCreated: botSync.botsCreated,
-    botsRemoved: botSync.botsRemoved,
+    botsRemoved: botsToRemove.length,
     enforcedMinimumBot: botSync.enforcedMinimumBot,
   };
 }

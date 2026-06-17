@@ -35,6 +35,17 @@ export function getOfficialFrameTheme(theme: OfficialCardTheme = 'celestial'): O
     };
   }
 
+  if (theme === 'ruby') {
+    return {
+      border: 'border-rose-800',
+      base: 'bg-rose-950',
+      innerBorder: 'border-rose-100/75',
+      cornerBorder: 'border-rose-100/90',
+      nameColor: 'text-rose-50',
+      framePath: '/card-frames/ruby.webp',
+    };
+  }
+
   if (theme === 'shadow') {
     return {
       border: 'border-zinc-400',

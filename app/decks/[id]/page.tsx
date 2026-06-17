@@ -939,14 +939,17 @@ export default function DeckEditorPage() {
                       )}
                     </div>
 
-                    {canDeleteCharacters && (
-                      <button
-                        onClick={() => handleDeleteChar(char.id)}
-                        className="absolute top-2.5 right-2.5 p-2 bg-rose-50 border border-rose-200 z-30 rounded-xl text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 shadow-md opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 stroke-[2.5px]" />
-                      </button>
-                    )}
+                   {canDeleteCharacters && (
+  <button
+    type="button"
+    onClick={() => handleDeleteChar(char.id)}
+    disabled={deletingCharacterId === char.id}
+    className="absolute top-2.5 right-2.5 p-2 bg-rose-50 border border-rose-200 z-30 rounded-xl text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 shadow-md transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+    title="Excluir personagem"
+  >
+    <Trash2 className="w-3.5 h-3.5 stroke-[2.5px]" />
+  </button>
+)}
 
                     {canEditDeck && (
                       <div className="absolute inset-x-2 bottom-[52px] z-20 bg-white/95 backdrop-blur border border-indigo-100 rounded-xl p-2 opacity-0 group-hover:opacity-100 transition-all shadow-lg space-y-1">

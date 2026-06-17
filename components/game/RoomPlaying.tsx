@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabaseGame } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { Heart, Target, Clock, LogOut, Zap, List, Skull } from 'lucide-react';
+import { Heart, Target, Clock, LogOut, Zap, List, Skull, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { audioManager } from '@/lib/audioManager';
 import ChatMenu from './ChatMenu';
@@ -31,6 +31,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     voterName: string;
     voter?: any;
     charName: string;
+    card?: any;
     players: any[];
     eliminatedPlayers: any[];
   } | null>(null);
@@ -49,6 +50,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const activePlayers = useMemo(() => orderedPlayers.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0), [orderedPlayers]);
   const activePlayer = activePlayers.length > 0 ? activePlayers[(room.current_turn_number || 0) % activePlayers.length] : null;
   const isSuddenDeath = activePlayers.length > 1 && activePlayers.every((p: any) => (p.lives || 0) <= 1);
+  const isSpectator = Boolean(me?.is_eliminated || (me?.lives || 0) <= 0);
   const hudPlayers = orderedPlayers;
   const usesOfficialImages = !room.deck_id || isOfficialDeckId(room.deck_id);
   const visibleDeckChars = useMemo(() => (
@@ -56,8 +58,16 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   ), [deckChars, liveCharIds, liveCardsLoaded]);
   const isMyTurn = activePlayer?.id === me.id && !me.is_eliminated && !isRevealing && !isVoting && !voteProcessingRef.current;
   const humanPlayers = orderedPlayers.filter((p: any) => !p.is_bot);
-  const turnLabel = isMyTurn ? 'Sua vez: escolha um personagem' : activePlayer ? `Agora joga: ${activePlayer.nickname}` : 'Aguardando rodada';
-  const roundSummary = `Rodada ${room.current_turn_number + 1} • ${activePlayers.length} vivo${activePlayers.length === 1 ? '' : 's'}`;
+  const turnLabel = isSpectator
+    ? 'Você está eliminado'
+    : isMyTurn
+      ? 'Sua vez: escolha um personagem'
+      : activePlayer
+        ? `Agora joga: ${activePlayer.nickname}`
+        : 'Aguardando rodada';
+  const roundSummary = isSpectator
+    ? '👻 Assistindo a partida'
+    : `Rodada ${room.current_turn_number + 1} • ${activePlayers.length} vivo${activePlayers.length === 1 ? '' : 's'}`;
 
   useEffect(() => {
     playersRef.current = players;
@@ -96,6 +106,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
       .map((id: string) => snapshotsById.get(id) || currentPlayers.find((p: any) => p.id === id))
       .filter(Boolean);
     const eliminatedPlayers = hitPlayers.filter((player: any) => (player.lives || 0) <= 0 || player.is_eliminated);
+    const revealCard = deckChars.find((card) => String(card.name || '').toLowerCase() === String(charName || '').toLowerCase());
 
     setIsRevealing(true);
     setRevealStage('choosing');
@@ -103,29 +114,35 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
       voterName: revealVoter?.nickname || 'Alguem',
       voter: revealVoter,
       charName,
+      card: revealCard,
       players: hitPlayers,
       eliminatedPlayers,
     });
 
+    audioManager.playSFX('vote');
     if (eliminatedPlayers.length > 0) void refreshLiveCards();
 
-    await sleep(800);
+    await sleep(900);
     setRevealStage('choice');
-    await sleep(950);
-    setRevealStage(hitPlayers.length > 0 ? 'impact' : 'miss');
-    await sleep(1400);
+    audioManager.playSFX('card_reveal');
 
+    await sleep(1900);
+    setRevealStage(hitPlayers.length > 0 ? 'impact' : 'miss');
+    audioManager.playSFX(hitPlayers.length > 0 ? 'hit' : 'miss');
+
+    await sleep(1800);
     if (eliminatedPlayers.length > 0) {
       setRevealStage('eliminated');
-      await sleep(1600);
+      audioManager.playSFX('player_eliminated');
+      await sleep(2400);
     } else {
-      await sleep(450);
+      await sleep(650);
     }
 
     setIsRevealing(false);
     setRevelation(null);
     await refreshLiveCards();
-  }, [refreshLiveCards]);
+  }, [deckChars, refreshLiveCards]);
 
   useEffect(() => {
     showRevealRef.current = showReveal;
@@ -168,15 +185,6 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const runVoteResult = useCallback(async (result: any, voter: any) => {
     if (!result?.ok || !result?.target) return;
 
-    if ((result.hitPlayerIds || []).length > 0) {
-      addLog(`ACERTOU! ${result.target} estava na mesa.`);
-      for (const player of result.hitPlayers || []) {
-        addLog(player.is_eliminated ? `${player.nickname} foi eliminado!` : `${player.nickname} perdeu vida!`);
-      }
-    } else {
-      addLog(`ERROU! Ninguem tinha ${result.target}.`);
-    }
-
     const payload = {
       charName: result.target,
       hitPlayerIds: result.hitPlayerIds || [],
@@ -188,6 +196,14 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     await sendReveal(payload);
     await showReveal(result.target, payload.hitPlayerIds, voter, payload.hitPlayers);
 
+    if ((result.hitPlayerIds || []).length > 0) {
+      addLog(`ACERTOU! ${result.target} estava na mesa.`);
+      for (const player of result.hitPlayers || []) {
+        addLog(player.is_eliminated ? `${player.nickname} foi eliminado!` : `${player.nickname} perdeu vida!`);
+      }
+    } else {
+      addLog(`ERROU! Ninguem tinha ${result.target}.`);
+    }
     if (result.tiebreak) addLog('EMPATE! Escolham novos personagens para o desempate.');
     if (result.finished) addLog(`Partida encerrada! Campeao: ${result.winner || 'Empate'}!`);
   }, [addLog, sendReveal, showReveal]);
@@ -382,27 +398,28 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   }, [activePlayer, isRevealing, room.current_turn_number, room.id, room.vote_time_seconds, addLog, runVoteResult, refreshLiveCards, humanPlayers.length]);
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-[#f5f6ff] font-sans relative party-grid-bg">
+    <div className={cn('flex h-[100dvh] overflow-hidden bg-[#f5f6ff] font-sans relative party-grid-bg', isSpectator && 'grayscale-[0.15]')}>
       <div className="flex-1 flex flex-col p-2.5 md:p-6 overflow-y-auto relative z-10">
-        <header className="mb-3 bg-white border-2 border-indigo-100 p-2.5 md:p-3 rounded-2xl shrink-0 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 relative overflow-hidden">
+        <header className={cn('mb-3 bg-white border-2 p-2.5 md:p-3 rounded-2xl shrink-0 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 relative overflow-hidden', isSpectator ? 'border-slate-300 bg-slate-900 text-white' : 'border-indigo-100')}>
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="relative flex h-3 w-3 shrink-0">
-              <span className={cn('animate-ping absolute inline-flex h-full w-full opacity-75 rounded-full', isMyTurn ? 'bg-emerald-500' : 'bg-indigo-400')} />
-              <span className={cn('relative inline-flex h-3 w-3 rounded-full', isMyTurn ? 'bg-emerald-500' : 'bg-indigo-400')} />
+              <span className={cn('animate-ping absolute inline-flex h-full w-full opacity-75 rounded-full', isSpectator ? 'bg-slate-400' : isMyTurn ? 'bg-emerald-500' : 'bg-indigo-400')} />
+              <span className={cn('relative inline-flex h-3 w-3 rounded-full', isSpectator ? 'bg-slate-400' : isMyTurn ? 'bg-emerald-500' : 'bg-indigo-400')} />
             </span>
             <div className="min-w-0 text-left">
-              <p className="text-[13px] md:text-sm font-black text-indigo-950 truncate">{turnLabel}</p>
-              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[9px] md:text-[10px] font-black uppercase tracking-wider text-indigo-500">
+              <p className={cn('text-[13px] md:text-sm font-black truncate', isSpectator ? 'text-white' : 'text-indigo-950')}>{turnLabel}</p>
+              <div className={cn('mt-0.5 flex flex-wrap items-center gap-1.5 text-[9px] md:text-[10px] font-black uppercase tracking-wider', isSpectator ? 'text-slate-300' : 'text-indigo-500')}>
                 <span>{roundSummary}</span>
+                {isSpectator && <span className="rounded-full border border-slate-500 bg-slate-800 px-2 py-0.5 text-slate-200"><Eye className="mr-1 inline h-3 w-3" /> Espectador</span>}
                 {isSuddenDeath && <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-600">🔥 Morte súbita</span>}
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 justify-between sm:justify-end">
-            <div className="flex items-center gap-2 bg-indigo-50/50 px-3 py-2 rounded-2xl border border-indigo-100">
-              <Clock className="w-4 h-4 text-indigo-500" />
-              <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
+            <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border', isSpectator ? 'bg-slate-800 border-slate-600' : 'bg-indigo-50/50 border-indigo-100')}>
+              <Clock className={cn('w-4 h-4', isSpectator ? 'text-slate-300' : 'text-indigo-500')} />
+              <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : isSpectator ? 'text-white' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
             </div>
             <button onClick={leaveRoom} className="h-10 md:h-11 px-3 md:px-4 rounded-2xl border-2 border-rose-100 bg-rose-50 text-rose-600 text-[10px] md:text-xs font-black uppercase flex items-center gap-1.5 hover:bg-rose-100 transition-all cursor-pointer">
               Sair <LogOut className="w-4 h-4" />
@@ -496,43 +513,51 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
         </div>
 
         <AnimatePresence>
-          {isRevealing && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-900/60 backdrop-blur-md rounded-3xl p-4">
-              {revelation && revealStage === 'choosing' ? (
-                <div className="text-center p-8 bg-white border-4 border-indigo-100 shadow-2xl max-w-sm w-full rounded-3xl">
-                  <div className="w-16 h-16 bg-amber-50 border-2 border-amber-200 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce"><Zap className="w-8 h-8" /></div>
-                  <p className={cn('text-sm font-black uppercase tracking-widest mb-2', revelation.voter?.color?.text || 'text-indigo-600')}>{revelation.voterName}</p>
-                  <h2 className="text-2xl font-black text-indigo-950 font-display mb-1.5 animate-pulse">Fez sua escolha...</h2>
-                  <p className="text-xs font-black text-indigo-500 uppercase tracking-widest">A mesa ainda nao sabe o alvo</p>
-                </div>
-              ) : revelation && revealStage === 'choice' ? (
-                <motion.div initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} className="text-center p-8 bg-white border-4 border-indigo-100 shadow-2xl max-w-md w-full rounded-3xl text-indigo-950">
-                  <p className={cn('text-sm font-black uppercase tracking-widest mb-2', revelation.voter?.color?.text || 'text-indigo-600')}>{revelation.voterName} escolheu</p>
-                  <p className="text-4xl font-black font-display mb-4">{revelation.charName}</p>
-                  <p className="text-xs font-black text-indigo-500 uppercase tracking-widest">Conferindo atingidos...</p>
+          {isRevealing && revelation && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-950/82 backdrop-blur-md rounded-3xl p-4 text-white">
+              {revealStage === 'choosing' ? (
+                <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-8 max-w-sm w-full">
+                  <div className="w-20 h-20 bg-indigo-500/20 border-2 border-indigo-300/40 text-indigo-200 rounded-full flex items-center justify-center mx-auto mb-5 animate-pulse"><Zap className="w-10 h-10" /></div>
+                  <p className="text-xs font-black uppercase tracking-[0.35em] text-indigo-200 mb-3">Preparando resultado</p>
+                  <h2 className="text-3xl font-black font-display">{revelation.voterName}</h2>
+                  <p className="mt-2 text-sm font-bold text-white/70">fez uma acusação...</p>
                 </motion.div>
-              ) : revelation && (revealStage === 'impact' || revealStage === 'eliminated') ? (() => {
-                const isMeHit = revelation.players.some((p: any) => p.id === me.id);
-                const visiblePlayers = revealStage === 'eliminated' ? revelation.eliminatedPlayers : revelation.players;
-                const title = isMeHit ? revealStage === 'eliminated' ? 'VOCE FOI ELIMINADO!' : 'VOCE FOI ATINGIDO!' : revealStage === 'eliminated' ? 'ELIMINACAO' : 'ATINGIDO';
-                return (
-                  <motion.div initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} className={cn('text-center p-8 border-4 shadow-2xl max-w-md w-full rounded-3xl text-white', isMeHit ? 'bg-indigo-700 border-indigo-300' : 'bg-rose-600 border-rose-400')}>
-                    <h2 className="font-extrabold tracking-widest text-sm mb-4 uppercase drop-shadow-sm">{title}</h2>
-                    <p className="text-4xl font-black font-display mb-6 drop-shadow-md">{revelation.charName}</p>
-                    <div className="rounded-2xl p-4 mb-4 border bg-white/15 border-white/25">
-                      <p className="text-xs font-bold uppercase mb-2 text-white/80">{revealStage === 'eliminated' ? 'Saiu do jogo:' : 'Perdeu vida:'}</p>
-                      <p className="text-lg font-black">{visiblePlayers.map((p: any) => p.nickname).join(', ')}</p>
+              ) : revealStage === 'choice' ? (
+                <motion.div initial={{ scale: 0.72, y: 35, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} className="w-full max-w-sm text-center">
+                  <p className="mb-3 text-xs font-black uppercase tracking-[0.35em] text-amber-200">Carta acusada</p>
+                  <div className="mx-auto mb-5 w-52 max-w-[70vw] rounded-[1.6rem] border-4 border-white/20 bg-slate-900 p-2 shadow-2xl">
+                    <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-slate-800">
+                      <CharacterImage name={revelation.charName} imageUrl={revelation.card?.image_url} avatarConfig={revelation.card?.avatar_config} isOfficial={usesOfficialImages} alt="" className="h-full w-full object-cover" />
                     </div>
-                    <div className="grid gap-2 text-left">{revelation.players.map((p: any) => <div key={p.id} className="rounded-xl bg-white/15 border border-white/20 px-3 py-2"><span className="font-black">{p.nickname}</span><span className="ml-2 text-white/80 font-bold">vidas: {Math.max(0, p.lives || 0)}</span></div>)}</div>
+                  </div>
+                  <h2 className="text-4xl md:text-5xl font-black font-display uppercase leading-none drop-shadow-lg">{revelation.charName}</h2>
+                </motion.div>
+              ) : revealStage === 'impact' ? (
+                <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-emerald-300 shadow-2xl max-w-md w-full rounded-3xl">
+                  <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-600 mb-2">Acertou</p>
+                  <h2 className="text-3xl font-black font-display mb-4">{revelation.charName}</h2>
+                  <p className="text-sm font-black text-slate-500 uppercase mb-3">Estava com:</p>
+                  <div className="grid gap-2">
+                    {revelation.players.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-emerald-100 bg-emerald-50 px-4 py-3 font-black text-emerald-800">{p.nickname} • vidas: {Math.max(0, p.lives || 0)}</div>)}
+                  </div>
+                </motion.div>
+              ) : revealStage === 'eliminated' ? (() => {
+                const isMeHit = revelation.eliminatedPlayers.some((p: any) => p.id === me.id);
+                return (
+                  <motion.div initial={{ scale: 0.8, opacity: 0, rotate: -1 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} className="text-center p-8 bg-slate-950 border-4 border-rose-500 shadow-2xl max-w-md w-full rounded-3xl text-white">
+                    <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full border-4 border-rose-400 bg-rose-950/70 text-rose-200 shadow-xl"><Skull className="h-14 w-14" /></div>
+                    <p className="text-xs font-black uppercase tracking-[0.35em] text-rose-300 mb-3">Eliminação</p>
+                    <h2 className="text-4xl font-black font-display mb-4">{isMeHit ? 'VOCÊ FOI ELIMINADO' : 'JOGADOR ELIMINADO'}</h2>
+                    <p className="rounded-2xl bg-white/10 border border-white/15 px-4 py-3 text-lg font-black">{revelation.eliminatedPlayers.map((p: any) => p.nickname).join(', ')}</p>
                   </motion.div>
                 );
-              })() : revelation ? (
-                <motion.div initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} className="text-center p-8 bg-slate-800 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white">
-                  <h2 className="text-slate-400 font-extrabold tracking-widest text-sm mb-4 uppercase">NENHUM ACERTO</h2>
-                  <p className="text-2xl font-black mb-2 text-slate-300 line-through decoration-slate-500 decoration-4">{revelation.charName}</p>
-                  <p className="text-lg font-bold text-slate-400">Ninguem tinha este personagem!</p>
+              })() : (
+                <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-8 bg-slate-900 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white">
+                  <p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400 mb-3">Errou</p>
+                  <h2 className="text-3xl font-black font-display mb-3 line-through decoration-slate-500 decoration-4">{revelation.charName}</h2>
+                  <p className="text-lg font-bold text-slate-300">Ninguem tinha este personagem.</p>
                 </motion.div>
-              ) : null}
+              )}
             </motion.div>
           )}
         </AnimatePresence>

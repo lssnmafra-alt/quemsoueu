@@ -32,6 +32,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const [isRevealing, setIsRevealing] = useState(false);
   const [liveCharIds, setLiveCharIds] = useState<Set<string>>(new Set());
   const [liveCardsLoaded, setLiveCardsLoaded] = useState(false);
+  const [suddenDeathIntro, setSuddenDeathIntro] = useState(false);
   const [revelation, setRevelation] = useState<{
     voterName: string;
     voter?: any;
@@ -51,6 +52,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const activePlayerRef = useRef<any>(null);
   const showRevealRef = useRef<any>(null);
   const sentRevealKeysRef = useRef<Set<string>>(new Set());
+  const suddenDeathAnnouncedRef = useRef(false);
 
   const orderedPlayers = useMemo(() => [...players].sort((a, b) => (a.play_order || 0) - (b.play_order || 0)), [players]);
   const activePlayers = useMemo(() => orderedPlayers.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0), [orderedPlayers]);
@@ -123,6 +125,9 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const eliminatedPlayers = hitPlayers.filter((player: any) => (player.lives || 0) <= 0 || player.is_eliminated);
     const revealCard = deckChars.find((card) => String(card.name || '').toLowerCase() === String(charName || '').toLowerCase());
     const hasHit = hitPlayers.length > 0;
+    const timing = isSuddenDeath
+      ? { preparing: 900, card: 1800, owner: 900, result: 1300, consequence: 1400, eliminated: 2600, breath: 500 }
+      : { preparing: 1200, card: 2200, owner: 1200, result: 1500, consequence: 1800, eliminated: 3200, breath: 800 };
 
     setIsRevealing(true);
     setRevealStage('choosing');
@@ -138,32 +143,32 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     audioManager.playSFX('vote');
     if (eliminatedPlayers.length > 0) void refreshLiveCards();
 
-    await sleep(1200);
+    await sleep(timing.preparing);
     setRevealStage('choice');
     audioManager.playSFX('card_reveal');
 
-    await sleep(2200);
+    await sleep(timing.card);
     setRevealStage('owner');
 
-    await sleep(1200);
+    await sleep(timing.owner);
     setRevealStage('result');
     audioManager.playSFX(hasHit ? 'life_lost' : 'miss');
 
-    await sleep(1500);
+    await sleep(timing.result);
     if (eliminatedPlayers.length > 0) {
       setRevealStage('eliminated');
       audioManager.playSFX(eliminatedPlayers.some((player: any) => player.id === me?.id) ? 'defeat' : 'player_eliminated');
-      await sleep(3200);
+      await sleep(timing.eliminated);
     } else {
       setRevealStage('consequence');
-      await sleep(1800);
+      await sleep(timing.consequence);
     }
 
-    await sleep(800);
+    await sleep(timing.breath);
     setIsRevealing(false);
     setRevelation(null);
     await refreshLiveCards();
-  }, [deckChars, me?.id, refreshLiveCards]);
+  }, [deckChars, isSuddenDeath, me?.id, refreshLiveCards]);
 
   useEffect(() => {
     showRevealRef.current = showReveal;
@@ -292,6 +297,24 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   }, [room.current_turn_number]);
 
   useEffect(() => {
+    audioManager.setMusicRate(isSuddenDeath ? 1.18 : 1);
+    if (!isSuddenDeath) {
+      suddenDeathAnnouncedRef.current = false;
+      setSuddenDeathIntro(false);
+      return;
+    }
+
+    if (suddenDeathAnnouncedRef.current) return;
+    suddenDeathAnnouncedRef.current = true;
+    setSuddenDeathIntro(true);
+    audioManager.playSFX('sudden_death');
+    const timer = setTimeout(() => setSuddenDeathIntro(false), 2200);
+    return () => clearTimeout(timer);
+  }, [isSuddenDeath]);
+
+  useEffect(() => () => audioManager.setMusicRate(1), []);
+
+  useEffect(() => {
     const lastLog = actionLog[actionLog.length - 1];
     if (!lastLog) return;
     if (lastLog.msg.includes('perdeu') || lastLog.msg.includes('eliminado') || lastLog.msg.includes('falta') || lastLog.msg.includes('nao votou')) audioManager.playSFX('eliminated');
@@ -393,7 +416,9 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
 
     const voteSeconds = Math.max(5, room.vote_time_seconds || 30);
     const maxDelay = Math.max(1000, voteSeconds * 1000 - 2500);
-    const preferredDelay = (humanPlayers.length === 1 ? 1800 : 4200) + Math.floor(Math.random() * 1400);
+    const preferredDelay = isSuddenDeath
+      ? (humanPlayers.length === 1 ? 2000 : 2800) + Math.floor(Math.random() * 1400)
+      : (humanPlayers.length === 1 ? 1800 : 4200) + Math.floor(Math.random() * 1400);
     const delay = Math.min(maxDelay, preferredDelay);
 
     const timer = setTimeout(async () => {
@@ -426,35 +451,35 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [activePlayer, isRevealing, room.current_turn_number, room.id, room.vote_time_seconds, addLog, runVoteResult, refreshLiveCards, humanPlayers.length]);
+  }, [activePlayer, isRevealing, isSuddenDeath, room.current_turn_number, room.id, room.vote_time_seconds, addLog, runVoteResult, refreshLiveCards, humanPlayers.length]);
 
   return (
     <div className={cn('flex h-[100dvh] overflow-hidden bg-[#f5f6ff] font-sans relative party-grid-bg', isSpectator && 'grayscale-[0.15]')}>
       <div className="flex-1 flex flex-col p-2.5 md:p-6 overflow-y-auto relative z-10">
-        <header className={cn('mb-3 bg-white border-2 p-2.5 md:p-3 rounded-2xl shrink-0 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 relative overflow-hidden', isSpectator ? 'border-slate-300 bg-slate-900 text-white' : 'border-indigo-100')}>
+        <header className={cn('mb-3 bg-white border-2 p-2.5 md:p-3 rounded-2xl shrink-0 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 relative overflow-hidden', isSpectator ? 'border-slate-300 bg-slate-900 text-white' : isSuddenDeath ? 'border-rose-200 bg-rose-50' : 'border-indigo-100')}>
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="relative flex h-3 w-3 shrink-0">
-              <span className={cn('animate-ping absolute inline-flex h-full w-full opacity-75 rounded-full', isSpectator ? 'bg-slate-400' : isMyTurn ? 'bg-emerald-500' : 'bg-indigo-400')} />
-              <span className={cn('relative inline-flex h-3 w-3 rounded-full', isSpectator ? 'bg-slate-400' : isMyTurn ? 'bg-emerald-500' : 'bg-indigo-400')} />
+              <span className={cn('animate-ping absolute inline-flex h-full w-full opacity-75 rounded-full', isSpectator ? 'bg-slate-400' : isSuddenDeath ? 'bg-rose-500' : isMyTurn ? 'bg-emerald-500' : 'bg-indigo-400')} />
+              <span className={cn('relative inline-flex h-3 w-3 rounded-full', isSpectator ? 'bg-slate-400' : isSuddenDeath ? 'bg-rose-500' : isMyTurn ? 'bg-emerald-500' : 'bg-indigo-400')} />
             </span>
             <div className="min-w-0 text-left">
               <p className={cn('text-[13px] md:text-sm font-black truncate', isSpectator ? 'text-white' : 'text-indigo-950')}>{turnLabel}</p>
-              <div className={cn('mt-0.5 flex flex-wrap items-center gap-1.5 text-[9px] md:text-[10px] font-black uppercase tracking-wider', isSpectator ? 'text-slate-300' : 'text-indigo-500')}>
+              <div className={cn('mt-0.5 flex flex-wrap items-center gap-1.5 text-[9px] md:text-[10px] font-black uppercase tracking-wider', isSpectator ? 'text-slate-300' : isSuddenDeath ? 'text-rose-600' : 'text-indigo-500')}>
                 <span>{roundSummary}</span>
                 {isSpectator && <span className="rounded-full border border-slate-500 bg-slate-800 px-2 py-0.5 text-slate-200"><Eye className="mr-1 inline h-3 w-3" /> Espectador</span>}
-                {isSuddenDeath && <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-600">🔥 Morte súbita</span>}
+                {isSuddenDeath && <span className="rounded-full border border-rose-300 bg-white px-2 py-0.5 text-rose-600">🔥 Morte súbita</span>}
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 justify-between sm:justify-end">
             {isMyTurn && !isTurnResolving ? (
-              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border', isSpectator ? 'bg-slate-800 border-slate-600' : 'bg-indigo-50/50 border-indigo-100')}>
-                <Clock className={cn('w-4 h-4', isSpectator ? 'text-slate-300' : 'text-indigo-500')} />
-                <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : isSpectator ? 'text-white' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
+              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border', isSpectator ? 'bg-slate-800 border-slate-600' : isSuddenDeath ? 'bg-white border-rose-200' : 'bg-indigo-50/50 border-indigo-100')}>
+                <Clock className={cn('w-4 h-4', isSpectator ? 'text-slate-300' : isSuddenDeath ? 'text-rose-500' : 'text-indigo-500')} />
+                <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : isSpectator ? 'text-white' : isSuddenDeath ? 'text-rose-600' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
               </div>
             ) : (
-              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border text-[10px] md:text-xs font-black uppercase tracking-wider', isSpectator ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-indigo-50 border-indigo-100 text-indigo-700')}>
+              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border text-[10px] md:text-xs font-black uppercase tracking-wider', isSpectator ? 'bg-slate-800 border-slate-600 text-slate-200' : isSuddenDeath ? 'bg-white border-rose-200 text-rose-600' : 'bg-indigo-50 border-indigo-100 text-indigo-700')}>
                 <Zap className="w-4 h-4" />
                 {isRevealing || isVoting ? 'Preparando revelação' : activePlayer ? 'Escolhendo...' : 'Aguardando'}
               </div>
@@ -549,6 +574,18 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
         <div className="fixed right-4 top-20 z-[70] flex flex-col gap-2 pointer-events-none max-w-[320px]">
           <AnimatePresence>{actionLog.map((log) => <motion.div key={log.id} initial={{ opacity: 0, x: 30, scale: 0.96 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 30, scale: 0.96 }} className="bg-white/92 backdrop-blur-md border-2 border-indigo-100 text-indigo-950 font-bold px-3 py-2 text-[11px] shadow-md rounded-xl">{log.msg}</motion.div>)}</AnimatePresence>
         </div>
+
+        <AnimatePresence>
+          {suddenDeathIntro && !isRevealing && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[85] flex items-center justify-center bg-slate-950/86 backdrop-blur-md rounded-3xl p-4 text-white">
+              <motion.div initial={{ scale: 0.82, opacity: 0, y: 18 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0, y: -12 }} className="max-w-md rounded-3xl border-4 border-rose-500 bg-rose-950/80 p-8 text-center shadow-2xl">
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.35em] text-rose-200">Agora ficou sério</p>
+                <h2 className="text-5xl font-black font-display text-white drop-shadow-lg">🔥 MORTE SÚBITA</h2>
+                <p className="mt-4 text-sm font-bold uppercase tracking-wider text-rose-100">Últimos jogadores restantes. Qualquer erro pode ser fatal.</p>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {isRevealing && revelation && (

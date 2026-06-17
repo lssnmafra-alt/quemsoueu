@@ -48,10 +48,13 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
 
   useEffect(() => {
     const fetchDecks = async () => {
+      const deckFilter = room.deck_id
+        ? `is_public.eq.true,creator_id.eq.${me.user_id},id.eq.${room.deck_id}`
+        : `is_public.eq.true,creator_id.eq.${me.user_id}`;
       const { data } = await supabaseGame
         .from('decks')
         .select('*')
-        .or(`is_public.eq.true,creator_id.eq.${me.user_id}`);
+        .or(deckFilter);
       const { data: favoriteRows } = await supabaseGame
         .from('deck_favorites')
         .select('deck_id')
@@ -76,8 +79,12 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
       setDecks(nextDecks);
     };
 
-    if (isAdmin || botIsAdmin) fetchDecks();
-  }, [botIsAdmin, isAdmin, me.user_id]);
+    fetchDecks();
+  }, [me.user_id, room.deck_id]);
+
+  useEffect(() => {
+    setSelectedDeck(room.deck_id || '');
+  }, [room.deck_id]);
 
   useEffect(() => {
     if (!isAdmin || room.status !== 'LOBBY') return;
@@ -140,7 +147,9 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const clampedBotsCount = Math.min(botsCount, maxBots);
   const expectedParticipants = realPlayersCount + clampedBotsCount;
   const canStart = expectedParticipants >= MIN_PLAYERS_TO_START;
-  const selectedDeckName = decks.find((deck: any) => deck.id === selectedDeck)?.name || 'Personagens Oficiais';
+  const selectedDeckName = selectedDeck === ''
+    ? 'Personagens Oficiais'
+    : decks.find((deck: any) => deck.id === selectedDeck)?.name || 'Baralho selecionado';
 
   const filteredDecks = useMemo(() => {
     const search = deckSearch.trim().toLowerCase();
@@ -262,80 +271,86 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
               <div>
                 <label className="text-xs font-black text-indigo-600 uppercase tracking-wider block mb-2 border-l-4 border-indigo-500 pl-2 h-4 select-none">Tema de Cartas Escolhido</label>
                 <div className="bg-indigo-50/40 border-2 border-indigo-100 rounded-2xl p-3 space-y-3">
-                  <div className="flex items-center gap-2 rounded-xl bg-white border-2 border-indigo-100 px-3 h-11">
-                    <Search className="w-4 h-4 text-indigo-400 shrink-0" />
-                    <input
-                      disabled={!isAdmin}
-                      value={deckSearch}
-                      onChange={(event) => setDeckSearch(event.target.value)}
-                      placeholder="Pesquisar baralho..."
-                      className="min-w-0 flex-1 bg-transparent outline-none text-sm font-bold text-indigo-950 placeholder:text-slate-400 disabled:cursor-not-allowed"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {deckTabs.map((tab) => {
-                      const Icon = tab.icon;
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          disabled={!isAdmin}
-                          onClick={() => setDeckTab(tab.id)}
-                          className={cn(
-                            'h-10 rounded-xl border-2 px-2 text-[10px] font-black uppercase flex items-center justify-center gap-1.5 transition-all disabled:cursor-not-allowed',
-                            deckTab === tab.id
-                              ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                              : 'bg-white border-indigo-100 text-indigo-600 hover:border-indigo-300'
-                          )}
-                        >
-                          <Icon className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">{tab.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
-                    {filteredDecks.length === 0 ? (
-                      <div className="h-20 flex items-center justify-center text-xs font-black text-slate-400 uppercase bg-white border-2 border-dashed border-indigo-100 rounded-xl">
-                        Nenhum baralho encontrado
+                  {isAdmin ? (
+                    <>
+                      <div className="flex items-center gap-2 rounded-xl bg-white border-2 border-indigo-100 px-3 h-11">
+                        <Search className="w-4 h-4 text-indigo-400 shrink-0" />
+                        <input
+                          value={deckSearch}
+                          onChange={(event) => setDeckSearch(event.target.value)}
+                          placeholder="Pesquisar baralho..."
+                          className="min-w-0 flex-1 bg-transparent outline-none text-sm font-bold text-indigo-950 placeholder:text-slate-400"
+                        />
                       </div>
-                    ) : filteredDecks.map((deck: any) => (
-                      <button
-                        key={deck.id || 'official'}
-                        type="button"
-                        disabled={!isAdmin}
-                        onClick={() => {
-                          setSelectedDeck(deck.id);
-                          updateSettings({ deck_id: deck.id || null });
-                        }}
-                        className={cn(
-                          'w-full min-h-12 rounded-xl border-2 px-3 py-2 text-left transition-all disabled:cursor-not-allowed flex items-center justify-between gap-3',
-                          selectedDeck === deck.id
-                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                            : 'bg-white border-indigo-100 text-indigo-950 hover:border-indigo-300'
-                        )}
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-sm font-black truncate">{deck.name}</span>
-                          <span className={cn('block text-[10px] font-bold uppercase', selectedDeck === deck.id ? 'text-indigo-100' : 'text-slate-400')}>
-                            {deck.id === '' || deck.is_official ? 'Oficial' : deck.creator_id === me.user_id ? 'Criado por mim' : 'Publico'} {deck.favorite_count ? `- ${deck.favorite_count} favoritos` : ''}
-                          </span>
-                        </span>
-                        {selectedDeck === deck.id && <Sparkles className="w-4 h-4 shrink-0" />}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[11px] font-bold text-indigo-600">Selecionado: {selectedDeckName}</p>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {deckTabs.map((tab) => {
+                          const Icon = tab.icon;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setDeckTab(tab.id)}
+                              className={cn(
+                                'h-10 rounded-xl border-2 px-2 text-[10px] font-black uppercase flex items-center justify-center gap-1.5 transition-all',
+                                deckTab === tab.id
+                                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                                  : 'bg-white border-indigo-100 text-indigo-600 hover:border-indigo-300'
+                              )}
+                            >
+                              <Icon className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">{tab.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                        {filteredDecks.length === 0 ? (
+                          <div className="h-20 flex items-center justify-center text-xs font-black text-slate-400 uppercase bg-white border-2 border-dashed border-indigo-100 rounded-xl">
+                            Nenhum baralho encontrado
+                          </div>
+                        ) : filteredDecks.map((deck: any) => (
+                          <button
+                            key={deck.id || 'official'}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDeck(deck.id);
+                              updateSettings({ deck_id: deck.id || null });
+                            }}
+                            className={cn(
+                              'w-full min-h-12 rounded-xl border-2 px-3 py-2 text-left transition-all flex items-center justify-between gap-3',
+                              selectedDeck === deck.id
+                                ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                                : 'bg-white border-indigo-100 text-indigo-950 hover:border-indigo-300'
+                            )}
+                          >
+                            <span className="min-w-0">
+                              <span className="block text-sm font-black truncate">{deck.name}</span>
+                              <span className={cn('block text-[10px] font-bold uppercase', selectedDeck === deck.id ? 'text-indigo-100' : 'text-slate-400')}>
+                                {deck.id === '' || deck.is_official ? 'Oficial' : deck.creator_id === me.user_id ? 'Criado por mim' : 'Publico'} {deck.favorite_count ? `- ${deck.favorite_count} favoritos` : ''}
+                              </span>
+                            </span>
+                            {selectedDeck === deck.id && <Sparkles className="w-4 h-4 shrink-0" />}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] font-bold text-indigo-600">Selecionado: {selectedDeckName}</p>
+                    </>
+                  ) : (
+                    <div className="rounded-2xl border-2 border-indigo-100 bg-white p-4 text-left">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Deck selecionado</p>
+                      <p className="mt-1 text-xl font-black text-indigo-950 font-display truncate">{selectedDeckName}</p>
+                      <p className="mt-2 flex items-center gap-1 text-[11px] font-bold text-indigo-600"><ShieldAlert className="w-4 h-4 text-indigo-400" /> Apenas o dono da sala pode trocar o deck.</p>
+                    </div>
+                  )}
                 </div>
-                {!isAdmin && <p className="text-[11px] text-indigo-600 font-bold mt-2 flex items-center gap-1"><ShieldAlert className="w-4 h-4 text-indigo-400" /> Apenas o dono da sala pode mudar configuracoes do jogo.</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-indigo-50/30 p-3.5 border-2 border-indigo-50 relative col-span-2 rounded-2xl">
                   <label className="text-[10px] font-black text-indigo-500 uppercase tracking-wider block mb-1">Visibilidade da Sala</label>
-                  <select disabled={!isAdmin} value={room.is_public ? 'true' : 'false'} onChange={(e) => updateSettings({ is_public: e.target.value === 'true' })} className="w-full bg-transparent border-0 h-8 text-sm font-bold text-indigo-950 focus:outline-none cursor-pointer appearance-none p-0">
+                  <select disabled={!isAdmin} value={room.is_public ? 'true' : 'false'} onChange={(e) => updateSettings({ is_public: e.target.value === 'true' })} className="w-full bg-transparent border-0 h-8 text-sm font-bold text-indigo-950 focus:outline-none cursor-pointer appearance-none p-0 disabled:cursor-not-allowed">
                     <option value="true" className="bg-white">SALA PUBLICA (Qualquer um pode entrar)</option>
                     <option value="false" className="bg-white">SALA PRIVADA (Apenas com codigo)</option>
                   </select>
@@ -344,36 +359,36 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
                 {settingGroups.map((field) => {
                   const currentValue = room[field.key] || field.options[0];
                   return (
-                  <div key={field.key} className="bg-indigo-50/30 p-3 border-2 border-indigo-50 rounded-2xl">
-                    <label className="text-[10px] font-black text-indigo-500 uppercase tracking-wider block mb-1">{field.label}</label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {field.options.map((option) => {
-                        const optionDisabled = !isAdmin || (field.key === 'max_players' && option < totalPlayersCount);
-                        return (
-                          <button
-                            key={option}
-                            type="button"
-                            disabled={optionDisabled}
-                            onClick={() => {
-                              updateSettings({ [field.key]: option });
-                              if (field.key === 'max_players') {
-                                setBotsCount((current) => Math.min(current, Math.max(0, option - realPlayersCount)));
-                              }
-                            }}
-                            className={cn(
-                              'h-8 rounded-lg border text-xs font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed',
-                              currentValue === option
-                                ? 'bg-indigo-600 border-indigo-600 text-white'
-                                : 'bg-white border-indigo-100 text-indigo-600 hover:border-indigo-300'
-                            )}
-                          >
-                            {option}
-                          </button>
-                        );
-                      })}
+                    <div key={field.key} className="bg-indigo-50/30 p-3 border-2 border-indigo-50 rounded-2xl">
+                      <label className="text-[10px] font-black text-indigo-500 uppercase tracking-wider block mb-1">{field.label}</label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {field.options.map((option) => {
+                          const optionDisabled = !isAdmin || (field.key === 'max_players' && option < totalPlayersCount);
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              disabled={optionDisabled}
+                              onClick={() => {
+                                updateSettings({ [field.key]: option });
+                                if (field.key === 'max_players') {
+                                  setBotsCount((current) => Math.min(current, Math.max(0, option - realPlayersCount)));
+                                }
+                              }}
+                              className={cn(
+                                'h-8 rounded-lg border text-xs font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed',
+                                currentValue === option
+                                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                                  : 'bg-white border-indigo-100 text-indigo-600 hover:border-indigo-300'
+                              )}
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                );
+                  );
                 })}
               </div>
 

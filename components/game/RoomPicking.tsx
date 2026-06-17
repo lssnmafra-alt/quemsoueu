@@ -127,12 +127,6 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   }, [finalizeIfReady]);
 
   useEffect(() => {
-    if (!allRealPlayersReady) return;
-    setTimeLeft(0);
-    finalizePicking();
-  }, [allRealPlayersReady, finalizePicking]);
-
-  useEffect(() => {
     if (allRealPlayersReady || finalizingRef.current) {
       setTimeLeft(0);
       return;

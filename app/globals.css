@@ -169,7 +169,7 @@ h3:has(svg.lucide-list) > span:last-child {
 }
 
 .btn-squishy-rose {
-  @apply bg-red-600 hover:bg-red-700 text-white border-b-4 border-red-900 hover:border-rose-950 transition-all rounded-2xl active:border-b-0 active:translate-y-1 active:mt-1 shadow-md;
+  @apply bg-red-600 hover:bg-red-700 text-white border-b-4 border-red-900 hover:border-red-950 transition-all rounded-2xl active:border-b-0 active:translate-y-1 active:mt-1 shadow-md;
 }
 
 .btn-squishy-green {

@@ -3,6 +3,28 @@ import { supabaseGame } from '@/lib/supabase';
 import { finishOrAdvance } from '@/lib/gameProgress';
 import { touchRoomActivity } from '@/lib/roomLifecycle';
 
+async function logMatchEvents(events: any[]) {
+  const rows = events.filter(Boolean).map((event) => ({
+    room_id: event.roomId,
+    turn_number: event.turnNumber,
+    event_type: event.eventType,
+    actor_player_id: event.actorPlayerId || null,
+    target_player_id: event.targetPlayerId || null,
+    character_id: event.characterId || null,
+    message: event.message || null,
+    metadata: event.metadata || {},
+  }));
+
+  if (rows.length === 0) return;
+
+  try {
+    const { error } = await supabaseGame.from('match_events').insert(rows);
+    if (error) console.warn('match_events skipped:', error.message);
+  } catch (error) {
+    console.warn('match_events failed:', error);
+  }
+}
+
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id: roomId } = await context.params;
   const body = await request.json().catch(() => ({}));
@@ -106,6 +128,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   const playersById = new Map(latestPlayers.map((player: any) => [player.id, player]));
   const hitPlayers: any[] = [];
+  const eliminatedPlayers: any[] = [];
 
   if (hits.length > 0) {
     await supabaseGame
@@ -117,9 +140,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const targetPlayer: any = playersById.get(playerId);
       if (!targetPlayer) continue;
 
-      const newLives = Math.max(0, (targetPlayer.lives || 0) - hitCount);
+      const previousLives = targetPlayer.lives || 0;
+      const newLives = Math.max(0, previousLives - hitCount);
       const updatedPlayer = { ...targetPlayer, lives: newLives, is_eliminated: newLives <= 0 };
       hitPlayers.push(updatedPlayer);
+      if (previousLives > 0 && newLives <= 0) eliminatedPlayers.push(updatedPlayer);
 
       await supabaseGame
         .from('room_players')
@@ -128,9 +153,52 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
   }
 
+  const hitPlayerIds = [...new Set(hits.map((hit: any) => hit.player_id))];
+  await logMatchEvents([
+    {
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: hits.length > 0 ? 'vote_hit' : 'vote_miss',
+      actorPlayerId: activePlayer.id,
+      characterId: targetChar.id,
+      message: hits.length > 0
+        ? `${activePlayer.nickname} acertou ${targetChar.name}.`
+        : `${activePlayer.nickname} errou ${targetChar.name}.`,
+      metadata: {
+        source: 'human',
+        target_name: targetChar.name,
+        hit_count: hits.length,
+        hit_player_ids: hitPlayerIds,
+      },
+    },
+    ...eliminatedPlayers.map((player: any) => ({
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: 'player_eliminated',
+      actorPlayerId: activePlayer.id,
+      targetPlayerId: player.id,
+      characterId: targetChar.id,
+      message: `${activePlayer.nickname} eliminou ${player.nickname} com ${targetChar.name}.`,
+      metadata: {
+        source: 'human',
+        target_name: targetChar.name,
+        eliminated_player_name: player.nickname,
+      },
+    })),
+  ]);
+
   await touchRoomActivity(room.id);
   const progress = await finishOrAdvance(room, hitPlayers);
-  const hitPlayerIds = [...new Set(hits.map((hit: any) => hit.player_id))];
+
+  if (progress?.finished) {
+    await logMatchEvents([{
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: 'room_finished',
+      message: progress.winner ? `Partida encerrada. Campeao: ${progress.winner}.` : 'Partida encerrada em empate.',
+      metadata: { winner: progress.winner || null, reason: progress.reason || null },
+    }]);
+  }
 
   return NextResponse.json({
     ok: true,

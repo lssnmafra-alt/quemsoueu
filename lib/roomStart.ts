@@ -3,10 +3,46 @@ import { touchRoomActivity } from './roomLifecycle';
 
 const MIN_PLAYERS_TO_START = 4;
 
-function getBotNickname(index: number) {
-  const names = ['Lucas', 'Ana', 'Pedro', 'Rafael', 'Juliana', 'Carlos'];
-  const surnames = ['Costa', 'Souza', 'Lima', 'Santos', 'Alves', 'Rocha'];
-  return `${names[index % names.length]} ${surnames[(index * 2) % surnames.length]}`;
+const BOT_NICKNAMES = [
+  'jugameplays',
+  'bruninho67',
+  'pedrinn',
+  'rafa_xt',
+  'gui_zika',
+  'luluzinha',
+  'anafps',
+  'joaovk',
+  'ninafps',
+  'dudazinha',
+  'vitin7',
+  'lele_gg',
+  'xandeplay',
+  'biazinha',
+  'thzinn',
+  'brunao77',
+];
+
+function shouldRefreshBotNickname(nickname = '') {
+  const trimmed = nickname.trim();
+  if (!trimmed) return true;
+  if (/^bot\s+arena\s*\d*$/i.test(trimmed)) return true;
+  if (/^[A-Za-zÀ-ÿ]+\s+[A-Za-zÀ-ÿ]+$/.test(trimmed)) return true;
+  return false;
+}
+
+function getBotNickname(index: number, usedNicknames = new Set<string>()) {
+  for (let attempt = 0; attempt < BOT_NICKNAMES.length * 2; attempt++) {
+    const base = BOT_NICKNAMES[(index + attempt) % BOT_NICKNAMES.length];
+    const nickname = attempt < BOT_NICKNAMES.length ? base : `${base}${index + 1}`;
+    if (!usedNicknames.has(nickname.toLowerCase())) {
+      usedNicknames.add(nickname.toLowerCase());
+      return nickname;
+    }
+  }
+
+  const fallback = `player${index + 17}`;
+  usedNicknames.add(fallback.toLowerCase());
+  return fallback;
 }
 
 async function countPlayableCharacters() {
@@ -72,18 +108,36 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
     targetBots = Math.min(botSlots, MIN_PLAYERS_TO_START - realPlayers.length);
   }
 
+  const botsToKeep = existingBots.slice(0, targetBots);
   const botsToRemove = existingBots.slice(targetBots);
   const botsToCreate = Math.max(0, targetBots - existingBots.length);
+  const usedNicknames = new Set<string>(players
+    .filter((player: any) => !player.is_bot || !shouldRefreshBotNickname(player.nickname || ''))
+    .map((player: any) => String(player.nickname || '').toLowerCase())
+    .filter(Boolean));
+  let botsRenamed = 0;
 
   if (botsToRemove.length > 0) {
     await supabaseGame.from('room_players').delete().in('id', botsToRemove.map((bot: any) => bot.id));
+  }
+
+  for (let i = 0; i < botsToKeep.length; i++) {
+    const bot = botsToKeep[i];
+    if (!shouldRefreshBotNickname(bot.nickname || '')) {
+      usedNicknames.add(String(bot.nickname || '').toLowerCase());
+      continue;
+    }
+
+    const nickname = getBotNickname(i, usedNicknames);
+    await supabaseGame.from('room_players').update({ nickname }).eq('id', bot.id);
+    botsRenamed += 1;
   }
 
   for (let i = 0; i < botsToCreate; i++) {
     await supabaseGame.from('room_players').insert({
       room_id: room.id,
       user_id: crypto.randomUUID(),
-      nickname: getBotNickname(existingBots.length + i),
+      nickname: getBotNickname(botsToKeep.length + i, usedNicknames),
       is_bot: true,
       lives: room.chars_per_player || 3,
       last_seen_at: new Date().toISOString(),
@@ -101,6 +155,7 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
     targetBots,
     botsCreated: botsToCreate,
     botsRemoved: botsToRemove.length,
+    botsRenamed,
     enforcedMinimumBot: realPlayers.length + (typeof desiredBots === 'number' ? Math.max(0, desiredBots) : existingBots.length) < MIN_PLAYERS_TO_START && targetBots > existingBots.length,
   };
 }
@@ -164,6 +219,7 @@ export async function startRoom(
     bots: botSync.targetBots,
     botsCreated: botSync.botsCreated,
     botsRemoved: botSync.botsRemoved,
+    botsRenamed: botSync.botsRenamed,
     enforcedMinimumBot: botSync.enforcedMinimumBot,
   };
 }

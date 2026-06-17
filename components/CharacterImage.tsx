@@ -51,7 +51,7 @@ export default function CharacterImage({
     return (
       <div
         className={cn(
-          'relative overflow-hidden rounded-[1.35rem] border-[3px] border-slate-900 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.35),_transparent_34%),linear-gradient(135deg,_#020617,_#111827_52%,_#312e81)] flex items-center justify-center shadow-inner',
+          'official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] border-slate-900 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.35),_transparent_34%),linear-gradient(135deg,_#020617,_#111827_52%,_#312e81)] flex items-center justify-center shadow-inner',
           className,
           placeholderClassName,
         )}
@@ -73,7 +73,7 @@ export default function CharacterImage({
     return (
       <div
         className={cn(
-          'relative overflow-hidden rounded-[1.35rem] border-[3px] border-slate-900 bg-slate-950 shadow-[0_12px_28px_rgba(15,23,42,0.22),inset_0_0_0_2px_rgba(255,255,255,0.09)]',
+          'official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] border-slate-900 bg-slate-950 shadow-[0_12px_28px_rgba(15,23,42,0.22),inset_0_0_0_2px_rgba(255,255,255,0.09)]',
           className,
         )}
       >
@@ -82,20 +82,19 @@ export default function CharacterImage({
           alt=""
           aria-hidden="true"
           referrerPolicy={referrerPolicy}
-          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-55 blur-md"
+          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md"
           onError={handleError}
         />
-        <div className="absolute inset-0 bg-slate-950/20" />
+        <div className="absolute inset-0 bg-slate-950/35" />
         <img
           {...props}
           src={src}
           alt={alt ?? name}
           referrerPolicy={referrerPolicy}
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-contain"
           onError={handleError}
         />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(2,6,23,0.03),rgba(2,6,23,0.08)_45%,rgba(2,6,23,0.68))]" />
-        <div className="pointer-events-none absolute inset-2 rounded-[1rem] ring-1 ring-white/15" />
+        <div className="pointer-events-none absolute inset-0 rounded-[1.15rem] ring-1 ring-white/15" />
         <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-2xl border border-white/15 bg-slate-950/82 px-2.5 py-2 text-center shadow-xl backdrop-blur-sm">
           <p className="line-clamp-2 text-[11px] font-black uppercase leading-tight tracking-wide text-white drop-shadow sm:text-xs">{name}</p>
         </div>

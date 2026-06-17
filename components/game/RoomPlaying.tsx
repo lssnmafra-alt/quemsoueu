@@ -36,7 +36,8 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
   const orderedPlayers = [...players].sort((a, b) => (a.play_order || 0) - (b.play_order || 0));
   const activePlayers = orderedPlayers.filter((p) => !p.is_eliminated && p.lives > 0);
   const activePlayer = activePlayers.length > 0 ? activePlayers[room.current_turn_number % activePlayers.length] : null;
-  const activePlayerIndex = orderedPlayers.findIndex((p) => p.id === activePlayer?.id);
+  const isSuddenDeath = activePlayers.length > 1 && activePlayers.every((p: any) => (p.lives || 0) <= 1);
+  const hudPlayers = isSuddenDeath ? activePlayers : orderedPlayers;
   const playersRef = useRef(players);
   const activePlayerRef = useRef<any>(activePlayer);
   const visibleDeckChars = useMemo(() => (
@@ -140,6 +141,31 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
       channelRef.current = null;
     };
   }, [players, room.id]);
+
+  const sendReveal = useCallback(async (payload: any) => {
+    const channel = channelRef.current;
+    if (!channel) return;
+
+    const message = {
+      type: 'broadcast',
+      event: 'REVEAL',
+      payload,
+    };
+
+    try {
+      if (typeof channel.httpSend === 'function') {
+        await channel.httpSend(message);
+      } else if (typeof channel.send === 'function') {
+        await channel.send(message);
+      }
+    } catch {
+      try {
+        if (typeof channel.send === 'function') {
+          await channel.send(message);
+        }
+      } catch {}
+    }
+  }, []);
 
   const finishTurn = useCallback(async (tiebreakPlayerIds: string[] = []) => {
     const response = await fetch(`/api/rooms/${room.id}/finish-turn`, {
@@ -246,20 +272,14 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
 
       await refreshLiveCards();
 
-      const revelPayload = {
+      const revealPayload = {
         charName: targetChar.name,
         hits: hitPlayerIds,
         hitPlayers: updatedHitPlayers,
         voterId: activePlayer.id,
         voterName: activePlayer.nickname
       };
-      if (channelRef.current) {
-        channelRef.current.send({
-           type: 'broadcast',
-           event: 'REVEAL',
-           payload: revelPayload
-        });
-      }
+      await sendReveal(revealPayload);
 
       await showReveal(targetChar.name, hitPlayerIds, activePlayer, updatedHitPlayers);
       await finishTurn(hitPlayerIds);
@@ -373,25 +393,19 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
         const result = response ? await response.json().catch(() => null) : null;
         if (result?.ok && result.target) {
           addLog(`${activePlayer.nickname} votou em ${result.target}.`);
-          if (channelRef.current) {
-            channelRef.current.send({
-              type: 'broadcast',
-              event: 'REVEAL',
-              payload: {
-                charName: result.target,
-                hits: result.hitPlayerIds || [],
-                hitPlayers: result.hitPlayers || [],
-                voterId: activePlayer.id,
-                voterName: activePlayer.nickname,
-              },
-            });
-          }
+          await sendReveal({
+            charName: result.target,
+            hits: result.hitPlayerIds || [],
+            hitPlayers: result.hitPlayers || [],
+            voterId: activePlayer.id,
+            voterName: activePlayer.nickname,
+          });
           await showReveal(result.target, result.hitPlayerIds || [], activePlayer, result.hitPlayers || []);
         }
       }, randomDelay);
       return () => clearTimeout(timer);
     }
-  }, [activePlayer, isRevealing, room.current_turn_number, room.id, addLog, showReveal, isFirstHuman]);
+  }, [activePlayer, isRevealing, room.current_turn_number, room.id, addLog, showReveal, sendReveal, isFirstHuman]);
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-[#f5f6ff] font-sans relative party-grid-bg">
@@ -427,21 +441,45 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
         </header>
 
         <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
-          {orderedPlayers.map((p) => (
-            <div key={p.id} className={cn("bg-white/90 border-2 rounded-2xl px-3 py-2 flex items-center gap-2 shadow-sm min-w-0", activePlayer?.id === p.id ? cn(p.color?.border || 'border-indigo-400', p.color?.lightBgc || 'bg-indigo-50') : 'border-indigo-100')}>
-              <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn("w-8 h-8 rounded-xl border-2 shrink-0", p.color?.border || 'border-slate-200')} />
-              <div className="min-w-0 flex-1">
-                <p className={cn("text-xs font-black truncate", p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: room.chars_per_player }).map((_, i) => (
-                    i < p.lives && !p.is_eliminated
-                      ? <Heart key={i} className={cn("w-3.5 h-3.5 fill-current", p.color?.text || 'text-indigo-500')} />
-                      : <Skull key={i} className="w-3.5 h-3.5 text-slate-300" />
-                  ))}
+          {hudPlayers.map((p) => {
+            const isOut = p.is_eliminated || (p.lives || 0) <= 0;
+            const isActive = activePlayer?.id === p.id;
+            return (
+              <div
+                key={p.id}
+                className={cn(
+                  'border-2 rounded-2xl px-3 py-2 flex items-center gap-2 shadow-sm min-w-0 transition-all relative overflow-hidden',
+                  isOut
+                    ? 'bg-slate-100/90 border-slate-300 opacity-70 grayscale'
+                    : isActive
+                      ? cn(p.color?.border || 'border-indigo-400', p.color?.lightBgc || 'bg-indigo-50')
+                      : 'bg-white/90 border-indigo-100'
+                )}
+              >
+                {isOut && <div className="absolute inset-0 bg-slate-200/35" />}
+                <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn('w-8 h-8 rounded-xl border-2 shrink-0 relative z-10', isOut ? 'border-slate-400 bg-slate-200' : p.color?.border || 'border-slate-200')} />
+                <div className="min-w-0 flex-1 relative z-10">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <p className={cn('text-xs font-black truncate', isOut ? 'text-slate-500 line-through decoration-slate-400' : p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
+                    {isOut && <span className="shrink-0 rounded-full bg-slate-700 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-white">Eliminado</span>}
+                  </div>
+                  <div className="flex items-center gap-0.5 mt-0.5">
+                    {isOut ? (
+                      <div className="flex items-center gap-1 text-[10px] font-black uppercase text-slate-500">
+                        <Skull className="w-3.5 h-3.5" /> Fora da partida
+                      </div>
+                    ) : (
+                      Array.from({ length: room.chars_per_player }).map((_, i) => (
+                        i < p.lives
+                          ? <Heart key={i} className={cn("w-3.5 h-3.5 fill-current", p.color?.text || 'text-indigo-500')} />
+                          : <Skull key={i} className="w-3.5 h-3.5 text-slate-300" />
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {activePlayer && !isRevealing && (
@@ -603,59 +641,6 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
-
-      <div className="hidden">
-        <div className="p-4 border-b border-indigo-50 flex items-center gap-2 text-indigo-950 text-sm font-black uppercase tracking-wider shrink-0">
-          <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full" /> Participantes do Jogo
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
-          {[...players].sort((a,b) => (a.is_eliminated === b.is_eliminated ? b.lives - a.lives : a.is_eliminated ? 1 : -1)).map((p, idx, arr) => {
-            const isActive = activePlayer?.id === p.id;
-            const livesArr = Array.from(new Set(arr.filter(x => !x.is_eliminated).map(x => x.lives))).sort((a,b)=>b-a);
-            const rank = p.is_eliminated ? -1 : livesArr.indexOf(p.lives);
-            return (
-              <motion.div layout key={p.id} className={cn(
-                'p-3.5 border-2 transition-all relative overflow-hidden shadow-sm duration-300 rounded-2xl bg-white w-full',
-                isActive ? cn(p.color?.border || 'border-indigo-400', p.color?.lightBgc || 'bg-indigo-50/20', 'ring-4 ring-indigo-50/50') : 'border-slate-100 hover:border-indigo-100',
-                p.is_eliminated && 'opacity-40 grayscale'
-              )}>
-                {isActive && <div className={cn("absolute top-0 left-0 w-1.5 h-full", p.color?.bg || 'bg-indigo-500')} />}
-
-                <div className="flex items-center gap-3 mb-3 relative z-10 w-full">
-                  <div className="relative">
-                    <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn("w-10 h-10 border-2 rounded-lg shrink-0", p.color?.border || 'border-slate-200', p.color?.lightBgc || 'bg-slate-100')} />
-                    {!p.is_eliminated && (
-                      <div className="absolute -top-2 -right-2 text-xl drop-shadow-md">
-                        {rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : <div className="text-slate-400 font-bold bg-slate-100 rounded-full w-5 h-5 flex justify-center items-center text-[10px] border border-slate-300 shadow-sm mt-1 mr-1">#{rank + 1}</div>}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <p className={cn("text-sm font-extrabold truncate w-full", p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase truncate">
-                      {isActive ? 'Palpitando Agora' : p.is_eliminated ? 'Fora do Jogo' : 'Aguardando vez'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 relative z-10 w-full">
-                  {p.is_eliminated ? (
-                    <div className="w-full h-8 flex items-center justify-center text-[10px] font-black text-rose-500 bg-rose-50 border border-rose-100 rounded-lg shrink-0">
-                      ELIMINADO
-                    </div>
-                  ) : (
-                    Array.from({ length: room.chars_per_player }).map((_, i) => (
-                      <div key={i} className="w-7 h-7 flex items-center justify-center transition-all bg-white border border-slate-200 rounded-md shrink-0 shadow-sm">
-                        {i < p.lives ? <Heart className={cn("w-4 h-4 fill-current", p.color?.text || 'text-indigo-500')} /> : <Skull className="w-4 h-4 text-slate-300" />}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
       </div>
 
       <ChatMenu roomId={room.id} me={me} players={players} collapsible={true} />

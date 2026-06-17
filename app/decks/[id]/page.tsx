@@ -37,6 +37,7 @@ export default function DeckEditorPage() {
   const [errorChart, setErrorChart] = useState('');
   const [editingCharacterId, setEditingCharacterId] = useState('');
   const [uploadingCharacterId, setUploadingCharacterId] = useState('');
+  const [deletingCharacterId, setDeletingCharacterId] = useState('');
   const [characterDrafts, setCharacterDrafts] = useState<Record<string, { name: string; imageUrl: string; avatarConfig: AvatarConfig }>>({});
 
   const isCreator = deck?.creator_id === user?.id;
@@ -232,16 +233,51 @@ export default function DeckEditorPage() {
   };
 
   const handleDeleteChar = async (id: string) => {
-    if (!canDeleteCharacters) return;
+    if (!canDeleteCharacters || deletingCharacterId) return;
 
-    await supabaseGame.from('characters').delete().eq('id', id);
+    const confirmed = confirm('Deseja realmente excluir este personagem?');
+    if (!confirmed) return;
 
-    setCharacters((current) => current.filter((char) => char.id !== id));
-    setCharacterDrafts((current) => {
-      const next = { ...current };
-      delete next[id];
-      return next;
-    });
+    setDeletingCharacterId(id);
+
+    try {
+      if (isTemporaryOfficialEditor) {
+        const response = await fetch('/api/official-decks/edit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'delete-character',
+            deckId,
+            characterId: id,
+          }),
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Nao foi possivel excluir o personagem oficial.');
+        }
+      } else {
+        const { error } = await supabaseGame
+          .from('characters')
+          .delete()
+          .eq('id', id)
+          .eq('deck_id', deckId);
+
+        if (error) throw error;
+      }
+
+      setCharacters((current) => current.filter((char) => char.id !== id));
+      setCharacterDrafts((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+    } catch (error: any) {
+      alert(error.message || 'Nao foi possivel excluir o personagem.');
+    } finally {
+      setDeletingCharacterId('');
+    }
   };
 
   const togglePublish = async () => {
@@ -603,7 +639,7 @@ export default function DeckEditorPage() {
     if (!isCreator) return;
 
     if (confirm('Deseja realmente apagar este baralho permanentemente?')) {
-      await supabaseGame.from('decks').delete().eq('id', deckId);
+      await supabaseGame.from('decks').delete().eq('id', deckId).eq('creator_id', user?.id);
       router.push('/decks');
     }
   };
@@ -859,11 +895,11 @@ export default function DeckEditorPage() {
               {!isTemporaryOfficialEditor ? (
                 <>
                   <div className="mt-4 max-w-full overflow-hidden">
-                      <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
+                    <AvatarBuilder value={avatarConfig} name={charName || 'Personagem'} onChange={setAvatarConfig} />
                   </div>
 
                   <p className="text-[11px] text-slate-400 font-bold mt-2 pl-1 italic">
-                      Personalize o personagem em camadas ou anexe uma imagem no card depois de criar.
+                    Personalize o personagem em camadas ou anexe uma imagem no card depois de criar.
                   </p>
                 </>
               ) : (
@@ -939,17 +975,17 @@ export default function DeckEditorPage() {
                       )}
                     </div>
 
-                   {canDeleteCharacters && (
-  <button
-    type="button"
-    onClick={() => handleDeleteChar(char.id)}
-    disabled={deletingCharacterId === char.id}
-    className="absolute top-2.5 right-2.5 p-2 bg-rose-50 border border-rose-200 z-30 rounded-xl text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 shadow-md transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-    title="Excluir personagem"
-  >
-    <Trash2 className="w-3.5 h-3.5 stroke-[2.5px]" />
-  </button>
-)}
+                    {canDeleteCharacters && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteChar(char.id)}
+                        disabled={deletingCharacterId === char.id}
+                        className="absolute top-2.5 right-2.5 p-2 bg-rose-50 border border-rose-200 z-30 rounded-xl text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 shadow-md transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                        title="Excluir personagem"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 stroke-[2.5px]" />
+                      </button>
+                    )}
 
                     {canEditDeck && (
                       <div className="absolute inset-x-2 bottom-[52px] z-20 bg-white/95 backdrop-blur border border-indigo-100 rounded-xl p-2 opacity-0 group-hover:opacity-100 transition-all shadow-lg space-y-1">
@@ -1013,7 +1049,6 @@ export default function DeckEditorPage() {
                         </Button>
                       </div>
                     )}
-
                   </motion.div>
                 ))}
               </AnimatePresence>

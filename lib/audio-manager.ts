@@ -91,6 +91,7 @@ export class AudioManager {
   private droneGain: GainNode | null = null;
   private droneOscillators: OscillatorNode[] = [];
   private airTimer: number | null = null;
+  private musicRate = 1;
   public prefs: AudioPrefs = DEFAULT_PREFS;
 
   constructor() {
@@ -149,6 +150,7 @@ export class AudioManager {
     const audio = new Audio(`/audio/music/${track}.mp3`);
     audio.loop = true;
     audio.volume = this.prefs.musicVolume;
+    audio.playbackRate = this.musicRate;
     audio.addEventListener(
       'error',
       () => {
@@ -188,6 +190,19 @@ export class AudioManager {
 
   playSFX(effect: SfxEffect) {
     this.playSfx(effect);
+  }
+
+  setMusicRate(rate: number) {
+    const nextRate = Math.max(0.75, Math.min(1.35, Number.isFinite(rate) ? rate : 1));
+    if (Math.abs(this.musicRate - nextRate) < 0.01) return;
+
+    this.musicRate = nextRate;
+    if (this.music) this.music.playbackRate = nextRate;
+
+    if (this.synthTimer && this.activeMusicTrack) {
+      this.stopSynthMusic();
+      this.startSynthMusic(this.activeMusicTrack);
+    }
   }
 
   setMusicVolume(value: number) {
@@ -243,6 +258,7 @@ export class AudioManager {
       card_reveal: 'transition',
       reveal: 'transition',
       suspense: 'transition',
+      sudden_death: 'transition',
     };
     return map[String(effect).toLowerCase()] || String(effect).toLowerCase();
   }
@@ -289,7 +305,7 @@ export class AudioManager {
     if (!this.ctx || !this.masterGain || this.synthTimer || this.prefs.muted || !this.prefs.musicEnabled) return;
 
     const pattern = TRACKS[track] || TRACKS['lobby-theme'];
-    const stepMs = Math.round((60_000 / pattern.tempo) / 2);
+    const stepMs = Math.round((60_000 / (pattern.tempo * this.musicRate)) / 2);
     this.synthStep = 0;
     this.masterGain.gain.setTargetAtTime(this.prefs.musicVolume * 0.18, this.ctx.currentTime, 0.25);
     this.startDrone(pattern);

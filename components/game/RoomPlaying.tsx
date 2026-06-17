@@ -58,16 +58,25 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   ), [deckChars, liveCharIds, liveCardsLoaded]);
   const isMyTurn = activePlayer?.id === me.id && !me.is_eliminated && !isRevealing && !isVoting && !voteProcessingRef.current;
   const humanPlayers = orderedPlayers.filter((p: any) => !p.is_bot);
+  const isTurnResolving = isVoting || isRevealing;
   const turnLabel = isSpectator
     ? 'Você está eliminado'
-    : isMyTurn
-      ? 'Sua vez: escolha um personagem'
-      : activePlayer
-        ? `Agora joga: ${activePlayer.nickname}`
-        : 'Aguardando rodada';
+    : isVoting
+      ? 'Escolha realizada'
+      : isRevealing
+        ? 'Revelando resultado'
+        : isMyTurn
+          ? 'Sua vez: escolha um personagem'
+          : activePlayer
+            ? `${activePlayer.nickname} está escolhendo...`
+            : 'Aguardando rodada';
   const roundSummary = isSpectator
     ? '👻 Assistindo a partida'
-    : `Rodada ${room.current_turn_number + 1} • ${activePlayers.length} vivo${activePlayers.length === 1 ? '' : 's'}`;
+    : isVoting
+      ? 'Preparando revelação'
+      : isRevealing
+        ? 'Suspense na mesa'
+        : `Rodada ${room.current_turn_number + 1} • ${activePlayers.length} vivo${activePlayers.length === 1 ? '' : 's'}`;
 
   useEffect(() => {
     playersRef.current = players;
@@ -128,13 +137,13 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
 
     await sleep(1900);
     setRevealStage(hitPlayers.length > 0 ? 'impact' : 'miss');
-    audioManager.playSFX(hitPlayers.length > 0 ? 'hit' : 'miss');
+    audioManager.playSFX(hitPlayers.length > 0 ? 'life_lost' : 'miss');
 
     await sleep(1800);
     if (eliminatedPlayers.length > 0) {
       setRevealStage('eliminated');
-      audioManager.playSFX('player_eliminated');
-      await sleep(2400);
+      audioManager.playSFX(eliminatedPlayers.some((player: any) => player.id === me?.id) ? 'defeat' : 'player_eliminated');
+      await sleep(2600);
     } else {
       await sleep(650);
     }
@@ -142,7 +151,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     setIsRevealing(false);
     setRevelation(null);
     await refreshLiveCards();
-  }, [deckChars, refreshLiveCards]);
+  }, [deckChars, me?.id, refreshLiveCards]);
 
   useEffect(() => {
     showRevealRef.current = showReveal;
@@ -417,10 +426,17 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
           </div>
 
           <div className="flex items-center gap-2 justify-between sm:justify-end">
-            <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border', isSpectator ? 'bg-slate-800 border-slate-600' : 'bg-indigo-50/50 border-indigo-100')}>
-              <Clock className={cn('w-4 h-4', isSpectator ? 'text-slate-300' : 'text-indigo-500')} />
-              <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : isSpectator ? 'text-white' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
-            </div>
+            {isMyTurn && !isTurnResolving ? (
+              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border', isSpectator ? 'bg-slate-800 border-slate-600' : 'bg-indigo-50/50 border-indigo-100')}>
+                <Clock className={cn('w-4 h-4', isSpectator ? 'text-slate-300' : 'text-indigo-500')} />
+                <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : isSpectator ? 'text-white' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
+              </div>
+            ) : (
+              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border text-[10px] md:text-xs font-black uppercase tracking-wider', isSpectator ? 'bg-slate-800 border-slate-600 text-slate-200' : 'bg-indigo-50 border-indigo-100 text-indigo-700')}>
+                <Zap className="w-4 h-4" />
+                {isRevealing || isVoting ? 'Preparando revelação' : activePlayer ? 'Escolhendo...' : 'Aguardando'}
+              </div>
+            )}
             <button onClick={leaveRoom} className="h-10 md:h-11 px-3 md:px-4 rounded-2xl border-2 border-rose-100 bg-rose-50 text-rose-600 text-[10px] md:text-xs font-black uppercase flex items-center gap-1.5 hover:bg-rose-100 transition-all cursor-pointer">
               Sair <LogOut className="w-4 h-4" />
             </button>
@@ -520,23 +536,24 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                   <div className="w-20 h-20 bg-indigo-500/20 border-2 border-indigo-300/40 text-indigo-200 rounded-full flex items-center justify-center mx-auto mb-5 animate-pulse"><Zap className="w-10 h-10" /></div>
                   <p className="text-xs font-black uppercase tracking-[0.35em] text-indigo-200 mb-3">Preparando resultado</p>
                   <h2 className="text-3xl font-black font-display">{revelation.voterName}</h2>
-                  <p className="mt-2 text-sm font-bold text-white/70">fez uma acusação...</p>
+                  <p className="mt-2 text-sm font-bold text-white/70">está revelando uma acusação...</p>
                 </motion.div>
               ) : revealStage === 'choice' ? (
                 <motion.div initial={{ scale: 0.72, y: 35, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} className="w-full max-w-sm text-center">
-                  <p className="mb-3 text-xs font-black uppercase tracking-[0.35em] text-amber-200">Carta acusada</p>
+                  <p className="mb-2 text-xs font-black uppercase tracking-[0.35em] text-amber-200">{revelation.voterName} escolheu</p>
                   <div className="mx-auto mb-5 w-52 max-w-[70vw] rounded-[1.6rem] border-4 border-white/20 bg-slate-900 p-2 shadow-2xl">
                     <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-slate-800">
                       <CharacterImage name={revelation.charName} imageUrl={revelation.card?.image_url} avatarConfig={revelation.card?.avatar_config} isOfficial={usesOfficialImages} alt="" className="h-full w-full object-cover" />
                     </div>
                   </div>
                   <h2 className="text-4xl md:text-5xl font-black font-display uppercase leading-none drop-shadow-lg">{revelation.charName}</h2>
+                  <p className="mt-4 text-xs font-black uppercase tracking-[0.3em] text-white/55">Quem possuía?</p>
                 </motion.div>
               ) : revealStage === 'impact' ? (
                 <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-emerald-300 shadow-2xl max-w-md w-full rounded-3xl">
                   <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-600 mb-2">Acertou</p>
                   <h2 className="text-3xl font-black font-display mb-4">{revelation.charName}</h2>
-                  <p className="text-sm font-black text-slate-500 uppercase mb-3">Estava com:</p>
+                  <p className="text-sm font-black text-slate-500 uppercase mb-3">Quem possuía a carta:</p>
                   <div className="grid gap-2">
                     {revelation.players.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-emerald-100 bg-emerald-50 px-4 py-3 font-black text-emerald-800">{p.nickname} • vidas: {Math.max(0, p.lives || 0)}</div>)}
                   </div>
@@ -544,11 +561,15 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
               ) : revealStage === 'eliminated' ? (() => {
                 const isMeHit = revelation.eliminatedPlayers.some((p: any) => p.id === me.id);
                 return (
-                  <motion.div initial={{ scale: 0.8, opacity: 0, rotate: -1 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} className="text-center p-8 bg-slate-950 border-4 border-rose-500 shadow-2xl max-w-md w-full rounded-3xl text-white">
-                    <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full border-4 border-rose-400 bg-rose-950/70 text-rose-200 shadow-xl"><Skull className="h-14 w-14" /></div>
-                    <p className="text-xs font-black uppercase tracking-[0.35em] text-rose-300 mb-3">Eliminação</p>
-                    <h2 className="text-4xl font-black font-display mb-4">{isMeHit ? 'VOCÊ FOI ELIMINADO' : 'JOGADOR ELIMINADO'}</h2>
-                    <p className="rounded-2xl bg-white/10 border border-white/15 px-4 py-3 text-lg font-black">{revelation.eliminatedPlayers.map((p: any) => p.nickname).join(', ')}</p>
+                  <motion.div initial={{ scale: 0.8, opacity: 0, rotate: -1 }} animate={{ scale: [0.8, 1.05, 1], opacity: 1, rotate: [0, -1.5, 1.5, 0], x: [0, -10, 10, -5, 5, 0] }} transition={{ duration: 0.55 }} className="relative overflow-hidden text-center p-8 bg-slate-950 border-4 border-rose-500 shadow-2xl max-w-md w-full rounded-3xl text-white">
+                    <motion.div className="absolute inset-0 bg-rose-500/25" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} transition={{ duration: 0.7 }} />
+                    <div className="relative z-10">
+                      <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full border-4 border-rose-400 bg-rose-950/70 text-rose-200 shadow-xl"><Skull className="h-14 w-14" /></div>
+                      <p className="text-xs font-black uppercase tracking-[0.35em] text-rose-300 mb-3">Eliminação</p>
+                      <h2 className="text-4xl font-black font-display mb-4">{isMeHit ? 'VOCÊ FOI ELIMINADO' : 'JOGADOR ELIMINADO'}</h2>
+                      <p className="rounded-2xl bg-white/10 border border-white/15 px-4 py-3 text-lg font-black">{revelation.eliminatedPlayers.map((p: any) => p.nickname).join(', ')}</p>
+                      {isMeHit && <p className="mt-4 text-xs font-black uppercase tracking-[0.25em] text-slate-300">Entrando no modo espectador</p>}
+                    </div>
                   </motion.div>
                 );
               })() : (

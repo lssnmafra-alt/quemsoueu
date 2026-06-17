@@ -66,7 +66,6 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   ), [deckChars, liveCharIds, liveCardsLoaded]);
   const isMyTurn = activePlayer?.id === me.id && !me.is_eliminated && !isRevealing && !isVoting && !voteProcessingRef.current;
   const humanPlayers = orderedPlayers.filter((p: any) => !p.is_bot);
-  const isTurnResolving = isVoting || isRevealing;
   const turnLabel = isSpectator
     ? 'Você está eliminado'
     : isVoting
@@ -473,17 +472,14 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
           </div>
 
           <div className="flex items-center gap-2 justify-between sm:justify-end">
-            {isMyTurn && !isTurnResolving ? (
-              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border', isSpectator ? 'bg-slate-800 border-slate-600' : isSuddenDeath ? 'bg-white border-rose-200' : 'bg-indigo-50/50 border-indigo-100')}>
-                <Clock className={cn('w-4 h-4', isSpectator ? 'text-slate-300' : isSuddenDeath ? 'text-rose-500' : 'text-indigo-500')} />
-                <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : isSpectator ? 'text-white' : isSuddenDeath ? 'text-rose-600' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
-              </div>
-            ) : (
-              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border text-[10px] md:text-xs font-black uppercase tracking-wider', isSpectator ? 'bg-slate-800 border-slate-600 text-slate-200' : isSuddenDeath ? 'bg-white border-rose-200 text-rose-600' : 'bg-indigo-50 border-indigo-100 text-indigo-700')}>
-                <Zap className="w-4 h-4" />
-                {isRevealing || isVoting ? 'Preparando revelação' : activePlayer ? 'Escolhendo...' : 'Aguardando'}
-              </div>
-            )}
+            <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border text-[10px] md:text-xs font-black uppercase tracking-wider', isSpectator ? 'bg-slate-800 border-slate-600 text-slate-200' : isSuddenDeath ? 'bg-white border-rose-200 text-rose-600' : 'bg-indigo-50 border-indigo-100 text-indigo-700')}>
+              <Zap className="w-4 h-4" />
+              {isRevealing || isVoting ? 'Preparando revelação' : activePlayer ? 'Escolhendo...' : 'Aguardando'}
+            </div>
+            <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border', isSpectator ? 'bg-slate-800 border-slate-600' : isSuddenDeath ? 'bg-white border-rose-200' : 'bg-indigo-50/50 border-indigo-100')}>
+              <Clock className={cn('w-4 h-4', isSpectator ? 'text-slate-300' : isSuddenDeath ? 'text-rose-500' : 'text-indigo-500')} />
+              <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : isSpectator ? 'text-white' : isSuddenDeath ? 'text-rose-600' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
+            </div>
             <button onClick={leaveRoom} className="h-10 md:h-11 px-3 md:px-4 rounded-2xl border-2 border-rose-100 bg-rose-50 text-rose-600 text-[10px] md:text-xs font-black uppercase flex items-center gap-1.5 hover:bg-rose-100 transition-all cursor-pointer">
               Sair <LogOut className="w-4 h-4" />
             </button>

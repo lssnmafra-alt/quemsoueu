@@ -58,11 +58,13 @@ export default function CharacterImage({
       >
         <div className="absolute inset-1 rounded-[1rem] border border-white/10" />
         <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:24px_24px]" />
-        <div className="absolute inset-x-3 bottom-3 z-10 rounded-2xl border border-white/15 bg-slate-950/75 px-3 py-3 text-center shadow-2xl backdrop-blur-md">
-          <div className="flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100">
-            <Sparkles className="h-3 w-3" /> Oficial
+        <div className="absolute inset-x-2 bottom-2 z-10 flex min-h-[3.2rem] items-center justify-center rounded-2xl border border-white/15 bg-slate-950/78 px-3 py-2 text-center shadow-2xl backdrop-blur-md">
+          <div className="min-w-0">
+            <div className="mb-0.5 flex items-center justify-center gap-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100">
+              <Sparkles className="h-3 w-3 shrink-0" /> Oficial
+            </div>
+            <p className="text-balance break-words text-[clamp(0.58rem,2.65vw,0.82rem)] font-black uppercase leading-[1.05] tracking-[0.02em] text-white">{name || 'Personagem'}</p>
           </div>
-          <p className="mt-1 line-clamp-2 text-sm font-black uppercase leading-tight text-white">{name || 'Personagem'}</p>
         </div>
         <ImageIcon className="h-12 w-12 text-cyan-100/45" />
       </div>
@@ -82,10 +84,10 @@ export default function CharacterImage({
           alt=""
           aria-hidden="true"
           referrerPolicy={referrerPolicy}
-          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md"
+          className="absolute inset-0 h-full w-full scale-105 object-cover opacity-30 blur-md"
           onError={handleError}
         />
-        <div className="absolute inset-0 bg-slate-950/35" />
+        <div className="absolute inset-0 bg-slate-950/32" />
         <img
           {...props}
           src={src}
@@ -95,8 +97,8 @@ export default function CharacterImage({
           onError={handleError}
         />
         <div className="pointer-events-none absolute inset-0 rounded-[1.15rem] ring-1 ring-white/15" />
-        <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-2xl border border-white/15 bg-slate-950/82 px-2.5 py-2 text-center shadow-xl backdrop-blur-sm">
-          <p className="line-clamp-2 text-[11px] font-black uppercase leading-tight tracking-wide text-white drop-shadow sm:text-xs">{name}</p>
+        <div className="pointer-events-none absolute inset-x-2 bottom-2 flex min-h-[3.05rem] items-center justify-center rounded-2xl border border-white/15 bg-slate-950/82 px-3 py-2 text-center shadow-xl backdrop-blur-sm">
+          <p className="text-balance break-words text-[clamp(0.58rem,2.65vw,0.8rem)] font-black uppercase leading-[1.05] tracking-[0.02em] text-white drop-shadow">{name}</p>
         </div>
       </div>
     );

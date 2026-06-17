@@ -4,7 +4,7 @@ import { useMemo, useState, type ImgHTMLAttributes, type SyntheticEvent } from '
 import { Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AvatarRenderer from '@/components/avatar/AvatarRenderer';
-import OfficialFrame, { getOfficialFrameTheme } from '@/components/cards/OfficialFrame';
+import OfficialFrame, { getOfficialFrameTheme, type OfficialCardTheme } from '@/components/cards/OfficialFrame';
 import OfficialName from '@/components/cards/OfficialName';
 import type { AvatarConfig } from '@/lib/avatarConfig';
 
@@ -13,6 +13,7 @@ type CharacterImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'al
   imageUrl?: string | null;
   avatarConfig?: AvatarConfig | null;
   isOfficial?: boolean;
+  officialFrameTheme?: OfficialCardTheme;
   alt?: string;
   placeholderClassName?: string;
 };
@@ -22,6 +23,7 @@ export default function CharacterImage({
   imageUrl,
   avatarConfig,
   isOfficial = false,
+  officialFrameTheme,
   alt,
   className,
   placeholderClassName,
@@ -34,7 +36,8 @@ export default function CharacterImage({
     return savedImage ? [savedImage] : [];
   }, [imageUrl]);
 
-  const theme = getOfficialFrameTheme('celestial');
+  const frameTheme = officialFrameTheme ?? pickOfficialFrameTheme(name);
+  const theme = getOfficialFrameTheme(frameTheme);
   const [brokenUrls, setBrokenUrls] = useState<Record<string, true>>({});
   const src = sources.find((candidate) => !brokenUrls[candidate]);
 
@@ -63,9 +66,9 @@ export default function CharacterImage({
       >
         <div className="absolute inset-[0.22rem] rounded-[0.95rem] bg-slate-900" />
         <div className="absolute inset-0 flex items-center justify-center">
-          <ImageIcon className="h-12 w-12 text-amber-100/45" />
+          <ImageIcon className={cn('h-12 w-12 opacity-45', theme.nameColor)} />
         </div>
-        <OfficialFrame theme="celestial" />
+        <OfficialFrame theme={frameTheme} />
         <OfficialName name={name || 'Personagem'} theme={theme} showLabel />
       </div>
     );
@@ -90,7 +93,7 @@ export default function CharacterImage({
           onError={handleError}
         />
         <div className="pointer-events-none absolute inset-[0.22rem] rounded-[0.95rem] bg-gradient-to-t from-slate-950/5 via-transparent to-white/5" />
-        <OfficialFrame theme="celestial" />
+        <OfficialFrame theme={frameTheme} />
         <OfficialName name={name} theme={theme} />
       </div>
     );
@@ -106,6 +109,29 @@ export default function CharacterImage({
       onError={handleError}
     />
   );
+}
+
+function pickOfficialFrameTheme(name: string): OfficialCardTheme {
+  const normalized = normalizeThemeText(name);
+
+  if (includesAny(normalized, ['bruxa', 'esmeralda', 'floresta', 'mago', 'maga'])) return 'nature';
+  if (includesAny(normalized, ['fantasma', 'entidade', 'galatico', 'arcano', 'cosmico'])) return 'arcane';
+  if (includesAny(normalized, ['susto', 'medo', 'palhaco', 'acougueiro'])) return 'ruby';
+  if (includesAny(normalized, ['mascara', 'obsidiano', 'metal', 'sombra'])) return 'shadow';
+
+  return 'celestial';
+}
+
+function includesAny(value: string, terms: string[]) {
+  return terms.some((term) => value.includes(term));
+}
+
+function normalizeThemeText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
 }
 
 function sanitizeImageUrl(value?: string | null) {

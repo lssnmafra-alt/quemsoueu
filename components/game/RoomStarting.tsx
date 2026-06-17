@@ -7,7 +7,7 @@ import { audioManager } from '@/lib/audioManager';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 
 export default function RoomStarting({ room, players }: any) {
-  const [timeLeft, setTimeLeft] = useState(8);
+  const [timeLeft, setTimeLeft] = useState(4);
   const advancingRef = useRef(false);
 
   const activePlayers = players.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0);

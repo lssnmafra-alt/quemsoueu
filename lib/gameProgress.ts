@@ -1,10 +1,6 @@
 import { supabaseGame } from './supabase';
 import { touchRoomActivity } from './roomLifecycle';
 
-function shuffle<T>(items: T[]) {
-  return [...items].sort(() => Math.random() - 0.5);
-}
-
 function resolvePlayerId(player: any) {
   if (typeof player === 'string') return player;
   return player?.id || player?.player_id || '';
@@ -41,9 +37,8 @@ export async function syncLivesFromLiveCards(roomId: string) {
 
   for (const player of players || []) {
     const wasAlreadyEliminated = Boolean(player.is_eliminated);
-    const rawLives = liveCounts.get(player.id) || 0;
 
-    if (wasAlreadyEliminated && rawLives > 0) {
+    if (wasAlreadyEliminated && (liveCounts.get(player.id) || 0) > 0) {
       await supabaseGame
         .from('player_cards')
         .update({ is_dead: true })
@@ -72,77 +67,40 @@ export async function syncLivesFromLiveCards(roomId: string) {
   };
 }
 
-async function getRoomCharacters(room: any) {
-  const query = supabaseGame.from('characters').select('*');
-  const { data } = room.deck_id
-    ? await query.eq('deck_id', room.deck_id)
-    : await query.is('deck_id', null);
-  return data || [];
-}
+async function startTiebreakPicking(room: any, tiebreakPlayers: any[]) {
+  const playersToPick = tiebreakPlayers.filter(Boolean);
+  const tiebreakPlayerIds = uniqueIds(playersToPick.map((player: any) => player.id));
 
-async function giveFreshTiebreakCards(room: any, tiebreakPlayers: any[]) {
-  const playersToContinue = tiebreakPlayers.filter(Boolean);
-  if (playersToContinue.length === 0) {
-    return { playerIds: [], cardCount: 0 };
+  if (tiebreakPlayerIds.length === 0) {
+    await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
+    await touchRoomActivity(room.id);
+    return { finished: true, winner: null, reason: 'no-tiebreak-players' };
   }
 
-  const [{ data: currentCards }, characters] = await Promise.all([
-    supabaseGame.from('player_cards').select('*').eq('room_id', room.id),
-    getRoomCharacters(room),
-  ]);
+  await supabaseGame
+    .from('player_cards')
+    .update({ is_dead: true })
+    .eq('room_id', room.id)
+    .in('player_id', tiebreakPlayerIds)
+    .eq('is_dead', false);
 
-  if (characters.length === 0) {
-    return { playerIds: playersToContinue.map((player: any) => player.id), cardCount: 0 };
-  }
+  await supabaseGame
+    .from('room_players')
+    .update({ lives: 1, is_eliminated: false, missed_turns: 0 })
+    .in('id', tiebreakPlayerIds);
 
-  let cardCount = 0;
-  const assignedCharacterIds = new Set<string>();
+  await supabaseGame.from('rooms').update({
+    status: 'PICKING',
+    turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
+  }).eq('id', room.id).eq('status', 'PLAYING');
 
-  for (const player of playersToContinue) {
-    const playerCards = (currentCards || []).filter((card: any) => card.player_id === player.id);
-    const usedCharacterIds = new Set(playerCards.map((card: any) => card.character_id));
-    const preferredPool = characters.filter((character: any) => !usedCharacterIds.has(character.id) && !assignedCharacterIds.has(character.id));
-    const fallbackFreshPool = characters.filter((character: any) => !usedCharacterIds.has(character.id));
-    const pool = preferredPool.length > 0 ? preferredPool : fallbackFreshPool.length > 0 ? fallbackFreshPool : characters;
-    const selected = shuffle(pool)[0];
-
-    await supabaseGame
-      .from('player_cards')
-      .update({ is_dead: true })
-      .eq('room_id', room.id)
-      .eq('player_id', player.id)
-      .eq('is_dead', false);
-
-    const { error } = await supabaseGame.from('player_cards').insert({
-      room_id: room.id,
-      player_id: player.id,
-      character_id: selected.id,
-      is_dead: false,
-    });
-
-    if (error) {
-      const reusableCard = playerCards.find((card: any) => card.is_dead !== false) || playerCards[0];
-      if (!reusableCard) continue;
-
-      const { error: updateError } = await supabaseGame
-        .from('player_cards')
-        .update({ character_id: selected.id, is_dead: false })
-        .eq('id', reusableCard.id);
-
-      if (updateError) continue;
-    }
-
-    assignedCharacterIds.add(selected.id);
-    cardCount += 1;
-    await supabaseGame
-      .from('room_players')
-      .update({ lives: 1, is_eliminated: false, missed_turns: 0 })
-      .eq('id', player.id);
-  }
+  await touchRoomActivity(room.id);
 
   return {
-    playerIds: playersToContinue.map((player: any) => player.id),
-    cardCount,
+    finished: false,
+    tiebreak: true,
+    needsPicking: true,
+    tiebreakPlayerIds,
   };
 }
 
@@ -152,6 +110,11 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
   const alive = (players || []).filter((player: any) => !player.is_eliminated && (liveCounts.get(player.id) || 0) > 0);
   const aliveIds = new Set(alive.map((player: any) => player.id));
   const liveCardsFromAlive = (liveCards || []).filter((card: any) => aliveIds.has(card.player_id));
+  const distinctLiveCharacters = new Set((liveCardsFromAlive || []).map((card: any) => card.character_id));
+
+  if (alive.length > 1 && distinctLiveCharacters.size <= 1) {
+    return startTiebreakPicking(room, alive);
+  }
 
   if (alive.length === 0 || liveCardsFromAlive.length === 0) {
     const explicitTiebreakIds = uniqueIds(tiebreakPlayers.map(resolvePlayerId));
@@ -159,24 +122,11 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
       .filter((player: any) => !player.is_eliminated)
       .map((player: any) => player.id);
     const tiebreakIds = explicitTiebreakIds.length > 0 ? explicitTiebreakIds : fallbackTiebreakIds;
-    const playersToContinue = uniqueIds(tiebreakIds)
-      .map((id) => playersById.get(id))
+    const playersToPick = uniqueIds(tiebreakIds)
+      .map((id) => playersById.get(id) || { id })
       .filter(Boolean);
 
-    if (playersToContinue.length === 0) {
-      await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
-      await touchRoomActivity(room.id);
-      return { finished: true, winner: null, reason: 'no-tiebreak-players' };
-    }
-
-    const tiebreak = await giveFreshTiebreakCards(room, playersToContinue);
-    await advanceTurn(room);
-    return {
-      finished: false,
-      tiebreak: true,
-      tiebreakPlayerIds: tiebreak.playerIds,
-      tiebreakCards: tiebreak.cardCount,
-    };
+    return startTiebreakPicking(room, playersToPick);
   }
 
   if (alive.length === 1) {
@@ -192,8 +142,8 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
   const tiedWithLeader = ranked.filter((item) => item.lives === leader.lives);
 
   if (tiedWithLeader.length === 1) {
-    const distinctLiveCharacters = new Set((liveCardsFromAlive || []).map((card: any) => card.character_id)).size;
-    if (leader.lives >= distinctLiveCharacters) {
+    const leaderLiveCards = liveCardsFromAlive.filter((card: any) => card.player_id === leader.player.id).length;
+    if (leaderLiveCards > 0 && leaderLiveCards >= distinctLiveCharacters.size && distinctLiveCharacters.size > 1) {
       await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
       await touchRoomActivity(room.id);
       return { finished: true, winner: leader.player.nickname, smartWin: true };

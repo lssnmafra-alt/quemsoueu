@@ -66,6 +66,29 @@ body {
   background-image: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
 }
 
+/* Official deck editor card preview
+   The external editor card has text/buttons below the art. Keep the card editor auto-height
+   and reserve a separate vertical 2:3 preview area so actions never compress the art. */
+.group:has(.official-card-preview) {
+  aspect-ratio: auto !important;
+  overflow: visible !important;
+}
+
+.group:has(.official-card-preview) > div:first-child {
+  flex: none !important;
+  width: 100% !important;
+  aspect-ratio: 2 / 3 !important;
+  overflow: visible !important;
+  padding: 0.5rem !important;
+}
+
+.group:has(.official-card-preview) .official-card-preview {
+  width: 100% !important;
+  height: 100% !important;
+  transform: none !important;
+  object-fit: contain !important;
+}
+
 /* Beautiful squishy game buttons */
 .btn-squishy-indigo {
   @apply bg-blue-600 hover:bg-blue-700 text-white border-b-4 border-blue-900 hover:border-blue-950 transition-all rounded-2xl active:border-b-0 active:translate-y-1 active:mt-1 shadow-md;

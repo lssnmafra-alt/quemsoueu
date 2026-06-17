@@ -51,6 +51,22 @@ export async function playBotTurn(
     return { ok: false, reason: 'active-player-is-human' };
   }
 
+  // Several browsers can schedule the same bot turn. Lock the current turn before
+  // changing cards/lives so only one request can vote and advance.
+  const { data: lockRows, error: lockError } = await supabaseGame
+    .from('rooms')
+    .update({ turn_expires_at: new Date(Date.now() + 20_000).toISOString() })
+    .eq('id', room.id)
+    .eq('status', 'PLAYING')
+    .eq('current_turn_number', room.current_turn_number || 0)
+    .select('id')
+    .limit(1);
+
+  if (lockError) throw lockError;
+  if (!lockRows || lockRows.length === 0) {
+    return { ok: false, reason: 'bot-turn-already-handled' };
+  }
+
   const [{ data: deckChars }, { data: liveCards }] = await Promise.all([
     room.deck_id
       ? supabaseGame.from('characters').select('*').eq('deck_id', room.deck_id)

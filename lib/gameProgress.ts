@@ -135,7 +135,35 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
   const distinctLiveCharacters = new Set((liveCardsFromAlive || []).map((card: any) => card.character_id));
 
   if (alive.length > 1 && distinctLiveCharacters.size <= 1) {
-    return startTiebreakPicking(room, alive);
+    const maxLives = Math.max(...alive.map((player: any) => liveCounts.get(player.id) || 0));
+    const leaders = alive.filter((player: any) => (liveCounts.get(player.id) || 0) === maxLives);
+
+    // If everybody is stuck with the same remaining character, the player with more lives wins.
+    // Only equal-life leaders go to picking tiebreak. This prevents a 1-life player from winning
+    // automatically against a 2-life player just because both share the last visible card.
+    if (leaders.length === 1) {
+      const winner = leaders[0];
+      const loserIds = alive.filter((player: any) => player.id !== winner.id).map((player: any) => player.id);
+
+      if (loserIds.length > 0) {
+        await supabaseGame
+          .from('room_players')
+          .update({ lives: 0, is_eliminated: true })
+          .in('id', loserIds);
+
+        await supabaseGame
+          .from('player_cards')
+          .update({ is_dead: true })
+          .eq('room_id', room.id)
+          .in('player_id', loserIds)
+          .eq('is_dead', false);
+      }
+
+      await finishRoom(room);
+      return { finished: true, winner: winner?.nickname || null, reason: 'shared-card-life-leader' };
+    }
+
+    return startTiebreakPicking(room, leaders);
   }
 
   if (alive.length === 0 || liveCardsFromAlive.length === 0) {

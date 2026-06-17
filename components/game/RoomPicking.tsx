@@ -203,7 +203,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
           </h2>
           <p className="text-sm text-indigo-600 font-bold uppercase tracking-wider">
             {allRealPlayersReady ? (
-              <span className="text-emerald-600 font-black">Todos escolheram. Preparando...</span>
+              <span className="text-emerald-600 font-black">Todos escolheram. Revelando...</span>
             ) : (
               <>Tempo restante para escolher: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{timeLeft}s</span></>
             )}
@@ -220,7 +220,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
             pendingCount === 0 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
           )}>
             <Users className="h-4 w-4" />
-            {pendingCount === 0 ? 'Todos escolheram' : `Faltam ${pendingCount} jogador${pendingCount === 1 ? '' : 'es'} escolher`}
+            {pendingCount === 0 ? 'Preparando resultado' : `Faltam ${pendingCount} jogador${pendingCount === 1 ? '' : 'es'} escolher`}
           </p>
         </div>
 
@@ -230,7 +230,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
           </p>
         ) : confirmed ? (
           <p className="mb-6 text-sm bg-emerald-50 text-emerald-800 border-2 border-emerald-200 px-6 py-3 inline-block font-extrabold mx-auto rounded-2xl animate-pulse">
-            Seus personagens estao salvos. Aguardando os demais jogadores...
+            {allRealPlayersReady ? 'Revelando...' : 'Seus personagens estao salvos. Aguardando escolhas restantes...'}
           </p>
         ) : null}
 

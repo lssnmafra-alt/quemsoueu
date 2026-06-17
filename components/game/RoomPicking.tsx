@@ -1,30 +1,69 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabaseGame } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { differenceInSeconds } from 'date-fns';
 import { motion } from 'motion/react';
-import { Check, Layers, Lightbulb } from 'lucide-react';
+import { Check, Layers, Lightbulb, Users } from 'lucide-react';
 import CharacterImage from '@/components/CharacterImage';
 import { isOfficialDeckId } from '@/lib/officialDecks';
 
 export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const [deckChars, setDeckChars] = useState<any[]>([]);
+  const [currentCards, setCurrentCards] = useState<any[]>([]);
   const [selectedChars, setSelectedChars] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState(room.pick_time_seconds || 30);
   const [confirmed, setConfirmed] = useState(false);
   const finalizingRef = useRef(false);
 
+  const activePlayers = useMemo(() => players.filter((p: any) => !p.is_eliminated), [players]);
+  const isTiebreak = currentCards.length > 0 && activePlayers.length > 1 && activePlayers.every((p: any) => (p.lives || 0) <= 1);
+  const pickCount = isTiebreak ? 1 : room.chars_per_player;
+  const isMeEligible = Boolean(me?.id) && !me.is_eliminated && activePlayers.some((p: any) => p.id === me.id);
+  const liveCards = useMemo(() => currentCards.filter((card: any) => !card.is_dead), [currentCards]);
+  const liveCardsByPlayer = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const card of liveCards) {
+      const list = map.get(card.player_id) || [];
+      list.push(card);
+      map.set(card.player_id, list);
+    }
+    return map;
+  }, [liveCards]);
+  const realActivePlayers = activePlayers.filter((p: any) => !p.is_bot);
+  const pendingPlayers = realActivePlayers.filter((p: any) => (liveCardsByPlayer.get(p.id)?.length || 0) < pickCount);
+  const myLiveCards = me?.id ? liveCardsByPlayer.get(me.id) || [] : [];
+  const pendingCount = pendingPlayers.length;
+
+  const loadPickingState = useCallback(async () => {
+    const query = supabaseGame.from('characters').select('*');
+    const [{ data: chars }, { data: cards }] = await Promise.all([
+      room.deck_id ? query.eq('deck_id', room.deck_id) : query.is('deck_id', null),
+      supabaseGame.from('player_cards').select('*').eq('room_id', room.id),
+    ]);
+    setDeckChars(chars || []);
+    setCurrentCards(cards || []);
+  }, [room.deck_id, room.id]);
+
   useEffect(() => {
-    const fn = async () => {
-      const query = supabaseGame.from('characters').select('*');
-      const { data } = room.deck_id
-        ? await query.eq('deck_id', room.deck_id)
-        : await query.is('deck_id', null);
-      setDeckChars(data || []);
-    };
-    fn();
-  }, [room.deck_id]);
+    loadPickingState();
+  }, [loadPickingState]);
+
+  useEffect(() => {
+    if (!isMeEligible) {
+      setConfirmed(true);
+      setSelectedChars([]);
+      return;
+    }
+
+    if (myLiveCards.length >= pickCount) {
+      setConfirmed(true);
+      setSelectedChars(myLiveCards.slice(0, pickCount).map((card: any) => card.character_id));
+    } else {
+      setConfirmed(false);
+      setSelectedChars([]);
+    }
+  }, [isMeEligible, myLiveCards.length, pickCount, room.id]);
 
   const finalizePicking = useCallback(async () => {
     if (finalizingRef.current) return;
@@ -40,28 +79,36 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
         if (result.error) console.warn(result.error);
       } else if (result.skipped) {
         finalizingRef.current = false;
+        await loadPickingState();
       }
     } catch {
       finalizingRef.current = false;
     }
-  }, [room.id]);
+  }, [loadPickingState, room.id]);
 
   const finalizeIfReady = useCallback(async () => {
     if (finalizingRef.current) return;
-    const realPlayers = players.filter((p: any) => !p.is_bot);
-    if (realPlayers.length === 0) return;
+    const activeRealPlayers = players.filter((p: any) => !p.is_bot && !p.is_eliminated);
+    if (activeRealPlayers.length === 0) return;
 
-    const { data: currentCards } = await supabaseGame
+    const { data: cards } = await supabaseGame
       .from('player_cards')
-      .select('player_id')
-      .eq('room_id', room.id);
+      .select('player_id,is_dead')
+      .eq('room_id', room.id)
+      .eq('is_dead', false);
 
-    const playersWithCards = new Set((currentCards || []).map((card: any) => card.player_id));
-    const allRealPlayersReady = realPlayers.every((p: any) => playersWithCards.has(p.id));
+    const liveCountByPlayer = new Map<string, number>();
+    for (const card of cards || []) {
+      liveCountByPlayer.set(card.player_id, (liveCountByPlayer.get(card.player_id) || 0) + 1);
+    }
+
+    const allRealPlayersReady = activeRealPlayers.every((p: any) => (liveCountByPlayer.get(p.id) || 0) >= pickCount);
     if (allRealPlayersReady) {
       await finalizePicking();
+    } else {
+      await loadPickingState();
     }
-  }, [finalizePicking, players, room.id]);
+  }, [finalizePicking, loadPickingState, pickCount, players, room.id]);
 
   useEffect(() => {
     const timer = setInterval(finalizeIfReady, 2000);
@@ -83,25 +130,40 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   }, [room.turn_expires_at, finalizePicking]);
 
   const toggleChar = (id: string) => {
-    if (confirmed) return;
+    if (confirmed || !isMeEligible) return;
     if (selectedChars.includes(id)) {
       setSelectedChars(selectedChars.filter((c) => c !== id));
-    } else if (selectedChars.length < room.chars_per_player) {
+    } else if (selectedChars.length < pickCount) {
       setSelectedChars([...selectedChars, id]);
     }
   };
 
   const confirmSelection = async () => {
-    if (selectedChars.length !== room.chars_per_player) return;
+    if (!isMeEligible || selectedChars.length !== pickCount) return;
     setConfirmed(true);
+
+    const myCurrentLiveCards = liveCards.filter((card: any) => card.player_id === me.id);
+    if (myCurrentLiveCards.length > 0) {
+      await supabaseGame
+        .from('player_cards')
+        .update({ is_dead: true })
+        .in('id', myCurrentLiveCards.map((card: any) => card.id));
+    }
 
     const inserts = selectedChars.map((cid) => ({
       room_id: room.id,
       player_id: me.id,
-      character_id: cid
+      character_id: cid,
+      is_dead: false,
     }));
+
     await supabaseGame.from('player_cards').insert(inserts);
-    await supabaseGame.from('room_players').update({ lives: room.chars_per_player }).eq('id', me.id);
+    await supabaseGame
+      .from('room_players')
+      .update({ lives: pickCount, is_eliminated: false, missed_turns: 0 })
+      .eq('id', me.id);
+
+    await loadPickingState();
   };
 
   const totalTime = room.pick_time_seconds || 30;
@@ -121,22 +183,36 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
 
         <div className="mb-6 md:mb-8 mt-4 relative">
           <h2 className="text-4xl md:text-5xl font-black mb-2 text-indigo-950 font-display flex items-center justify-center gap-2">
-            <Layers className="h-9 w-9 text-indigo-500" /> Monte seu Baralho
+            <Layers className="h-9 w-9 text-indigo-500" /> {isTiebreak ? 'Desempate!' : 'Monte seu Baralho'}
           </h2>
           <p className="text-sm text-indigo-600 font-bold uppercase tracking-wider">
             Tempo restante para escolher: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{timeLeft}s</span>
           </p>
         </div>
 
-        {!confirmed ? (
-          <p className="mb-6 text-sm bg-indigo-50 border-2 border-indigo-100 px-6 py-3 text-indigo-950 font-bold tracking-wide inline-flex items-center gap-2 mx-auto rounded-2xl">
-            <Lightbulb className="h-4 w-4 text-indigo-500" /> Escolha exatamente <span className="text-indigo-600 underline decoration-indigo-300 font-extrabold">{room.chars_per_player} personagens</span> para a sua partida.
+        <div className="mb-4 flex flex-col md:flex-row items-center justify-center gap-3">
+          <p className="text-sm bg-indigo-50 border-2 border-indigo-100 px-6 py-3 text-indigo-950 font-bold tracking-wide inline-flex items-center gap-2 rounded-2xl">
+            <Lightbulb className="h-4 w-4 text-indigo-500" /> Escolha exatamente <span className="text-indigo-600 underline decoration-indigo-300 font-extrabold">{pickCount} {pickCount === 1 ? 'personagem' : 'personagens'}</span>{isTiebreak ? ' para o desempate.' : ' para a sua partida.'}
           </p>
-        ) : (
+
+          <p className={cn(
+            'text-sm border-2 px-6 py-3 font-black tracking-wide inline-flex items-center gap-2 rounded-2xl',
+            pendingCount === 0 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+          )}>
+            <Users className="h-4 w-4" />
+            {pendingCount === 0 ? 'Todos escolheram' : `Faltam ${pendingCount} jogador${pendingCount === 1 ? '' : 'es'} escolher`}
+          </p>
+        </div>
+
+        {!isMeEligible ? (
+          <p className="mb-6 text-sm bg-slate-50 text-slate-500 border-2 border-slate-200 px-6 py-3 inline-block font-extrabold mx-auto rounded-2xl">
+            Voce esta fora desta escolha. Aguarde a partida continuar.
+          </p>
+        ) : confirmed ? (
           <p className="mb-6 text-sm bg-emerald-50 text-emerald-800 border-2 border-emerald-200 px-6 py-3 inline-block font-extrabold mx-auto rounded-2xl animate-pulse">
             Seus personagens estao salvos. Aguardando os demais jogadores...
           </p>
-        )}
+        ) : null}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 mb-8 overflow-y-auto max-h-[50vh] p-4">
           {deckChars.map((c, i) => {
@@ -145,14 +221,15 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                whileHover={{ scale: 1.05, translateY: -5 }}
+                whileHover={{ scale: confirmed || !isMeEligible ? 1 : 1.05, translateY: confirmed || !isMeEligible ? 0 : -5 }}
                 transition={{ delay: i * 0.05 }}
                 key={c.id}
                 onClick={() => toggleChar(c.id)}
                 className={cn(
-                  'aspect-[2/3] bg-slate-50 cursor-pointer transition-all duration-300 flex flex-col overflow-hidden relative shadow-md border-4 rounded-2xl',
+                  'aspect-[2/3] bg-slate-50 transition-all duration-300 flex flex-col overflow-hidden relative shadow-md border-4 rounded-2xl',
+                  confirmed || !isMeEligible ? 'cursor-default' : 'cursor-pointer',
                   isSelected ? 'border-indigo-500 ring-4 ring-indigo-200 scale-102' : 'border-slate-100 hover:border-indigo-300',
-                  confirmed && !isSelected && 'opacity-50 grayscale bg-slate-100'
+                  (confirmed || !isMeEligible) && !isSelected && 'opacity-50 grayscale bg-slate-100'
                 )}
               >
                 <CharacterImage
@@ -181,15 +258,15 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
         <div className="mt-auto">
           <Button
             onClick={confirmSelection}
-            disabled={selectedChars.length !== room.chars_per_player || confirmed}
+            disabled={selectedChars.length !== pickCount || confirmed || !isMeEligible}
             className={cn(
               'w-full md:w-96 h-14 text-sm font-black tracking-wider uppercase transition-all rounded-2xl cursor-pointer',
-              selectedChars.length === room.chars_per_player && !confirmed
+              selectedChars.length === pickCount && !confirmed && isMeEligible
                 ? 'btn-squishy-green text-white'
                 : 'bg-indigo-50 text-indigo-400/80 border-2 border-indigo-100 opacity-60'
             )}
           >
-            {confirmed ? 'Selecao Confirmada' : (selectedChars.length === room.chars_per_player ? 'Confirmar Escolha' : `Faltam ${room.chars_per_player - selectedChars.length} personagens`)}
+            {confirmed ? 'Selecao Confirmada' : (selectedChars.length === pickCount ? 'Confirmar Escolha' : `Faltam ${pickCount - selectedChars.length} ${pickCount - selectedChars.length === 1 ? 'personagem' : 'personagens'}`)}
           </Button>
         </div>
       </motion.div>

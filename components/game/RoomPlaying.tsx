@@ -43,13 +43,14 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const activePlayers = useMemo(() => orderedPlayers.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0), [orderedPlayers]);
   const activePlayer = activePlayers.length > 0 ? activePlayers[(room.current_turn_number || 0) % activePlayers.length] : null;
   const isSuddenDeath = activePlayers.length > 1 && activePlayers.every((p: any) => (p.lives || 0) <= 1);
-  const hudPlayers = isSuddenDeath ? activePlayers : orderedPlayers;
+  const hudPlayers = orderedPlayers;
   const usesOfficialImages = !room.deck_id || isOfficialDeckId(room.deck_id);
   const visibleDeckChars = useMemo(() => (
     liveCardsLoaded ? deckChars.filter((c) => liveCharIds.has(c.id)) : deckChars
   ), [deckChars, liveCharIds, liveCardsLoaded]);
   const isMyTurn = activePlayer?.id === me.id && !me.is_eliminated && !isRevealing && !isVoting && !voteProcessingRef.current;
   const humanPlayers = orderedPlayers.filter((p: any) => !p.is_bot);
+  const turnLabel = isMyTurn ? 'Sua vez: escolha um personagem' : activePlayer ? `Agora joga: ${activePlayer.nickname}` : 'Aguardando rodada';
 
   useEffect(() => {
     playersRef.current = players;
@@ -239,7 +240,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   useEffect(() => {
     const lastLog = actionLog[actionLog.length - 1];
     if (!lastLog) return;
-    if (lastLog.msg.includes('perdeu') || lastLog.msg.includes('eliminado') || lastLog.msg.includes('nao votou')) audioManager.playSFX('eliminated');
+    if (lastLog.msg.includes('perdeu') || lastLog.msg.includes('eliminado') || lastLog.msg.includes('falta') || lastLog.msg.includes('nao votou')) audioManager.playSFX('eliminated');
     else if (lastLog.msg.includes('Campeao')) audioManager.playSFX('win');
     else if (lastLog.msg.includes('escolha')) audioManager.playSFX('select');
   }, [actionLog]);
@@ -291,9 +292,12 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
           const result = await response.json().catch(() => ({}));
           if (response.ok && result.ok) {
             if (result.tiebreak) addLog('EMPATE! Escolham novos personagens para o desempate.');
+            else if (result.missedTurns === 1 && !result.eliminated) addLog(`${activePlayer.nickname} ficou sem votar: 1ª falta. Na próxima falta será eliminado.`);
+            else if (result.eliminated && (result.missedTurns || 0) >= 2) addLog(`${activePlayer.nickname} ficou sem votar pela 2ª vez e foi eliminado.`);
             else if (result.eliminated) addLog(`${activePlayer.nickname} ficou sem votar e foi eliminado.`);
             else addLog(`${activePlayer.nickname} nao votou e perdeu 1 vida.`);
             if (result.finished) addLog(`Partida encerrada! Campeao: ${result.winner || 'Empate'}!`);
+            void refreshLiveCards();
           }
         })
         .finally(() => {
@@ -302,7 +306,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     }, 500);
 
     return () => clearInterval(interval);
-  }, [room.turn_expires_at, room.id, room.current_turn_number, isRevealing, activePlayer, addLog]);
+  }, [room.turn_expires_at, room.id, room.current_turn_number, isRevealing, activePlayer, addLog, refreshLiveCards]);
 
   useEffect(() => {
     if (!activePlayer?.is_bot || activePlayer.is_eliminated || isRevealing) return;
@@ -337,20 +341,25 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
           <div className="flex items-center gap-3 min-w-0">
             <div className="bg-indigo-50 border-2 border-indigo-100 px-4 py-2 flex flex-col justify-center rounded-2xl shadow-inner shrink-0">
               <span className="text-[9px] uppercase tracking-wider text-indigo-500 font-extrabold mb-0.5">Rodada</span>
-              <h2 className="text-sm font-black text-indigo-950 font-mono">TURNO {room.current_turn_number + 1}</h2>
+              <h2 className="text-sm font-black text-indigo-950 font-mono">{room.current_turn_number + 1}</h2>
             </div>
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="relative flex h-3 w-3 shrink-0">
-                <span className={cn('animate-ping absolute inline-flex h-full w-full opacity-75 rounded-full', isMyTurn ? 'bg-indigo-500' : 'bg-indigo-400')} />
-                <span className={cn('relative inline-flex h-3 w-3 rounded-full', isMyTurn ? 'bg-indigo-500' : 'bg-indigo-400')} />
+                <span className={cn('animate-ping absolute inline-flex h-full w-full opacity-75 rounded-full', isMyTurn ? 'bg-emerald-500' : 'bg-indigo-400')} />
+                <span className={cn('relative inline-flex h-3 w-3 rounded-full', isMyTurn ? 'bg-emerald-500' : 'bg-indigo-400')} />
               </span>
-              <span className="text-sm font-bold text-indigo-950 truncate">
-                {isMyTurn ? 'SUA VEZ DE JOGAR!' : `Aguardando ${activePlayer?.nickname || 'jogador'}...`}
+              <span className="text-sm font-black text-indigo-950 truncate">
+                {turnLabel}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2 justify-between sm:justify-end">
+            {isSuddenDeath && (
+              <div className="hidden sm:flex items-center gap-2 rounded-2xl border-2 border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-rose-600">
+                <Skull className="w-4 h-4" /> Morte súbita
+              </div>
+            )}
             <div className="flex items-center gap-2.5 bg-indigo-50/50 px-4 py-2 rounded-2xl border border-indigo-100">
               <Clock className="w-5 h-5 text-indigo-500" />
               <span className={cn('text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
@@ -361,10 +370,23 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
           </div>
         </header>
 
+        {isSuddenDeath && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4 rounded-2xl border-2 border-rose-200 bg-rose-50 px-4 py-3 text-center text-xs font-black uppercase tracking-widest text-rose-700 shadow-sm sm:hidden">
+            Morte súbita: só continuam os jogadores vivos
+          </motion.div>
+        )}
+
+        {me?.missed_turns === 1 && !me.is_eliminated && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4 rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-amber-800 shadow-sm">
+            Atenção: você já tem 1 falta. Se deixar o tempo acabar novamente, será eliminado.
+          </motion.div>
+        )}
+
         <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
           {hudPlayers.map((p: any) => {
             const isOut = p.is_eliminated || (p.lives || 0) <= 0;
             const isActive = activePlayer?.id === p.id;
+            const missedTurns = p.missed_turns || 0;
             return (
               <div key={p.id} className={cn('border-2 rounded-2xl px-3 py-2 flex items-center gap-2 shadow-sm min-w-0 transition-all relative overflow-hidden', isOut ? 'bg-slate-100/90 border-slate-300 opacity-70 grayscale' : isActive ? cn(p.color?.border || 'border-indigo-400', p.color?.lightBgc || 'bg-indigo-50') : 'bg-white/90 border-indigo-100')}>
                 {isOut && <div className="absolute inset-0 bg-slate-200/35" />}
@@ -374,23 +396,21 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                   <div className="flex items-center gap-0.5 mt-0.5">
                     {isOut ? <Skull className="w-3.5 h-3.5 text-slate-500" /> : Array.from({ length: room.chars_per_player }).map((_, i) => i < p.lives ? <Heart key={i} className={cn('w-3.5 h-3.5 fill-current', p.color?.text || 'text-indigo-500')} /> : <Skull key={i} className="w-3.5 h-3.5 text-slate-300" />)}
                   </div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {isSuddenDeath && !isOut && <span className="rounded-full bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[8px] font-black uppercase text-rose-600">Morte súbita</span>}
+                    {missedTurns > 0 && <span className={cn('rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase', missedTurns >= 2 || isOut ? 'bg-rose-50 border-rose-200 text-rose-600' : 'bg-amber-50 border-amber-200 text-amber-700')}>{missedTurns} falta{missedTurns > 1 ? 's' : ''}</span>}
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
 
-        {activePlayer && !isRevealing && (
-          <motion.div key={activePlayer.id} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className={cn('mb-4 flex items-center justify-center font-black text-xs md:text-sm px-5 py-4 rounded-2xl shadow-sm border-b-4 uppercase tracking-widest w-full gap-3 text-white', activePlayer.color?.bg || 'bg-indigo-500', activePlayer.color?.border || 'border-indigo-700')}>
-            {isMyTurn ? 'É A SUA VEZ! SELECIONE UM SUSPEITO NA MESA.' : `É A VEZ DE ${activePlayer.nickname}`}
-          </motion.div>
-        )}
-
         {(!isMyTurn || isRevealing) ? (
           <div className="bg-white border-2 border-indigo-100 rounded-2xl p-4 mb-4 max-h-[62vh] overflow-y-auto shadow-sm">
             <h3 className="text-sm font-black text-indigo-950 uppercase mb-3 border-b-2 border-indigo-50 pb-2 flex items-center justify-between gap-2">
               <span className="flex items-center gap-2"><List className="w-5 h-5 text-indigo-500" /> Personagens vivos</span>
-              <span className="text-[11px] text-slate-500 font-black normal-case">{activePlayer ? `Vez de ${activePlayer.nickname}` : 'Aguardando'}</span>
+              <span className="text-[11px] text-slate-500 font-black normal-case">{turnLabel}</span>
             </h3>
             <ul className="divide-y divide-slate-100">
               {visibleDeckChars.map((c) => (

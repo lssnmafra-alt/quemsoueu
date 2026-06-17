@@ -29,12 +29,21 @@
   100% { transform: translateX(110%); }
 }
 
+@keyframes card-deal-in {
+  0% { opacity: 0; transform: scale(0.92); filter: blur(3px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
 @utility float-playful {
   animation: float-playful 5s infinite ease-in-out;
 }
 
 @utility bounce-playful {
   animation: bounce-small 3s infinite ease-in-out;
+}
+
+@utility card-deal-in {
+  animation: card-deal-in 280ms ease-out both;
 }
 
 /* Friendly rounded custom scrollbars */
@@ -58,6 +67,11 @@
 html,
 body {
   background: #eef2f7;
+}
+
+/* The in-game header already has a Sair button. Hide the old floating duplicate. */
+button.fixed.right-4.top-16 {
+  display: none !important;
 }
 
 /* Solid game board background */

@@ -29,6 +29,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     eliminatedPlayers: any[];
   } | null>(null);
   const [revealStage, setRevealStage] = useState<'choosing' | 'choice' | 'impact' | 'eliminated' | 'miss'>('choice');
+  const [isVoting, setIsVoting] = useState(false);
 
   const handlingTimeoutRef = useRef(false);
   const voteProcessingRef = useRef(false);
@@ -47,9 +48,8 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const visibleDeckChars = useMemo(() => (
     liveCardsLoaded ? deckChars.filter((c) => liveCharIds.has(c.id)) : deckChars
   ), [deckChars, liveCharIds, liveCardsLoaded]);
-  const isMyTurn = activePlayer?.id === me.id && !me.is_eliminated && !isRevealing && !voteProcessingRef.current;
+  const isMyTurn = activePlayer?.id === me.id && !me.is_eliminated && !isRevealing && !isVoting && !voteProcessingRef.current;
   const humanPlayers = orderedPlayers.filter((p: any) => !p.is_bot);
-  const isFirstHuman = humanPlayers.length > 0 && humanPlayers[0].id === me?.id;
 
   useEffect(() => {
     playersRef.current = players;
@@ -98,6 +98,8 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
       players: hitPlayers,
       eliminatedPlayers,
     });
+
+    if (eliminatedPlayers.length > 0) void refreshLiveCards();
 
     await sleep(800);
     setRevealStage('choice');
@@ -183,11 +185,12 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   }, [addLog, sendReveal, showReveal]);
 
   const processVote = async (targetCharId: string) => {
-    if (!activePlayer || !isMyTurn || voteProcessingRef.current) return;
+    if (!activePlayer || !isMyTurn || voteProcessingRef.current || isVoting) return;
     const targetChar = deckChars.find((c) => c.id === targetCharId);
     if (!targetChar) return;
 
     voteProcessingRef.current = true;
+    setIsVoting(true);
     addLog(`${activePlayer.nickname} fez sua escolha...`);
 
     try {
@@ -210,6 +213,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
       await runVoteResult(result, activePlayer);
     } finally {
       voteProcessingRef.current = false;
+      setIsVoting(false);
     }
   };
 
@@ -243,8 +247,17 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   useEffect(() => {
     handlingTimeoutRef.current = false;
     voteProcessingRef.current = false;
+    setIsVoting(false);
     setTimeLeft(Math.max(0, differenceInSeconds(new Date(room.turn_expires_at), new Date())));
   }, [room.current_turn_number, room.turn_expires_at]);
+
+  useEffect(() => {
+    try {
+      Object.keys(sessionStorage)
+        .filter((key) => key.startsWith(`timeout-lock-${room.id}-`))
+        .forEach((key) => sessionStorage.removeItem(key));
+    } catch {}
+  }, [room.id, room.current_turn_number]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -257,6 +270,13 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
 
       setTimeLeft(0);
       if (!activePlayer || handlingTimeoutRef.current || voteProcessingRef.current) return;
+
+      const timeoutKey = `timeout-lock-${room.id}-${room.current_turn_number}-${activePlayer.id}`;
+      try {
+        if (sessionStorage.getItem(timeoutKey)) return;
+        sessionStorage.setItem(timeoutKey, '1');
+      } catch {}
+
       handlingTimeoutRef.current = true;
 
       fetch(`/api/rooms/${room.id}/turn-timeout`, {
@@ -289,7 +309,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const turnKey = `${room.id}:${room.current_turn_number}:${activePlayer.id}`;
     if (botTurnRef.current === turnKey) return;
 
-    const delay = (isFirstHuman ? 2200 : 9000) + Math.floor(Math.random() * 2600);
+    const delay = (humanPlayers.length === 1 ? 2200 : 9000) + Math.floor(Math.random() * 2600);
     const timer = setTimeout(async () => {
       botTurnRef.current = turnKey;
       const response = await fetch(`/api/rooms/${room.id}/bot-turn`, {
@@ -308,7 +328,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [activePlayer, isRevealing, room.current_turn_number, room.id, addLog, runVoteResult, isFirstHuman]);
+  }, [activePlayer, isRevealing, room.current_turn_number, room.id, addLog, runVoteResult, humanPlayers.length]);
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-[#f5f6ff] font-sans relative party-grid-bg">
@@ -401,7 +421,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                   transition={{ delay: i * 0.03 }}
                   key={c.id}
                   onClick={() => processVote(c.id)}
-                  disabled={!isMyTurn || voteProcessingRef.current}
+                  disabled={!isMyTurn || isVoting || voteProcessingRef.current}
                   className="bg-white border-4 border-slate-100 hover:border-indigo-400 hover:shadow-xl rounded-3xl p-2.5 cursor-pointer transition-all flex flex-col group hover:-translate-y-1 relative disabled:opacity-60 disabled:cursor-wait"
                 >
                   <div className="aspect-[2/3] relative rounded-2xl overflow-hidden bg-slate-950 mb-2 shadow-inner">

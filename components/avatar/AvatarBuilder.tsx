@@ -362,6 +362,9 @@ export default function AvatarBuilder({ value, name, onChange, className }: Avat
                         <ColorField label="Cor do detalhe" value={config.detailColor} onChange={(color) => update({ detailColor: color })} />
                       </>
                     )}
+                    {active === 'accessory' && (
+                      <ColorField label="Cor do acessorio" value={config.accessoryColor} onChange={(color) => update({ accessoryColor: color })} />
+                    )}
                   </div>
                 </div>
 

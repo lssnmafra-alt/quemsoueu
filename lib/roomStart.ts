@@ -163,7 +163,7 @@ export async function startRoom(
     participants: botSync.players.length,
     bots: botSync.targetBots,
     botsCreated: botSync.botsCreated,
-    botsRemoved: botsToRemove.length,
+    botsRemoved: botSync.botsRemoved,
     enforcedMinimumBot: botSync.enforcedMinimumBot,
   };
 }

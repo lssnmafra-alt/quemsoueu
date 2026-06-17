@@ -110,7 +110,7 @@ export async function playBotTurn(
   const liveCharacterIds = [...new Set(targetablePlayerCards.map((card: any) => card.character_id))] as string[];
 
   if (liveCharacterIds.length === 0 || chars.length === 0) {
-    const result = await advanceTurn(room);
+    await advanceTurn(room);
     await logMatchEvents([{
       roomId: room.id,
       turnNumber: room.current_turn_number || 0,
@@ -119,7 +119,7 @@ export async function playBotTurn(
       message: `${activePlayer.nickname} nao tinha alvo valido para votar.`,
       metadata: { reason: 'no-valid-bot-target' },
     }]);
-    return { ok: true, skipped: true, reason: 'no-valid-bot-target', ...result };
+    return { ok: true, skipped: true, reason: 'no-valid-bot-target' };
   }
 
   let targetChar: any = null;

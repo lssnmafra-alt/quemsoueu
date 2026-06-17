@@ -10,15 +10,35 @@ function uniqueIds(values: string[]) {
   return [...new Set(values.filter(Boolean))];
 }
 
-export async function advanceTurn(room: any) {
-  await supabaseGame
-    .from('rooms')
-    .update({
-      current_turn_number: (room.current_turn_number || 0) + 1,
-      turn_expires_at: new Date(Date.now() + (room.vote_time_seconds || 30) * 1000).toISOString(),
-    })
+function sameTurnFilter(query: any, room: any) {
+  return query
     .eq('id', room.id)
-    .eq('status', 'PLAYING');
+    .eq('status', 'PLAYING')
+    .eq('current_turn_number', room.current_turn_number || 0);
+}
+
+async function finishRoom(room: any) {
+  await sameTurnFilter(
+    supabaseGame
+      .from('rooms')
+      .update({ status: 'FINISHED' }),
+    room,
+  );
+
+  await touchRoomActivity(room.id);
+}
+
+export async function advanceTurn(room: any) {
+  await sameTurnFilter(
+    supabaseGame
+      .from('rooms')
+      .update({
+        current_turn_number: (room.current_turn_number || 0) + 1,
+        turn_expires_at: new Date(Date.now() + (room.vote_time_seconds || 30) * 1000).toISOString(),
+      }),
+    room,
+  );
+
   await touchRoomActivity(room.id);
 }
 
@@ -72,8 +92,7 @@ async function startTiebreakPicking(room: any, tiebreakPlayers: any[]) {
   const tiebreakPlayerIds = uniqueIds(playersToPick.map((player: any) => player.id));
 
   if (tiebreakPlayerIds.length === 0) {
-    await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
-    await touchRoomActivity(room.id);
+    await finishRoom(room);
     return { finished: true, winner: null, reason: 'no-tiebreak-players' };
   }
 
@@ -89,10 +108,13 @@ async function startTiebreakPicking(room: any, tiebreakPlayers: any[]) {
     .update({ lives: 1, is_eliminated: false, missed_turns: 0 })
     .in('id', tiebreakPlayerIds);
 
-  await supabaseGame.from('rooms').update({
-    status: 'PICKING',
-    turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
-  }).eq('id', room.id).eq('status', 'PLAYING');
+  await sameTurnFilter(
+    supabaseGame.from('rooms').update({
+      status: 'PICKING',
+      turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
+    }),
+    room,
+  );
 
   await touchRoomActivity(room.id);
 
@@ -130,24 +152,8 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
   }
 
   if (alive.length === 1) {
-    await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
-    await touchRoomActivity(room.id);
+    await finishRoom(room);
     return { finished: true, winner: alive[0]?.nickname || null };
-  }
-
-  const ranked = alive
-    .map((player: any) => ({ player, lives: liveCounts.get(player.id) || 0 }))
-    .sort((a, b) => b.lives - a.lives);
-  const leader = ranked[0];
-  const tiedWithLeader = ranked.filter((item) => item.lives === leader.lives);
-
-  if (tiedWithLeader.length === 1) {
-    const leaderLiveCards = liveCardsFromAlive.filter((card: any) => card.player_id === leader.player.id).length;
-    if (leaderLiveCards > 0 && leaderLiveCards >= distinctLiveCharacters.size && distinctLiveCharacters.size > 1) {
-      await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
-      await touchRoomActivity(room.id);
-      return { finished: true, winner: leader.player.nickname, smartWin: true };
-    }
   }
 
   await advanceTurn(room);

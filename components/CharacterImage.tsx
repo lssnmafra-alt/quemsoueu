@@ -75,7 +75,7 @@ export default function CharacterImage({
     return (
       <div
         className={cn(
-          'official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] border-amber-300 bg-slate-900 shadow-xl',
+          'official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] border-amber-300 bg-slate-900 shadow-[0_14px_28px_rgba(15,23,42,0.24),inset_0_0_0_2px_rgba(255,255,255,0.12)]',
           className,
         )}
       >
@@ -84,14 +84,18 @@ export default function CharacterImage({
           src={src}
           alt={alt ?? name}
           referrerPolicy={referrerPolicy}
-          className="absolute inset-[0.38rem] h-[calc(100%-0.76rem)] w-[calc(100%-0.76rem)] rounded-[0.95rem] object-contain"
+          className="absolute inset-[0.28rem] h-[calc(100%-0.56rem)] w-[calc(100%-0.56rem)] rounded-[0.95rem] object-contain"
           onError={handleError}
         />
-        <div className="pointer-events-none absolute inset-[0.38rem] rounded-[0.95rem] bg-gradient-to-t from-slate-950/20 via-transparent to-transparent" />
-        <div className="pointer-events-none absolute inset-1 rounded-[1rem] border border-amber-100/70" />
+        <div className="pointer-events-none absolute inset-[0.28rem] rounded-[0.95rem] bg-gradient-to-t from-slate-950/8 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute inset-1 rounded-[1rem] border border-amber-100/80" />
         <div className="pointer-events-none absolute inset-2 rounded-[0.82rem] border border-slate-900/30" />
-        <div className="pointer-events-none absolute inset-x-2 bottom-2 flex min-h-[2.35rem] items-end justify-center px-2 pb-1.5 text-center">
-          <p className="text-balance break-words text-[clamp(0.58rem,2.65vw,0.82rem)] font-black uppercase leading-[1.03] tracking-[0.02em] text-white drop-shadow-lg">{name}</p>
+        <div className="pointer-events-none absolute left-2 top-2 h-5 w-5 rounded-tl-xl border-l-2 border-t-2 border-amber-100/85" />
+        <div className="pointer-events-none absolute right-2 top-2 h-5 w-5 rounded-tr-xl border-r-2 border-t-2 border-amber-100/85" />
+        <div className="pointer-events-none absolute bottom-2 left-2 h-5 w-5 rounded-bl-xl border-b-2 border-l-2 border-amber-100/85" />
+        <div className="pointer-events-none absolute bottom-2 right-2 h-5 w-5 rounded-br-xl border-b-2 border-r-2 border-amber-100/85" />
+        <div className="pointer-events-none absolute inset-x-2 bottom-2 flex min-h-[2.05rem] items-end justify-center px-2 pb-1.5 text-center">
+          <p className="text-balance break-words text-[clamp(0.58rem,2.65vw,0.84rem)] font-black uppercase leading-[1.03] tracking-[0.04em] text-white drop-shadow-lg">{name}</p>
         </div>
       </div>
     );

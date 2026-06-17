@@ -74,6 +74,16 @@ button.fixed.right-4.top-16 {
   display: none !important;
 }
 
+/* Gameplay list should not repeat whose turn it is. The main header already says it. */
+h3:has(svg.lucide-list) > span:last-child {
+  display: none !important;
+}
+
+/* Gameplay card entrance: center fade/zoom instead of falling or jumping motion. */
+.party-grid-bg .official-card-preview {
+  animation: card-deal-in 280ms ease-out both;
+}
+
 /* Solid game board background */
 .party-grid-bg {
   background-color: #eef2f7;
@@ -159,7 +169,7 @@ button.fixed.right-4.top-16 {
 }
 
 .btn-squishy-rose {
-  @apply bg-red-600 hover:bg-red-700 text-white border-b-4 border-red-900 hover:border-red-950 transition-all rounded-2xl active:border-b-0 active:translate-y-1 active:mt-1 shadow-md;
+  @apply bg-red-600 hover:bg-red-700 text-white border-b-4 border-red-900 hover:border-rose-950 transition-all rounded-2xl active:border-b-0 active:translate-y-1 active:mt-1 shadow-md;
 }
 
 .btn-squishy-green {

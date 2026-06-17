@@ -15,6 +15,10 @@ import LoadingArena from '@/components/LoadingArena';
 import GameErrorBoundary from '@/components/GameErrorBoundary';
 import { AnimatePresence, motion } from 'motion/react';
 
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default function RoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -27,7 +31,6 @@ export default function RoomPage() {
   const [roomNotices, setRoomNotices] = useState<{ id: string; text: string }[]>([]);
   const botAdminStartAttemptAtRef = useRef(0);
   const pickingFinalizeAttemptAtRef = useRef(0);
-  const botPlayAttemptByTurnRef = useRef('');
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
@@ -37,14 +40,31 @@ export default function RoomPage() {
     }
     
     const syncRoomState = async (shouldAutoJoin = false) => {
-      const { data: rm } = await supabaseGame.from('rooms').select('*').eq('id', roomId).single();
-      const { data: pls } = await supabaseGame.from('room_players').select('*').eq('room_id', roomId);
-      
+      let rm: any = null;
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { data } = await supabaseGame
+          .from('rooms')
+          .select('*')
+          .eq('id', roomId)
+          .maybeSingle();
+
+        if (data) {
+          rm = data;
+          break;
+        }
+
+        if (attempt < 2) {
+          await wait(300 + attempt * 200);
+        }
+      }
+
       if (!rm) {
         router.push('/lobby');
         return;
       }
-      
+
+      const { data: pls } = await supabaseGame.from('room_players').select('*').eq('room_id', roomId);
       const currentPlayers = pls || [];
       const myRows = currentPlayers.filter((p: any) => p.user_id === user.id);
       const alreadyInRoom = myRows[0];
@@ -88,8 +108,6 @@ export default function RoomPage() {
           });
         }
       }
-
-
 
       // Auto join only after auth is restored, without overfilling the room.
       if (shouldAutoJoin && !alreadyInRoom) {

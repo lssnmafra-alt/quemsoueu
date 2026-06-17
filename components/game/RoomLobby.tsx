@@ -136,7 +136,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
     botStartRef.current = true;
     const timer = setTimeout(() => {
       handleStart(startableDeck?.id, true);
-    }, 2200);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [botIsAdmin, decks, handleStart, isAdmin, players, room.deck_id, room.status]);
 

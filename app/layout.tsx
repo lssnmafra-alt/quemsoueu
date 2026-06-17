@@ -3,7 +3,6 @@ import { Inter, Quicksand } from 'next/font/google';
 import './globals.css'; // Global styles
 import AudioToggle from '@/components/AudioToggle';
 import AuthBootstrap from '@/components/AuthBootstrap';
-import ProfileNameButton from '@/components/ProfileNameButton';
 import { getPublicRuntimeEnvScript } from '@/lib/publicEnv';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
@@ -28,7 +27,6 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
       <body className="font-sans bg-[#f5f6ff] text-indigo-950" suppressHydrationWarning>
         <AuthBootstrap />
         {children}
-        <ProfileNameButton />
         <AudioToggle />
       </body>
     </html>

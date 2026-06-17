@@ -84,11 +84,12 @@ export async function playBotTurn(
   const activePlayerIds = new Set(activePlayers.map((player: any) => player.id));
   const playersById = new Map((players || []).map((player: any) => [player.id, player]));
   const livePlayerCards = cards.filter((card: any) => activePlayerIds.has(card.player_id));
-  const liveCharacterIds = [...new Set(livePlayerCards.map((card: any) => card.character_id))] as string[];
+  const targetablePlayerCards = livePlayerCards.filter((card: any) => card.player_id !== activePlayer.id);
+  const liveCharacterIds = [...new Set(targetablePlayerCards.map((card: any) => card.character_id))] as string[];
 
   if (liveCharacterIds.length === 0 || chars.length === 0) {
-    const result = await finishOrAdvance(room);
-    return { ok: true, skipped: true, reason: 'no-live-cards', ...result };
+    const result = await advanceTurn(room);
+    return { ok: true, skipped: true, reason: 'no-valid-bot-target', ...result };
   }
 
   let targetChar: any = null;

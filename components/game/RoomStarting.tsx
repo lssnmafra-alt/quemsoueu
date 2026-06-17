@@ -10,7 +10,9 @@ export default function RoomStarting({ room, players }: any) {
   const [timeLeft, setTimeLeft] = useState(8);
   const advancingRef = useRef(false);
 
-  const orderedPlayers = [...players].sort((a, b) => (a.play_order || 0) - (b.play_order || 0));
+  const activePlayers = players.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0);
+  const visiblePlayers = activePlayers.length > 0 ? activePlayers : players.filter((p: any) => !p.is_eliminated);
+  const orderedPlayers = [...visiblePlayers].sort((a, b) => (a.play_order || 0) - (b.play_order || 0));
   const countdownNumber = timeLeft > 0 && timeLeft <= 3 ? timeLeft : null;
 
   useEffect(() => {

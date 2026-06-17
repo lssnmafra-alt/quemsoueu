@@ -16,8 +16,14 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const [confirmed, setConfirmed] = useState(false);
   const finalizingRef = useRef(false);
 
-  const activePlayers = useMemo(() => players.filter((p: any) => !p.is_eliminated), [players]);
-  const isTiebreak = currentCards.length > 0 && activePlayers.length > 1 && activePlayers.every((p: any) => (p.lives || 0) <= 1);
+  const baseActivePlayers = useMemo(() => players.filter((p: any) => !p.is_eliminated), [players]);
+  const baseIsTiebreak = currentCards.length > 0 && baseActivePlayers.length > 1 && baseActivePlayers.every((p: any) => (p.lives || 0) <= 1);
+  const activePlayers = useMemo(() => (
+    baseIsTiebreak
+      ? players.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0)
+      : baseActivePlayers
+  ), [baseActivePlayers, baseIsTiebreak, players]);
+  const isTiebreak = baseIsTiebreak;
   const pickCount = isTiebreak ? 1 : room.chars_per_player;
   const isMeEligible = Boolean(me?.id) && !me.is_eliminated && activePlayers.some((p: any) => p.id === me.id);
   const liveCards = useMemo(() => currentCards.filter((card: any) => !card.is_dead), [currentCards]);
@@ -34,6 +40,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const pendingPlayers = realActivePlayers.filter((p: any) => (liveCardsByPlayer.get(p.id)?.length || 0) < pickCount);
   const myLiveCards = me?.id ? liveCardsByPlayer.get(me.id) || [] : [];
   const pendingCount = pendingPlayers.length;
+  const allRealPlayersReady = realActivePlayers.length > 0 && pendingCount === 0;
 
   const loadPickingState = useCallback(async () => {
     const query = supabaseGame.from('characters').select('*');
@@ -68,6 +75,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const finalizePicking = useCallback(async () => {
     if (finalizingRef.current) return;
     finalizingRef.current = true;
+    setTimeLeft(0);
 
     try {
       const response = await fetch(`/api/rooms/${room.id}/finalize-picking`, {
@@ -88,7 +96,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
 
   const finalizeIfReady = useCallback(async () => {
     if (finalizingRef.current) return;
-    const activeRealPlayers = players.filter((p: any) => !p.is_bot && !p.is_eliminated);
+    const activeRealPlayers = realActivePlayers;
     if (activeRealPlayers.length === 0) return;
 
     const { data: cards } = await supabaseGame
@@ -97,18 +105,21 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
       .eq('room_id', room.id)
       .eq('is_dead', false);
 
+    const activePlayerIds = new Set(activePlayers.map((p: any) => p.id));
     const liveCountByPlayer = new Map<string, number>();
     for (const card of cards || []) {
+      if (!activePlayerIds.has(card.player_id)) continue;
       liveCountByPlayer.set(card.player_id, (liveCountByPlayer.get(card.player_id) || 0) + 1);
     }
 
-    const allRealPlayersReady = activeRealPlayers.every((p: any) => (liveCountByPlayer.get(p.id) || 0) >= pickCount);
-    if (allRealPlayersReady) {
+    const allReady = activeRealPlayers.every((p: any) => (liveCountByPlayer.get(p.id) || 0) >= pickCount);
+    if (allReady) {
+      setTimeLeft(0);
       await finalizePicking();
     } else {
       await loadPickingState();
     }
-  }, [finalizePicking, loadPickingState, pickCount, players, room.id]);
+  }, [activePlayers, finalizePicking, loadPickingState, pickCount, realActivePlayers, room.id]);
 
   useEffect(() => {
     const timer = setInterval(finalizeIfReady, 2000);
@@ -116,6 +127,17 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   }, [finalizeIfReady]);
 
   useEffect(() => {
+    if (!allRealPlayersReady) return;
+    setTimeLeft(0);
+    finalizePicking();
+  }, [allRealPlayersReady, finalizePicking]);
+
+  useEffect(() => {
+    if (allRealPlayersReady || finalizingRef.current) {
+      setTimeLeft(0);
+      return;
+    }
+
     const i = setInterval(() => {
       const diff = differenceInSeconds(new Date(room.turn_expires_at), new Date());
       if (diff <= 0) {
@@ -127,7 +149,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
     }, 1000);
 
     return () => clearInterval(i);
-  }, [room.turn_expires_at, finalizePicking]);
+  }, [allRealPlayersReady, room.turn_expires_at, finalizePicking]);
 
   const toggleChar = (id: string) => {
     if (confirmed || !isMeEligible) return;
@@ -167,7 +189,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   };
 
   const totalTime = room.pick_time_seconds || 30;
-  const progressPercent = Math.max(0, (timeLeft / totalTime) * 100);
+  const progressPercent = allRealPlayersReady ? 0 : Math.max(0, (timeLeft / totalTime) * 100);
   const usesOfficialImages = !room.deck_id || isOfficialDeckId(room.deck_id);
 
   return (
@@ -186,7 +208,11 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
             <Layers className="h-9 w-9 text-indigo-500" /> {isTiebreak ? 'Desempate!' : 'Monte seu Baralho'}
           </h2>
           <p className="text-sm text-indigo-600 font-bold uppercase tracking-wider">
-            Tempo restante para escolher: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{timeLeft}s</span>
+            {allRealPlayersReady ? (
+              <span className="text-emerald-600 font-black">Todos escolheram. Preparando...</span>
+            ) : (
+              <>Tempo restante para escolher: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{timeLeft}s</span></>
+            )}
           </p>
         </div>
 

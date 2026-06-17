@@ -51,13 +51,14 @@ export default function CharacterImage({
     return (
       <div
         className={cn(
-          'relative overflow-hidden rounded-2xl border-2 border-slate-700 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.35),_transparent_34%),linear-gradient(135deg,_#020617,_#111827_52%,_#312e81)] flex items-center justify-center shadow-inner',
+          'relative overflow-hidden rounded-[1.35rem] border-[3px] border-slate-900 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.35),_transparent_34%),linear-gradient(135deg,_#020617,_#111827_52%,_#312e81)] flex items-center justify-center shadow-inner',
           className,
           placeholderClassName,
         )}
       >
+        <div className="absolute inset-1 rounded-[1rem] border border-white/10" />
         <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:24px_24px]" />
-        <div className="absolute inset-x-3 top-1/2 z-10 -translate-y-1/2 rounded-2xl border border-white/15 bg-slate-950/70 px-3 py-3 text-center shadow-2xl backdrop-blur-md">
+        <div className="absolute inset-x-3 bottom-3 z-10 rounded-2xl border border-white/15 bg-slate-950/75 px-3 py-3 text-center shadow-2xl backdrop-blur-md">
           <div className="flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100">
             <Sparkles className="h-3 w-3" /> Oficial
           </div>
@@ -72,20 +73,21 @@ export default function CharacterImage({
     return (
       <div
         className={cn(
-          'relative overflow-hidden rounded-2xl border-2 border-slate-800 bg-slate-950 shadow-inner',
+          'relative overflow-hidden rounded-[1.35rem] border-[3px] border-slate-900 bg-slate-950 shadow-[0_12px_28px_rgba(15,23,42,0.22),inset_0_0_0_2px_rgba(255,255,255,0.09)]',
           className,
         )}
       >
+        <div className="absolute inset-1 rounded-[1rem] border border-white/10" />
         <img
           {...props}
           src={src}
           alt={alt ?? name}
           referrerPolicy={referrerPolicy}
-          className="absolute inset-0 h-full w-full object-contain p-1"
+          className="absolute inset-[0.45rem] h-[calc(100%-0.9rem)] w-[calc(100%-0.9rem)] rounded-[0.95rem] object-cover"
           onError={handleError}
         />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(2,6,23,0.10),rgba(2,6,23,0.10)_42%,rgba(2,6,23,0.72))]" />
-        <div className="pointer-events-none absolute inset-x-3 top-1/2 -translate-y-1/2 rounded-2xl border border-white/15 bg-slate-950/55 px-3 py-2 text-center shadow-xl backdrop-blur-sm">
+        <div className="pointer-events-none absolute inset-[0.45rem] rounded-[0.95rem] bg-[linear-gradient(to_bottom,rgba(2,6,23,0.02),rgba(2,6,23,0.12)_45%,rgba(2,6,23,0.74))]" />
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-2xl border border-white/15 bg-slate-950/78 px-2.5 py-2 text-center shadow-xl backdrop-blur-sm">
           <p className="line-clamp-2 text-[11px] font-black uppercase leading-tight tracking-wide text-white drop-shadow sm:text-xs">{name}</p>
         </div>
       </div>

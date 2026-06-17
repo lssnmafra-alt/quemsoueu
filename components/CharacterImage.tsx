@@ -51,22 +51,42 @@ export default function CharacterImage({
     return (
       <div
         className={cn(
-          'relative overflow-hidden rounded-2xl border border-white/20 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.35),_transparent_34%),linear-gradient(135deg,_#020617,_#111827_52%,_#312e81)] flex items-center justify-center shadow-inner',
+          'relative overflow-hidden rounded-2xl border-2 border-slate-700 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.35),_transparent_34%),linear-gradient(135deg,_#020617,_#111827_52%,_#312e81)] flex items-center justify-center shadow-inner',
           className,
           placeholderClassName,
         )}
       >
         <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:24px_24px]" />
-        <div className="relative flex flex-col items-center gap-3 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-cyan-200/30 bg-white/10 shadow-2xl shadow-cyan-950/30 backdrop-blur">
-            <ImageIcon className="h-7 w-7 text-cyan-100" />
+        <div className="absolute inset-x-3 top-1/2 z-10 -translate-y-1/2 rounded-2xl border border-white/15 bg-slate-950/70 px-3 py-3 text-center shadow-2xl backdrop-blur-md">
+          <div className="flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100">
+            <Sparkles className="h-3 w-3" /> Oficial
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 backdrop-blur">
-            <div className="flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100">
-              <Sparkles className="h-3 w-3" /> Oficial
-            </div>
-            <p className="mt-1 max-w-[150px] truncate text-xs font-black uppercase text-white">{name || 'Personagem'}</p>
-          </div>
+          <p className="mt-1 line-clamp-2 text-sm font-black uppercase leading-tight text-white">{name || 'Personagem'}</p>
+        </div>
+        <ImageIcon className="h-12 w-12 text-cyan-100/45" />
+      </div>
+    );
+  }
+
+  if (isOfficial) {
+    return (
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-2xl border-2 border-slate-800 bg-slate-950 shadow-inner',
+          className,
+        )}
+      >
+        <img
+          {...props}
+          src={src}
+          alt={alt ?? name}
+          referrerPolicy={referrerPolicy}
+          className="absolute inset-0 h-full w-full object-contain p-1"
+          onError={handleError}
+        />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(2,6,23,0.10),rgba(2,6,23,0.10)_42%,rgba(2,6,23,0.72))]" />
+        <div className="pointer-events-none absolute inset-x-3 top-1/2 -translate-y-1/2 rounded-2xl border border-white/15 bg-slate-950/55 px-3 py-2 text-center shadow-xl backdrop-blur-sm">
+          <p className="line-clamp-2 text-[11px] font-black uppercase leading-tight tracking-wide text-white drop-shadow sm:text-xs">{name}</p>
         </div>
       </div>
     );

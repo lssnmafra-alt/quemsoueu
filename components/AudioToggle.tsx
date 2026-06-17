@@ -8,31 +8,37 @@ import { cn } from '@/lib/utils';
 
 export default function AudioToggle() {
   const [open, setOpen] = useState(false);
-  const [prefs, setPrefs] = useState(audioManager.prefs);
+  const [prefs, setPrefs] = useState({ ...audioManager.prefs });
+
+  const syncPrefs = () => {
+    setPrefs({ ...audioManager.prefs });
+  };
 
   const update = (next: Partial<typeof prefs>) => {
     audioManager.initFromUserGesture();
-    const merged = { ...audioManager.prefs, ...next };
 
-    if (next.musicEnabled !== undefined) audioManager.setMusicEnabled(next.musicEnabled);
-    if (next.sfxEnabled !== undefined) audioManager.setSfxEnabled(next.sfxEnabled);
+    // Order matters on mobile Safari/Chrome: unmute first, then enable music.
+    // Previously the click SFX and mute/music toggles could fight each other,
+    // forcing the user to disable effects, toggle music off/on, then enable effects again.
+    if (next.muted === false) audioManager.unmuteAll();
+    if (next.muted === true) audioManager.muteAll();
     if (next.musicVolume !== undefined) audioManager.setMusicVolume(next.musicVolume);
     if (next.sfxVolume !== undefined) audioManager.setSfxVolume(next.sfxVolume);
-    if (next.muted === true) audioManager.muteAll();
-    if (next.muted === false) audioManager.unmuteAll();
+    if (next.musicEnabled !== undefined) audioManager.setMusicEnabled(next.musicEnabled);
+    if (next.sfxEnabled !== undefined) audioManager.setSfxEnabled(next.sfxEnabled);
 
-    setPrefs({ ...merged, ...audioManager.prefs });
+    syncPrefs();
   };
 
   return (
-    <div className="fixed bottom-4 left-4 z-50">
+    <div className="fixed bottom-4 left-4 z-[90]">
       <AnimatePresence>
         {open && (
           <motion.div
             initial={{ opacity: 0, y: 10, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.96 }}
-            className="mb-3 w-64 rounded-2xl border-2 border-indigo-100 bg-white p-4 shadow-xl"
+            className="mb-3 w-[calc(100vw-2rem)] max-w-64 rounded-2xl border-2 border-indigo-100 bg-white p-4 shadow-xl"
           >
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs font-black uppercase tracking-wider text-indigo-950">Audio do jogo</p>
@@ -47,15 +53,15 @@ export default function AudioToggle() {
 
             <label className="mb-3 flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
               <span className="flex items-center gap-2"><Music className="h-4 w-4 text-indigo-500" /> Musica</span>
-              <input type="checkbox" checked={prefs.musicEnabled} onChange={(e) => update({ musicEnabled: e.target.checked, muted: false })} className="h-4 w-4 accent-indigo-600" />
+              <input type="checkbox" checked={prefs.musicEnabled && !prefs.muted} onChange={(e) => update({ muted: false, musicEnabled: e.target.checked })} className="h-4 w-4 accent-indigo-600" />
             </label>
-            <input type="range" min="0" max="1" step="0.05" value={prefs.musicVolume} onChange={(e) => update({ musicVolume: Number(e.target.value) })} className="mb-4 w-full accent-indigo-600" />
+            <input type="range" min="0" max="1" step="0.05" value={prefs.musicVolume} onChange={(e) => update({ musicVolume: Number(e.target.value), muted: false })} className="mb-4 w-full accent-indigo-600" />
 
             <label className="mb-3 flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
               <span className="flex items-center gap-2"><Volume2 className="h-4 w-4 text-indigo-500" /> Efeitos</span>
-              <input type="checkbox" checked={prefs.sfxEnabled} onChange={(e) => update({ sfxEnabled: e.target.checked, muted: false })} className="h-4 w-4 accent-indigo-600" />
+              <input type="checkbox" checked={prefs.sfxEnabled && !prefs.muted} onChange={(e) => update({ muted: false, sfxEnabled: e.target.checked })} className="h-4 w-4 accent-indigo-600" />
             </label>
-            <input type="range" min="0" max="1" step="0.05" value={prefs.sfxVolume} onChange={(e) => update({ sfxVolume: Number(e.target.value) })} className="w-full accent-indigo-600" />
+            <input type="range" min="0" max="1" step="0.05" value={prefs.sfxVolume} onChange={(e) => update({ sfxVolume: Number(e.target.value), muted: false })} className="w-full accent-indigo-600" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -67,6 +73,7 @@ export default function AudioToggle() {
           audioManager.initFromUserGesture();
           setOpen((current) => !current);
           audioManager.playSfx('click');
+          syncPrefs();
         }}
         className="rounded-2xl border-2 border-indigo-100 bg-white p-3 text-indigo-600 shadow-lg transition-colors hover:bg-indigo-50"
         aria-label="Configuracoes de audio"

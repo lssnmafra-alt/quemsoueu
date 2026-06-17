@@ -128,7 +128,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   }, [activePlayers, finalizePicking, loadPickingState, pickCount, realActivePlayers, room.id]);
 
   useEffect(() => {
-    const timer = setInterval(finalizeIfReady, 2000);
+    const timer = setInterval(finalizeIfReady, 800);
     return () => clearInterval(timer);
   }, [finalizeIfReady]);
 

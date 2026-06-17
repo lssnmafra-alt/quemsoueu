@@ -11,6 +11,28 @@ type GroqTurnStatus = {
   fallbackReason: string | null;
 };
 
+async function logMatchEvents(events: any[]) {
+  const rows = events.filter(Boolean).map((event) => ({
+    room_id: event.roomId,
+    turn_number: event.turnNumber,
+    event_type: event.eventType,
+    actor_player_id: event.actorPlayerId || null,
+    target_player_id: event.targetPlayerId || null,
+    character_id: event.characterId || null,
+    message: event.message || null,
+    metadata: event.metadata || {},
+  }));
+
+  if (rows.length === 0) return;
+
+  try {
+    const { error } = await supabaseGame.from('match_events').insert(rows);
+    if (error) console.warn('match_events skipped:', error.message);
+  } catch (error) {
+    console.warn('match_events failed:', error);
+  }
+}
+
 export async function playBotTurn(
   roomId: string,
   options: { expectedTurnNumber?: number | null; expectedPlayerId?: string } = {},
@@ -89,6 +111,14 @@ export async function playBotTurn(
 
   if (liveCharacterIds.length === 0 || chars.length === 0) {
     const result = await advanceTurn(room);
+    await logMatchEvents([{
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: 'bot_skip',
+      actorPlayerId: activePlayer.id,
+      message: `${activePlayer.nickname} nao tinha alvo valido para votar.`,
+      metadata: { reason: 'no-valid-bot-target' },
+    }]);
     return { ok: true, skipped: true, reason: 'no-valid-bot-target', ...result };
   }
 
@@ -173,6 +203,14 @@ export async function playBotTurn(
 
   if (!targetChar) {
     await advanceTurn(room);
+    await logMatchEvents([{
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: 'bot_skip',
+      actorPlayerId: activePlayer.id,
+      message: `${activePlayer.nickname} nao encontrou alvo para votar.`,
+      metadata: { reason: 'no-target', groq: groqStatus },
+    }]);
     return { ok: true, skipped: true, reason: 'no-target', groq: groqStatus };
   }
 
@@ -193,6 +231,7 @@ export async function playBotTurn(
 
   const hits = livePlayerCards.filter((card: any) => card.character_id === targetChar.id);
   const hitPlayers = [];
+  const eliminatedPlayers: any[] = [];
 
   if (hits.length > 0) {
     await supabaseGame
@@ -209,9 +248,11 @@ export async function playBotTurn(
   for (const [playerId, hitCount] of hitCountByPlayer.entries()) {
     const targetPlayer: any = playersById.get(playerId);
     if (!targetPlayer) continue;
-    const newLives = Math.max(0, (targetPlayer.lives || 0) - hitCount);
+    const previousLives = targetPlayer.lives || 0;
+    const newLives = Math.max(0, previousLives - hitCount);
     const updatedPlayer = { ...targetPlayer, lives: newLives, is_eliminated: newLives <= 0 };
     hitPlayers.push(updatedPlayer);
+    if (previousLives > 0 && newLives <= 0) eliminatedPlayers.push(updatedPlayer);
     await supabaseGame
       .from('room_players')
       .update({ lives: newLives, is_eliminated: newLives <= 0 })
@@ -221,6 +262,47 @@ export async function playBotTurn(
   await touchRoomActivity(room.id);
   const result = await finishOrAdvance(room, hitPlayers);
   const hitPlayerIds = [...new Set(hits.map((hit: any) => hit.player_id))];
+
+  await logMatchEvents([
+    {
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: hits.length > 0 ? 'vote_hit' : 'vote_miss',
+      actorPlayerId: activePlayer.id,
+      characterId: targetChar.id,
+      message: hits.length > 0
+        ? `${activePlayer.nickname} acertou ${targetChar.name}.`
+        : `${activePlayer.nickname} errou ${targetChar.name}.`,
+      metadata: {
+        source: 'bot',
+        target_name: targetChar.name,
+        hit_count: hits.length,
+        hit_player_ids: hitPlayerIds,
+        groq: groqStatus,
+      },
+    },
+    ...eliminatedPlayers.map((player: any) => ({
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: 'player_eliminated',
+      actorPlayerId: activePlayer.id,
+      targetPlayerId: player.id,
+      characterId: targetChar.id,
+      message: `${activePlayer.nickname} eliminou ${player.nickname} com ${targetChar.name}.`,
+      metadata: {
+        source: 'bot',
+        target_name: targetChar.name,
+        eliminated_player_name: player.nickname,
+      },
+    })),
+    result?.finished ? {
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: 'room_finished',
+      message: result.winner ? `Partida encerrada. Campeao: ${result.winner}.` : 'Partida encerrada em empate.',
+      metadata: { winner: result.winner || null, reason: result.reason || null },
+    } : null,
+  ]);
 
   return {
     ok: true,

@@ -10,7 +10,7 @@ export default function RoomFinished({ room, players, isAdmin, leaveRoom }: any)
     await supabaseGame.from('rooms').update({ status: 'LOBBY', current_turn_number: 0 }).eq('id', room.id);
 
     for (const p of players) {
-      await supabaseGame.from('room_players').update({ lives: 0, is_eliminated: false, missed_turns: 0 }).eq('id', p.id);
+      await supabaseGame.from('room_players').update({ lives: 0, is_eliminated: false, missed_turns: 0, play_order: null }).eq('id', p.id);
     }
 
     await supabaseGame.from('player_cards').delete().eq('room_id', room.id);

@@ -22,7 +22,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ ok: false, reason: 'stale-turn' });
   }
 
-  if (room.turn_expires_at && new Date(room.turn_expires_at).getTime() > Date.now()) {
+  const now = Date.now();
+  const expiredAt = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
+
+  if (!expiredAt || expiredAt > now) {
     return NextResponse.json({ ok: false, reason: 'turn-not-expired' });
   }
 
@@ -40,6 +43,25 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   if (expectedPlayerId && activePlayer.id !== expectedPlayerId) {
     return NextResponse.json({ ok: false, reason: 'stale-player' });
+  }
+
+  // Important: several clients can notice the same expired timer at the same time.
+  // This atomic lock lets only one request apply the penalty for this turn.
+  const lockUntil = new Date(now + 8_000).toISOString();
+  const { data: lockedRows, error: lockError } = await supabaseGame
+    .from('rooms')
+    .update({ turn_expires_at: lockUntil })
+    .eq('id', room.id)
+    .eq('status', 'PLAYING')
+    .eq('current_turn_number', room.current_turn_number || 0)
+    .lte('turn_expires_at', new Date(now).toISOString())
+    .select('id')
+    .limit(1);
+
+  if (lockError) throw lockError;
+
+  if (!lockedRows || lockedRows.length === 0) {
+    return NextResponse.json({ ok: false, reason: 'timeout-already-handled' });
   }
 
   const missedTurns = (activePlayer.missed_turns || 0) + 1;

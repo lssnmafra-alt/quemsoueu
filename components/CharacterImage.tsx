@@ -51,22 +51,22 @@ export default function CharacterImage({
     return (
       <div
         className={cn(
-          'official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] border-slate-900 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.35),_transparent_34%),linear-gradient(135deg,_#020617,_#111827_52%,_#312e81)] flex items-center justify-center shadow-inner',
+          'official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] border-amber-300 bg-slate-900 flex items-center justify-center shadow-xl',
           className,
           placeholderClassName,
         )}
       >
-        <div className="absolute inset-1 rounded-[1rem] border border-white/10" />
-        <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:24px_24px]" />
-        <div className="absolute inset-x-2 bottom-2 z-10 flex min-h-[3.2rem] items-center justify-center rounded-2xl border border-white/15 bg-slate-950/78 px-3 py-2 text-center shadow-2xl backdrop-blur-md">
+        <div className="absolute inset-1 rounded-[1rem] border border-amber-100/60" />
+        <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:24px_24px]" />
+        <div className="pointer-events-none absolute inset-x-2 bottom-2 flex min-h-[2.45rem] items-end justify-center px-2 pb-1.5 text-center">
           <div className="min-w-0">
-            <div className="mb-0.5 flex items-center justify-center gap-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100">
-              <Sparkles className="h-3 w-3 shrink-0" /> Oficial
+            <div className="mb-0.5 flex items-center justify-center gap-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-amber-100 drop-shadow-lg">
+              <Sparkles className="h-2.5 w-2.5 shrink-0" /> Oficial
             </div>
-            <p className="text-balance break-words text-[clamp(0.58rem,2.65vw,0.82rem)] font-black uppercase leading-[1.05] tracking-[0.02em] text-white">{name || 'Personagem'}</p>
+            <p className="text-balance break-words text-[clamp(0.58rem,2.65vw,0.82rem)] font-black uppercase leading-[1.03] tracking-[0.02em] text-white drop-shadow-lg">{name || 'Personagem'}</p>
           </div>
         </div>
-        <ImageIcon className="h-12 w-12 text-cyan-100/45" />
+        <ImageIcon className="h-12 w-12 text-amber-100/45" />
       </div>
     );
   }
@@ -75,30 +75,23 @@ export default function CharacterImage({
     return (
       <div
         className={cn(
-          'official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] border-slate-900 bg-slate-950 shadow-[0_12px_28px_rgba(15,23,42,0.22),inset_0_0_0_2px_rgba(255,255,255,0.09)]',
+          'official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] border-amber-300 bg-slate-900 shadow-xl',
           className,
         )}
       >
-        <img
-          src={src}
-          alt=""
-          aria-hidden="true"
-          referrerPolicy={referrerPolicy}
-          className="absolute inset-0 h-full w-full scale-105 object-cover opacity-30 blur-md"
-          onError={handleError}
-        />
-        <div className="absolute inset-0 bg-slate-950/32" />
         <img
           {...props}
           src={src}
           alt={alt ?? name}
           referrerPolicy={referrerPolicy}
-          className="absolute inset-0 h-full w-full object-contain"
+          className="absolute inset-[0.38rem] h-[calc(100%-0.76rem)] w-[calc(100%-0.76rem)] rounded-[0.95rem] object-contain"
           onError={handleError}
         />
-        <div className="pointer-events-none absolute inset-0 rounded-[1.15rem] ring-1 ring-white/15" />
-        <div className="pointer-events-none absolute inset-x-2 bottom-2 flex min-h-[3.05rem] items-center justify-center rounded-2xl border border-white/15 bg-slate-950/82 px-3 py-2 text-center shadow-xl backdrop-blur-sm">
-          <p className="text-balance break-words text-[clamp(0.58rem,2.65vw,0.8rem)] font-black uppercase leading-[1.05] tracking-[0.02em] text-white drop-shadow">{name}</p>
+        <div className="pointer-events-none absolute inset-[0.38rem] rounded-[0.95rem] bg-gradient-to-t from-slate-950/20 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute inset-1 rounded-[1rem] border border-amber-100/70" />
+        <div className="pointer-events-none absolute inset-2 rounded-[0.82rem] border border-slate-900/30" />
+        <div className="pointer-events-none absolute inset-x-2 bottom-2 flex min-h-[2.35rem] items-end justify-center px-2 pb-1.5 text-center">
+          <p className="text-balance break-words text-[clamp(0.58rem,2.65vw,0.82rem)] font-black uppercase leading-[1.03] tracking-[0.02em] text-white drop-shadow-lg">{name}</p>
         </div>
       </div>
     );

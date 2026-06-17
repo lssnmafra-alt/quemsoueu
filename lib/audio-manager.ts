@@ -234,8 +234,15 @@ export class AudioManager {
       select: 'click',
       turn: 'transition',
       win: 'victory',
+      victory: 'victory',
+      defeat: 'eliminated',
       eliminate: 'eliminated',
+      player_eliminated: 'eliminated',
+      life_lost: 'hit',
       hurt: 'hit',
+      card_reveal: 'transition',
+      reveal: 'transition',
+      suspense: 'transition',
     };
     return map[String(effect).toLowerCase()] || String(effect).toLowerCase();
   }

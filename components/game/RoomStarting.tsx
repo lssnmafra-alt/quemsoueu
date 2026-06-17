@@ -16,7 +16,9 @@ export default function RoomStarting({ room, players }: any) {
   const countdownNumber = timeLeft > 0 && timeLeft <= 3 ? timeLeft : null;
 
   useEffect(() => {
-    audioManager.playSFX('select');
+    if (timeLeft <= 3 && timeLeft > 0) {
+      audioManager.playSFX('countdown');
+    }
   }, [timeLeft]);
 
   useEffect(() => {

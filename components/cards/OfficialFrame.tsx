@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export type OfficialCardTheme = 'arcane' | 'nature' | 'ruby' | 'shadow' | 'celestial';
@@ -60,6 +61,13 @@ export default function OfficialFrame({ theme = 'celestial' }: { theme?: Officia
 
   return (
     <>
+      <Image
+        src={config.framePath}
+        alt=""
+        fill
+        sizes="180px"
+        className="pointer-events-none absolute inset-0 z-20 object-fill"
+      />
       <div className={cn('pointer-events-none absolute inset-0 z-10 rounded-[1.35rem] border-[3px]', config.border)} />
       <div className={cn('pointer-events-none absolute inset-1 z-10 rounded-[1rem] border', config.innerBorder)} />
       <div className="pointer-events-none absolute inset-2 z-10 rounded-[0.82rem] border border-slate-950/35" />

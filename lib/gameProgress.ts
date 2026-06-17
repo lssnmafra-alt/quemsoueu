@@ -130,9 +130,22 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
   const { players, liveCards, liveCounts } = await syncLivesFromLiveCards(room.id);
   const playersById = new Map((players || []).map((player: any) => [player.id, player]));
   const alive = (players || []).filter((player: any) => !player.is_eliminated && (liveCounts.get(player.id) || 0) > 0);
+  const activeHumans = alive.filter((player: any) => !player.is_bot);
+  const activeBots = alive.filter((player: any) => player.is_bot);
   const aliveIds = new Set(alive.map((player: any) => player.id));
   const liveCardsFromAlive = (liveCards || []).filter((card: any) => aliveIds.has(card.player_id));
   const distinctLiveCharacters = new Set((liveCardsFromAlive || []).map((card: any) => card.character_id));
+
+  if (activeHumans.length === 0 && activeBots.length > 0) {
+    const sortedBots = [...activeBots].sort((a: any, b: any) => (liveCounts.get(b.id) || 0) - (liveCounts.get(a.id) || 0));
+    const topBot = sortedBots[0];
+    const secondBot = sortedBots[1];
+
+    if (!secondBot || (liveCounts.get(topBot.id) || 0) > (liveCounts.get(secondBot.id) || 0)) {
+      await finishRoom(room);
+      return { finished: true, winner: topBot?.nickname || null, reason: 'bots-only-life-leader' };
+    }
+  }
 
   if (alive.length > 1 && distinctLiveCharacters.size <= 1) {
     const maxLives = Math.max(...alive.map((player: any) => liveCounts.get(player.id) || 0));

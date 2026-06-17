@@ -59,11 +59,18 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
   const refreshLiveCards = useCallback(async () => {
     const { data } = await supabaseGame
       .from('player_cards')
-      .select('character_id')
+      .select('character_id,player_id')
       .eq('room_id', room.id)
       .eq('is_dead', false);
 
-    setLiveCharIds(new Set((data || []).map((card: any) => card.character_id)));
+    const activeIds = new Set(
+      (playersRef.current || [])
+        .filter((player: any) => !player.is_eliminated && (player.lives || 0) > 0)
+        .map((player: any) => player.id)
+    );
+    const liveCardsInPlay = (data || []).filter((card: any) => activeIds.has(card.player_id));
+
+    setLiveCharIds(new Set(liveCardsInPlay.map((card: any) => card.character_id)));
     setLiveCardsLoaded(true);
   }, [room.id]);
 
@@ -148,7 +155,7 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
     if (!response?.ok || result?.ok === false) return result;
 
     if (result.tiebreak) {
-      addLog('EMPATE! Desempate com cartas novas para os jogadores atingidos.');
+      addLog('EMPATE! Escolham novos personagens para o desempate.');
     } else if (result.finished) {
       addLog(result.smartWin
         ? `Vitoria inteligente! Campeao: ${result.winner || 'Empate'}!`
@@ -195,9 +202,16 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
         supabaseGame.from('player_cards').select('*').eq('room_id', room.id).eq('is_dead', false),
         supabaseGame.from('room_players').select('*').eq('room_id', room.id),
       ]);
-      const hits = allCards?.filter((c) => c.character_id === targetCharId) || [];
+      const currentPlayers = freshPlayers || players;
+      const activePlayerIds = new Set(
+        currentPlayers
+          .filter((player: any) => !player.is_eliminated && (player.lives || 0) > 0)
+          .map((player: any) => player.id)
+      );
+      const liveCardsInPlay = (allCards || []).filter((card: any) => activePlayerIds.has(card.player_id));
+      const hits = liveCardsInPlay.filter((card: any) => card.character_id === targetCharId);
       const hitPlayerIds = [...new Set(hits.map((hit: any) => hit.player_id))];
-      const playersById = new Map((freshPlayers || players).map((player: any) => [player.id, player]));
+      const playersById = new Map(currentPlayers.map((player: any) => [player.id, player]));
       const hitCountByPlayer = new Map<string, number>();
       const updatedHitPlayers: any[] = [];
 
@@ -312,7 +326,7 @@ export default function RoomPlaying({ room, players, me, isAdmin, leaveRoom }: a
               const result = await response.json().catch(() => ({}));
               if (response.ok && result.ok) {
                 if (result.tiebreak) {
-                  addLog('EMPATE! Desempate com carta nova para quem ainda esta na disputa.');
+                  addLog('EMPATE! Escolham novos personagens para o desempate.');
                 } else {
                   addLog(result.eliminated
                     ? `${activePlayer.nickname} ficou 2 turnos sem votar e foi eliminado.`

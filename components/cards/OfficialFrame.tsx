@@ -8,6 +8,7 @@ export type OfficialCardThemeConfig = {
   innerBorder: string;
   cornerBorder: string;
   nameColor: string;
+  framePath: string;
 };
 
 export function getOfficialFrameTheme(theme: OfficialCardTheme = 'celestial'): OfficialCardThemeConfig {
@@ -18,6 +19,7 @@ export function getOfficialFrameTheme(theme: OfficialCardTheme = 'celestial'): O
       innerBorder: 'border-violet-100/75',
       cornerBorder: 'border-violet-100/90',
       nameColor: 'text-violet-50',
+      framePath: '/card-frames/arcane.webp',
     };
   }
 
@@ -28,6 +30,7 @@ export function getOfficialFrameTheme(theme: OfficialCardTheme = 'celestial'): O
       innerBorder: 'border-emerald-100/75',
       cornerBorder: 'border-emerald-100/90',
       nameColor: 'text-emerald-50',
+      framePath: '/card-frames/nature.webp',
     };
   }
 
@@ -38,6 +41,7 @@ export function getOfficialFrameTheme(theme: OfficialCardTheme = 'celestial'): O
       innerBorder: 'border-zinc-100/70',
       cornerBorder: 'border-zinc-100/85',
       nameColor: 'text-zinc-50',
+      framePath: '/card-frames/shadow.webp',
     };
   }
 
@@ -47,6 +51,7 @@ export function getOfficialFrameTheme(theme: OfficialCardTheme = 'celestial'): O
     innerBorder: 'border-amber-100/75',
     cornerBorder: 'border-amber-100/90',
     nameColor: 'text-amber-50',
+    framePath: '/card-frames/celestial.webp',
   };
 }
 

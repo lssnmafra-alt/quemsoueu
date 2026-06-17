@@ -118,7 +118,7 @@ export default function RoomFinished({ room, players, isAdmin, leaveRoom }: any)
     }
 
     await supabaseGame.from('player_cards').delete().eq('room_id', room.id);
-    await supabaseGame.from('match_events').delete().eq('room_id', room.id).catch(() => null);
+    await supabaseGame.from('match_events').delete().eq('room_id', room.id);
   };
 
   const positionLabel = (index: number) => `${index + 1}º`;

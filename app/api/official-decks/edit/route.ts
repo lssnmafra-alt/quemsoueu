@@ -6,11 +6,11 @@ import { MAX_CHARACTERS_PER_DECK } from '@/lib/deckRules';
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL_GAME || process.env.SUPABASE_URL_GAME || process.env.SUPABASE_GAME_URL;
   const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY_GAME ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_GAME ||
     process.env.SUPABASE_ANON_KEY_GAME ||
-    process.env.SUPABASE_GAME_ANON_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY_GAME ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env.SUPABASE_GAME_ANON_KEY;
 
   if (!url || !key) {
     throw new Error('Supabase service credentials are not configured.');
@@ -63,17 +63,32 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'delete-character') {
-      return NextResponse.json(
-        { error: 'Exclusao de cards oficiais desativada. Edite/anexe imagem nos cards existentes.' },
-        { status: 403 },
-      );
+      const characterId = String(body.characterId || '');
+      if (!characterId) {
+        return NextResponse.json({ error: 'Card obrigatorio.' }, { status: 400 });
+      }
+
+      const { error } = await supabase
+        .from('characters')
+        .delete()
+        .eq('id', characterId)
+        .eq('deck_id', deckId);
+
+      if (error) throw error;
+
+      return NextResponse.json({ ok: true, characterId });
     }
 
     if (action === 'update-character') {
       const characterId = String(body.characterId || '');
       const updates: Record<string, string> = {};
+
       if (typeof body.name === 'string') updates.name = body.name.trim();
       if (typeof body.imageUrl === 'string') updates.image_url = body.imageUrl.trim();
+
+      if (!characterId) {
+        return NextResponse.json({ error: 'Card obrigatorio.' }, { status: 400 });
+      }
 
       if (!updates.name && !('image_url' in updates)) {
         return NextResponse.json({ error: 'Nada para salvar.' }, { status: 400 });
@@ -93,6 +108,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'update-cover') {
       const coverUrl = String(body.coverUrl || '').trim();
+
       const { data, error } = await supabase
         .from('decks')
         .update({ cover_url: coverUrl })

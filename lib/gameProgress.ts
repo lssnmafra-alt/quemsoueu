@@ -96,12 +96,14 @@ async function giveFreshTiebreakCards(room: any, tiebreakPlayers: any[]) {
   }
 
   let cardCount = 0;
+  const assignedCharacterIds = new Set<string>();
 
   for (const player of playersToContinue) {
     const playerCards = (currentCards || []).filter((card: any) => card.player_id === player.id);
     const usedCharacterIds = new Set(playerCards.map((card: any) => card.character_id));
-    const preferredPool = characters.filter((character: any) => !usedCharacterIds.has(character.id));
-    const pool = preferredPool.length > 0 ? preferredPool : characters;
+    const preferredPool = characters.filter((character: any) => !usedCharacterIds.has(character.id) && !assignedCharacterIds.has(character.id));
+    const fallbackFreshPool = characters.filter((character: any) => !usedCharacterIds.has(character.id));
+    const pool = preferredPool.length > 0 ? preferredPool : fallbackFreshPool.length > 0 ? fallbackFreshPool : characters;
     const selected = shuffle(pool)[0];
 
     await supabaseGame
@@ -120,16 +122,17 @@ async function giveFreshTiebreakCards(room: any, tiebreakPlayers: any[]) {
 
     if (error) {
       const reusableCard = playerCards.find((card: any) => card.is_dead !== false) || playerCards[0];
-      if (reusableCard) {
-        await supabaseGame
-          .from('player_cards')
-          .update({ character_id: selected.id, is_dead: false })
-          .eq('id', reusableCard.id);
-      } else {
-        continue;
-      }
+      if (!reusableCard) continue;
+
+      const { error: updateError } = await supabaseGame
+        .from('player_cards')
+        .update({ character_id: selected.id, is_dead: false })
+        .eq('id', reusableCard.id);
+
+      if (updateError) continue;
     }
 
+    assignedCharacterIds.add(selected.id);
     cardCount += 1;
     await supabaseGame
       .from('room_players')

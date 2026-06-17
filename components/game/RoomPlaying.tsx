@@ -125,8 +125,8 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const revealCard = deckChars.find((card) => String(card.name || '').toLowerCase() === String(charName || '').toLowerCase());
     const hasHit = hitPlayers.length > 0;
     const timing = isSuddenDeath
-      ? { preparing: 900, card: 1800, owner: 900, result: 1300, consequence: 1400, eliminated: 2600, breath: 500 }
-      : { preparing: 1200, card: 2200, owner: 1200, result: 1500, consequence: 1800, eliminated: 3200, breath: 800 };
+      ? { preparing: 1000, card: 1200, owner: 800, result: 1500, consequence: 600, eliminated: 1700, breath: 400 }
+      : { preparing: 1200, card: 1400, owner: 1000, result: 1700, consequence: 700, eliminated: 1900, breath: 500 };
 
     setIsRevealing(true);
     setRevealStage('choosing');

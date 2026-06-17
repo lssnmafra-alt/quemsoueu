@@ -24,48 +24,59 @@ type AudioPrefs = {
   muted: boolean;
 };
 
+type TrackMood = 'space' | 'lobby-space' | 'suspense-space' | 'victory-space';
+
+type TrackPattern = {
+  tempo: number;
+  root: number;
+  bass: number[];
+  lead: number[];
+  pad: number[];
+  mood: TrackMood;
+};
+
 const DEFAULT_PREFS: AudioPrefs = {
   musicEnabled: true,
   sfxEnabled: true,
-  musicVolume: 0.28,
+  musicVolume: 0.2,
   sfxVolume: 0.72,
   muted: false,
 };
 
 const STORAGE_KEY = 'mata-mata-audio-prefs';
 
-const TRACKS: Record<string, { tempo: number; scale: number[]; bass: number[]; lead: number[]; pad: number[]; mood: 'bright' | 'mystery' | 'battle' | 'victory' }> = {
+const TRACKS: Record<string, TrackPattern> = {
   'login-theme': {
-    tempo: 88,
-    scale: [0, 3, 5, 7, 10, 12],
-    bass: [0, 0, 7, 5, 3, 3, 7, 10],
-    lead: [12, 10, 7, 10, 15, 12, 10, 7],
+    tempo: 54,
+    root: 146.83,
+    bass: [0, -5, -7, -10, -5, -12, -10, -7],
+    lead: [12, 15, 19, 17, 15, 12, 10, 12],
     pad: [0, 3, 7, 10],
-    mood: 'mystery',
+    mood: 'space',
   },
   'lobby-theme': {
-    tempo: 112,
-    scale: [0, 2, 4, 7, 9, 12],
-    bass: [0, 7, 9, 4, 0, 7, 12, 9],
-    lead: [12, 14, 16, 19, 16, 14, 12, 9],
-    pad: [0, 4, 7, 12],
-    mood: 'bright',
+    tempo: 62,
+    root: 164.81,
+    bass: [0, 0, -7, -5, -3, -5, -7, -12],
+    lead: [12, 16, 19, 21, 19, 16, 14, 12],
+    pad: [0, 4, 7, 11],
+    mood: 'lobby-space',
   },
   'game-theme': {
-    tempo: 132,
-    scale: [0, 2, 3, 7, 10, 12],
-    bass: [0, 0, 10, 7, 0, 3, 7, 10],
-    lead: [12, 15, 14, 10, 12, 19, 17, 15],
+    tempo: 70,
+    root: 130.81,
+    bass: [0, -12, -5, -7, 0, -10, -7, -5],
+    lead: [12, 15, 17, 22, 20, 17, 15, 12],
     pad: [0, 3, 7, 10],
-    mood: 'battle',
+    mood: 'suspense-space',
   },
   'victory-theme': {
-    tempo: 104,
-    scale: [0, 2, 4, 7, 9, 12],
-    bass: [0, 4, 7, 12, 9, 7, 4, 0],
+    tempo: 72,
+    root: 196,
+    bass: [0, 4, 7, 12, 7, 4, 0, -5],
     lead: [12, 16, 19, 24, 21, 19, 16, 12],
     pad: [0, 4, 7, 12],
-    mood: 'victory',
+    mood: 'victory-space',
   },
 };
 
@@ -77,6 +88,9 @@ export class AudioManager {
   private synthTimer: number | null = null;
   private synthStep = 0;
   private masterGain: GainNode | null = null;
+  private droneGain: GainNode | null = null;
+  private droneOscillators: OscillatorNode[] = [];
+  private airTimer: number | null = null;
   public prefs: AudioPrefs = DEFAULT_PREFS;
 
   constructor() {
@@ -124,14 +138,13 @@ export class AudioManager {
   async playMusic(track: MusicTrack) {
     if (typeof window === 'undefined') return;
 
+    const previousTrack = this.activeMusicTrack;
     this.activeMusicTrack = track;
     if (this.prefs.muted || !this.prefs.musicEnabled) return;
     if (!this.hasUserGesture) return;
 
-    if (this.music || this.synthTimer) {
-      if (this.activeMusicTrack === track) return;
-      this.stopMusic(false);
-    }
+    if ((this.music || this.synthTimer) && previousTrack === track) return;
+    this.stopMusic(false);
 
     const audio = new Audio(`/audio/music/${track}.mp3`);
     audio.loop = true;
@@ -180,7 +193,7 @@ export class AudioManager {
   setMusicVolume(value: number) {
     this.prefs.musicVolume = this.clampVolume(value);
     if (this.music) this.music.volume = this.prefs.musicVolume;
-    if (this.masterGain) this.masterGain.gain.setTargetAtTime(this.prefs.musicVolume * 0.22, this.ctx?.currentTime || 0, 0.08);
+    if (this.masterGain && this.ctx) this.masterGain.gain.setTargetAtTime(this.prefs.musicVolume * 0.18, this.ctx.currentTime, 0.2);
     this.savePrefs();
   }
 
@@ -256,7 +269,7 @@ export class AudioManager {
     try {
       this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = this.prefs.musicVolume * 0.22;
+      this.masterGain.gain.value = this.prefs.musicVolume * 0.18;
       this.masterGain.connect(this.ctx.destination);
     } catch {
       this.ctx = null;
@@ -271,25 +284,57 @@ export class AudioManager {
     const pattern = TRACKS[track] || TRACKS['lobby-theme'];
     const stepMs = Math.round((60_000 / pattern.tempo) / 2);
     this.synthStep = 0;
-    this.masterGain.gain.setTargetAtTime(this.prefs.musicVolume * 0.22, this.ctx.currentTime, 0.15);
+    this.masterGain.gain.setTargetAtTime(this.prefs.musicVolume * 0.18, this.ctx.currentTime, 0.25);
+    this.startDrone(pattern);
 
     const tick = () => {
       if (!this.ctx || !this.masterGain || this.prefs.muted || !this.prefs.musicEnabled) return;
       const t = this.ctx.currentTime;
       const step = this.synthStep++;
-      const root = pattern.mood === 'bright' || pattern.mood === 'victory' ? 196 : pattern.mood === 'battle' ? 130.81 : 146.83;
+      const root = pattern.root;
       const bassSemi = pattern.bass[step % pattern.bass.length];
       const leadSemi = pattern.lead[step % pattern.lead.length];
 
-      if (step % 2 === 0) this.note(root * this.semi(bassSemi - 12), t, 0.22, 'triangle', 0.14, this.masterGain!);
-      if (step % 4 === 0) this.pad(root, pattern.pad, t, 0.9, this.masterGain!);
-      if (step % 2 === 1) this.note(root * this.semi(leadSemi), t, 0.16, pattern.mood === 'battle' ? 'sawtooth' : 'sine', 0.06, this.masterGain!);
-      if (pattern.mood === 'battle' && step % 2 === 0) this.noise(t, 0.05, 0.04, this.masterGain!);
-      if (pattern.mood === 'bright' && step % 4 === 2) this.note(root * this.semi(24), t, 0.08, 'square', 0.025, this.masterGain!);
+      if (step % 4 === 0) this.deepPulse(root * this.semi(bassSemi - 12), t, pattern.mood, this.masterGain);
+      if (step % 8 === 0) this.spacePad(root, pattern.pad, t, 4.6, this.masterGain);
+      if (step % 6 === 3) this.softPing(root * this.semi(leadSemi + 12), t, pattern.mood, this.masterGain);
+      if (step % 12 === 6) this.softPing(root * this.semi(leadSemi + 19), t, pattern.mood, this.masterGain, 0.45);
+      if (pattern.mood === 'suspense-space' && step % 10 === 5) this.spaceAir(t, 0.55, 0.025, this.masterGain);
+      if (pattern.mood === 'lobby-space' && step % 16 === 10) this.softPing(root * this.semi(28), t, pattern.mood, this.masterGain, 0.35);
     };
 
     tick();
     this.synthTimer = window.setInterval(tick, stepMs);
+    this.airTimer = window.setInterval(() => {
+      if (this.ctx && this.masterGain && !this.prefs.muted && this.prefs.musicEnabled) {
+        this.spaceAir(this.ctx.currentTime, 1.3, 0.012, this.masterGain);
+      }
+    }, 4800);
+  }
+
+  private startDrone(pattern: TrackPattern) {
+    if (!this.ctx || !this.masterGain) return;
+    this.stopDrone();
+
+    this.droneGain = this.ctx.createGain();
+    this.droneGain.gain.value = 0.0001;
+    this.droneGain.gain.exponentialRampToValueAtTime(0.055, this.ctx.currentTime + 1.2);
+    this.droneGain.connect(this.masterGain);
+
+    const freqs = [pattern.root / 2, pattern.root * this.semi(pattern.pad[1] - 12), pattern.root * this.semi(pattern.pad[2] - 12)];
+    this.droneOscillators = freqs.map((freq, index) => {
+      const osc = this.ctx!.createOscillator();
+      const filter = this.ctx!.createBiquadFilter();
+      osc.type = index === 0 ? 'sine' : 'triangle';
+      osc.frequency.value = freq;
+      filter.type = 'lowpass';
+      filter.frequency.value = pattern.mood === 'suspense-space' ? 520 : 760;
+      filter.Q.value = 0.4;
+      osc.connect(filter);
+      filter.connect(this.droneGain!);
+      osc.start();
+      return osc;
+    });
   }
 
   private stopHtmlMusicOnly() {
@@ -305,6 +350,26 @@ export class AudioManager {
       window.clearInterval(this.synthTimer);
       this.synthTimer = null;
     }
+    if (this.airTimer !== null && typeof window !== 'undefined') {
+      window.clearInterval(this.airTimer);
+      this.airTimer = null;
+    }
+    this.stopDrone();
+  }
+
+  private stopDrone() {
+    if (this.ctx && this.droneGain) {
+      try {
+        this.droneGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.12);
+      } catch {}
+    }
+    for (const osc of this.droneOscillators) {
+      try {
+        osc.stop(this.ctx ? this.ctx.currentTime + 0.18 : undefined);
+      } catch {}
+    }
+    this.droneOscillators = [];
+    this.droneGain = null;
   }
 
   private playToneFallback(effect: SfxEffect) {
@@ -320,13 +385,13 @@ export class AudioManager {
     if (lower.includes('elimin')) {
       this.note(196, t, 0.18, 'sawtooth', 0.28, output);
       this.note(92, t + 0.08, 0.55, 'sawtooth', 0.34, output);
-      this.noise(t + 0.03, 0.35, 0.22, output);
+      this.spaceAir(t + 0.03, 0.35, 0.22, output);
       this.note(55, t + 0.22, 0.55, 'triangle', 0.28, output);
       return;
     }
 
     if (lower.includes('hit')) {
-      this.noise(t, 0.16, 0.26, output);
+      this.spaceAir(t, 0.16, 0.26, output);
       this.note(120, t, 0.25, 'sawtooth', 0.32, output);
       this.note(70, t + 0.07, 0.26, 'triangle', 0.24, output);
       return;
@@ -341,7 +406,7 @@ export class AudioManager {
 
     if (lower.includes('victory') || lower.includes('win') || lower.includes('start')) {
       [523.25, 659.25, 783.99, 1046.5].forEach((freq, index) => this.note(freq, t + index * 0.08, 0.32, 'square', 0.16, output));
-      this.noise(t + 0.28, 0.18, 0.08, output);
+      this.spaceAir(t + 0.28, 0.18, 0.08, output);
       return;
     }
 
@@ -362,28 +427,45 @@ export class AudioManager {
     this.note(760, t + 0.045, 0.08, 'sine', 0.1, output);
   }
 
+  private deepPulse(freq: number, start: number, mood: TrackMood, destination: AudioNode) {
+    const volume = mood === 'suspense-space' ? 0.13 : 0.09;
+    this.note(freq, start, 1.2, 'sine', volume, destination);
+    this.note(freq * 2.01, start + 0.02, 0.85, 'triangle', volume * 0.35, destination);
+  }
+
+  private softPing(freq: number, start: number, mood: TrackMood, destination: AudioNode, volumeScale = 1) {
+    const volume = (mood === 'victory-space' ? 0.055 : 0.038) * volumeScale;
+    this.note(freq, start, 0.75, 'sine', volume, destination);
+    this.note(freq * 2, start + 0.015, 0.38, 'triangle', volume * 0.35, destination);
+  }
+
+  private spacePad(root: number, semis: number[], start: number, duration: number, destination: AudioNode) {
+    semis.forEach((semi, index) => {
+      this.note(root * this.semi(semi), start + index * 0.04, duration, 'sine', 0.018, destination);
+    });
+  }
+
   private note(freq: number, start: number, duration: number, type: OscillatorType, volume: number, destination: AudioNode) {
     if (!this.ctx) return;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
     osc.type = type;
     osc.frequency.setValueAtTime(freq, start);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(type === 'sawtooth' ? 900 : 1600, start);
+    filter.Q.value = 0.45;
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), start + 0.015);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), start + 0.04);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    osc.connect(gain);
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(destination);
     osc.start(start);
-    osc.stop(start + duration + 0.03);
+    osc.stop(start + duration + 0.08);
   }
 
-  private pad(root: number, semis: number[], start: number, duration: number, destination: AudioNode) {
-    semis.forEach((semi, index) => {
-      this.note(root * this.semi(semi), start + index * 0.015, duration, 'sine', 0.025, destination);
-    });
-  }
-
-  private noise(start: number, duration: number, volume: number, destination: AudioNode) {
+  private spaceAir(start: number, duration: number, volume: number, destination: AudioNode) {
     if (!this.ctx) return;
     const bufferSize = Math.max(1, Math.floor(this.ctx.sampleRate * duration));
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
@@ -391,10 +473,15 @@ export class AudioManager {
     for (let i = 0; i < bufferSize; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
     const source = this.ctx.createBufferSource();
     const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
     source.buffer = buffer;
+    filter.type = 'bandpass';
+    filter.frequency.value = 740;
+    filter.Q.value = 0.65;
     gain.gain.setValueAtTime(volume, start);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    source.connect(gain);
+    source.connect(filter);
+    filter.connect(gain);
     gain.connect(destination);
     source.start(start);
     source.stop(start + duration);
@@ -411,7 +498,7 @@ export class AudioManager {
   private loadPrefs(): AudioPrefs {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
+      return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw), musicEnabled: true } : DEFAULT_PREFS;
     } catch {
       return DEFAULT_PREFS;
     }

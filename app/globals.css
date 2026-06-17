@@ -89,6 +89,52 @@ body {
   object-fit: contain !important;
 }
 
+/* Compact controls under official cards.
+   Keep the preview close to 75% of the visual card and keep actions outside the art. */
+.group:has(.official-card-preview) > div:nth-child(2) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 0.25rem !important;
+  padding: 0.45rem !important;
+}
+
+.group:has(.official-card-preview) > div:nth-child(2) > span {
+  grid-column: 1 / -1 !important;
+  display: -webkit-box !important;
+  min-height: 1.8rem !important;
+  height: 1.8rem !important;
+  overflow: hidden !important;
+  white-space: normal !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+  line-height: 0.9rem !important;
+  font-size: 0.68rem !important;
+  letter-spacing: 0.01em !important;
+}
+
+.group:has(.official-card-preview) > div:nth-child(2) > label,
+.group:has(.official-card-preview) > div:nth-child(2) > button {
+  min-width: 0 !important;
+  height: 1.7rem !important;
+  margin-top: 0 !important;
+  padding-left: 0.25rem !important;
+  padding-right: 0.25rem !important;
+  border-radius: 0.65rem !important;
+  gap: 0.2rem !important;
+  font-size: 0.52rem !important;
+  line-height: 1 !important;
+}
+
+.group:has(.official-card-preview) > div:nth-child(2) > label:last-child {
+  grid-column: 1 / -1 !important;
+}
+
+.group:has(.official-card-preview) > div:nth-child(2) svg {
+  width: 0.75rem !important;
+  height: 0.75rem !important;
+  flex-shrink: 0 !important;
+}
+
 /* Beautiful squishy game buttons */
 .btn-squishy-indigo {
   @apply bg-blue-600 hover:bg-blue-700 text-white border-b-4 border-blue-900 hover:border-blue-950 transition-all rounded-2xl active:border-b-0 active:translate-y-1 active:mt-1 shadow-md;

@@ -82,20 +82,21 @@ export default function CharacterImage({
           alt=""
           aria-hidden="true"
           referrerPolicy={referrerPolicy}
-          className="absolute inset-0 h-full w-full object-cover blur-md scale-110 opacity-45"
+          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-55 blur-md"
           onError={handleError}
         />
-        <div className="absolute inset-1 rounded-[1rem] border border-white/10 bg-slate-950/30" />
+        <div className="absolute inset-0 bg-slate-950/20" />
         <img
           {...props}
           src={src}
           alt={alt ?? name}
           referrerPolicy={referrerPolicy}
-          className="absolute inset-[0.55rem] h-[calc(100%-1.1rem)] w-[calc(100%-1.1rem)] rounded-[0.95rem] object-contain"
+          className="absolute inset-0 h-full w-full object-cover"
           onError={handleError}
         />
-        <div className="pointer-events-none absolute inset-[0.55rem] rounded-[0.95rem] ring-1 ring-white/10" />
-        <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-2xl border border-white/15 bg-slate-950/78 px-2.5 py-2 text-center shadow-xl backdrop-blur-sm">
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(2,6,23,0.03),rgba(2,6,23,0.08)_45%,rgba(2,6,23,0.68))]" />
+        <div className="pointer-events-none absolute inset-2 rounded-[1rem] ring-1 ring-white/15" />
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-2xl border border-white/15 bg-slate-950/82 px-2.5 py-2 text-center shadow-xl backdrop-blur-sm">
           <p className="line-clamp-2 text-[11px] font-black uppercase leading-tight tracking-wide text-white drop-shadow sm:text-xs">{name}</p>
         </div>
       </div>

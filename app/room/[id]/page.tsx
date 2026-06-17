@@ -242,6 +242,15 @@ export default function RoomPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans">
       <AudioToggle />
+      {room.status !== 'FINISHED' && (
+        <button
+          type="button"
+          onClick={leaveRoom}
+          className="fixed right-4 top-16 z-[90] rounded-2xl border-2 border-rose-200 bg-white/95 px-4 py-3 text-[10px] font-black uppercase tracking-wide text-rose-600 shadow-xl backdrop-blur transition hover:bg-rose-50"
+        >
+          Abandonar
+        </button>
+      )}
       <AnimatePresence>
         {roomNotices.map((notice) => (
           <motion.div

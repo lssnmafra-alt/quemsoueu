@@ -192,11 +192,14 @@ export async function playBotTurn(
 
   await touchRoomActivity(room.id);
   const result = await finishOrAdvance(room, hitPlayers);
+  const hitPlayerIds = [...new Set(hits.map((hit: any) => hit.player_id))];
+
   return {
     ok: true,
     target: targetChar.name,
     hits: hits.length,
-    hitPlayerIds: hits.map((hit: any) => hit.player_id),
+    hitPlayerIds,
+    hitPlayers,
     groq: groqStatus,
     ...result,
   };

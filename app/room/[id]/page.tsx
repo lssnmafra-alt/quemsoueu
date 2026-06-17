@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useUserStore } from '@/lib/store';
 import { supabaseGame } from '@/lib/supabase';
 import { getPlayerColors } from '@/lib/colors';
+import { audioManager } from '@/lib/audioManager';
 import RoomLobby from '@/components/game/RoomLobby';
 import RoomPicking from '@/components/game/RoomPicking';
 import RoomStarting from '@/components/game/RoomStarting';
@@ -19,12 +20,19 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function trackForRoomStatus(status?: string) {
+  if (status === 'LOBBY' || status === 'PICKING') return 'lobby-theme';
+  if (status === 'STARTING' || status === 'PLAYING') return 'game-theme';
+  if (status === 'FINISHED') return 'victory-theme';
+  return 'lobby-theme';
+}
+
 export default function RoomPage() {
   const router = useRouter();
   const params = useParams();
   const roomId = params.id as string;
   const { user, profile, loading: authLoading, initialized: authInitialized } = useUserStore();
-  
+
   const [room, setRoom] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +46,7 @@ export default function RoomPage() {
       router.push('/');
       return;
     }
-    
+
     const syncRoomState = async (shouldAutoJoin = false) => {
       let rm: any = null;
 
@@ -109,7 +117,6 @@ export default function RoomPage() {
         }
       }
 
-      // Auto join only after auth is restored, without overfilling the room.
       if (shouldAutoJoin && !alreadyInRoom) {
         if (rm.status !== 'LOBBY') {
           router.push('/lobby');
@@ -126,7 +133,7 @@ export default function RoomPage() {
           room_id: roomId,
           user_id: user.id,
           nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante',
-          is_admin: rm.admin_id === user.id
+          is_admin: rm.admin_id === user.id,
         }).select().single();
         if (newP) {
           setPlayers([...normalizedPlayers, newP]);
@@ -138,27 +145,27 @@ export default function RoomPage() {
 
     syncRoomState(true);
     const poll = setInterval(() => syncRoomState(false), 2000);
-    
+
     const subs1 = supabaseGame.channel(`room:${roomId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, 
-        (payload) => setRoom(payload.new)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
+        (payload) => setRoom(payload.new),
       )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_players', filter: `room_id=eq.${roomId}` }, 
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_players', filter: `room_id=eq.${roomId}` },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setPlayers(prev => prev.some((p) => p.id === payload.new.id) ? prev : [...prev, payload.new]);
+            setPlayers((prev) => prev.some((p) => p.id === payload.new.id) ? prev : [...prev, payload.new]);
             if (payload.new.user_id !== user.id) {
               setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${payload.new.nickname || 'Usuario'} entrou na sala` }]);
             }
           } else if (payload.eventType === 'UPDATE') {
-            setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+            setPlayers((prev) => prev.map((p) => p.id === payload.new.id ? payload.new : p));
           } else if (payload.eventType === 'DELETE') {
-            setPlayers(prev => prev.filter(p => p.id !== payload.old.id));
+            setPlayers((prev) => prev.filter((p) => p.id !== payload.old.id));
             if (payload.old.user_id !== user.id) {
               setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${payload.old.nickname || 'Usuario'} saiu da sala` }]);
             }
           }
-        }
+        },
       )
       .subscribe();
 
@@ -167,6 +174,11 @@ export default function RoomPage() {
       subs1.unsubscribe();
     };
   }, [authInitialized, authLoading, user, roomId, profile?.nickname, router]);
+
+  useEffect(() => {
+    if (!room?.status) return;
+    void audioManager.playMusic(trackForRoomStatus(room.status));
+  }, [room?.status]);
 
   useEffect(() => {
     if (roomNotices.length === 0) return;
@@ -179,12 +191,12 @@ export default function RoomPage() {
 
   const enrichedPlayers = useMemo(() => {
     const cmap = getPlayerColors(players);
-    return players.map(p => ({ ...p, color: cmap[p.id] }));
+    return players.map((p) => ({ ...p, color: cmap[p.id] }));
   }, [players]);
 
   const me = useMemo(() => {
     if (!user) return null;
-    return enrichedPlayers.find(p => p.user_id === user.id);
+    return enrichedPlayers.find((p) => p.user_id === user.id);
   }, [enrichedPlayers, user]);
 
   const isAdmin = useMemo(() => {
@@ -210,17 +222,17 @@ export default function RoomPage() {
   }, [me?.id, room?.id, user?.id]);
 
   const leaveRoom = async () => {
-     if (me) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(`chatClearedAt:${room.id}:${me.user_id}`, new Date().toISOString());
-        }
-        await fetch(`/api/rooms/${room.id}/leave`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerId: me.id }),
-        });
-     }
-     router.push('/lobby');
+    if (me) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`chatClearedAt:${room.id}:${me.user_id}`, new Date().toISOString());
+      }
+      await fetch(`/api/rooms/${room.id}/leave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId: me.id }),
+      });
+    }
+    router.push('/lobby');
   };
 
   if (!authInitialized || authLoading || loading || !room) return <LoadingArena label="Carregando sala..." />;
@@ -229,27 +241,27 @@ export default function RoomPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans">
-       <AudioToggle />
-       <AnimatePresence>
-         {roomNotices.map((notice) => (
-           <motion.div
-             key={notice.id}
-             initial={{ opacity: 0, y: -12, scale: 0.96 }}
-             animate={{ opacity: 1, y: 0, scale: 1 }}
-             exit={{ opacity: 0, y: -10, scale: 0.96 }}
-             className="fixed left-1/2 top-5 z-[90] -translate-x-1/2 rounded-2xl border-2 border-indigo-100 bg-white/90 px-5 py-3 text-xs font-black uppercase tracking-wide text-indigo-950 shadow-xl backdrop-blur-md"
-           >
-             {notice.text}
-           </motion.div>
-         ))}
-       </AnimatePresence>
-       <GameErrorBoundary>
-         {room.status === 'LOBBY' && <RoomLobby room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
-         {room.status === 'PICKING' && <RoomPicking room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} />}
-         {room.status === 'STARTING' && <RoomStarting room={room} players={enrichedPlayers} isAdmin={isAdmin} />}
-         {room.status === 'PLAYING' && <RoomPlaying room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
-         {room.status === 'FINISHED' && <RoomFinished room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
-       </GameErrorBoundary>
+      <AudioToggle />
+      <AnimatePresence>
+        {roomNotices.map((notice) => (
+          <motion.div
+            key={notice.id}
+            initial={{ opacity: 0, y: -12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.96 }}
+            className="fixed left-1/2 top-5 z-[90] -translate-x-1/2 rounded-2xl border-2 border-indigo-100 bg-white/90 px-5 py-3 text-xs font-black uppercase tracking-wide text-indigo-950 shadow-xl backdrop-blur-md"
+          >
+            {notice.text}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+      <GameErrorBoundary>
+        {room.status === 'LOBBY' && <RoomLobby room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
+        {room.status === 'PICKING' && <RoomPicking room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} />}
+        {room.status === 'STARTING' && <RoomStarting room={room} players={enrichedPlayers} isAdmin={isAdmin} />}
+        {room.status === 'PLAYING' && <RoomPlaying room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
+        {room.status === 'FINISHED' && <RoomFinished room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
+      </GameErrorBoundary>
     </div>
   );
 }

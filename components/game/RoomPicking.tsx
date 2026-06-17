@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { differenceInSeconds } from 'date-fns';
 import { motion } from 'motion/react';
-import { Check, Layers, Lightbulb, Users } from 'lucide-react';
+import { Check, Layers, Lightbulb } from 'lucide-react';
 import CharacterImage from '@/components/CharacterImage';
 import { isOfficialDeckId } from '@/lib/officialDecks';
 
@@ -41,6 +41,12 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const myLiveCards = me?.id ? liveCardsByPlayer.get(me.id) || [] : [];
   const pendingCount = pendingPlayers.length;
   const allRealPlayersReady = realActivePlayers.length > 0 && pendingCount === 0;
+  const pendingText = pendingCount > 0 ? ` Faltam ${pendingCount} jogador${pendingCount === 1 ? '' : 'es'}.` : '';
+  const mainStatus = allRealPlayersReady
+    ? 'Todos escolheram. Preparando partida...'
+    : confirmed
+      ? `Escolha confirmada. Aguardando os demais jogadores.${pendingText}`
+      : `Escolha ${pickCount} ${pickCount === 1 ? 'personagem' : 'personagens'}.${pendingText}`;
 
   const loadPickingState = useCallback(async () => {
     const query = supabaseGame.from('characters').select('*');
@@ -201,36 +207,27 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
           <h2 className="text-4xl md:text-5xl font-black mb-2 text-indigo-950 font-display flex items-center justify-center gap-2">
             <Layers className="h-9 w-9 text-indigo-500" /> {isTiebreak ? 'Desempate!' : 'Monte seu Baralho'}
           </h2>
-          <p className="text-sm text-indigo-600 font-bold uppercase tracking-wider">
-            {allRealPlayersReady ? (
-              <span className="text-emerald-600 font-black">Todos escolheram. Revelando...</span>
-            ) : (
-              <>Tempo restante para escolher: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{timeLeft}s</span></>
-            )}
+          <p className={cn('text-sm font-black uppercase tracking-wider', allRealPlayersReady ? 'text-emerald-600' : confirmed ? 'text-emerald-700' : 'text-indigo-600')}>
+            {mainStatus}
           </p>
+          {!allRealPlayersReady && !confirmed && (
+            <p className="mt-2 text-xs text-indigo-500 font-bold uppercase tracking-wider">
+              Tempo restante: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{timeLeft}s</span>
+            </p>
+          )}
         </div>
 
-        <div className="mb-4 flex flex-col md:flex-row items-center justify-center gap-3">
-          <p className="text-sm bg-indigo-50 border-2 border-indigo-100 px-6 py-3 text-indigo-950 font-bold tracking-wide inline-flex items-center gap-2 rounded-2xl">
-            <Lightbulb className="h-4 w-4 text-indigo-500" /> Escolha exatamente <span className="text-indigo-600 underline decoration-indigo-300 font-extrabold">{pickCount} {pickCount === 1 ? 'personagem' : 'personagens'}</span>{isTiebreak ? ' para o desempate.' : ' para a sua partida.'}
-          </p>
-
-          <p className={cn(
-            'text-sm border-2 px-6 py-3 font-black tracking-wide inline-flex items-center gap-2 rounded-2xl',
-            pendingCount === 0 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
-          )}>
-            <Users className="h-4 w-4" />
-            {pendingCount === 0 ? 'Preparando resultado' : `Faltam ${pendingCount} jogador${pendingCount === 1 ? '' : 'es'} escolher`}
-          </p>
-        </div>
+        {!confirmed && isMeEligible && (
+          <div className="mb-4 flex items-center justify-center">
+            <p className="text-sm bg-indigo-50 border-2 border-indigo-100 px-6 py-3 text-indigo-950 font-bold tracking-wide inline-flex items-center gap-2 rounded-2xl">
+              <Lightbulb className="h-4 w-4 text-indigo-500" /> Toque nos cards e confirme sua escolha.
+            </p>
+          </div>
+        )}
 
         {!isMeEligible ? (
           <p className="mb-6 text-sm bg-slate-50 text-slate-500 border-2 border-slate-200 px-6 py-3 inline-block font-extrabold mx-auto rounded-2xl">
             Voce esta fora desta escolha. Aguarde a partida continuar.
-          </p>
-        ) : confirmed ? (
-          <p className="mb-6 text-sm bg-emerald-50 text-emerald-800 border-2 border-emerald-200 px-6 py-3 inline-block font-extrabold mx-auto rounded-2xl animate-pulse">
-            {allRealPlayersReady ? 'Revelando...' : 'Seus personagens estao salvos. Aguardando escolhas restantes...'}
           </p>
         ) : null}
 

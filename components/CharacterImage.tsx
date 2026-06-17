@@ -16,6 +16,7 @@ type CharacterImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'al
   officialFrameTheme?: OfficialCardTheme;
   alt?: string;
   placeholderClassName?: string;
+  hideOfficialName?: boolean;
 };
 
 export default function CharacterImage({
@@ -27,6 +28,7 @@ export default function CharacterImage({
   alt,
   className,
   placeholderClassName,
+  hideOfficialName = false,
   onError,
   referrerPolicy = 'no-referrer',
   ...props
@@ -40,6 +42,7 @@ export default function CharacterImage({
   const theme = getOfficialFrameTheme(frameTheme);
   const [brokenUrls, setBrokenUrls] = useState<Record<string, true>>({});
   const src = sources.find((candidate) => !brokenUrls[candidate]);
+  const shouldHideOfficialName = hideOfficialName || String(className || '').includes('w-12 h-14');
 
   const handleError = (event: SyntheticEvent<HTMLImageElement>) => {
     if (src) {
@@ -69,7 +72,7 @@ export default function CharacterImage({
           <ImageIcon className={cn('h-12 w-12 opacity-45', theme.nameColor)} />
         </div>
         <OfficialFrame theme={frameTheme} />
-        <OfficialName name={name || 'Personagem'} theme={theme} showLabel />
+        {!shouldHideOfficialName && <OfficialName name={name || 'Personagem'} theme={theme} showLabel />}
       </div>
     );
   }
@@ -94,7 +97,7 @@ export default function CharacterImage({
         />
         <div className="pointer-events-none absolute inset-[0.22rem] rounded-[0.95rem] bg-gradient-to-t from-slate-950/5 via-transparent to-white/5" />
         <OfficialFrame theme={frameTheme} />
-        <OfficialName name={name} theme={theme} />
+        {!shouldHideOfficialName && <OfficialName name={name} theme={theme} />}
       </div>
     );
   }

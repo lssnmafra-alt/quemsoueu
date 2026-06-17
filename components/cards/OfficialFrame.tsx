@@ -10,7 +10,37 @@ export type OfficialCardThemeConfig = {
   nameColor: string;
 };
 
-export function getOfficialFrameTheme(_theme: OfficialCardTheme = 'celestial'): OfficialCardThemeConfig {
+export function getOfficialFrameTheme(theme: OfficialCardTheme = 'celestial'): OfficialCardThemeConfig {
+  if (theme === 'arcane') {
+    return {
+      border: 'border-violet-400',
+      base: 'bg-violet-950',
+      innerBorder: 'border-violet-100/75',
+      cornerBorder: 'border-violet-100/90',
+      nameColor: 'text-violet-50',
+    };
+  }
+
+  if (theme === 'nature') {
+    return {
+      border: 'border-emerald-400',
+      base: 'bg-emerald-950',
+      innerBorder: 'border-emerald-100/75',
+      cornerBorder: 'border-emerald-100/90',
+      nameColor: 'text-emerald-50',
+    };
+  }
+
+  if (theme === 'shadow') {
+    return {
+      border: 'border-zinc-400',
+      base: 'bg-zinc-950',
+      innerBorder: 'border-zinc-100/70',
+      cornerBorder: 'border-zinc-100/85',
+      nameColor: 'text-zinc-50',
+    };
+  }
+
   return {
     border: 'border-amber-300',
     base: 'bg-slate-950',

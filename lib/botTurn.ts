@@ -51,16 +51,17 @@ export async function playBotTurn(
     return { ok: false, reason: 'active-player-is-human' };
   }
 
-  // Several browsers can schedule the same bot turn. Lock the current turn before
-  // changing cards/lives so only one request can vote and advance.
-  const { data: lockRows, error: lockError } = await supabaseGame
+  const originalExpiresAt = room.turn_expires_at || null;
+  let lockQuery = supabaseGame
     .from('rooms')
     .update({ turn_expires_at: new Date(Date.now() + 20_000).toISOString() })
     .eq('id', room.id)
     .eq('status', 'PLAYING')
-    .eq('current_turn_number', room.current_turn_number || 0)
-    .select('id')
-    .limit(1);
+    .eq('current_turn_number', room.current_turn_number || 0);
+
+  lockQuery = originalExpiresAt ? lockQuery.eq('turn_expires_at', originalExpiresAt) : lockQuery.is('turn_expires_at', null);
+
+  const { data: lockRows, error: lockError } = await lockQuery.select('id').limit(1);
 
   if (lockError) throw lockError;
   if (!lockRows || lockRows.length === 0) {
@@ -192,18 +193,28 @@ export async function playBotTurn(
   const hits = livePlayerCards.filter((card: any) => card.character_id === targetChar.id);
   const hitPlayers = [];
 
+  if (hits.length > 0) {
+    await supabaseGame
+      .from('player_cards')
+      .update({ is_dead: true })
+      .in('id', hits.map((hit: any) => hit.id));
+  }
+
+  const hitCountByPlayer = new Map<string, number>();
   for (const hit of hits) {
-    await supabaseGame.from('player_cards').update({ is_dead: true }).eq('id', hit.id);
-    const targetPlayer: any = playersById.get(hit.player_id);
-    if (targetPlayer) {
-      const newLives = Math.max(0, (targetPlayer.lives || 0) - 1);
-      const updatedPlayer = { ...targetPlayer, lives: newLives, is_eliminated: newLives <= 0 };
-      hitPlayers.push(updatedPlayer);
-      await supabaseGame
-        .from('room_players')
-        .update({ lives: newLives, is_eliminated: newLives <= 0 })
-        .eq('id', targetPlayer.id);
-    }
+    hitCountByPlayer.set(hit.player_id, (hitCountByPlayer.get(hit.player_id) || 0) + 1);
+  }
+
+  for (const [playerId, hitCount] of hitCountByPlayer.entries()) {
+    const targetPlayer: any = playersById.get(playerId);
+    if (!targetPlayer) continue;
+    const newLives = Math.max(0, (targetPlayer.lives || 0) - hitCount);
+    const updatedPlayer = { ...targetPlayer, lives: newLives, is_eliminated: newLives <= 0 };
+    hitPlayers.push(updatedPlayer);
+    await supabaseGame
+      .from('room_players')
+      .update({ lives: newLives, is_eliminated: newLives <= 0 })
+      .eq('id', targetPlayer.id);
   }
 
   await touchRoomActivity(room.id);

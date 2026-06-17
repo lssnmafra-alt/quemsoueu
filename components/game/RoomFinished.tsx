@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { supabaseGame } from '@/lib/supabase';
-import { Trophy, Medal, Crown, Skull, Target, XCircle, Clock, ScrollText } from 'lucide-react';
+import { Trophy, Medal, Crown, Skull, Target, XCircle, Clock, ScrollText, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 
-export default function RoomFinished({ room, players, isAdmin, leaveRoom }: any) {
+export default function RoomFinished({ room, players, me, isAdmin, leaveRoom }: any) {
   const [events, setEvents] = useState<any[]>([]);
   const [eventsLoaded, setEventsLoaded] = useState(false);
+  const [handoffSeconds, setHandoffSeconds] = useState(10);
+  const [claimingLeadership, setClaimingLeadership] = useState(false);
+  const [localLeadership, setLocalLeadership] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +45,11 @@ export default function RoomFinished({ room, players, isAdmin, leaveRoom }: any)
   }, [room.id]);
 
   const playersById = useMemo(() => new Map(players.map((player: any) => [player.id, player])), [players]);
+  const roomLeader = useMemo(() => (
+    players.find((player: any) => player.user_id === room.admin_id) || players.find((player: any) => player.is_admin)
+  ), [players, room.admin_id]);
+  const leaderName = roomLeader?.nickname || 'administrador';
+  const canReset = Boolean(isAdmin || localLeadership);
 
   const eliminationEvents = useMemo(() => {
     const seen = new Set<string>();
@@ -120,6 +128,47 @@ export default function RoomFinished({ room, players, isAdmin, leaveRoom }: any)
     await supabaseGame.from('player_cards').delete().eq('room_id', room.id);
     await supabaseGame.from('match_events').delete().eq('room_id', room.id).then(() => null, () => null);
   };
+
+  const claimLeadership = useCallback(async () => {
+    if (!me?.id || !me?.user_id || claimingLeadership || isAdmin || localLeadership) return;
+    setClaimingLeadership(true);
+
+    try {
+      let query = supabaseGame
+        .from('rooms')
+        .update({ admin_id: me.user_id })
+        .eq('id', room.id)
+        .eq('status', 'FINISHED');
+
+      query = room.admin_id ? query.eq('admin_id', room.admin_id) : query.is('admin_id', null);
+
+      const { data } = await query.select('id').maybeSingle();
+      if (!data) {
+        setHandoffSeconds(5);
+        return;
+      }
+
+      await supabaseGame.from('room_players').update({ is_admin: false }).eq('room_id', room.id);
+      await supabaseGame.from('room_players').update({ is_admin: true }).eq('id', me.id);
+      setLocalLeadership(true);
+    } finally {
+      setClaimingLeadership(false);
+    }
+  }, [claimingLeadership, isAdmin, localLeadership, me?.id, me?.user_id, room.admin_id, room.id]);
+
+  useEffect(() => {
+    if (canReset || !me?.id || room.status !== 'FINISHED') return;
+    setHandoffSeconds(10);
+    const timer = window.setInterval(() => {
+      setHandoffSeconds((current) => Math.max(0, current - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [canReset, me?.id, room.id, room.status]);
+
+  useEffect(() => {
+    if (canReset || handoffSeconds > 0 || claimingLeadership) return;
+    void claimLeadership();
+  }, [canReset, claimLeadership, claimingLeadership, handoffSeconds]);
 
   const positionLabel = (index: number) => `${index + 1}º`;
   const playerName = (playerId?: string | null) => playerId ? (playersById.get(playerId) as any)?.nickname || 'Jogador' : 'Timeout';
@@ -251,13 +300,26 @@ export default function RoomFinished({ room, players, isAdmin, leaveRoom }: any)
         </div>
 
         <div className="space-y-4 max-w-sm mx-auto">
-          {isAdmin ? (
-            <Button onClick={resetGame} className="w-full h-14 text-sm font-black uppercase tracking-wider btn-squishy-green text-white cursor-pointer select-none">
-              Jogar Novamente
-            </Button>
+          {canReset ? (
+            <>
+              <div className="rounded-2xl border-2 border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-black uppercase tracking-wider text-emerald-800">
+                {localLeadership ? 'Você assumiu a liderança da sala.' : 'Você lidera a sala.'}
+              </div>
+              <Button onClick={resetGame} className="w-full h-14 text-sm font-black uppercase tracking-wider btn-squishy-green text-white cursor-pointer select-none">
+                Jogar Novamente
+              </Button>
+            </>
           ) : (
-            <div className="h-14 flex items-center justify-center bg-indigo-50 border border-indigo-100 text-indigo-650 text-xs font-bold uppercase rounded-2xl animate-pulse">
-              Dono de sala reiniciando...
+            <div className="rounded-2xl border-2 border-indigo-100 bg-indigo-50 px-4 py-4 text-indigo-950">
+              <div className="mb-2 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider">
+                <UserPlus className="w-4 h-4 text-indigo-500" /> Aguardando {leaderName} reiniciar
+              </div>
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white border-2 border-indigo-100 text-2xl font-black font-mono text-indigo-700 shadow-sm">
+                {claimingLeadership ? '...' : handoffSeconds}
+              </div>
+              <p className="mt-2 text-[10px] font-bold uppercase text-indigo-500">
+                Se o líder não agir, a liderança passa automaticamente.
+              </p>
             </div>
           )}
           <Button onClick={leaveRoom} variant="outline" className="w-full h-14 text-sm font-black uppercase btn-squishy-white cursor-pointer select-none">

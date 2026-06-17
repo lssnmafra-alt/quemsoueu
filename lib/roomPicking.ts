@@ -135,7 +135,7 @@ export async function finalizeRoomPicking(roomId: string) {
   await supabaseGame.from('rooms').update({
     status: 'STARTING',
     current_turn_number: 0,
-    turn_expires_at: new Date(Date.now() + 8000).toISOString(),
+    turn_expires_at: new Date(Date.now() + 4000).toISOString(),
   }).eq('id', room.id).eq('status', 'PICKING');
 
   await touchRoomActivity(room.id);

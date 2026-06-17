@@ -3,6 +3,28 @@ import { supabaseGame } from '@/lib/supabase';
 import { finishOrAdvance } from '@/lib/gameProgress';
 import { touchRoomActivity } from '@/lib/roomLifecycle';
 
+async function logMatchEvents(events: any[]) {
+  const rows = events.filter(Boolean).map((event) => ({
+    room_id: event.roomId,
+    turn_number: event.turnNumber,
+    event_type: event.eventType,
+    actor_player_id: event.actorPlayerId || null,
+    target_player_id: event.targetPlayerId || null,
+    character_id: event.characterId || null,
+    message: event.message || null,
+    metadata: event.metadata || {},
+  }));
+
+  if (rows.length === 0) return;
+
+  try {
+    const { error } = await supabaseGame.from('match_events').insert(rows);
+    if (error) console.warn('match_events skipped:', error.message);
+  } catch (error) {
+    console.warn('match_events failed:', error);
+  }
+}
+
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id: roomId } = await context.params;
   const body = await request.json().catch(() => ({}));
@@ -99,6 +121,49 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     })
     .eq('id', activePlayer.id);
 
+  await logMatchEvents([
+    {
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: eliminatedByPenalty ? 'timeout_eliminated' : 'timeout_warning',
+      targetPlayerId: activePlayer.id,
+      message: eliminatedByPenalty
+        ? `${activePlayer.nickname} ficou sem votar pela 2ª vez e foi eliminado.`
+        : `${activePlayer.nickname} ficou sem votar e recebeu 1 falta.`,
+      metadata: {
+        player_name: activePlayer.nickname,
+        missed_turns: missedTurns,
+        lives_after: nextLives,
+        eliminated,
+      },
+    },
+    eliminated ? {
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: 'player_eliminated',
+      targetPlayerId: activePlayer.id,
+      message: eliminatedByPenalty
+        ? `${activePlayer.nickname} foi eliminado por 2 faltas.`
+        : `${activePlayer.nickname} foi eliminado por ficar sem vidas no timeout.`,
+      metadata: {
+        source: 'timeout',
+        player_name: activePlayer.nickname,
+        missed_turns: missedTurns,
+      },
+    } : null,
+  ]);
+
   const result = await finishOrAdvance(room, [activePlayer]);
+
+  if (result?.finished) {
+    await logMatchEvents([{
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: 'room_finished',
+      message: result.winner ? `Partida encerrada. Campeao: ${result.winner}.` : 'Partida encerrada em empate.',
+      metadata: { winner: result.winner || null, reason: result.reason || null },
+    }]);
+  }
+
   return NextResponse.json({ ok: true, playerId: activePlayer.id, missedTurns, lives: nextLives, eliminated, ...result });
 }

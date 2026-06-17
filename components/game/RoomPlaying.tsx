@@ -20,6 +20,11 @@ function secondsLeft(expiresAt?: string | null) {
   return Math.max(0, Math.ceil((expiresMs - Date.now()) / 1000));
 }
 
+function revealKey(payload: any) {
+  const hitIds = payload?.hitPlayerIds || payload?.hits || [];
+  return `${payload?.voterId || ''}:${payload?.charName || ''}:${hitIds.join(',')}`;
+}
+
 export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const [deckChars, setDeckChars] = useState<any[]>([]);
   const [timeLeft, setTimeLeft] = useState(secondsLeft(room.turn_expires_at) || room.vote_time_seconds || 30);
@@ -35,7 +40,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     players: any[];
     eliminatedPlayers: any[];
   } | null>(null);
-  const [revealStage, setRevealStage] = useState<'choosing' | 'choice' | 'impact' | 'eliminated' | 'miss'>('choice');
+  const [revealStage, setRevealStage] = useState<'choosing' | 'choice' | 'owner' | 'result' | 'consequence' | 'eliminated'>('choice');
   const [isVoting, setIsVoting] = useState(false);
 
   const handlingTimeoutRef = useRef(false);
@@ -45,6 +50,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const playersRef = useRef(players);
   const activePlayerRef = useRef<any>(null);
   const showRevealRef = useRef<any>(null);
+  const sentRevealKeysRef = useRef<Set<string>>(new Set());
 
   const orderedPlayers = useMemo(() => [...players].sort((a, b) => (a.play_order || 0) - (b.play_order || 0)), [players]);
   const activePlayers = useMemo(() => orderedPlayers.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0), [orderedPlayers]);
@@ -116,6 +122,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
       .filter(Boolean);
     const eliminatedPlayers = hitPlayers.filter((player: any) => (player.lives || 0) <= 0 || player.is_eliminated);
     const revealCard = deckChars.find((card) => String(card.name || '').toLowerCase() === String(charName || '').toLowerCase());
+    const hasHit = hitPlayers.length > 0;
 
     setIsRevealing(true);
     setRevealStage('choosing');
@@ -131,23 +138,28 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     audioManager.playSFX('vote');
     if (eliminatedPlayers.length > 0) void refreshLiveCards();
 
-    await sleep(900);
+    await sleep(1200);
     setRevealStage('choice');
     audioManager.playSFX('card_reveal');
 
-    await sleep(1900);
-    setRevealStage(hitPlayers.length > 0 ? 'impact' : 'miss');
-    audioManager.playSFX(hitPlayers.length > 0 ? 'life_lost' : 'miss');
+    await sleep(2200);
+    setRevealStage('owner');
 
-    await sleep(1800);
+    await sleep(1200);
+    setRevealStage('result');
+    audioManager.playSFX(hasHit ? 'life_lost' : 'miss');
+
+    await sleep(1500);
     if (eliminatedPlayers.length > 0) {
       setRevealStage('eliminated');
       audioManager.playSFX(eliminatedPlayers.some((player: any) => player.id === me?.id) ? 'defeat' : 'player_eliminated');
-      await sleep(2600);
+      await sleep(3200);
     } else {
-      await sleep(650);
+      setRevealStage('consequence');
+      await sleep(1800);
     }
 
+    await sleep(800);
     setIsRevealing(false);
     setRevelation(null);
     await refreshLiveCards();
@@ -160,6 +172,12 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   useEffect(() => {
     const ch = supabaseGame.channel(`revels:${room.id}`)
       .on('broadcast', { event: 'REVEAL' }, (payload) => {
+        const key = revealKey(payload.payload);
+        if (sentRevealKeysRef.current.has(key)) {
+          sentRevealKeysRef.current.delete(key);
+          return;
+        }
+
         const voter = playersRef.current.find((p: any) => p.id === payload.payload.voterId) || { nickname: payload.payload.voterName };
         showRevealRef.current?.(
           payload.payload.charName,
@@ -179,7 +197,11 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const sendReveal = useCallback(async (payload: any) => {
     const channel = channelRef.current;
     if (!channel) return;
+    const key = revealKey(payload);
     const message = { type: 'broadcast', event: 'REVEAL', payload };
+
+    sentRevealKeysRef.current.add(key);
+    setTimeout(() => sentRevealKeysRef.current.delete(key), 15000);
 
     try {
       if (typeof channel.httpSend === 'function') await channel.httpSend(message);
@@ -549,20 +571,51 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                   <h2 className="text-4xl md:text-5xl font-black font-display uppercase leading-none drop-shadow-lg">{revelation.charName}</h2>
                   <p className="mt-4 text-xs font-black uppercase tracking-[0.3em] text-white/55">Quem possuía?</p>
                 </motion.div>
-              ) : revealStage === 'impact' ? (
-                <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-emerald-300 shadow-2xl max-w-md w-full rounded-3xl">
-                  <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-600 mb-2">Acertou</p>
+              ) : revealStage === 'owner' ? (
+                <motion.div initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-indigo-200 shadow-2xl max-w-md w-full rounded-3xl">
+                  <p className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500 mb-3">Quem possuía?</p>
                   <h2 className="text-3xl font-black font-display mb-4">{revelation.charName}</h2>
-                  <p className="text-sm font-black text-slate-500 uppercase mb-3">Quem possuía a carta:</p>
-                  <div className="grid gap-2">
-                    {revelation.players.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-emerald-100 bg-emerald-50 px-4 py-3 font-black text-emerald-800">{p.nickname} • vidas: {Math.max(0, p.lives || 0)}</div>)}
-                  </div>
+                  {revelation.players.length > 0 ? (
+                    <div className="grid gap-2">
+                      {revelation.players.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-indigo-100 bg-indigo-50 px-4 py-3 font-black text-indigo-800">{p.nickname}</div>)}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-4 text-lg font-black text-slate-600">Ninguém possuía</div>
+                  )}
                 </motion.div>
-              ) : revealStage === 'eliminated' ? (() => {
+              ) : revealStage === 'result' ? (
+                revelation.players.length > 0 ? (
+                  <motion.div initial={{ scale: 0.82, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-8 bg-emerald-500 border-4 border-emerald-300 shadow-2xl max-w-md w-full rounded-3xl text-white">
+                    <p className="text-xs font-black uppercase tracking-[0.35em] text-emerald-100 mb-3">Resultado</p>
+                    <h2 className="text-5xl font-black font-display drop-shadow-lg">ACERTOU!</h2>
+                  </motion.div>
+                ) : (
+                  <motion.div initial={{ scale: 0.82, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-8 bg-slate-900 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white">
+                    <p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400 mb-3">Resultado</p>
+                    <h2 className="text-5xl font-black font-display text-slate-200">ERROU</h2>
+                  </motion.div>
+                )
+              ) : revealStage === 'consequence' ? (
+                revelation.players.length > 0 ? (
+                  <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-amber-300 shadow-2xl max-w-md w-full rounded-3xl">
+                    <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-600 mb-2">Consequência</p>
+                    <h2 className="text-3xl font-black font-display mb-4">Perdeu vida</h2>
+                    <div className="grid gap-2">
+                      {revelation.players.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-amber-100 bg-amber-50 px-4 py-3 font-black text-amber-800">{p.nickname} • vidas: {Math.max(0, p.lives || 0)}</div>)}
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-8 bg-slate-900 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white">
+                    <p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400 mb-3">Consequência</p>
+                    <h2 className="text-3xl font-black font-display mb-3 line-through decoration-slate-500 decoration-4">{revelation.charName}</h2>
+                    <p className="text-lg font-bold text-slate-300">Ninguém perdeu vida.</p>
+                  </motion.div>
+                )
+              ) : (() => {
                 const isMeHit = revelation.eliminatedPlayers.some((p: any) => p.id === me.id);
                 return (
-                  <motion.div initial={{ scale: 0.8, opacity: 0, rotate: -1 }} animate={{ scale: [0.8, 1.05, 1], opacity: 1, rotate: [0, -1.5, 1.5, 0], x: [0, -10, 10, -5, 5, 0] }} transition={{ duration: 0.55 }} className="relative overflow-hidden text-center p-8 bg-slate-950 border-4 border-rose-500 shadow-2xl max-w-md w-full rounded-3xl text-white">
-                    <motion.div className="absolute inset-0 bg-rose-500/25" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} transition={{ duration: 0.7 }} />
+                  <motion.div initial={{ scale: 0.8, opacity: 0, rotate: -1 }} animate={{ scale: [0.8, 1.05, 1], opacity: 1, rotate: [0, -1.5, 1.5, 0], x: [0, -10, 10, -5, 5, 0] }} transition={{ duration: 0.65 }} className="relative overflow-hidden text-center p-8 bg-slate-950 border-4 border-rose-500 shadow-2xl max-w-md w-full rounded-3xl text-white">
+                    <motion.div className="absolute inset-0 bg-rose-500/25" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} transition={{ duration: 0.9 }} />
                     <div className="relative z-10">
                       <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full border-4 border-rose-400 bg-rose-950/70 text-rose-200 shadow-xl"><Skull className="h-14 w-14" /></div>
                       <p className="text-xs font-black uppercase tracking-[0.35em] text-rose-300 mb-3">Eliminação</p>
@@ -572,13 +625,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                     </div>
                   </motion.div>
                 );
-              })() : (
-                <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-8 bg-slate-900 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white">
-                  <p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400 mb-3">Errou</p>
-                  <h2 className="text-3xl font-black font-display mb-3 line-through decoration-slate-500 decoration-4">{revelation.charName}</h2>
-                  <p className="text-lg font-bold text-slate-300">Ninguem tinha este personagem.</p>
-                </motion.div>
-              )}
+              })()}
             </motion.div>
           )}
         </AnimatePresence>

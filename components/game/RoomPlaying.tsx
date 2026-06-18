@@ -420,6 +420,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     if (botTurnRef.current === turnKey) return;
 
     addLog(`${activePlayer.nickname} está pensando no palpite...`);
+    botTurnRef.current = turnKey;
     const voteSeconds = Math.max(5, room.vote_time_seconds || 30);
     const maxDelay = Math.max(900, voteSeconds * 1000 - 4500);
     const preferredDelay = isSuddenDeath
@@ -428,7 +429,6 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const delay = Math.min(maxDelay, preferredDelay);
 
     const timer = setTimeout(async () => {
-      botTurnRef.current = turnKey;
       const response = await fetch(`/api/rooms/${room.id}/bot-turn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

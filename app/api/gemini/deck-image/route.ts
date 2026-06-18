@@ -21,6 +21,19 @@ function extensionFromContentType(contentType: string) {
   return 'png';
 }
 
+function publicErrorMessage(error: any) {
+  const message = String(error?.message || 'Nao foi possivel gerar imagem do deck.');
+
+  if (message.includes('GEMINI_API_KEY')) return 'GEMINI_API_KEY nao configurada no Cloudflare.';
+  if (message.includes('R2_PUBLIC_URL')) return 'R2_PUBLIC_URL nao configurado no Cloudflare.';
+  if (message.includes('Bucket R2')) return 'Bucket R2 nao configurado no Cloudflare.';
+  if (message.includes('API key not valid') || message.includes('API_KEY_INVALID')) return 'A chave GEMINI_API_KEY e invalida.';
+  if (message.includes('quota') || message.includes('Quota') || message.includes('RESOURCE_EXHAUSTED')) return 'A cota do Gemini acabou ou o billing nao esta liberado.';
+  if (message.includes('model') || message.includes('Model') || message.includes('not found')) return `Modelo Gemini indisponivel para essa chave. Detalhe: ${message.slice(0, 500)}`;
+
+  return message.slice(0, 700);
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -70,10 +83,11 @@ export async function POST(request: Request) {
       key: uploaded.key,
     });
   } catch (error: any) {
-    console.error('Gemini official deck image error:', error);
+    const readableError = publicErrorMessage(error);
+    console.error('Gemini official deck image error:', readableError, error);
     return NextResponse.json(
-      { ok: false, error: error?.message || 'Nao foi possivel gerar imagem do deck.' },
-      { status: 500 },
+      { ok: false, error: readableError },
+      { status: 400 },
     );
   }
 }

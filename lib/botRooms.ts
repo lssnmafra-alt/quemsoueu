@@ -2,8 +2,8 @@ import { supabaseGame } from './supabase';
 import { closeAndDeleteRooms, nextRoomExpiry } from './roomLifecycle';
 
 const TARGET_BOT_LOBBY_ROOMS = 1;
-const MAX_BOT_ONLY_ROOM_AGE_MS = 8 * 60 * 1000;
-const BOT_ROOM_SIZE = 2;
+const MAX_BOT_ONLY_ROOM_AGE_MS = 4 * 60 * 1000;
+const BOT_ROOM_SIZE = 3;
 
 const BOT_NAMES = [
   'Bot Tatico',
@@ -133,7 +133,7 @@ export async function runBotRoomCycle() {
   const staleBotRooms = botOnlyRooms.filter((room: any) => {
     const age = now - new Date(room.created_at).getTime();
     const expired = room.expires_at && new Date(room.expires_at).getTime() < now;
-    return expired || room.status === 'FINISHED' || age > MAX_BOT_ONLY_ROOM_AGE_MS;
+    return expired || room.status !== 'LOBBY' || room.status === 'FINISHED' || age > MAX_BOT_ONLY_ROOM_AGE_MS;
   });
 
   await closeAndDeleteRooms(staleBotRooms.map((room: any) => room.id));

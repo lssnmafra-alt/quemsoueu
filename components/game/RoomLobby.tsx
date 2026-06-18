@@ -453,11 +453,6 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
               )}
 
               <div className="mt-auto pt-4">
-                {autoStartSeconds !== null && (
-                  <div className="mb-3 rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-amber-800">
-                    Jogadores mínimos atingidos. A partida começa em {autoStartSeconds}s. {botIsAdmin ? 'O bot dono da sala vai iniciar automaticamente.' : ''}
-                  </div>
-                )}
                 {isAdmin ? (
                   <Button disabled={!canStart} onClick={() => handleStart()} className="w-full h-14 text-sm font-black tracking-wider uppercase btn-squishy-green text-white cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     <Play className="w-4 h-4 fill-white" /> Iniciar Partida

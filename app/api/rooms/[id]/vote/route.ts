@@ -131,14 +131,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .map((player: any) => player.id),
   );
   const liveCardsInPlay = (liveCards || []).filter((card: any) => latestActivePlayerIds.has(card.player_id));
-  const targetableLiveCards = liveCardsInPlay.filter((card: any) => card.player_id !== activePlayer.id);
-  const liveCharacterIds = new Set(targetableLiveCards.map((card: any) => card.character_id));
-  const ownLiveCharacterIds = new Set(liveCardsInPlay.filter((card: any) => card.player_id === activePlayer.id).map((card: any) => card.character_id));
-
-  if (ownLiveCharacterIds.has(targetCharId)) {
-    await restoreTurnLock();
-    return NextResponse.json({ ok: false, reason: 'cannot-vote-own-card' }, { status: 400 });
-  }
+  const liveCharacterIds = new Set(liveCardsInPlay.map((card: any) => card.character_id));
 
   if (!liveCharacterIds.has(targetCharId)) {
     await restoreTurnLock();
@@ -147,7 +140,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   await supabaseGame.from('room_players').update({ missed_turns: 0 }).eq('id', activePlayer.id);
 
-  const hits = targetableLiveCards.filter((card: any) => card.character_id === targetCharId);
+  const hits = liveCardsInPlay.filter((card: any) => card.character_id === targetCharId);
   const hitCountByPlayer = new Map<string, number>();
   for (const hit of hits) {
     hitCountByPlayer.set(hit.player_id, (hitCountByPlayer.get(hit.player_id) || 0) + 1);

@@ -88,14 +88,18 @@ export async function syncLivesFromLiveCards(roomId: string) {
 }
 
 async function hasStartedTiebreakBefore(roomId: string) {
-  const { data } = await supabaseGame
-    .from('match_events')
-    .select('id')
-    .eq('room_id', roomId)
-    .eq('event_type', 'tiebreak_started')
-    .limit(1);
+  try {
+    const { data } = await supabaseGame
+      .from('match_events')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('event_type', 'tiebreak_started')
+      .limit(1);
 
-  return Boolean(data && data.length > 0);
+    return Boolean(data && data.length > 0);
+  } catch {
+    return false;
+  }
 }
 
 async function logTiebreakStarted(room: any, playerIds: string[], reason: string) {
@@ -116,13 +120,13 @@ async function startTiebreakPicking(room: any, tiebreakPlayers: any[], reason = 
   const tiebreakPlayerIds = uniqueIds(playersToPick.map((player: any) => player.id));
 
   if (tiebreakPlayerIds.length === 0) {
-    await finishRoom(room);
-    return { finished: true, winner: null, reason: 'no-tiebreak-players' };
+    await advanceTurn(room);
+    return { finished: false, reason: 'no-tiebreak-players-advanced' };
   }
 
   if (await hasStartedTiebreakBefore(room.id)) {
-    await finishRoom(room);
-    return { finished: true, winner: null, reason: 'tiebreak-loop-guard' };
+    await advanceTurn(room);
+    return { finished: false, reason: 'tiebreak-loop-guard-advanced' };
   }
 
   await logTiebreakStarted(room, tiebreakPlayerIds, reason);
@@ -166,8 +170,21 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
   const aliveIds = new Set(alive.map((player: any) => player.id));
   const liveCardsFromAlive = (liveCards || []).filter((card: any) => aliveIds.has(card.player_id));
   const distinctLiveCharacters = new Set((liveCardsFromAlive || []).map((card: any) => card.character_id));
+  const totalPlayers = players || [];
+  const hasAnyHumanInRoom = totalPlayers.some((player: any) => !player.is_bot);
+  const hasPlayedAtLeastOneFullTurn = (room.current_turn_number || 0) > 0;
+
+  if (!hasPlayedAtLeastOneFullTurn && alive.length > 1) {
+    await advanceTurn(room);
+    return { finished: false, reason: 'first-turn-safety-advanced' };
+  }
 
   if (activeHumans.length === 0 && activeBots.length > 0) {
+    if (hasAnyHumanInRoom && alive.length > 1) {
+      await advanceTurn(room);
+      return { finished: false, reason: 'human-dropped-before-resolution-advanced' };
+    }
+
     const sortedBots = [...activeBots].sort((a: any, b: any) => (liveCounts.get(b.id) || 0) - (liveCounts.get(a.id) || 0));
     const topBot = sortedBots[0];
     const secondBot = sortedBots[1];

@@ -14,6 +14,25 @@ function resolvePickingNeed(room: any, players: any[], currentCards: any[]) {
   return isTiebreak ? 1 : room.chars_per_player || 3;
 }
 
+function findDuplicatePickingCards(players: any[], liveCardsByPlayer: Map<string, any[]>, needed: number) {
+  const cardsToCheck = players.flatMap((player: any) => (liveCardsByPlayer.get(player.id) || []).slice(0, needed));
+  const byCharacter = new Map<string, any[]>();
+
+  for (const card of cardsToCheck) {
+    const list = byCharacter.get(card.character_id) || [];
+    list.push(card);
+    byCharacter.set(card.character_id, list);
+  }
+
+  return [...byCharacter.values()].filter((list) => list.length > 1).flat();
+}
+
+async function fetchDeckCharacters(room: any) {
+  const deckQuery = supabaseGame.from('characters').select('*');
+  const { data } = room.deck_id ? await deckQuery.eq('deck_id', room.deck_id) : await deckQuery.is('deck_id', null);
+  return data || [];
+}
+
 export async function finalizeRoomPicking(roomId: string) {
   const [{ data: room }, { data: players }, { data: currentCards }] = await Promise.all([
     supabaseGame.from('rooms').select('*').eq('id', roomId).maybeSingle(),
@@ -66,9 +85,7 @@ export async function finalizeRoomPicking(roomId: string) {
   const needsAssignments = activePlayers.some((player: any) => (liveCardsByPlayer.get(player.id)?.length || 0) < needed);
   let characters: any[] = [];
   if (needsAssignments) {
-    const deckQuery = supabaseGame.from('characters').select('*');
-    const { data: deckChars } = room.deck_id ? await deckQuery.eq('deck_id', room.deck_id) : await deckQuery.is('deck_id', null);
-    characters = deckChars || [];
+    characters = await fetchDeckCharacters(room);
     if (characters.length < needed) {
       return { ok: false, status: 400, error: `O deck precisa ter pelo menos ${needed} personagens.` };
     }
@@ -86,6 +103,7 @@ export async function finalizeRoomPicking(roomId: string) {
     last_activity_at: transitionNow.toISOString(),
     expires_at: nextRoomExpiry(transitionNow),
   }).eq('id', room.id).eq('status', 'PICKING');
+
   await Promise.all(activePlayers.map(async (player: any) => {
     const existingLiveCards = liveCardsByPlayer.get(player.id) || [];
     const missing = Math.max(0, needed - existingLiveCards.length);
@@ -139,6 +157,55 @@ export async function finalizeRoomPicking(roomId: string) {
 
     await playerUpdatePromise;
   }));
+
+  const { data: updatedCards } = await supabaseGame
+    .from('player_cards')
+    .select('*')
+    .eq('room_id', room.id)
+    .eq('is_dead', false);
+
+  const updatedLiveCardsByPlayer = new Map<string, any[]>();
+  for (const card of updatedCards || []) {
+    const list = updatedLiveCardsByPlayer.get(card.player_id) || [];
+    list.push(card);
+    updatedLiveCardsByPlayer.set(card.player_id, list);
+  }
+
+  const duplicateCards = findDuplicatePickingCards(activePlayers, updatedLiveCardsByPlayer, needed);
+  if (duplicateCards.length > 0) {
+    const deckCharacters = characters.length > 0 ? characters : await fetchDeckCharacters(room);
+    const requiredDistinctCards = activePlayers.length * needed;
+
+    if (deckCharacters.length < requiredDistinctCards) {
+      await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id).eq('status', 'PICKING');
+      await touchRoomActivity(room.id);
+      return { ok: true, finished: true, reason: 'not-enough-distinct-cards-for-picking' };
+    }
+
+    await supabaseGame
+      .from('player_cards')
+      .update({ is_dead: true })
+      .in('id', duplicateCards.map((card: any) => card.id));
+
+    await supabaseGame
+      .from('rooms')
+      .update({
+        turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
+        last_activity_at: new Date().toISOString(),
+      })
+      .eq('id', room.id)
+      .eq('status', 'PICKING');
+
+    await touchRoomActivity(room.id);
+
+    return {
+      ok: true,
+      skipped: true,
+      duplicatePick: true,
+      reason: 'duplicate-picking-cards',
+      message: 'Alguns jogadores escolheram o mesmo personagem. Escolham novamente para desempatar.',
+    };
+  }
 
   await transitionRoom();
   await touchRoomActivity(room.id);

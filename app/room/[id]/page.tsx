@@ -43,6 +43,7 @@ export default function RoomPage() {
   const [loading, setLoading] = useState(true);
   const [roomNotices, setRoomNotices] = useState<{ id: string; text: string }[]>([]);
   const pickingFinalizeAttemptAtRef = useRef(0);
+  const botAutoStartAttemptRef = useRef('');
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
@@ -135,7 +136,7 @@ export default function RoomPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deckId: rm.deck_id || undefined, auto: true }),
               }).catch(() => {});
-            }, 1200);
+            }, 700);
           }
         }
       }
@@ -178,6 +179,28 @@ export default function RoomPage() {
     if (!room?.status) return;
     void audioManager.playMusic(trackForRoomStatus(room.status));
   }, [room?.status]);
+
+  useEffect(() => {
+    if (!room?.id || room.status !== 'LOBBY' || !me?.id) return;
+    if (!isBotControlledLobby(room, players)) return;
+    if (!players.some((player: any) => !player.is_bot)) return;
+
+    const attemptKey = `${room.id}:${players.length}:${room.updated_at || room.last_activity_at || ''}`;
+    if (botAutoStartAttemptRef.current === attemptKey) return;
+    botAutoStartAttemptRef.current = attemptKey;
+
+    const timer = setTimeout(() => {
+      fetch(`/api/rooms/${room.id}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deckId: room.deck_id || undefined, auto: true }),
+      }).catch(() => {
+        botAutoStartAttemptRef.current = '';
+      });
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, [room, players, me?.id]);
 
   useEffect(() => {
     if (roomNotices.length === 0) return;

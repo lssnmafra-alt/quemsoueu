@@ -2,12 +2,8 @@ import { supabaseGame } from './supabase';
 import { touchRoomActivity } from './roomLifecycle';
 import { finishOrAdvance } from './gameProgress';
 
-type GroqTurnStatus = {
-  configured: boolean;
-  attempted: boolean;
-  responded: boolean;
-  parsed: boolean;
-  selectedBy: 'groq' | 'fallback' | null;
+type BotTurnStatus = {
+  selectedBy: 'random' | null;
   fallbackReason: string | null;
 };
 
@@ -31,13 +27,6 @@ async function logMatchEvents(events: any[]) {
   } catch (error) {
     console.warn('match_events failed:', error);
   }
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, reason: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(reason)), ms)),
-  ]);
 }
 
 export async function playBotTurn(
@@ -113,100 +102,26 @@ export async function playBotTurn(
   const activePlayerIds = new Set(activePlayers.map((player: any) => player.id));
   const playersById = new Map((players || []).map((player: any) => [player.id, player]));
   const livePlayerCards = cards.filter((card: any) => activePlayerIds.has(card.player_id));
-  const liveCharacterIds = [...new Set(livePlayerCards.map((card: any) => card.character_id))] as string[];
 
-  if (liveCharacterIds.length === 0 || chars.length === 0) {
+  if (chars.length === 0 || livePlayerCards.length === 0) {
     const progress = await finishOrAdvance(room);
     await logMatchEvents([{
       roomId: room.id,
       turnNumber: room.current_turn_number || 0,
       eventType: 'bot_skip',
       actorPlayerId: activePlayer.id,
-      message: `${activePlayer.nickname} nao tinha carta viva para votar.`,
-      metadata: { reason: 'no-live-card-target', progress },
+      message: `${activePlayer.nickname} nao tinha carta para votar.`,
+      metadata: { reason: 'no-card-target', progress },
     }]);
-    return { ok: true, skipped: true, reason: 'no-live-card-target', ...progress };
+    return { ok: true, skipped: true, reason: 'no-card-target', ...progress };
   }
 
-  let targetChar: any = null;
-  let botComment = '';
-  const groqStatus: GroqTurnStatus = {
-    configured: Boolean(process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'MY_GROQ_API_KEY'),
-    attempted: false,
-    responded: false,
-    parsed: false,
-    selectedBy: null,
+  const botStatus: BotTurnStatus = {
+    selectedBy: 'random',
     fallbackReason: null,
   };
 
-  if (groqStatus.configured) {
-    try {
-      const { getGroqClient } = await import('./groq');
-      const groq = getGroqClient();
-      groqStatus.attempted = true;
-
-      const liveCharsForBot = chars.filter((char: any) => liveCharacterIds.includes(char.id));
-      const liveCharsNames = liveCharsForBot.map((char: any) => char.name);
-      const groqBudgetMs = Math.min(3200, Math.max(1200, ((room.vote_time_seconds || 30) * 1000) - 4500));
-
-      const completion = await withTimeout(groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: 'Voce e um jogador tatico, audacioso e divertido em uma partida de adivinhacao chamada Quem Sou Eu. Nao diga que e IA, robo ou bot. Analise a lista de personagens vivos e selecione UM personagem dessa lista para adivinhar/votar. Voce pode votar em qualquer carta viva, inclusive sua propria carta. Responda estritamente em JSON valido com selectedCharacterName e comment.',
-          },
-          {
-            role: 'user',
-            content: `Seu nome na mesa: ${activePlayer.nickname}. Personagens vivos na mesa: ${liveCharsNames.join(', ')}.`,
-          },
-        ],
-        temperature: 0.8,
-      }), groqBudgetMs, 'groq-timeout');
-
-      const contentText = completion.choices[0]?.message?.content || '{}';
-      groqStatus.responded = Boolean(contentText && contentText !== '{}');
-      const parsed = JSON.parse(contentText);
-      groqStatus.parsed = true;
-
-      const chosenName = typeof parsed.selectedCharacterName === 'string' ? parsed.selectedCharacterName : '';
-      botComment = typeof parsed.comment === 'string' ? parsed.comment.slice(0, 160) : '';
-
-      if (chosenName) {
-        targetChar = chars.find((char: any) =>
-          liveCharacterIds.includes(char.id) &&
-          char.name.toLowerCase() === chosenName.toLowerCase()
-        );
-
-        if (!targetChar) {
-          targetChar = chars.find((char: any) =>
-            liveCharacterIds.includes(char.id) &&
-            (char.name.toLowerCase().includes(chosenName.toLowerCase()) ||
-              chosenName.toLowerCase().includes(char.name.toLowerCase()))
-          );
-        }
-      }
-
-      if (targetChar) {
-        groqStatus.selectedBy = 'groq';
-      } else {
-        groqStatus.fallbackReason = 'groq-selected-character-not-found';
-      }
-    } catch (error) {
-      groqStatus.fallbackReason = error instanceof SyntaxError ? 'groq-json-parse-error' : error instanceof Error && error.message === 'groq-timeout' ? 'groq-timeout' : 'groq-request-error';
-      console.error('Groq bot turn fallback:', error);
-    }
-  } else {
-    groqStatus.fallbackReason = 'missing-groq-api-key';
-  }
-
-  if (!targetChar) {
-    const randomCharacterId = liveCharacterIds[Math.floor(Math.random() * liveCharacterIds.length)];
-    targetChar = chars.find((char: any) => char.id === randomCharacterId);
-    groqStatus.selectedBy = 'fallback';
-    groqStatus.fallbackReason = groqStatus.fallbackReason || 'no-groq-target';
-  }
+  const targetChar = chars[Math.floor(Math.random() * chars.length)];
 
   if (!targetChar) {
     const progress = await finishOrAdvance(room);
@@ -215,23 +130,10 @@ export async function playBotTurn(
       turnNumber: room.current_turn_number || 0,
       eventType: 'bot_skip',
       actorPlayerId: activePlayer.id,
-      message: `${activePlayer.nickname} nao encontrou carta viva para votar.`,
-      metadata: { reason: 'no-target', groq: groqStatus, progress },
+      message: `${activePlayer.nickname} nao encontrou personagem para votar.`,
+      metadata: { reason: 'no-target', bot: botStatus, progress },
     }]);
-    return { ok: true, skipped: true, reason: 'no-target', groq: groqStatus, ...progress };
-  }
-
-  if (botComment) {
-    try {
-      await supabaseGame.from('messages').insert({
-        room_id: room.id,
-        sender_name: activePlayer.nickname,
-        sender_id: activePlayer.user_id || activePlayer.id,
-        content: botComment,
-      });
-    } catch (error) {
-      console.error('Failed to insert bot comment into messages:', error);
-    }
+    return { ok: true, skipped: true, reason: 'no-target', bot: botStatus, ...progress };
   }
 
   await supabaseGame.from('room_players').update({ missed_turns: 0 }).eq('id', activePlayer.id);
@@ -284,7 +186,8 @@ export async function playBotTurn(
         target_name: targetChar.name,
         hit_count: hits.length,
         hit_player_ids: hitPlayerIds,
-        groq: groqStatus,
+        selection: 'random-from-full-deck',
+        bot: botStatus,
       },
     },
     ...eliminatedPlayers.map((player: any) => ({
@@ -309,6 +212,6 @@ export async function playBotTurn(
     hits: hits.length,
     hitPlayerIds,
     hitPlayers,
-    groq: groqStatus,
+    bot: botStatus,
   };
 }

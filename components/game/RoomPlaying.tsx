@@ -66,6 +66,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   ), [deckChars, liveCharIds, liveCardsLoaded]);
   const isMyTurn = activePlayer?.id === me.id && !me.is_eliminated && !isRevealing && !isVoting && !voteProcessingRef.current;
   const humanPlayers = orderedPlayers.filter((p: any) => !p.is_bot);
+  const timerVisible = !isRevealing && !isVoting;
   const turnLabel = isSpectator
     ? 'Você está eliminado'
     : isVoting
@@ -74,15 +75,17 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
         ? 'Revelando resultado'
         : isMyTurn
           ? 'Sua vez: escolha um personagem'
-          : activePlayer
-            ? `${activePlayer.nickname} está escolhendo...`
-            : 'Aguardando rodada';
+          : activePlayer?.is_bot
+            ? `${activePlayer.nickname} está pensando...`
+            : activePlayer
+              ? `${activePlayer.nickname} está escolhendo...`
+              : 'Aguardando rodada';
   const roundSummary = isSpectator
     ? '👻 Assistindo a partida'
     : isVoting
-      ? 'Preparando revelação'
+      ? 'O servidor está resolvendo seu palpite'
       : isRevealing
-        ? 'Suspense na mesa'
+        ? 'Leia o resultado da jogada'
         : `Rodada ${room.current_turn_number + 1} • ${activePlayers.length} vivo${activePlayers.length === 1 ? '' : 's'}`;
 
   useEffect(() => {
@@ -127,11 +130,11 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const peopleToRead = Math.max(1, hitPlayers.length);
     const timing = {
       preparing: 750,
-      card: 1400,
-      owner: Math.min(2100, 1250 + peopleToRead * 180),
+      card: 2000,
+      owner: Math.min(2600, 1750 + peopleToRead * 180),
       result: 1250,
-      consequence: Math.min(2200, 1300 + peopleToRead * 180),
-      eliminated: 2200,
+      consequence: Math.min(2900, 2000 + peopleToRead * 220),
+      eliminated: 3100,
       breath: 400,
     };
 
@@ -161,13 +164,13 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     audioManager.playSFX(hasHit ? 'life_lost' : 'miss');
 
     await sleep(timing.result);
+    setRevealStage('consequence');
+    await sleep(timing.consequence);
+
     if (eliminatedPlayers.length > 0) {
       setRevealStage('eliminated');
       audioManager.playSFX(eliminatedPlayers.some((player: any) => player.id === me?.id) ? 'defeat' : 'player_eliminated');
       await sleep(timing.eliminated);
-    } else if (hasHit) {
-      setRevealStage('consequence');
-      await sleep(timing.consequence);
     }
 
     await sleep(timing.breath);
@@ -249,9 +252,9 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const progress = await finishResponse.json().catch(() => ({}));
 
     if ((result.hitPlayerIds || []).length > 0) {
-      addLog(`ACERTOU! ${result.target} estava na mesa.`);
+      addLog(`ACERTOU! ${voter?.nickname || 'Jogador'} votou em ${result.target}.`);
       for (const player of result.hitPlayers || []) {
-        addLog(player.is_eliminated ? `${player.nickname} foi eliminado!` : `${player.nickname} perdeu vida!`);
+        addLog(player.is_eliminated ? `${player.nickname} foi eliminado por ${voter?.nickname || 'Jogador'}!` : `${player.nickname} perdeu 1 vida!`);
       }
     } else {
       addLog(`ERROU! Ninguem tinha ${result.target}.`);
@@ -344,7 +347,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     botTurnRef.current = '';
     setIsVoting(false);
     setTimeLeft(secondsLeft(room.turn_expires_at));
-  }, [room.current_turn_number, room.turn_expires_at]);
+  }, [room.current_turn_number, room.turn_expires_at, isSuddenDeath]);
 
   useEffect(() => {
     try {
@@ -394,28 +397,14 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
             else addLog(`${activePlayer.nickname} nao votou e perdeu 1 vida.`);
             if (result.finished) addLog(`Partida encerrada! Campeao: ${result.winner || 'Empate'}!`);
             void refreshLiveCards();
-          } else {
-            if (lockWritten) {
-              try {
-                sessionStorage.removeItem(timeoutKey);
-              } catch {}
-            }
-            console.warn('[RoomPlaying] timeout ignored; lock released', {
-              roomId: room.id,
-              turnNumber: room.current_turn_number,
-              playerId: activePlayer.id,
-              status: response.status,
-              reason: result?.reason || 'unknown',
-            });
+          } else if (lockWritten) {
+            try { sessionStorage.removeItem(timeoutKey); } catch {}
           }
         })
-        .catch((error) => {
+        .catch(() => {
           if (lockWritten) {
-            try {
-              sessionStorage.removeItem(timeoutKey);
-            } catch {}
+            try { sessionStorage.removeItem(timeoutKey); } catch {}
           }
-          console.warn('[RoomPlaying] timeout request failed; lock released', error);
         })
         .finally(() => {
           handlingTimeoutRef.current = false;
@@ -430,11 +419,12 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const turnKey = `${room.id}:${room.current_turn_number}:${activePlayer.id}`;
     if (botTurnRef.current === turnKey) return;
 
+    addLog(`${activePlayer.nickname} está pensando no palpite...`);
     const voteSeconds = Math.max(5, room.vote_time_seconds || 30);
-    const maxDelay = Math.max(1000, voteSeconds * 1000 - 2500);
+    const maxDelay = Math.max(900, voteSeconds * 1000 - 4500);
     const preferredDelay = isSuddenDeath
-      ? (humanPlayers.length === 1 ? 2200 : 2800) + Math.floor(Math.random() * 800)
-      : (humanPlayers.length === 1 ? 2800 : 3600) + Math.floor(Math.random() * 1000);
+      ? (humanPlayers.length === 1 ? 1700 : 2200) + Math.floor(Math.random() * 600)
+      : (humanPlayers.length === 1 ? 2100 : 2800) + Math.floor(Math.random() * 700);
     const delay = Math.min(maxDelay, preferredDelay);
 
     const timer = setTimeout(async () => {
@@ -491,12 +481,12 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
           <div className="flex items-center gap-2 justify-between sm:justify-end">
             <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border text-[10px] md:text-xs font-black uppercase tracking-wider', isSpectator ? 'bg-slate-800 border-slate-600 text-slate-200' : isSuddenDeath ? 'bg-white border-rose-200 text-rose-600' : 'bg-indigo-50 border-indigo-100 text-indigo-700')}>
               <Zap className="w-4 h-4" />
-              {isRevealing || isVoting ? 'Preparando revelação' : activePlayer ? 'Escolhendo...' : 'Aguardando'}
+              {isRevealing || isVoting ? 'Resultado em andamento' : activePlayer?.is_bot ? 'Bot pensando...' : activePlayer ? 'Escolhendo...' : 'Aguardando'}
             </div>
-            {!isRevealing && !isVoting && (
-              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border', isSpectator ? 'bg-slate-800 border-slate-600' : isSuddenDeath ? 'bg-white border-rose-200' : 'bg-indigo-50/50 border-indigo-100')}>
-                <Clock className={cn('w-4 h-4', isSpectator ? 'text-slate-300' : isSuddenDeath ? 'text-rose-500' : 'text-indigo-500')} />
-                <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : isSpectator ? 'text-white' : isSuddenDeath ? 'text-rose-600' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
+            {timerVisible && (
+              <div key={`${room.current_turn_number}-${isSuddenDeath ? 'sudden' : 'normal'}`} className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border', isSpectator ? 'bg-slate-800 border-slate-600' : isSuddenDeath ? 'bg-rose-600 border-rose-500 text-white shadow-lg' : 'bg-indigo-50/50 border-indigo-100')}>
+                <Clock className={cn('w-4 h-4', isSpectator ? 'text-slate-300' : isSuddenDeath ? 'text-white' : 'text-indigo-500')} />
+                <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : isSpectator ? 'text-white' : isSuddenDeath ? 'text-white' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
               </div>
             )}
             <button onClick={leaveRoom} className="h-10 md:h-11 px-3 md:px-4 rounded-2xl border-2 border-rose-100 bg-rose-50 text-rose-600 text-[10px] md:text-xs font-black uppercase flex items-center gap-1.5 hover:bg-rose-100 transition-all cursor-pointer">
@@ -525,11 +515,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                   <div className="flex items-center gap-0.5 mt-0.5">
                     {isOut ? <span className="text-[8px] font-black uppercase tracking-wider text-slate-500">Fora</span> : Array.from({ length: room.chars_per_player }).map((_, i) => i < p.lives ? <Heart key={i} className={cn('w-3 h-3 md:w-3.5 md:h-3.5 fill-current', p.color?.text || 'text-indigo-500')} /> : <Skull key={i} className="w-3 h-3 md:w-3.5 md:h-3.5 text-slate-300" />)}
                   </div>
-                  {missedTurns > 0 && !isOut && (
-                    <div className="mt-0.5">
-                      <span className="rounded-full border bg-amber-50 border-amber-200 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-700">{missedTurns} falta{missedTurns > 1 ? 's' : ''}</span>
-                    </div>
-                  )}
+                  {missedTurns > 0 && !isOut && <span className="mt-0.5 inline-block rounded-full border bg-amber-50 border-amber-200 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-700">{missedTurns} falta{missedTurns > 1 ? 's' : ''}</span>}
                 </div>
               </div>
             );
@@ -609,31 +595,35 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
               {revealStage === 'choosing' ? (
                 <motion.div key="choosing" initial={{ y: 18, scale: 0.96, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -14, scale: 0.98, opacity: 0 }} transition={{ duration: 0.3 }} className="text-center p-8 max-w-sm w-full">
                   <div className="w-20 h-20 bg-indigo-500/20 border-2 border-indigo-300/40 text-indigo-200 rounded-full flex items-center justify-center mx-auto mb-5 animate-pulse"><Zap className="w-10 h-10" /></div>
-                  <p className="text-xs font-black uppercase tracking-[0.35em] text-indigo-200 mb-3">Preparando resultado</p>
+                  <p className="text-xs font-black uppercase tracking-[0.35em] text-indigo-200 mb-3">Preparando palpite</p>
                   <h2 className="text-3xl font-black font-display">{revelation.voterName}</h2>
-                  <p className="mt-2 text-sm font-bold text-white/70">está revelando uma acusação...</p>
+                  <p className="mt-2 text-sm font-bold text-white/70">está pensando no palpite...</p>
                 </motion.div>
               ) : revealStage === 'choice' ? (
                 <motion.div key="choice" initial={{ scale: 0.88, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 1.03, y: -14, opacity: 0 }} transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }} className="w-full max-w-sm text-center">
-                  <p className="mb-2 text-xs font-black uppercase tracking-[0.35em] text-amber-200">{revelation.voterName} escolheu</p>
-                  <div className="mx-auto mb-5 w-52 max-w-[70vw] rounded-[1.6rem] border-4 border-white/20 bg-slate-900 p-2 shadow-2xl">
+                  <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-amber-200">{revelation.voterName} votou em:</p>
+                  <div className="mx-auto mb-5 w-60 max-w-[74vw] rounded-[1.6rem] border-4 border-white/20 bg-slate-900 p-2 shadow-2xl">
                     <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-slate-800">
                       <CharacterImage name={revelation.charName} imageUrl={revelation.card?.image_url} avatarConfig={revelation.card?.avatar_config} isOfficial={usesOfficialImages} alt="" className="h-full w-full object-cover" />
                     </div>
                   </div>
                   <h2 className="text-4xl md:text-5xl font-black font-display uppercase leading-none drop-shadow-lg">{revelation.charName}</h2>
-                  <p className="mt-4 text-xs font-black uppercase tracking-[0.3em] text-white/55">Quem possuía?</p>
                 </motion.div>
               ) : revealStage === 'owner' ? (
                 <motion.div key="owner" initial={{ y: 20, scale: 0.94, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, scale: 1.02, opacity: 0 }} transition={{ duration: 0.3 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-indigo-200 shadow-2xl max-w-md w-full rounded-3xl">
-                  <p className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500 mb-3">Quem possuía?</p>
-                  <h2 className="text-3xl font-black font-display mb-4">{revelation.charName}</h2>
+                  <p className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500 mb-3">Dono da carta</p>
                   {revelation.players.length > 0 ? (
-                    <div className="grid gap-2">
-                      {revelation.players.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-indigo-100 bg-indigo-50 px-4 py-3 font-black text-indigo-800">{p.nickname}</div>)}
-                    </div>
+                    <>
+                      <h2 className="text-2xl font-black font-display mb-4">{revelation.charName} estava com:</h2>
+                      <div className="grid gap-2">
+                        {revelation.players.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-indigo-100 bg-indigo-50 px-4 py-3 font-black text-indigo-800">{p.nickname}</div>)}
+                      </div>
+                    </>
                   ) : (
-                    <div className="rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-4 text-lg font-black text-slate-600">Ninguém possuía</div>
+                    <>
+                      <h2 className="text-2xl font-black font-display mb-4">Ninguém tinha {revelation.charName}</h2>
+                      <div className="rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-4 text-lg font-black text-slate-600">Palpite sem alvo</div>
+                    </>
                   )}
                 </motion.div>
               ) : revealStage === 'result' ? (
@@ -641,20 +631,22 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                   <motion.div key="hit" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} transition={{ duration: 0.3 }} className="text-center p-8 bg-emerald-500 border-4 border-emerald-300 shadow-2xl max-w-md w-full rounded-3xl text-white">
                     <p className="text-xs font-black uppercase tracking-[0.35em] text-emerald-100 mb-3">Resultado</p>
                     <h2 className="text-5xl font-black font-display drop-shadow-lg">ACERTOU!</h2>
+                    <p className="mt-4 text-sm font-black uppercase tracking-wider text-emerald-50">O palpite de {revelation.voterName} atingiu {revelation.players.map((p: any) => p.nickname).join(', ')}</p>
                   </motion.div>
                 ) : (
                   <motion.div key="miss" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} transition={{ duration: 0.3 }} className="text-center p-8 bg-slate-900 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white">
                     <p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400 mb-3">Resultado</p>
                     <h2 className="text-5xl font-black font-display text-slate-200">ERROU</h2>
+                    <p className="mt-4 text-sm font-black uppercase tracking-wider text-slate-300">O palpite de {revelation.voterName} não encontrou ninguém</p>
                   </motion.div>
                 )
               ) : revealStage === 'consequence' ? (
                 revelation.players.length > 0 ? (
                   <motion.div key="life-lost" initial={{ y: 18, scale: 0.92, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, opacity: 0 }} transition={{ duration: 0.3 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-amber-300 shadow-2xl max-w-md w-full rounded-3xl">
                     <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-600 mb-2">Consequência</p>
-                    <h2 className="text-3xl font-black font-display mb-4">Perdeu vida</h2>
+                    <h2 className="text-3xl font-black font-display mb-4">Perda de vida</h2>
                     <div className="grid gap-2">
-                      {revelation.players.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-amber-100 bg-amber-50 px-4 py-3 font-black text-amber-800">{p.nickname} • vidas: {Math.max(0, p.lives || 0)}</div>)}
+                      {revelation.players.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-amber-100 bg-amber-50 px-4 py-3 font-black text-amber-800">{p.nickname} perdeu 1 vida • vidas: {Math.max(0, p.lives || 0)}</div>)}
                     </div>
                   </motion.div>
                 ) : (
@@ -674,7 +666,8 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                       <p className="text-xs font-black uppercase tracking-[0.35em] text-rose-300 mb-3">Eliminação</p>
                       <h2 className="text-4xl font-black font-display mb-4">{isMeHit ? 'VOCÊ FOI ELIMINADO' : 'JOGADOR ELIMINADO'}</h2>
                       <p className="rounded-2xl bg-white/10 border border-white/15 px-4 py-3 text-lg font-black">{revelation.eliminatedPlayers.map((p: any) => p.nickname).join(', ')}</p>
-                      {isMeHit && <p className="mt-4 text-xs font-black uppercase tracking-[0.25em] text-slate-300">Entrando no modo espectador</p>}
+                      <p className="mt-4 text-xs font-black uppercase tracking-[0.25em] text-slate-300">{revelation.voterName} eliminou usando {revelation.charName}</p>
+                      {isMeHit && <p className="mt-3 text-xs font-black uppercase tracking-[0.25em] text-slate-300">Entrando no modo espectador</p>}
                     </div>
                   </motion.div>
                 );

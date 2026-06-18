@@ -14,19 +14,6 @@ function resolvePickingNeed(room: any, players: any[], currentCards: any[]) {
   return isTiebreak ? 1 : room.chars_per_player || 3;
 }
 
-function findDuplicatePickingCards(players: any[], liveCardsByPlayer: Map<string, any[]>, needed: number) {
-  const cardsToCheck = players.flatMap((player: any) => (liveCardsByPlayer.get(player.id) || []).slice(0, needed));
-  const byCharacter = new Map<string, any[]>();
-
-  for (const card of cardsToCheck) {
-    const list = byCharacter.get(card.character_id) || [];
-    list.push(card);
-    byCharacter.set(card.character_id, list);
-  }
-
-  return [...byCharacter.values()].filter((list) => list.length > 1).flat();
-}
-
 async function fetchDeckCharacters(room: any) {
   const deckQuery = supabaseGame.from('characters').select('*');
   const { data } = room.deck_id ? await deckQuery.eq('deck_id', room.deck_id) : await deckQuery.is('deck_id', null);
@@ -89,7 +76,6 @@ export async function finalizeRoomPicking(roomId: string) {
     }
   }
 
-  const assignedCharacterIds = new Set<string>();
   const randomizedPlayers = shuffle(activePlayers);
   const playOrderByPlayerId = new Map(randomizedPlayers.map((player: any, index: number) => [player.id, index]));
 
@@ -125,11 +111,9 @@ export async function finalizeRoomPicking(roomId: string) {
     if (missing > 0) {
       const allPlayerCards = allCardsByPlayer.get(player.id) || [];
       const existingCharacterIds = new Set(allPlayerCards.map((card: any) => card.character_id));
-      const preferred = characters.filter((character: any) => !existingCharacterIds.has(character.id) && !assignedCharacterIds.has(character.id));
-      const fallbackFresh = characters.filter((character: any) => !existingCharacterIds.has(character.id));
-      const pool = preferred.length > 0 ? preferred : fallbackFresh.length > 0 ? fallbackFresh : characters;
+      const preferred = characters.filter((character: any) => !existingCharacterIds.has(character.id));
+      const pool = preferred.length > 0 ? preferred : characters;
       const selected = shuffle(pool).slice(0, missing);
-      selected.forEach((character: any) => assignedCharacterIds.add(character.id));
 
       const reusableCards = allPlayerCards.filter((card: any) => card.is_dead).slice(0, selected.length);
       const failedReusableCharacters: any[] = [];
@@ -156,51 +140,6 @@ export async function finalizeRoomPicking(roomId: string) {
     await playerUpdatePromise;
   }));
 
-  const { data: updatedCards } = await supabaseGame
-    .from('player_cards')
-    .select('*')
-    .eq('room_id', room.id)
-    .eq('is_dead', false);
-
-  const updatedLiveCardsByPlayer = new Map<string, any[]>();
-  for (const card of updatedCards || []) {
-    const list = updatedLiveCardsByPlayer.get(card.player_id) || [];
-    list.push(card);
-    updatedLiveCardsByPlayer.set(card.player_id, list);
-  }
-
-  const duplicateCards = findDuplicatePickingCards(activePlayers, updatedLiveCardsByPlayer, needed);
-  if (duplicateCards.length > 0) {
-    const deckCharacters = characters.length > 0 ? characters : await fetchDeckCharacters(room);
-    const requiredDistinctCards = activePlayers.length * needed;
-
-    if (deckCharacters.length >= requiredDistinctCards) {
-      await supabaseGame
-        .from('player_cards')
-        .update({ is_dead: true })
-        .in('id', duplicateCards.map((card: any) => card.id));
-
-      await supabaseGame
-        .from('rooms')
-        .update({
-          turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
-          last_activity_at: new Date().toISOString(),
-        })
-        .eq('id', room.id)
-        .eq('status', 'PICKING');
-
-      await touchRoomActivity(room.id);
-
-      return {
-        ok: true,
-        skipped: true,
-        duplicatePick: true,
-        reason: 'duplicate-picking-cards',
-        message: 'Alguns jogadores escolheram o mesmo personagem. Escolham novamente para desempatar.',
-      };
-    }
-  }
-
   await transitionRoom();
   await touchRoomActivity(room.id);
 
@@ -209,7 +148,7 @@ export async function finalizeRoomPicking(roomId: string) {
     needed,
     randomizedMissingCards: expired && !allReady,
     autoSelectedBotCards: realPlayers.length === 0,
-    duplicatePickAllowed: duplicateCards.length > 0,
+    repeatedCardsAllowed: true,
     players: activePlayers.length,
   };
 }

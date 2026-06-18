@@ -48,6 +48,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ ok: false, reason: 'stale-turn' });
   }
 
+  const serverExpiresMs = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
+  if (!serverExpiresMs) {
+    return NextResponse.json({ ok: false, reason: 'turn-being-resolved' });
+  }
+
+  if (!Number.isFinite(serverExpiresMs) || serverExpiresMs <= Date.now()) {
+    return NextResponse.json({ ok: false, reason: 'turn-expired' });
+  }
+
   const orderedPlayers = [...(players || [])].sort((a: any, b: any) => (a.play_order || 0) - (b.play_order || 0));
   const activePlayers = orderedPlayers.filter((player: any) => !player.is_eliminated && player.lives > 0);
   const activePlayer = activePlayers.length > 0
@@ -86,6 +95,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ ok: false, reason: 'turn-already-handled' });
   }
 
+  const restoreTurnLock = async () => {
+    await supabaseGame
+      .from('rooms')
+      .update({ turn_expires_at: originalExpiresAt })
+      .eq('id', room.id)
+      .eq('status', 'PLAYING')
+      .eq('current_turn_number', room.current_turn_number || 0)
+      .eq('turn_expires_at', lockUntil);
+  };
+
   const [{ data: deckChars }, { data: liveCards }, { data: freshPlayers }] = await Promise.all([
     room.deck_id
       ? supabaseGame.from('characters').select('*').eq('deck_id', room.deck_id)
@@ -101,6 +120,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const chars = deckChars || [];
   const targetChar = chars.find((char: any) => char.id === targetCharId);
   if (!targetChar) {
+    await restoreTurnLock();
     return NextResponse.json({ ok: false, reason: 'character-not-found' }, { status: 400 });
   }
 
@@ -114,6 +134,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const liveCharacterIds = new Set(liveCardsInPlay.map((card: any) => card.character_id));
 
   if (!liveCharacterIds.has(targetCharId)) {
+    await restoreTurnLock();
     return NextResponse.json({ ok: false, reason: 'character-not-live' }, { status: 400 });
   }
 

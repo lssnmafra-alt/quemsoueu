@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseGame } from '@/lib/supabase';
 import { finishOrAdvance } from '@/lib/gameProgress';
 import { touchRoomActivity } from '@/lib/roomLifecycle';
+import { playBotTurn } from '@/lib/botTurn';
 
 async function logMatchEvents(events: any[]) {
   const rows = events.filter(Boolean).map((event) => ({
@@ -65,6 +66,21 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   if (expectedPlayerId && activePlayer.id !== expectedPlayerId) {
     return NextResponse.json({ ok: false, reason: 'stale-player' });
+  }
+
+  if (activePlayer.is_bot) {
+    const botResult = await playBotTurn(room.id, {
+      expectedTurnNumber: room.current_turn_number || 0,
+      expectedPlayerId: activePlayer.id,
+    });
+
+    if (botResult?.ok && botResult.target) {
+      return NextResponse.json({ ok: true, botRecoveredFromTimeout: true, ...botResult });
+    }
+
+    if (botResult?.ok && botResult.skipped) {
+      return NextResponse.json({ ok: true, botRecoveredFromTimeout: true, ...botResult });
+    }
   }
 
   // Important: several clients can notice the same expired timer at the same time.

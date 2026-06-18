@@ -81,7 +81,6 @@ export default function GeminiDeckImagePanel() {
 
       setDeck((current: any) => ({ ...current, ...result.deck, cover_url: result.imageUrl }));
       setGeneratedDeckUrl(result.imageUrl || '');
-      setDeckPrompt('');
     } catch (error: any) {
       alert(error.message || 'Nao foi possivel gerar imagem do deck.');
     } finally {
@@ -105,7 +104,6 @@ export default function GeminiDeckImagePanel() {
 
       setCharacters((current) => current.map((item) => item.id === character.id ? { ...item, ...result.character, image_url: result.imageUrl } : item));
       setGeneratedCharacterUrls((current) => ({ ...current, [character.id]: result.imageUrl || '' }));
-      setCharacterPrompts((current) => ({ ...current, [character.id]: '' }));
     } catch (error: any) {
       alert(error.message || 'Nao foi possivel gerar imagem do personagem.');
     } finally {
@@ -158,7 +156,7 @@ export default function GeminiDeckImagePanel() {
                   className="mb-2 h-11 rounded-xl border-2 border-indigo-100 bg-white text-xs font-bold"
                 />
                 <Button type="button" onClick={generateDeckImage} disabled={generatingDeck || !deckPrompt.trim()} className="h-10 w-full btn-squishy-indigo text-xs font-black uppercase text-white">
-                  {generatingDeck ? 'Gerando...' : 'Gerar imagem do deck'}
+                  {generatingDeck ? 'Gerando...' : generatedDeckUrl ? 'Refazer imagem do deck' : 'Gerar imagem do deck'}
                 </Button>
 
                 {generatedDeckUrl && (
@@ -202,7 +200,7 @@ export default function GeminiDeckImagePanel() {
                         disabled={generatingCharacterId === character.id || !String(characterPrompts[character.id] || '').trim()}
                         className="h-9 w-full btn-squishy-green text-[10px] font-black uppercase text-white"
                       >
-                        {generatingCharacterId === character.id ? 'Gerando...' : 'Gerar imagem do personagem'}
+                        {generatingCharacterId === character.id ? 'Gerando...' : generatedUrl ? 'Refazer imagem do personagem' : 'Gerar imagem do personagem'}
                       </Button>
 
                       {generatedUrl && (

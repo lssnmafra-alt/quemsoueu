@@ -27,6 +27,11 @@ function trackForRoomStatus(status?: string) {
   return 'lobby-theme';
 }
 
+function isBotControlledLobby(room: any, players: any[]) {
+  if (!room || room.status !== 'LOBBY') return false;
+  return players.some((player: any) => player.is_bot && (player.is_admin || player.user_id === room.admin_id));
+}
+
 export default function RoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -119,8 +124,19 @@ export default function RoomPage() {
           is_admin: rm.admin_id === user.id,
         }).select().single();
         if (newP) {
-          setPlayers([...normalizedPlayers, newP]);
+          const joinedPlayers = [...normalizedPlayers, newP];
+          setPlayers(joinedPlayers);
           setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${newP.nickname} entrou na sala` }]);
+
+          if (isBotControlledLobby(rm, joinedPlayers)) {
+            setTimeout(() => {
+              fetch(`/api/rooms/${roomId}/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deckId: rm.deck_id || undefined, auto: true }),
+              }).catch(() => {});
+            }, 1200);
+          }
         }
       }
       setLoading(false);

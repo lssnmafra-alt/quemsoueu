@@ -76,11 +76,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     if (botResult?.ok && botResult.target) {
       const progress = await finishOrAdvance(room, botResult.hitPlayers || []);
-      return NextResponse.json({ ok: true, botRecoveredFromTimeout: true, ...botResult, ...progress });
+      return NextResponse.json({ ...botResult, botRecoveredFromTimeout: true, ...progress, ok: true });
     }
 
     if (botResult?.ok && botResult.skipped) {
-      return NextResponse.json({ ok: true, botRecoveredFromTimeout: true, ...botResult });
+      return NextResponse.json({ ...botResult, botRecoveredFromTimeout: true, ok: true });
     }
   }
 

@@ -27,7 +27,11 @@ export default function GeminiDeckImagePanel() {
   const [characterPrompts, setCharacterPrompts] = useState<Record<string, string>>({});
   const [generatedDeckUrl, setGeneratedDeckUrl] = useState('');
   const [generatedCharacterUrls, setGeneratedCharacterUrls] = useState<Record<string, string>>({});
+  const [editingNames, setEditingNames] = useState<Record<string, string>>({});
+  const [savingNameId, setSavingNameId] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchStatus, setBatchStatus] = useState('');
   const [generatingDeck, setGeneratingDeck] = useState(false);
   const [generatingCharacterId, setGeneratingCharacterId] = useState('');
 
@@ -42,6 +46,7 @@ export default function GeminiDeckImagePanel() {
 
       setDeck(deckData || null);
       setCharacters(characterData || []);
+      setEditingNames(Object.fromEntries((characterData || []).map((character: any) => [character.id, character.name || ''])));
       setGeneratedDeckUrl(deckData?.cover_url || deckData?.image_url || '');
       setGeneratedCharacterUrls(
         Object.fromEntries((characterData || []).map((character: any) => [character.id, character.image_url || ''])),
@@ -62,6 +67,46 @@ export default function GeminiDeckImagePanel() {
       window.setTimeout(() => setCopiedKey(''), 1400);
     } catch {
       window.prompt('Copie a URL da imagem:', url);
+    }
+  };
+
+  const requestCharacterImage = async (character: any, prompt: string) => {
+    const response = await fetch('/api/gemini/character-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characterId: character.id, prompt }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) throw new Error(result.error || 'Nao foi possivel gerar imagem do personagem.');
+    return result;
+  };
+
+  const saveCharacterName = async (character: any) => {
+    const nextName = String(editingNames[character.id] || '').trim();
+    if (!nextName || nextName === character.name || savingNameId) return;
+
+    setSavingNameId(character.id);
+    try {
+      const response = await fetch('/api/official-decks/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update-character',
+          deckId,
+          characterId: character.id,
+          name: nextName,
+          imageUrl: generatedCharacterUrls[character.id] || character.image_url || '',
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Nao foi possivel salvar o nome.');
+
+      setCharacters((current) => current.map((item) => item.id === character.id ? { ...item, ...result.character, name: nextName } : item));
+    } catch (error: any) {
+      alert(error.message || 'Nao foi possivel salvar o nome.');
+      setEditingNames((current) => ({ ...current, [character.id]: character.name || '' }));
+    } finally {
+      setSavingNameId('');
     }
   };
 
@@ -90,18 +135,11 @@ export default function GeminiDeckImagePanel() {
 
   const generateCharacterImage = async (character: any) => {
     const prompt = String(characterPrompts[character.id] || '').trim();
-    if (!prompt || generatingCharacterId) return;
+    if (!prompt || generatingCharacterId || batchRunning) return;
 
     setGeneratingCharacterId(character.id);
     try {
-      const response = await fetch('/api/gemini/character-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ characterId: character.id, prompt }),
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || !result.ok) throw new Error(result.error || 'Nao foi possivel gerar imagem do personagem.');
-
+      const result = await requestCharacterImage(character, prompt);
       setCharacters((current) => current.map((item) => item.id === character.id ? { ...item, ...result.character, image_url: result.imageUrl } : item));
       setGeneratedCharacterUrls((current) => ({ ...current, [character.id]: result.imageUrl || '' }));
     } catch (error: any) {
@@ -109,6 +147,38 @@ export default function GeminiDeckImagePanel() {
     } finally {
       setGeneratingCharacterId('');
     }
+  };
+
+  const generateBatchImages = async () => {
+    if (batchRunning || generatingCharacterId) return;
+
+    const queued = characters.filter((character) => String(characterPrompts[character.id] || '').trim());
+    if (queued.length === 0) {
+      alert('Preencha pelo menos um prompt de personagem para gerar em lote.');
+      return;
+    }
+
+    setBatchRunning(true);
+    setBatchStatus(`0/${queued.length}`);
+
+    for (let index = 0; index < queued.length; index += 1) {
+      const character = queued[index];
+      const prompt = String(characterPrompts[character.id] || '').trim();
+      setGeneratingCharacterId(character.id);
+      setBatchStatus(`${index + 1}/${queued.length} - ${character.name}`);
+
+      try {
+        const result = await requestCharacterImage(character, prompt);
+        setCharacters((current) => current.map((item) => item.id === character.id ? { ...item, ...result.character, image_url: result.imageUrl } : item));
+        setGeneratedCharacterUrls((current) => ({ ...current, [character.id]: result.imageUrl || '' }));
+      } catch (error: any) {
+        setBatchStatus(`Erro em ${character.name}: ${error.message || 'falhou'}`);
+        break;
+      }
+    }
+
+    setGeneratingCharacterId('');
+    setBatchRunning(false);
   };
 
   return (
@@ -173,6 +243,18 @@ export default function GeminiDeckImagePanel() {
                 )}
               </div>
 
+              <div className="rounded-2xl border-2 border-emerald-100 bg-emerald-50/50 p-3">
+                <Button
+                  type="button"
+                  onClick={generateBatchImages}
+                  disabled={batchRunning || Boolean(generatingCharacterId) || characters.every((character) => !String(characterPrompts[character.id] || '').trim())}
+                  className="h-11 w-full btn-squishy-green text-xs font-black uppercase text-white"
+                >
+                  {batchRunning ? `Gerando em lote ${batchStatus}` : 'Gerar em lote os prompts preenchidos'}
+                </Button>
+                <p className="mt-2 text-[10px] font-bold uppercase text-emerald-700">Gera uma imagem por vez, automaticamente, ate terminar a fila.</p>
+              </div>
+
               <div className="space-y-3">
                 {characters.map((character) => {
                   const generatedUrl = generatedCharacterUrls[character.id] || character.image_url || '';
@@ -183,21 +265,31 @@ export default function GeminiDeckImagePanel() {
                         <div className="h-24 w-16 shrink-0 overflow-hidden rounded-xl border-2 border-indigo-50 bg-slate-50">
                           <CharacterImage name={character.name} imageUrl={character.image_url} isOfficial className="h-full w-full object-cover" />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-black text-indigo-950">{character.name}</p>
-                          <p className="text-[10px] font-bold uppercase text-slate-400">Salva em atuem/characters/</p>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <Input
+                            value={editingNames[character.id] ?? character.name ?? ''}
+                            onChange={(event) => setEditingNames((current) => ({ ...current, [character.id]: event.target.value }))}
+                            onBlur={() => saveCharacterName(character)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') event.currentTarget.blur();
+                              if (event.key === 'Escape') setEditingNames((current) => ({ ...current, [character.id]: character.name || '' }));
+                            }}
+                            className="h-9 rounded-xl border-2 border-indigo-50 bg-white px-2 text-sm font-black text-indigo-950"
+                            placeholder="Nome do personagem"
+                          />
+                          <p className="text-[10px] font-bold uppercase text-slate-400">{savingNameId === character.id ? 'Salvando nome...' : 'Clique no nome para editar'} · salva em atuem/characters/</p>
                         </div>
                       </div>
                       <Input
                         value={characterPrompts[character.id] || ''}
                         onChange={(event) => setCharacterPrompts((current) => ({ ...current, [character.id]: event.target.value }))}
-                        placeholder={`Prompt para ${character.name}...`}
+                        placeholder={`Prompt para ${editingNames[character.id] || character.name}...`}
                         className="mb-2 h-10 rounded-xl border-2 border-slate-100 text-xs font-bold"
                       />
                       <Button
                         type="button"
                         onClick={() => generateCharacterImage(character)}
-                        disabled={generatingCharacterId === character.id || !String(characterPrompts[character.id] || '').trim()}
+                        disabled={batchRunning || generatingCharacterId === character.id || !String(characterPrompts[character.id] || '').trim()}
                         className="h-9 w-full btn-squishy-green text-[10px] font-black uppercase text-white"
                       >
                         {generatingCharacterId === character.id ? 'Gerando...' : generatedUrl ? 'Refazer imagem do personagem' : 'Gerar imagem do personagem'}

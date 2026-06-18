@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ArrowLeft, ImagePlus, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,14 @@ import LoadingArena from '@/components/LoadingArena';
 import CharacterImage from '@/components/CharacterImage';
 
 export default function OfficialDeckGeminiPage() {
+  return (
+    <Suspense fallback={<LoadingArena label="Carregando gerador Gemini..." />}>
+      <OfficialDeckGeminiInner />
+    </Suspense>
+  );
+}
+
+function OfficialDeckGeminiInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const deckId = searchParams.get('deckId') || '';

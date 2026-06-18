@@ -12,7 +12,6 @@ import LoadingArena from '@/components/LoadingArena';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 
 const OFFICIAL_DECK_ID = '__official__';
-let lastBotCycleRunAt = 0;
 
 export default function HomeLobby() {
   const router = useRouter();
@@ -35,62 +34,14 @@ export default function HomeLobby() {
     }
 
     const fetchRooms = async () => {
-      const now = Date.now();
-      if (now - lastBotCycleRunAt > 15000) {
-        lastBotCycleRunAt = now;
-        await fetch('/api/rooms/bot-cycle', { method: 'POST' }).catch(() => {});
-      }
-
-      const { data } = await supabaseGame
-        .from('rooms')
-        .select('*')
-        .eq('is_public', true)
-        .eq('status', 'LOBBY')
-        .order('created_at', { ascending: false })
-        .limit(12);
-
-      const roomIds = (data || []).map((room: any) => room.id);
-      const { data: roomPlayers } = roomIds.length > 0
-        ? await supabaseGame.from('room_players').select('room_id,is_bot,nickname').in('room_id', roomIds)
-        : { data: [] };
-
-      const playerCounts = new Map<string, number>();
-      const humanCounts = new Map<string, number>();
-      const hasOldBotNickname = new Set<string>();
-      (roomPlayers || []).forEach((player: any) => {
-        playerCounts.set(player.room_id, (playerCounts.get(player.room_id) || 0) + 1);
-        if (!player.is_bot) {
-          humanCounts.set(player.room_id, (humanCounts.get(player.room_id) || 0) + 1);
-        }
-        if (player.is_bot && /^bot\s/i.test(String(player.nickname || ''))) {
-          hasOldBotNickname.add(player.room_id);
-        }
-      });
-
-      const orderedRooms = (data || [])
-        .map((room: any) => {
-          const playerCount = playerCounts.get(room.id) || 0;
-          const humanCount = humanCounts.get(room.id) || 0;
-          return { ...room, player_count: playerCount, human_count: humanCount };
-        })
-        .filter((room: any) => {
-          const maxPlayers = room.max_players || 6;
-          const botOnly = (room.player_count || 0) > 0 && (room.human_count || 0) === 0;
-          const oldBotOnlyShape = botOnly && maxPlayers !== 4;
-          return room.status === 'LOBBY'
-            && (room.player_count || 0) < maxPlayers
-            && !oldBotOnlyShape
-            && !hasOldBotNickname.has(room.id);
-        })
-        .sort((a: any, b: any) => ((b.player_count || 0) - (a.player_count || 0)))
-        .slice(0, 8);
-
-      setRooms(orderedRooms);
+      const response = await fetch('/api/rooms/public', { cache: 'no-store' }).catch(() => null);
+      const result = response ? await response.json().catch(() => ({})) : {};
+      setRooms(Array.isArray(result.rooms) ? result.rooms : []);
       setLoading(false);
     };
 
     fetchRooms();
-    const roomCycle = setInterval(fetchRooms, 15000);
+    const roomCycle = setInterval(fetchRooms, 10000);
 
     const subscription = supabaseGame.channel('public:rooms')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, fetchRooms)

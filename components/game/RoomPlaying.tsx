@@ -130,7 +130,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const peopleToRead = Math.max(1, hitPlayers.length);
     const timing = {
       preparing: 750,
-      card: 2000,
+      card: 2600,
       owner: Math.min(2600, 1750 + peopleToRead * 180),
       result: 1250,
       consequence: Math.min(2900, 2000 + peopleToRead * 220),
@@ -285,7 +285,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.ok === false) {
-        addLog(result?.reason === 'turn-already-handled' ? 'Esse turno ja foi processado.' : 'Nao foi possivel votar agora.');
+        addLog(result?.reason === 'cannot-vote-own-card' ? 'Você não pode votar na própria carta.' : result?.reason === 'turn-already-handled' ? 'Esse turno ja foi processado.' : 'Nao foi possivel votar agora.');
         return;
       }
 
@@ -522,7 +522,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
           })}
         </div>
 
-        {(!isMyTurn || isRevealing) ? (
+        {((!isMyTurn && !isVoting) || isRevealing) ? (
           <div className="bg-white border-2 border-indigo-100 rounded-2xl p-3 md:p-4 mb-3 max-h-[68vh] sm:max-h-[62vh] overflow-y-auto shadow-sm">
             <h3 className="text-xs md:text-sm font-black text-indigo-950 uppercase mb-2 border-b-2 border-indigo-50 pb-1.5 flex items-center gap-2">
               <List className="w-4 h-4 md:w-5 md:h-5 text-indigo-500" /> Personagens vivos

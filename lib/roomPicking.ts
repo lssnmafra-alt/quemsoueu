@@ -1,5 +1,5 @@
 import { supabaseGame } from './supabase';
-import { touchRoomActivity } from './roomLifecycle';
+import { nextRoomExpiry, touchRoomActivity } from './roomLifecycle';
 
 function shuffle<T>(items: T[]) {
   return [...items].sort(() => Math.random() - 0.5);
@@ -15,9 +15,10 @@ function resolvePickingNeed(room: any, players: any[], currentCards: any[]) {
 }
 
 export async function finalizeRoomPicking(roomId: string) {
-  const [{ data: room }, { data: players }] = await Promise.all([
+  const [{ data: room }, { data: players }, { data: currentCards }] = await Promise.all([
     supabaseGame.from('rooms').select('*').eq('id', roomId).maybeSingle(),
     supabaseGame.from('room_players').select('*').eq('room_id', roomId),
+    supabaseGame.from('player_cards').select('*').eq('room_id', roomId),
   ]);
 
   if (!room) {
@@ -29,26 +30,15 @@ export async function finalizeRoomPicking(roomId: string) {
   }
 
   const expired = !room.turn_expires_at || new Date(room.turn_expires_at).getTime() <= Date.now();
-  const deckQuery = supabaseGame.from('characters').select('*');
-  const [{ data: deckChars }, { data: currentCards }] = await Promise.all([
-    room.deck_id ? deckQuery.eq('deck_id', room.deck_id) : deckQuery.is('deck_id', null),
-    supabaseGame.from('player_cards').select('*').eq('room_id', room.id),
-  ]);
-
   const allPlayers = players || [];
   const cards = currentCards || [];
   const activePlayers = allPlayers.filter((player: any) => !player.is_eliminated);
   const needed = resolvePickingNeed(room, activePlayers, cards);
-  const characters = deckChars || [];
 
   if (activePlayers.length === 0) {
     await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
     await touchRoomActivity(room.id);
     return { ok: true, finished: true, reason: 'no-active-picking-players' };
-  }
-
-  if (characters.length < needed) {
-    return { ok: false, status: 400, error: `O deck precisa ter pelo menos ${needed} personagens.` };
   }
 
   const liveCardsByPlayer = new Map<string, any[]>();
@@ -73,11 +63,43 @@ export async function finalizeRoomPicking(roomId: string) {
     return { ok: true, skipped: true, reason: 'waiting-for-players' };
   }
 
-  const assignedCharacterIds = new Set<string>();
+  const needsAssignments = activePlayers.some((player: any) => (liveCardsByPlayer.get(player.id)?.length || 0) < needed);
+  let characters: any[] = [];
+  if (needsAssignments) {
+    const deckQuery = supabaseGame.from('characters').select('*');
+    const { data: deckChars } = room.deck_id ? await deckQuery.eq('deck_id', room.deck_id) : await deckQuery.is('deck_id', null);
+    characters = deckChars || [];
+    if (characters.length < needed) {
+      return { ok: false, status: 400, error: `O deck precisa ter pelo menos ${needed} personagens.` };
+    }
+  }
 
-  for (const player of activePlayers) {
+  const assignedCharacterIds = new Set<string>();
+  const randomizedPlayers = shuffle(activePlayers);
+  const playOrderByPlayerId = new Map(randomizedPlayers.map((player: any, index: number) => [player.id, index]));
+
+  const transitionNow = new Date();
+  const transitionRoom = () => supabaseGame.from('rooms').update({
+    status: 'STARTING',
+    current_turn_number: 0,
+    turn_expires_at: new Date(Date.now() + 5000).toISOString(),
+    last_activity_at: transitionNow.toISOString(),
+    expires_at: nextRoomExpiry(transitionNow),
+  }).eq('id', room.id).eq('status', 'PICKING');
+  await Promise.all(activePlayers.map(async (player: any) => {
     const existingLiveCards = liveCardsByPlayer.get(player.id) || [];
     const missing = Math.max(0, needed - existingLiveCards.length);
+    const playerUpdatePromise = (async () => {
+      await supabaseGame
+        .from('room_players')
+        .update({
+          lives: needed,
+          is_eliminated: false,
+          missed_turns: 0,
+          play_order: playOrderByPlayerId.get(player.id),
+        })
+        .eq('id', player.id);
+    })();
 
     if (existingLiveCards.length > needed) {
       const extras = existingLiveCards.slice(needed);
@@ -91,53 +113,34 @@ export async function finalizeRoomPicking(roomId: string) {
       const fallbackFresh = characters.filter((character: any) => !existingCharacterIds.has(character.id));
       const pool = preferred.length > 0 ? preferred : fallbackFresh.length > 0 ? fallbackFresh : characters;
       const selected = shuffle(pool).slice(0, missing);
+      selected.forEach((character: any) => assignedCharacterIds.add(character.id));
 
-      for (const character of selected) {
-        const reusableCard = allPlayerCards.find((card: any) => card.is_dead);
-        if (reusableCard) {
-          const { error } = await supabaseGame
-            .from('player_cards')
-            .update({ character_id: character.id, is_dead: false })
-            .eq('id', reusableCard.id);
+      const reusableCards = allPlayerCards.filter((card: any) => card.is_dead).slice(0, selected.length);
+      const failedReusableCharacters: any[] = [];
+      await Promise.all(reusableCards.map(async (reusableCard: any, index: number) => {
+        const character = selected[index];
+        const { error } = await supabaseGame
+          .from('player_cards')
+          .update({ character_id: character.id, is_dead: false })
+          .eq('id', reusableCard.id);
+        if (error) failedReusableCharacters.push(character);
+      }));
 
-          if (!error) {
-            reusableCard.is_dead = false;
-            reusableCard.character_id = character.id;
-            assignedCharacterIds.add(character.id);
-            continue;
-          }
-        }
-
-        const { error } = await supabaseGame.from('player_cards').insert({
+      const charactersToInsert = [...selected.slice(reusableCards.length), ...failedReusableCharacters];
+      if (charactersToInsert.length > 0) {
+        await supabaseGame.from('player_cards').insert(charactersToInsert.map((character: any) => ({
           room_id: room.id,
           player_id: player.id,
           character_id: character.id,
           is_dead: false,
-        });
-
-        if (!error) {
-          assignedCharacterIds.add(character.id);
-        }
+        })));
       }
     }
 
-    await supabaseGame
-      .from('room_players')
-      .update({ lives: needed, is_eliminated: false, missed_turns: 0 })
-      .eq('id', player.id);
-  }
+    await playerUpdatePromise;
+  }));
 
-  const randomizedPlayers = shuffle(activePlayers);
-  for (let i = 0; i < randomizedPlayers.length; i++) {
-    await supabaseGame.from('room_players').update({ play_order: i }).eq('id', randomizedPlayers[i].id);
-  }
-
-  await supabaseGame.from('rooms').update({
-    status: 'STARTING',
-    current_turn_number: 0,
-    turn_expires_at: new Date(Date.now() + 4000).toISOString(),
-  }).eq('id', room.id).eq('status', 'PICKING');
-
+  await transitionRoom();
   await touchRoomActivity(room.id);
 
   return {

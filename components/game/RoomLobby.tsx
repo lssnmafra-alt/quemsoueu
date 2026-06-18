@@ -40,6 +40,8 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const [deckSearch, setDeckSearch] = useState('');
   const [deckTab, setDeckTab] = useState<(typeof deckTabs)[number]['id']>('official');
   const [botsCount, setBotsCount] = useState<number>(() => players.filter((p: any) => p.is_bot).length);
+  const [autoStartSeconds, setAutoStartSeconds] = useState<number | null>(null);
+  const [decksLoading, setDecksLoading] = useState(true);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const botStartRef = useRef(false);
   const botRowsCountRef = useRef(players.filter((p: any) => p.is_bot).length);
@@ -77,6 +79,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
       }))];
 
       setDecks(nextDecks);
+      setDecksLoading(false);
     };
 
     fetchDecks();
@@ -129,15 +132,22 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
 
   useEffect(() => {
     const hasBot = players.some((player: any) => player.is_bot);
-    if (!hasBot || room.status !== 'LOBBY' || botStartRef.current) return;
-    if (!botIsAdmin && isAdmin) return;
+    if (!hasBot || room.status !== 'LOBBY' || botStartRef.current || !botIsAdmin) return;
 
     const startableDeck = decks.find((deck: any) => deck.id === room.deck_id) || decks.find((deck: any) => deck.is_public) || decks[0];
+    if (!startableDeck) return;
     botStartRef.current = true;
+    setAutoStartSeconds(5);
+    const countdown = setInterval(() => {
+      setAutoStartSeconds((seconds) => seconds === null ? null : Math.max(0, seconds - 1));
+    }, 1000);
     const timer = setTimeout(() => {
       handleStart(startableDeck?.id, true);
     }, 5000);
-    return () => clearTimeout(timer);
+    return () => {
+      clearInterval(countdown);
+      clearTimeout(timer);
+    };
   }, [botIsAdmin, decks, handleStart, isAdmin, players, room.deck_id, room.status]);
 
   const realPlayersCount = players.filter((p: any) => !p.is_bot).length;
@@ -147,9 +157,15 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const clampedBotsCount = Math.min(botsCount, maxBots);
   const expectedParticipants = realPlayersCount + clampedBotsCount;
   const canStart = expectedParticipants >= MIN_PLAYERS_TO_START;
+  const updateBotsFromPointer = (event: React.PointerEvent<HTMLInputElement>) => {
+    if (maxBots <= 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    setBotsCount(Math.round(ratio * maxBots));
+  };
   const selectedDeckName = selectedDeck === ''
     ? 'Personagens Oficiais'
-    : decks.find((deck: any) => deck.id === selectedDeck)?.name || 'Baralho selecionado';
+    : decks.find((deck: any) => deck.id === selectedDeck)?.name || (decksLoading ? 'Carregando baralho...' : 'Baralho indisponível');
 
   const filteredDecks = useMemo(() => {
     const search = deckSearch.trim().toLowerCase();
@@ -398,7 +414,23 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
                     <Cpu className="w-4 h-4 text-indigo-500" /> Adicionar Bots de Inteligencia Artificial
                   </label>
                   <div className="flex items-center gap-4 bg-white border-2 border-indigo-100 p-2.5 rounded-xl">
-                    <input type="range" min="0" max={maxBots} value={clampedBotsCount} onChange={(e) => setBotsCount(Math.min(parseInt(e.target.value), maxBots))} className="flex-1 accent-indigo-550 h-2 bg-slate-100 appearance-none cursor-pointer rounded-full" />
+                    <input
+                      type="range"
+                      min="0"
+                      max={maxBots}
+                      value={clampedBotsCount}
+                      onInput={(event) => setBotsCount(Math.min(parseInt(event.currentTarget.value), maxBots))}
+                      onChange={(event) => setBotsCount(Math.min(parseInt(event.target.value), maxBots))}
+                      onPointerDown={updateBotsFromPointer}
+                      onPointerMove={(event) => {
+                        if (event.buttons === 1) updateBotsFromPointer(event);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') setBotsCount((count) => Math.max(0, count - 1));
+                        if (event.key === 'ArrowRight' || event.key === 'ArrowUp') setBotsCount((count) => Math.min(maxBots, count + 1));
+                      }}
+                      className="flex-1 accent-indigo-550 h-2 cursor-pointer rounded-full"
+                    />
                     <div className="w-10 h-10 bg-indigo-50 border border-indigo-100 rounded-lg flex items-center justify-center">
                       <span className="text-base text-indigo-950 font-black">{clampedBotsCount}</span>
                     </div>
@@ -407,6 +439,11 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
               )}
 
               <div className="mt-auto pt-4">
+                {autoStartSeconds !== null && (
+                  <div className="mb-3 rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-amber-800">
+                    Jogadores mínimos atingidos. A partida começará em {autoStartSeconds}s.
+                  </div>
+                )}
                 {isAdmin ? (
                   <Button disabled={!canStart} onClick={() => handleStart()} className="w-full h-14 text-sm font-black tracking-wider uppercase btn-squishy-green text-white cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     <Play className="w-4 h-4 fill-white" /> Iniciar Partida

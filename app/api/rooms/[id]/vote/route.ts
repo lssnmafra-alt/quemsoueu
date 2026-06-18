@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { supabaseGame } from '@/lib/supabase';
-import { finishOrAdvance } from '@/lib/gameProgress';
 import { touchRoomActivity } from '@/lib/roomLifecycle';
 
 async function logMatchEvents(events: any[]) {
@@ -188,18 +187,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   ]);
 
   await touchRoomActivity(room.id);
-  const progress = await finishOrAdvance(room, hitPlayers);
-
-  if (progress?.finished) {
-    await logMatchEvents([{
-      roomId: room.id,
-      turnNumber: room.current_turn_number || 0,
-      eventType: 'room_finished',
-      message: progress.winner ? `Partida encerrada. Campeao: ${progress.winner}.` : 'Partida encerrada em empate.',
-      metadata: { winner: progress.winner || null, reason: progress.reason || null },
-    }]);
-  }
-
   return NextResponse.json({
     ok: true,
     target: targetChar.name,
@@ -209,6 +196,5 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     hitPlayerIds,
     hitPlayers,
     hits: hits.length,
-    ...progress,
   });
 }

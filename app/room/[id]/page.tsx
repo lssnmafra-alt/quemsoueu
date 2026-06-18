@@ -37,7 +37,6 @@ export default function RoomPage() {
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [roomNotices, setRoomNotices] = useState<{ id: string; text: string }[]>([]);
-  const botAdminStartAttemptAtRef = useRef(0);
   const pickingFinalizeAttemptAtRef = useRef(0);
 
   useEffect(() => {
@@ -88,23 +87,6 @@ export default function RoomPage() {
       setRoom(rm);
       setPlayers(normalizedPlayers);
 
-      const currentAdmin = normalizedPlayers.find((player: any) => (
-        player.user_id === rm.admin_id || player.is_admin
-      ));
-      if (rm.status === 'LOBBY' && currentAdmin?.is_bot) {
-        const now = Date.now();
-        if (now - botAdminStartAttemptAtRef.current > 8000) {
-          botAdminStartAttemptAtRef.current = now;
-          fetch(`/api/rooms/${roomId}/start`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ auto: true }),
-          }).catch(() => {
-            botAdminStartAttemptAtRef.current = 0;
-          });
-        }
-      }
-
       if (rm.status === 'PICKING' && (!rm.turn_expires_at || new Date(rm.turn_expires_at).getTime() <= Date.now())) {
         const now = Date.now();
         if (now - pickingFinalizeAttemptAtRef.current > 5000) {
@@ -119,6 +101,7 @@ export default function RoomPage() {
 
       if (shouldAutoJoin && !alreadyInRoom) {
         if (rm.status !== 'LOBBY') {
+          alert('Essa sala não aceita novos jogadores no momento. Escolha uma sala aguardando jogadores.');
           router.push('/lobby');
           return;
         }
@@ -265,11 +248,21 @@ export default function RoomPage() {
         ))}
       </AnimatePresence>
       <GameErrorBoundary>
-        {room.status === 'LOBBY' && <RoomLobby room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
-        {room.status === 'PICKING' && <RoomPicking room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} />}
-        {room.status === 'STARTING' && <RoomStarting room={room} players={enrichedPlayers} isAdmin={isAdmin} />}
-        {room.status === 'PLAYING' && <RoomPlaying room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
-        {room.status === 'FINISHED' && <RoomFinished room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={room.status}
+            initial={{ opacity: 0, scale: 0.985 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.01 }}
+            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {room.status === 'LOBBY' && <RoomLobby room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
+            {room.status === 'PICKING' && <RoomPicking room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} />}
+            {room.status === 'STARTING' && <RoomStarting room={room} players={enrichedPlayers} isAdmin={isAdmin} />}
+            {room.status === 'PLAYING' && <RoomPlaying room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
+            {room.status === 'FINISHED' && <RoomFinished room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
+          </motion.div>
+        </AnimatePresence>
       </GameErrorBoundary>
     </div>
   );

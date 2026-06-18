@@ -124,9 +124,16 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const eliminatedPlayers = hitPlayers.filter((player: any) => (player.lives || 0) <= 0 || player.is_eliminated);
     const revealCard = deckChars.find((card) => String(card.name || '').toLowerCase() === String(charName || '').toLowerCase());
     const hasHit = hitPlayers.length > 0;
-    const timing = isSuddenDeath
-      ? { preparing: 900, card: 1400, owner: 900, result: 1500, consequence: 1000, eliminated: 2200, breath: 500 }
-      : { preparing: 1200, card: 1800, owner: 1200, result: 1700, consequence: 1600, eliminated: 3000, breath: 700 };
+    const peopleToRead = Math.max(1, hitPlayers.length);
+    const timing = {
+      preparing: 750,
+      card: 1400,
+      owner: Math.min(2100, 1250 + peopleToRead * 180),
+      result: 1250,
+      consequence: Math.min(2200, 1300 + peopleToRead * 180),
+      eliminated: 2200,
+      breath: 400,
+    };
 
     setIsRevealing(true);
     setRevealStage('choosing');
@@ -158,7 +165,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
       setRevealStage('eliminated');
       audioManager.playSFX(eliminatedPlayers.some((player: any) => player.id === me?.id) ? 'defeat' : 'player_eliminated');
       await sleep(timing.eliminated);
-    } else {
+    } else if (hasHit) {
       setRevealStage('consequence');
       await sleep(timing.consequence);
     }
@@ -167,7 +174,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     setIsRevealing(false);
     setRevelation(null);
     await refreshLiveCards();
-  }, [deckChars, isSuddenDeath, me?.id, refreshLiveCards]);
+  }, [deckChars, me?.id, refreshLiveCards]);
 
   useEffect(() => {
     showRevealRef.current = showReveal;
@@ -231,6 +238,16 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     await sendReveal(payload);
     await showReveal(result.target, payload.hitPlayerIds, voter, payload.hitPlayers);
 
+    const finishResponse = await fetch(`/api/rooms/${room.id}/finish-turn`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        turnNumber: room.current_turn_number,
+        tiebreakPlayerIds: (result.hitPlayers || []).map((player: any) => player.id),
+      }),
+    });
+    const progress = await finishResponse.json().catch(() => ({}));
+
     if ((result.hitPlayerIds || []).length > 0) {
       addLog(`ACERTOU! ${result.target} estava na mesa.`);
       for (const player of result.hitPlayers || []) {
@@ -239,9 +256,9 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     } else {
       addLog(`ERROU! Ninguem tinha ${result.target}.`);
     }
-    if (result.tiebreak) addLog('EMPATE! Escolham novos personagens para o desempate.');
-    if (result.finished) addLog(`Partida encerrada! Campeao: ${result.winner || 'Empate'}!`);
-  }, [addLog, sendReveal, showReveal]);
+    if (progress.tiebreak) addLog('EMPATE! Escolham novos personagens para o desempate.');
+    if (progress.finished) addLog(`Partida encerrada! Campeao: ${progress.winner || 'Empate'}!`);
+  }, [addLog, room.current_turn_number, room.id, sendReveal, showReveal]);
 
   const processVote = async (targetCharId: string) => {
     if (!activePlayer || !isMyTurn || voteProcessingRef.current || isVoting) return;
@@ -416,8 +433,8 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const voteSeconds = Math.max(5, room.vote_time_seconds || 30);
     const maxDelay = Math.max(1000, voteSeconds * 1000 - 2500);
     const preferredDelay = isSuddenDeath
-      ? (humanPlayers.length === 1 ? 1200 : 1800) + Math.floor(Math.random() * 900)
-      : (humanPlayers.length === 1 ? 1400 : 2400) + Math.floor(Math.random() * 1200);
+      ? (humanPlayers.length === 1 ? 2200 : 2800) + Math.floor(Math.random() * 800)
+      : (humanPlayers.length === 1 ? 2800 : 3600) + Math.floor(Math.random() * 1000);
     const delay = Math.min(maxDelay, preferredDelay);
 
     const timer = setTimeout(async () => {
@@ -476,10 +493,12 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
               <Zap className="w-4 h-4" />
               {isRevealing || isVoting ? 'Preparando revelação' : activePlayer ? 'Escolhendo...' : 'Aguardando'}
             </div>
-            <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border', isSpectator ? 'bg-slate-800 border-slate-600' : isSuddenDeath ? 'bg-white border-rose-200' : 'bg-indigo-50/50 border-indigo-100')}>
-              <Clock className={cn('w-4 h-4', isSpectator ? 'text-slate-300' : isSuddenDeath ? 'text-rose-500' : 'text-indigo-500')} />
-              <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : isSpectator ? 'text-white' : isSuddenDeath ? 'text-rose-600' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
-            </div>
+            {!isRevealing && !isVoting && (
+              <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border', isSpectator ? 'bg-slate-800 border-slate-600' : isSuddenDeath ? 'bg-white border-rose-200' : 'bg-indigo-50/50 border-indigo-100')}>
+                <Clock className={cn('w-4 h-4', isSpectator ? 'text-slate-300' : isSuddenDeath ? 'text-rose-500' : 'text-indigo-500')} />
+                <span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : isSpectator ? 'text-white' : isSuddenDeath ? 'text-rose-600' : 'text-indigo-950')}>00:{timeLeft.toString().padStart(2, '0')}</span>
+              </div>
+            )}
             <button onClick={leaveRoom} className="h-10 md:h-11 px-3 md:px-4 rounded-2xl border-2 border-rose-100 bg-rose-50 text-rose-600 text-[10px] md:text-xs font-black uppercase flex items-center gap-1.5 hover:bg-rose-100 transition-all cursor-pointer">
               Sair <LogOut className="w-4 h-4" />
             </button>
@@ -585,16 +604,17 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
 
         <AnimatePresence>
           {isRevealing && revelation && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-950/82 backdrop-blur-md rounded-3xl p-4 text-white">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.28 }} className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-950/82 backdrop-blur-md rounded-3xl p-4 text-white">
+              <AnimatePresence mode="wait" initial={false}>
               {revealStage === 'choosing' ? (
-                <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-8 max-w-sm w-full">
+                <motion.div key="choosing" initial={{ y: 18, scale: 0.96, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -14, scale: 0.98, opacity: 0 }} transition={{ duration: 0.3 }} className="text-center p-8 max-w-sm w-full">
                   <div className="w-20 h-20 bg-indigo-500/20 border-2 border-indigo-300/40 text-indigo-200 rounded-full flex items-center justify-center mx-auto mb-5 animate-pulse"><Zap className="w-10 h-10" /></div>
                   <p className="text-xs font-black uppercase tracking-[0.35em] text-indigo-200 mb-3">Preparando resultado</p>
                   <h2 className="text-3xl font-black font-display">{revelation.voterName}</h2>
                   <p className="mt-2 text-sm font-bold text-white/70">está revelando uma acusação...</p>
                 </motion.div>
               ) : revealStage === 'choice' ? (
-                <motion.div initial={{ scale: 0.72, y: 35, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} className="w-full max-w-sm text-center">
+                <motion.div key="choice" initial={{ scale: 0.88, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 1.03, y: -14, opacity: 0 }} transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }} className="w-full max-w-sm text-center">
                   <p className="mb-2 text-xs font-black uppercase tracking-[0.35em] text-amber-200">{revelation.voterName} escolheu</p>
                   <div className="mx-auto mb-5 w-52 max-w-[70vw] rounded-[1.6rem] border-4 border-white/20 bg-slate-900 p-2 shadow-2xl">
                     <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-slate-800">
@@ -605,7 +625,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                   <p className="mt-4 text-xs font-black uppercase tracking-[0.3em] text-white/55">Quem possuía?</p>
                 </motion.div>
               ) : revealStage === 'owner' ? (
-                <motion.div initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-indigo-200 shadow-2xl max-w-md w-full rounded-3xl">
+                <motion.div key="owner" initial={{ y: 20, scale: 0.94, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, scale: 1.02, opacity: 0 }} transition={{ duration: 0.3 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-indigo-200 shadow-2xl max-w-md w-full rounded-3xl">
                   <p className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500 mb-3">Quem possuía?</p>
                   <h2 className="text-3xl font-black font-display mb-4">{revelation.charName}</h2>
                   {revelation.players.length > 0 ? (
@@ -618,19 +638,19 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                 </motion.div>
               ) : revealStage === 'result' ? (
                 revelation.players.length > 0 ? (
-                  <motion.div initial={{ scale: 0.82, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-8 bg-emerald-500 border-4 border-emerald-300 shadow-2xl max-w-md w-full rounded-3xl text-white">
+                  <motion.div key="hit" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} transition={{ duration: 0.3 }} className="text-center p-8 bg-emerald-500 border-4 border-emerald-300 shadow-2xl max-w-md w-full rounded-3xl text-white">
                     <p className="text-xs font-black uppercase tracking-[0.35em] text-emerald-100 mb-3">Resultado</p>
                     <h2 className="text-5xl font-black font-display drop-shadow-lg">ACERTOU!</h2>
                   </motion.div>
                 ) : (
-                  <motion.div initial={{ scale: 0.82, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-8 bg-slate-900 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white">
+                  <motion.div key="miss" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} transition={{ duration: 0.3 }} className="text-center p-8 bg-slate-900 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white">
                     <p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400 mb-3">Resultado</p>
                     <h2 className="text-5xl font-black font-display text-slate-200">ERROU</h2>
                   </motion.div>
                 )
               ) : revealStage === 'consequence' ? (
                 revelation.players.length > 0 ? (
-                  <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-amber-300 shadow-2xl max-w-md w-full rounded-3xl">
+                  <motion.div key="life-lost" initial={{ y: 18, scale: 0.92, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, opacity: 0 }} transition={{ duration: 0.3 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-amber-300 shadow-2xl max-w-md w-full rounded-3xl">
                     <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-600 mb-2">Consequência</p>
                     <h2 className="text-3xl font-black font-display mb-4">Perdeu vida</h2>
                     <div className="grid gap-2">
@@ -638,7 +658,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                     </div>
                   </motion.div>
                 ) : (
-                  <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center p-8 bg-slate-900 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white">
+                  <motion.div key="safe" initial={{ y: 18, scale: 0.92, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, opacity: 0 }} transition={{ duration: 0.3 }} className="text-center p-8 bg-slate-900 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white">
                     <p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400 mb-3">Consequência</p>
                     <h2 className="text-3xl font-black font-display mb-3 line-through decoration-slate-500 decoration-4">{revelation.charName}</h2>
                     <p className="text-lg font-bold text-slate-300">Ninguém perdeu vida.</p>
@@ -647,7 +667,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
               ) : (() => {
                 const isMeHit = revelation.eliminatedPlayers.some((p: any) => p.id === me.id);
                 return (
-                  <motion.div initial={{ scale: 0.8, opacity: 0, rotate: -1 }} animate={{ scale: [0.8, 1.05, 1], opacity: 1, rotate: [0, -1.5, 1.5, 0], x: [0, -10, 10, -5, 5, 0] }} transition={{ duration: 0.65 }} className="relative overflow-hidden text-center p-8 bg-slate-950 border-4 border-rose-500 shadow-2xl max-w-md w-full rounded-3xl text-white">
+                  <motion.div key="eliminated" initial={{ scale: 0.8, opacity: 0, rotate: -1 }} animate={{ scale: [0.8, 1.05, 1], opacity: 1, rotate: [0, -1.5, 1.5, 0], x: [0, -10, 10, -5, 5, 0] }} exit={{ scale: 1.03, opacity: 0 }} transition={{ duration: 0.65 }} className="relative overflow-hidden text-center p-8 bg-slate-950 border-4 border-rose-500 shadow-2xl max-w-md w-full rounded-3xl text-white">
                     <motion.div className="absolute inset-0 bg-rose-500/25" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} transition={{ duration: 0.9 }} />
                     <div className="relative z-10">
                       <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full border-4 border-rose-400 bg-rose-950/70 text-rose-200 shadow-xl"><Skull className="h-14 w-14" /></div>
@@ -659,6 +679,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                   </motion.div>
                 );
               })()}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>

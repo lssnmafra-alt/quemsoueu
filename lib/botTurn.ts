@@ -1,6 +1,6 @@
 import { supabaseGame } from './supabase';
 import { touchRoomActivity } from './roomLifecycle';
-import { advanceTurn, finishOrAdvance } from './gameProgress';
+import { advanceTurn } from './gameProgress';
 
 type GroqTurnStatus = {
   configured: boolean;
@@ -260,7 +260,6 @@ export async function playBotTurn(
   }
 
   await touchRoomActivity(room.id);
-  const result = await finishOrAdvance(room, hitPlayers);
   const hitPlayerIds = [...new Set(hits.map((hit: any) => hit.player_id))];
 
   await logMatchEvents([
@@ -295,13 +294,6 @@ export async function playBotTurn(
         eliminated_player_name: player.nickname,
       },
     })),
-    result?.finished ? {
-      roomId: room.id,
-      turnNumber: room.current_turn_number || 0,
-      eventType: 'room_finished',
-      message: result.winner ? `Partida encerrada. Campeao: ${result.winner}.` : 'Partida encerrada em empate.',
-      metadata: { winner: result.winner || null, reason: result.reason || null },
-    } : null,
   ]);
 
   return {
@@ -311,6 +303,5 @@ export async function playBotTurn(
     hitPlayerIds,
     hitPlayers,
     groq: groqStatus,
-    ...result,
   };
 }

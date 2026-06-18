@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabaseGame } from '@/lib/supabase';
-import { differenceInSeconds } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { audioManager } from '@/lib/audioManager';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 
 export default function RoomStarting({ room, players }: any) {
-  const [timeLeft, setTimeLeft] = useState(4);
+  const [timeLeft, setTimeLeft] = useState(() => Math.max(0, Math.ceil((new Date(room.turn_expires_at).getTime() - Date.now()) / 1000)));
   const advancingRef = useRef(false);
 
   const activePlayers = players.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0);
@@ -22,8 +21,8 @@ export default function RoomStarting({ room, players }: any) {
   }, [timeLeft]);
 
   useEffect(() => {
-    const i = setInterval(async () => {
-      const diff = differenceInSeconds(new Date(room.turn_expires_at), new Date());
+    const tick = async () => {
+      const diff = Math.max(0, Math.ceil((new Date(room.turn_expires_at).getTime() - Date.now()) / 1000));
       if (diff <= 0) {
         setTimeLeft(0);
         if (advancingRef.current) return;
@@ -35,7 +34,10 @@ export default function RoomStarting({ room, players }: any) {
       } else {
         setTimeLeft(diff);
       }
-    }, 1000);
+    };
+
+    void tick();
+    const i = setInterval(tick, 250);
 
     return () => clearInterval(i);
   }, [room.turn_expires_at, room.vote_time_seconds, room.id]);
@@ -50,6 +52,7 @@ export default function RoomStarting({ room, players }: any) {
               initial={{ opacity: 0, scale: 0.5, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 1.35, y: -10 }}
+              transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
               className="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full border-4 border-indigo-200 bg-white text-6xl font-black text-indigo-600 shadow-xl font-display"
             >
               {countdownNumber}
@@ -80,7 +83,7 @@ export default function RoomStarting({ room, players }: any) {
               key={p.id}
               initial={{ opacity: 0, scale: 0.9, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ delay: index * 0.4, type: 'spring' }}
+              transition={{ delay: index * 0.16, type: 'spring', stiffness: 260, damping: 24 }}
               className={cn("bg-white border-4 p-4 rounded-2xl flex items-center justify-between shadow-md relative overflow-hidden", p.color?.border || 'border-indigo-100')}
             >
               <div className={cn("absolute top-0 left-0 w-2 h-full", p.color?.bg || 'bg-slate-400')} />

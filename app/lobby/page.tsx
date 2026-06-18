@@ -241,8 +241,12 @@ export default function HomeLobby() {
 
   const joinPrivateRoom = async () => {
      if(!roomCode.trim()) return;
-     const { data } = await supabaseGame.from('rooms').select('id').eq('code', roomCode.trim().toUpperCase()).single();
+     const { data } = await supabaseGame.from('rooms').select('id,status').eq('code', roomCode.trim().toUpperCase()).single();
      if(data) {
+        if (data.status !== 'LOBBY') {
+          alert('Essa sala não aceita novos jogadores no momento. Escolha uma sala aguardando jogadores.');
+          return;
+        }
         router.push(`/room/${data.id}`);
      } else {
         alert("Sala de jogo não encontrada.");

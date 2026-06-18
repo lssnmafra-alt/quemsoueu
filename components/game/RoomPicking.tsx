@@ -14,6 +14,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const [selectedChars, setSelectedChars] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState(room.pick_time_seconds || 30);
   const [confirmed, setConfirmed] = useState(false);
+  const [pickingNotice, setPickingNotice] = useState('');
   const finalizingRef = useRef(false);
 
   const baseActivePlayers = useMemo(() => players.filter((p: any) => !p.is_eliminated), [players]);
@@ -42,11 +43,11 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const pendingCount = pendingPlayers.length;
   const allRealPlayersReady = realActivePlayers.length > 0 && pendingCount === 0;
   const pendingText = pendingCount > 0 ? ` Faltam ${pendingCount} jogador${pendingCount === 1 ? '' : 'es'}.` : '';
-  const mainStatus = allRealPlayersReady
+  const mainStatus = pickingNotice || (allRealPlayersReady
     ? 'Todos escolheram. Preparando partida...'
     : confirmed
       ? `Escolha confirmada. Aguardando os demais jogadores.${pendingText}`
-      : `Escolha ${pickCount} ${pickCount === 1 ? 'personagem' : 'personagens'}.${pendingText}`;
+      : `Escolha ${pickCount} ${pickCount === 1 ? 'personagem' : 'personagens'}.${pendingText}`);
 
   const loadPickingState = useCallback(async () => {
     const query = supabaseGame.from('characters').select('*');
@@ -93,6 +94,9 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
         if (result.error) console.warn(result.error);
       } else if (result.skipped) {
         finalizingRef.current = false;
+        if (result.duplicatePick) {
+          setPickingNotice(result.message || 'Alguns jogadores escolheram o mesmo personagem. Escolham novamente para desempatar.');
+        }
         await loadPickingState();
       }
     } catch {
@@ -153,6 +157,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
 
   const toggleChar = (id: string) => {
     if (confirmed || !isMeEligible) return;
+    setPickingNotice('');
     if (selectedChars.includes(id)) {
       setSelectedChars(selectedChars.filter((c) => c !== id));
     } else if (selectedChars.length < pickCount) {
@@ -162,6 +167,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
 
   const confirmSelection = async () => {
     if (!isMeEligible || selectedChars.length !== pickCount) return;
+    setPickingNotice('');
     setConfirmed(true);
 
     const myCurrentLiveCards = liveCards.filter((card: any) => card.player_id === me.id);
@@ -207,7 +213,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
           <h2 className="text-4xl md:text-5xl font-black mb-2 text-indigo-950 font-display flex items-center justify-center gap-2">
             <Layers className="h-9 w-9 text-indigo-500" /> {isTiebreak ? 'Desempate!' : 'Monte seu Baralho'}
           </h2>
-          <p className={cn('text-sm font-black uppercase tracking-wider', allRealPlayersReady ? 'text-emerald-600' : confirmed ? 'text-emerald-700' : 'text-indigo-600')}>
+          <p className={cn('text-sm font-black uppercase tracking-wider', pickingNotice ? 'text-amber-600' : allRealPlayersReady ? 'text-emerald-600' : confirmed ? 'text-emerald-700' : 'text-indigo-600')}>
             {mainStatus}
           </p>
           {!allRealPlayersReady && !confirmed && (

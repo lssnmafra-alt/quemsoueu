@@ -1,6 +1,6 @@
 import { supabaseGame } from './supabase';
 import { touchRoomActivity } from './roomLifecycle';
-import { advanceTurn } from './gameProgress';
+import { finishOrAdvance } from './gameProgress';
 
 type GroqTurnStatus = {
   configured: boolean;
@@ -31,6 +31,13 @@ async function logMatchEvents(events: any[]) {
   } catch (error) {
     console.warn('match_events failed:', error);
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, reason: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(reason)), ms)),
+  ]);
 }
 
 export async function playBotTurn(
@@ -76,7 +83,7 @@ export async function playBotTurn(
   const originalExpiresAt = room.turn_expires_at || null;
   let lockQuery = supabaseGame
     .from('rooms')
-    .update({ turn_expires_at: new Date(Date.now() + 20_000).toISOString() })
+    .update({ turn_expires_at: new Date(Date.now() + 12_000).toISOString() })
     .eq('id', room.id)
     .eq('status', 'PLAYING')
     .eq('current_turn_number', room.current_turn_number || 0);
@@ -106,20 +113,19 @@ export async function playBotTurn(
   const activePlayerIds = new Set(activePlayers.map((player: any) => player.id));
   const playersById = new Map((players || []).map((player: any) => [player.id, player]));
   const livePlayerCards = cards.filter((card: any) => activePlayerIds.has(card.player_id));
-  const targetablePlayerCards = livePlayerCards.filter((card: any) => card.player_id !== activePlayer.id);
-  const liveCharacterIds = [...new Set(targetablePlayerCards.map((card: any) => card.character_id))] as string[];
+  const liveCharacterIds = [...new Set(livePlayerCards.map((card: any) => card.character_id))] as string[];
 
   if (liveCharacterIds.length === 0 || chars.length === 0) {
-    await advanceTurn(room);
+    const progress = await finishOrAdvance(room);
     await logMatchEvents([{
       roomId: room.id,
       turnNumber: room.current_turn_number || 0,
       eventType: 'bot_skip',
       actorPlayerId: activePlayer.id,
-      message: `${activePlayer.nickname} nao tinha alvo valido para votar.`,
-      metadata: { reason: 'no-valid-bot-target' },
+      message: `${activePlayer.nickname} nao tinha carta viva para votar.`,
+      metadata: { reason: 'no-live-card-target', progress },
     }]);
-    return { ok: true, skipped: true, reason: 'no-valid-bot-target' };
+    return { ok: true, skipped: true, reason: 'no-live-card-target', ...progress };
   }
 
   let targetChar: any = null;
@@ -141,22 +147,23 @@ export async function playBotTurn(
 
       const liveCharsForBot = chars.filter((char: any) => liveCharacterIds.includes(char.id));
       const liveCharsNames = liveCharsForBot.map((char: any) => char.name);
+      const groqBudgetMs = Math.min(3200, Math.max(1200, ((room.vote_time_seconds || 30) * 1000) - 4500));
 
-      const completion = await groq.chat.completions.create({
+      const completion = await withTimeout(groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         response_format: { type: 'json_object' },
         messages: [
           {
             role: 'system',
-            content: 'Voce e um jogador tatico, audacioso e divertido em uma partida de adivinhacao chamada Quem Sou Eu. Nao diga que e IA, robo ou bot.\nAnalise a lista de personagens vivos e selecione UM personagem dessa lista para adivinhar/votar.\nSua resposta deve ser estritamente em JSON valido com as chaves:\n{\n  "selectedCharacterName": "nome exato do personagem da lista",\n  "comment": "um comentario curtissimo, ironico ou carismatico em portugues brasileiro sobre esse palpite"\n}',
+            content: 'Voce e um jogador tatico, audacioso e divertido em uma partida de adivinhacao chamada Quem Sou Eu. Nao diga que e IA, robo ou bot. Analise a lista de personagens vivos e selecione UM personagem dessa lista para adivinhar/votar. Voce pode votar em qualquer carta viva, inclusive sua propria carta. Responda estritamente em JSON valido com selectedCharacterName e comment.',
           },
           {
             role: 'user',
-            content: `Seu nome na mesa: ${activePlayer.nickname}.\nPersonagens ainda vivos na mesa (escolha apenas um desta lista): ${liveCharsNames.join(', ')}.`,
+            content: `Seu nome na mesa: ${activePlayer.nickname}. Personagens vivos na mesa: ${liveCharsNames.join(', ')}.`,
           },
         ],
         temperature: 0.8,
-      });
+      }), groqBudgetMs, 'groq-timeout');
 
       const contentText = completion.choices[0]?.message?.content || '{}';
       groqStatus.responded = Boolean(contentText && contentText !== '{}');
@@ -187,8 +194,8 @@ export async function playBotTurn(
         groqStatus.fallbackReason = 'groq-selected-character-not-found';
       }
     } catch (error) {
-      groqStatus.fallbackReason = error instanceof SyntaxError ? 'groq-json-parse-error' : 'groq-request-error';
-      console.error('Groq bot turn error:', error);
+      groqStatus.fallbackReason = error instanceof SyntaxError ? 'groq-json-parse-error' : error instanceof Error && error.message === 'groq-timeout' ? 'groq-timeout' : 'groq-request-error';
+      console.error('Groq bot turn fallback:', error);
     }
   } else {
     groqStatus.fallbackReason = 'missing-groq-api-key';
@@ -202,16 +209,16 @@ export async function playBotTurn(
   }
 
   if (!targetChar) {
-    await advanceTurn(room);
+    const progress = await finishOrAdvance(room);
     await logMatchEvents([{
       roomId: room.id,
       turnNumber: room.current_turn_number || 0,
       eventType: 'bot_skip',
       actorPlayerId: activePlayer.id,
-      message: `${activePlayer.nickname} nao encontrou alvo para votar.`,
-      metadata: { reason: 'no-target', groq: groqStatus },
+      message: `${activePlayer.nickname} nao encontrou carta viva para votar.`,
+      metadata: { reason: 'no-target', groq: groqStatus, progress },
     }]);
-    return { ok: true, skipped: true, reason: 'no-target', groq: groqStatus };
+    return { ok: true, skipped: true, reason: 'no-target', groq: groqStatus, ...progress };
   }
 
   if (botComment) {

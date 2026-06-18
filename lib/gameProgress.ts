@@ -87,7 +87,31 @@ export async function syncLivesFromLiveCards(roomId: string) {
   };
 }
 
-async function startTiebreakPicking(room: any, tiebreakPlayers: any[]) {
+async function hasStartedTiebreakBefore(roomId: string) {
+  const { data } = await supabaseGame
+    .from('match_events')
+    .select('id')
+    .eq('room_id', roomId)
+    .eq('event_type', 'tiebreak_started')
+    .limit(1);
+
+  return Boolean(data && data.length > 0);
+}
+
+async function logTiebreakStarted(room: any, playerIds: string[], reason: string) {
+  try {
+    await supabaseGame.from('match_events').insert({
+      room_id: room.id,
+      turn_number: room.current_turn_number || 0,
+      event_type: 'tiebreak_started',
+      metadata: { player_ids: playerIds, reason },
+    });
+  } catch (error) {
+    console.warn('match_events tiebreak_started skipped:', error);
+  }
+}
+
+async function startTiebreakPicking(room: any, tiebreakPlayers: any[], reason = 'tiebreak') {
   const playersToPick = tiebreakPlayers.filter(Boolean);
   const tiebreakPlayerIds = uniqueIds(playersToPick.map((player: any) => player.id));
 
@@ -95,6 +119,13 @@ async function startTiebreakPicking(room: any, tiebreakPlayers: any[]) {
     await finishRoom(room);
     return { finished: true, winner: null, reason: 'no-tiebreak-players' };
   }
+
+  if (await hasStartedTiebreakBefore(room.id)) {
+    await finishRoom(room);
+    return { finished: true, winner: null, reason: 'tiebreak-loop-guard' };
+  }
+
+  await logTiebreakStarted(room, tiebreakPlayerIds, reason);
 
   await supabaseGame
     .from('player_cards')
@@ -151,9 +182,6 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
     const maxLives = Math.max(...alive.map((player: any) => liveCounts.get(player.id) || 0));
     const leaders = alive.filter((player: any) => (liveCounts.get(player.id) || 0) === maxLives);
 
-    // If everybody is stuck with the same remaining character, the player with more lives wins.
-    // Only equal-life leaders go to picking tiebreak. This prevents a 1-life player from winning
-    // automatically against a 2-life player just because both share the last visible card.
     if (leaders.length === 1) {
       const winner = leaders[0];
       const loserIds = alive.filter((player: any) => player.id !== winner.id).map((player: any) => player.id);
@@ -176,7 +204,7 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
       return { finished: true, winner: winner?.nickname || null, reason: 'shared-card-life-leader' };
     }
 
-    return startTiebreakPicking(room, leaders);
+    return startTiebreakPicking(room, leaders, 'shared-card');
   }
 
   if (alive.length === 0 || liveCardsFromAlive.length === 0) {
@@ -189,7 +217,7 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
       .map((id) => playersById.get(id) || { id })
       .filter(Boolean);
 
-    return startTiebreakPicking(room, playersToPick);
+    return startTiebreakPicking(room, playersToPick, 'no-live-cards');
   }
 
   if (alive.length === 1) {

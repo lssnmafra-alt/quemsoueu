@@ -2,22 +2,33 @@ import { supabaseGame } from './supabase';
 import { closeAndDeleteRooms, nextRoomExpiry } from './roomLifecycle';
 
 const TARGET_BOT_LOBBY_ROOMS = 1;
-const MAX_BOT_ONLY_ROOM_AGE_MS = 8 * 60 * 1000;
-const BOT_ROOM_SIZE = 2;
+const MAX_BOT_ONLY_ROOM_AGE_MS = 4 * 60 * 1000;
+const BOT_ROOM_SIZE = 3;
+const BOT_ROOM_MAX_PLAYERS = 4;
 
 const BOT_NAMES = [
-  'Bot Tatico',
-  'Bot Radar',
-  'Bot Mestre',
-  'Bot Relampago',
-  'Bot Oraculo',
-  'Bot Sorte',
-  'Bot Turbo',
-  'Bot Prisma',
-  'Bot Foco',
-  'Bot Xeque',
-  'Bot Flash',
-  'Bot Pixel',
+  'jugameplays',
+  'bruninho67',
+  'pedrinn',
+  'rafa_xt',
+  'gui_zika',
+  'luluzinha',
+  'anafps',
+  'joaovk',
+  'ninafps',
+  'dudazinha',
+  'vitin7',
+  'lele_gg',
+  'xandeplay',
+  'biazinha',
+  'thzinn',
+  'brunao77',
+  'jpzin',
+  'mariii',
+  'kauanzera',
+  'lelefps',
+  'gabsplay',
+  'nanagame',
 ];
 
 function randomCode() {
@@ -69,7 +80,7 @@ async function createBotRoom(theme: { id: string | null; name: string }, index: 
       admin_id: adminId,
       is_public: true,
       deck_id: theme.id,
-      max_players: 6,
+      max_players: BOT_ROOM_MAX_PLAYERS,
       chars_per_player: 3,
       pick_time_seconds: 30,
       vote_time_seconds: 30,
@@ -90,7 +101,7 @@ async function createBotRoom(theme: { id: string | null; name: string }, index: 
     return {
       room_id: room.id,
       user_id: userId,
-      nickname: `${name} ${index + 1}`,
+      nickname: name,
       is_bot: true,
       is_admin: botIndex === 0,
       lives: 0,
@@ -112,13 +123,13 @@ function isBotOnlyRoom(roomPlayers: any[]) {
 export async function runBotRoomCycle() {
   const { data: rooms } = await supabaseGame
     .from('rooms')
-    .select('id,code,status,created_at,expires_at,is_public,deck_id,current_turn_number,turn_expires_at,vote_time_seconds')
+    .select('id,code,status,created_at,expires_at,is_public,deck_id,current_turn_number,turn_expires_at,vote_time_seconds,max_players')
     .eq('is_public', true)
     .in('status', ['LOBBY', 'PICKING', 'STARTING', 'PLAYING', 'FINISHED']);
 
   const roomIds = (rooms || []).map((room: any) => room.id);
   const { data: players } = roomIds.length > 0
-    ? await supabaseGame.from('room_players').select('id,room_id,is_bot,is_eliminated,lives,play_order').in('room_id', roomIds)
+    ? await supabaseGame.from('room_players').select('id,room_id,is_bot,is_eliminated,lives,play_order,nickname').in('room_id', roomIds)
     : { data: [] };
 
   const playersByRoom = new Map<string, any[]>();
@@ -131,9 +142,13 @@ export async function runBotRoomCycle() {
   const now = Date.now();
   const botOnlyRooms = (rooms || []).filter((room: any) => isBotOnlyRoom(playersByRoom.get(room.id) || []));
   const staleBotRooms = botOnlyRooms.filter((room: any) => {
+    const roomPlayers = playersByRoom.get(room.id) || [];
     const age = now - new Date(room.created_at).getTime();
     const expired = room.expires_at && new Date(room.expires_at).getTime() < now;
-    return expired || room.status === 'FINISHED' || age > MAX_BOT_ONLY_ROOM_AGE_MS;
+    const fullBotOnlyLobby = room.status === 'LOBBY' && roomPlayers.length >= (room.max_players || BOT_ROOM_MAX_PLAYERS);
+    const oldBotRoomShape = room.status === 'LOBBY' && (room.max_players || BOT_ROOM_MAX_PLAYERS) !== BOT_ROOM_MAX_PLAYERS;
+    const oldBotNicknames = roomPlayers.some((player: any) => /^bot\s/i.test(String(player.nickname || '')));
+    return expired || room.status !== 'LOBBY' || room.status === 'FINISHED' || fullBotOnlyLobby || oldBotRoomShape || oldBotNicknames || age > MAX_BOT_ONLY_ROOM_AGE_MS;
   });
 
   await closeAndDeleteRooms(staleBotRooms.map((room: any) => room.id));
@@ -142,7 +157,13 @@ export async function runBotRoomCycle() {
     .filter((room: any) => !staleBotRooms.some((stale: any) => stale.id === room.id));
 
   const activeBotLobbyRooms = activeBotRooms
-    .filter((room: any) => room.status === 'LOBBY' && !staleBotRooms.some((stale: any) => stale.id === room.id))
+    .filter((room: any) => {
+      const roomPlayers = playersByRoom.get(room.id) || [];
+      return room.status === 'LOBBY'
+        && (room.max_players || BOT_ROOM_MAX_PLAYERS) === BOT_ROOM_MAX_PLAYERS
+        && roomPlayers.length === BOT_ROOM_SIZE
+        && !staleBotRooms.some((stale: any) => stale.id === room.id);
+    })
     .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const keptBotLobbyRooms = activeBotLobbyRooms.slice(0, TARGET_BOT_LOBBY_ROOMS);

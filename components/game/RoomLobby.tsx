@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabaseGame } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
-import { Flame, Globe2, LogOut, Search, Settings, Play, Users, Cpu, ShieldAlert, Sparkles, Shield, Star, UserRound } from 'lucide-react';
+import { Flame, Globe2, LogOut, Search, Settings, Play, Users, Cpu, ShieldAlert, Sparkles, Shield, Star, UserRound, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ChatMenu from './ChatMenu';
 import { motion } from 'motion/react';
@@ -132,7 +132,9 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
 
   useEffect(() => {
     const hasBot = players.some((player: any) => player.is_bot);
-    if (!hasBot || room.status !== 'LOBBY' || botStartRef.current || !botIsAdmin) return;
+    const hasHuman = players.some((player: any) => !player.is_bot);
+    const minimumReached = players.length >= MIN_PLAYERS_TO_START;
+    if (!hasBot || !hasHuman || !minimumReached || room.status !== 'LOBBY' || botStartRef.current || !botIsAdmin) return;
 
     const startableDeck = decks.find((deck: any) => deck.id === room.deck_id) || decks.find((deck: any) => deck.is_public) || decks[0];
     if (!startableDeck) return;
@@ -148,7 +150,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
       clearInterval(countdown);
       clearTimeout(timer);
     };
-  }, [botIsAdmin, decks, handleStart, isAdmin, players, room.deck_id, room.status]);
+  }, [botIsAdmin, decks, handleStart, players, room.deck_id, room.status]);
 
   const realPlayersCount = players.filter((p: any) => !p.is_bot).length;
   const botRowsCount = players.filter((p: any) => p.is_bot).length;
@@ -197,7 +199,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
         <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-5 bg-white border-4 border-indigo-100 rounded-3xl shadow-md shrink-0 flex items-center justify-between relative"
+          className="mb-4 p-5 bg-white border-4 border-indigo-100 rounded-3xl shadow-md shrink-0 flex items-center justify-between relative"
         >
           <div>
             <div className="flex items-center gap-1.5 mb-1">
@@ -215,6 +217,17 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
             Sair da Sala <LogOut className="w-4 h-4 ml-2" />
           </Button>
         </motion.header>
+
+        {autoStartSeconds !== null && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4 rounded-3xl border-4 border-amber-200 bg-amber-50 px-5 py-4 text-center shadow-md">
+            <div className="flex items-center justify-center gap-2 text-amber-700">
+              <Timer className="h-5 w-5" />
+              <p className="text-sm font-black uppercase tracking-wider">Jogadores mínimos atingidos.</p>
+            </div>
+            <p className="mt-1 text-xl font-black text-amber-950 font-display">A partida começa em {autoStartSeconds} segundos.</p>
+            {botIsAdmin && <p className="mt-1 text-xs font-black uppercase tracking-wider text-amber-700">O bot dono da sala vai iniciar automaticamente.</p>}
+          </motion.div>
+        )}
 
         <div className="grid lg:grid-cols-2 gap-6 items-stretch flex-1 min-h-0 mb-4">
           <motion.div
@@ -241,10 +254,10 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
                       : 'border-slate-100 hover:border-slate-200'
                   )}
                 >
-                  <div className={cn("absolute top-0 left-0 w-1.5 h-full", p.color?.bg || 'bg-slate-400')} />
-                  <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn("w-12 h-12 border-2 rounded-2xl shadow-sm shrink-0", p.color?.border || 'border-slate-200', p.color?.lightBgc || 'bg-slate-100')} />
+                  <div className={cn('absolute top-0 left-0 w-1.5 h-full', p.color?.bg || 'bg-slate-400')} />
+                  <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn('w-12 h-12 border-2 rounded-2xl shadow-sm shrink-0', p.color?.border || 'border-slate-200', p.color?.lightBgc || 'bg-slate-100')} />
                   <div className="flex-1">
-                    <p className={cn("text-base font-bold", p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
+                    <p className={cn('text-base font-bold', p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
                       {p.is_admin && <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2.5 py-0.5 border border-amber-200 rounded-full flex items-center gap-1"><Shield className="w-3 h-3" /> Dono da Sala</span>}
                       {!p.is_admin && <span className="text-[10px] bg-slate-50 text-slate-600 px-2.5 py-0.5 border border-slate-200 rounded-full">Jogador</span>}
@@ -257,16 +270,16 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
             </div>
 
             {me && (
-              <div className={cn("bg-white border-4 rounded-3xl shadow-md p-5", me.color?.border || 'border-indigo-100')}>
+              <div className={cn('bg-white border-4 rounded-3xl shadow-md p-5', me.color?.border || 'border-indigo-100')}>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
-                    <AvatarFigure avatarUrl={me.avatar_url} label={me.nickname} primaryColor={me.color?.hex} className={cn("w-14 h-14 rounded-2xl border-2 shrink-0", me.color?.border || 'border-indigo-200', me.color?.lightBgc || 'bg-slate-50')} />
+                    <AvatarFigure avatarUrl={me.avatar_url} label={me.nickname} primaryColor={me.color?.hex} className={cn('w-14 h-14 rounded-2xl border-2 shrink-0', me.color?.border || 'border-indigo-200', me.color?.lightBgc || 'bg-slate-50')} />
                     <div className="min-w-0">
-                      <h3 className={cn("text-xs font-black uppercase tracking-wider border-l-4 pl-2 select-none", me.color?.text || 'text-indigo-600', me.color?.border || 'border-indigo-500')}>Avatar do Jogador</h3>
+                      <h3 className={cn('text-xs font-black uppercase tracking-wider border-l-4 pl-2 select-none', me.color?.text || 'text-indigo-600', me.color?.border || 'border-indigo-500')}>Avatar do Jogador</h3>
                       <p className="text-xs text-slate-500 font-semibold mt-1">Escolha base, cores e moldura.</p>
                     </div>
                   </div>
-                  <Button onClick={() => setAvatarPickerOpen(true)} className={cn("h-11 px-4 text-white text-xs font-black uppercase flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-md", me.color?.bg || 'bg-indigo-500', 'hover:opacity-90')}>
+                  <Button onClick={() => setAvatarPickerOpen(true)} className={cn('h-11 px-4 text-white text-xs font-black uppercase flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-md', me.color?.bg || 'bg-indigo-500', 'hover:opacity-90')}>
                     <Shield className="w-4 h-4" /> Escolher Avatar
                   </Button>
                 </div>
@@ -435,22 +448,18 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
                       <span className="text-base text-indigo-950 font-black">{clampedBotsCount}</span>
                     </div>
                   </div>
+                  <p className="mt-2 text-[11px] font-bold text-indigo-600">Bots reais visíveis na lista: {botRowsCount}</p>
                 </div>
               )}
 
               <div className="mt-auto pt-4">
-                {autoStartSeconds !== null && (
-                  <div className="mb-3 rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-amber-800">
-                    Jogadores mínimos atingidos. A partida começará em {autoStartSeconds}s.
-                  </div>
-                )}
                 {isAdmin ? (
                   <Button disabled={!canStart} onClick={() => handleStart()} className="w-full h-14 text-sm font-black tracking-wider uppercase btn-squishy-green text-white cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     <Play className="w-4 h-4 fill-white" /> Iniciar Partida
                   </Button>
                 ) : (
                   <div className="h-14 flex items-center justify-center bg-indigo-50 text-indigo-600 text-xs font-bold uppercase rounded-2xl animate-pulse">
-                    Aguardando o Administrador iniciar a partida...
+                    {botIsAdmin ? 'Bot dono preparando início automático...' : 'Aguardando o Administrador iniciar a partida...'}
                   </div>
                 )}
                 {isAdmin && !canStart && (

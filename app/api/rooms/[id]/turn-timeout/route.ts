@@ -26,6 +26,10 @@ async function logMatchEvents(events: any[]) {
   }
 }
 
+function hasSkippedFlag(value: unknown): value is { ok: boolean; skipped: boolean } {
+  return Boolean(value && typeof value === 'object' && 'skipped' in value && (value as { skipped?: unknown }).skipped === true);
+}
+
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id: roomId } = await context.params;
   const body = await request.json().catch(() => ({}));
@@ -79,7 +83,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ ...botResult, botRecoveredFromTimeout: true, ...progress, ok: true });
     }
 
-    if (botResult?.ok && botResult.skipped) {
+    if (botResult?.ok && hasSkippedFlag(botResult)) {
       return NextResponse.json({ ...botResult, botRecoveredFromTimeout: true, ok: true });
     }
   }

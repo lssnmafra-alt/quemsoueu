@@ -27,6 +27,11 @@ function trackForRoomStatus(status?: string) {
   return 'lobby-theme';
 }
 
+function isBotControlledLobby(room: any, players: any[]) {
+  if (!room || room.status !== 'LOBBY') return false;
+  return players.some((player: any) => player.is_bot && (player.is_admin || player.user_id === room.admin_id));
+}
+
 export default function RoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -38,6 +43,7 @@ export default function RoomPage() {
   const [loading, setLoading] = useState(true);
   const [roomNotices, setRoomNotices] = useState<{ id: string; text: string }[]>([]);
   const pickingFinalizeAttemptAtRef = useRef(0);
+  const botAutoStartAttemptRef = useRef('');
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
@@ -119,8 +125,19 @@ export default function RoomPage() {
           is_admin: rm.admin_id === user.id,
         }).select().single();
         if (newP) {
-          setPlayers([...normalizedPlayers, newP]);
+          const joinedPlayers = [...normalizedPlayers, newP];
+          setPlayers(joinedPlayers);
           setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${newP.nickname} entrou na sala` }]);
+
+          if (isBotControlledLobby(rm, joinedPlayers)) {
+            setTimeout(() => {
+              fetch(`/api/rooms/${roomId}/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deckId: rm.deck_id || undefined, auto: true }),
+              }).catch(() => {});
+            }, 700);
+          }
         }
       }
       setLoading(false);
@@ -186,6 +203,28 @@ export default function RoomPage() {
     if (!room || !user || !me) return false;
     return room.admin_id === user.id || Boolean(me.is_admin);
   }, [room, user, me]);
+
+  useEffect(() => {
+    if (!room?.id || room.status !== 'LOBBY' || !me?.id) return;
+    if (!isBotControlledLobby(room, players)) return;
+    if (!players.some((player: any) => !player.is_bot)) return;
+
+    const attemptKey = `${room.id}:${players.length}:${room.updated_at || room.last_activity_at || ''}`;
+    if (botAutoStartAttemptRef.current === attemptKey) return;
+    botAutoStartAttemptRef.current = attemptKey;
+
+    const timer = setTimeout(() => {
+      fetch(`/api/rooms/${room.id}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deckId: room.deck_id || undefined, auto: true }),
+      }).catch(() => {
+        botAutoStartAttemptRef.current = '';
+      });
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, [room, players, me?.id]);
 
   useEffect(() => {
     if (!me?.id || !room?.id || !user?.id) return;

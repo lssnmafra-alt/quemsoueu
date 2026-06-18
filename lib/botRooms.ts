@@ -129,7 +129,7 @@ export async function runBotRoomCycle() {
 
   const roomIds = (rooms || []).map((room: any) => room.id);
   const { data: players } = roomIds.length > 0
-    ? await supabaseGame.from('room_players').select('id,room_id,is_bot,is_eliminated,lives,play_order').in('room_id', roomIds)
+    ? await supabaseGame.from('room_players').select('id,room_id,is_bot,is_eliminated,lives,play_order,nickname').in('room_id', roomIds)
     : { data: [] };
 
   const playersByRoom = new Map<string, any[]>();
@@ -146,7 +146,9 @@ export async function runBotRoomCycle() {
     const age = now - new Date(room.created_at).getTime();
     const expired = room.expires_at && new Date(room.expires_at).getTime() < now;
     const fullBotOnlyLobby = room.status === 'LOBBY' && roomPlayers.length >= (room.max_players || BOT_ROOM_MAX_PLAYERS);
-    return expired || room.status !== 'LOBBY' || room.status === 'FINISHED' || fullBotOnlyLobby || age > MAX_BOT_ONLY_ROOM_AGE_MS;
+    const oldBotRoomShape = room.status === 'LOBBY' && (room.max_players || BOT_ROOM_MAX_PLAYERS) !== BOT_ROOM_MAX_PLAYERS;
+    const oldBotNicknames = roomPlayers.some((player: any) => /^bot\s/i.test(String(player.nickname || '')));
+    return expired || room.status !== 'LOBBY' || room.status === 'FINISHED' || fullBotOnlyLobby || oldBotRoomShape || oldBotNicknames || age > MAX_BOT_ONLY_ROOM_AGE_MS;
   });
 
   await closeAndDeleteRooms(staleBotRooms.map((room: any) => room.id));
@@ -158,7 +160,8 @@ export async function runBotRoomCycle() {
     .filter((room: any) => {
       const roomPlayers = playersByRoom.get(room.id) || [];
       return room.status === 'LOBBY'
-        && roomPlayers.length < (room.max_players || BOT_ROOM_MAX_PLAYERS)
+        && (room.max_players || BOT_ROOM_MAX_PLAYERS) === BOT_ROOM_MAX_PLAYERS
+        && roomPlayers.length === BOT_ROOM_SIZE
         && !staleBotRooms.some((stale: any) => stale.id === room.id);
     })
     .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());

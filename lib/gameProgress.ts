@@ -87,7 +87,31 @@ export async function syncLivesFromLiveCards(roomId: string) {
   };
 }
 
-async function startTiebreakPicking(room: any, tiebreakPlayers: any[]) {
+async function hasStartedTiebreakBefore(roomId: string) {
+  const { data } = await supabaseGame
+    .from('match_events')
+    .select('id')
+    .eq('room_id', roomId)
+    .eq('event_type', 'tiebreak_started')
+    .limit(1);
+
+  return Boolean(data && data.length > 0);
+}
+
+async function logTiebreakStarted(room: any, playerIds: string[], reason: string) {
+  try {
+    await supabaseGame.from('match_events').insert({
+      room_id: room.id,
+      turn_number: room.current_turn_number || 0,
+      event_type: 'tiebreak_started',
+      metadata: { player_ids: playerIds, reason },
+    });
+  } catch (error) {
+    console.warn('match_events tiebreak_started skipped:', error);
+  }
+}
+
+async function startTiebreakPicking(room: any, tiebreakPlayers: any[], reason = 'tiebreak') {
   const playersToPick = tiebreakPlayers.filter(Boolean);
   const tiebreakPlayerIds = uniqueIds(playersToPick.map((player: any) => player.id));
 
@@ -95,6 +119,13 @@ async function startTiebreakPicking(room: any, tiebreakPlayers: any[]) {
     await finishRoom(room);
     return { finished: true, winner: null, reason: 'no-tiebreak-players' };
   }
+
+  if (await hasStartedTiebreakBefore(room.id)) {
+    await finishRoom(room);
+    return { finished: true, winner: null, reason: 'tiebreak-loop-guard' };
+  }
+
+  await logTiebreakStarted(room, tiebreakPlayerIds, reason);
 
   await supabaseGame
     .from('player_cards')
@@ -135,6 +166,7 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
   const aliveIds = new Set(alive.map((player: any) => player.id));
   const liveCardsFromAlive = (liveCards || []).filter((card: any) => aliveIds.has(card.player_id));
   const distinctLiveCharacters = new Set((liveCardsFromAlive || []).map((card: any) => card.character_id));
+  const hasAnyValidTarget = alive.some((player: any) => liveCardsFromAlive.some((card: any) => card.player_id !== player.id));
 
   if (activeHumans.length === 0 && activeBots.length > 0) {
     const sortedBots = [...activeBots].sort((a: any, b: any) => (liveCounts.get(b.id) || 0) - (liveCounts.get(a.id) || 0));
@@ -145,6 +177,18 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
       await finishRoom(room);
       return { finished: true, winner: topBot?.nickname || null, reason: 'bots-only-life-leader' };
     }
+  }
+
+  if (alive.length > 1 && !hasAnyValidTarget) {
+    const maxLives = Math.max(...alive.map((player: any) => liveCounts.get(player.id) || 0));
+    const leaders = alive.filter((player: any) => (liveCounts.get(player.id) || 0) === maxLives);
+
+    if (leaders.length === 1) {
+      await finishRoom(room);
+      return { finished: true, winner: leaders[0]?.nickname || null, reason: 'no-valid-target-life-leader' };
+    }
+
+    return startTiebreakPicking(room, leaders, 'no-valid-target');
   }
 
   if (alive.length > 1 && distinctLiveCharacters.size <= 1) {
@@ -176,7 +220,7 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
       return { finished: true, winner: winner?.nickname || null, reason: 'shared-card-life-leader' };
     }
 
-    return startTiebreakPicking(room, leaders);
+    return startTiebreakPicking(room, leaders, 'shared-card');
   }
 
   if (alive.length === 0 || liveCardsFromAlive.length === 0) {
@@ -189,7 +233,7 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
       .map((id) => playersById.get(id) || { id })
       .filter(Boolean);
 
-    return startTiebreakPicking(room, playersToPick);
+    return startTiebreakPicking(room, playersToPick, 'no-live-cards');
   }
 
   if (alive.length === 1) {

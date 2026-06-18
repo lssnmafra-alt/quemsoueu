@@ -166,7 +166,6 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
   const aliveIds = new Set(alive.map((player: any) => player.id));
   const liveCardsFromAlive = (liveCards || []).filter((card: any) => aliveIds.has(card.player_id));
   const distinctLiveCharacters = new Set((liveCardsFromAlive || []).map((card: any) => card.character_id));
-  const hasAnyValidTarget = alive.some((player: any) => liveCardsFromAlive.some((card: any) => card.player_id !== player.id));
 
   if (activeHumans.length === 0 && activeBots.length > 0) {
     const sortedBots = [...activeBots].sort((a: any, b: any) => (liveCounts.get(b.id) || 0) - (liveCounts.get(a.id) || 0));
@@ -179,25 +178,10 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
     }
   }
 
-  if (alive.length > 1 && !hasAnyValidTarget) {
-    const maxLives = Math.max(...alive.map((player: any) => liveCounts.get(player.id) || 0));
-    const leaders = alive.filter((player: any) => (liveCounts.get(player.id) || 0) === maxLives);
-
-    if (leaders.length === 1) {
-      await finishRoom(room);
-      return { finished: true, winner: leaders[0]?.nickname || null, reason: 'no-valid-target-life-leader' };
-    }
-
-    return startTiebreakPicking(room, leaders, 'no-valid-target');
-  }
-
   if (alive.length > 1 && distinctLiveCharacters.size <= 1) {
     const maxLives = Math.max(...alive.map((player: any) => liveCounts.get(player.id) || 0));
     const leaders = alive.filter((player: any) => (liveCounts.get(player.id) || 0) === maxLives);
 
-    // If everybody is stuck with the same remaining character, the player with more lives wins.
-    // Only equal-life leaders go to picking tiebreak. This prevents a 1-life player from winning
-    // automatically against a 2-life player just because both share the last visible card.
     if (leaders.length === 1) {
       const winner = leaders[0];
       const loserIds = alive.filter((player: any) => player.id !== winner.id).map((player: any) => player.id);

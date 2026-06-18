@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { ImagePlus, Sparkles, X } from 'lucide-react';
+import { Copy, ImagePlus, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabaseGame } from '@/lib/supabase';
@@ -25,6 +25,9 @@ export default function GeminiDeckImagePanel() {
   const [characters, setCharacters] = useState<any[]>([]);
   const [deckPrompt, setDeckPrompt] = useState('');
   const [characterPrompts, setCharacterPrompts] = useState<Record<string, string>>({});
+  const [generatedDeckUrl, setGeneratedDeckUrl] = useState('');
+  const [generatedCharacterUrls, setGeneratedCharacterUrls] = useState<Record<string, string>>({});
+  const [copiedKey, setCopiedKey] = useState('');
   const [generatingDeck, setGeneratingDeck] = useState(false);
   const [generatingCharacterId, setGeneratingCharacterId] = useState('');
 
@@ -39,12 +42,28 @@ export default function GeminiDeckImagePanel() {
 
       setDeck(deckData || null);
       setCharacters(characterData || []);
+      setGeneratedDeckUrl(deckData?.cover_url || deckData?.image_url || '');
+      setGeneratedCharacterUrls(
+        Object.fromEntries((characterData || []).map((character: any) => [character.id, character.image_url || ''])),
+      );
     };
 
     void load();
   }, [deckId, isOfficialDeck, open]);
 
   if (!isOfficialDeck) return null;
+
+  const copyUrl = async (key: string, url: string) => {
+    if (!url) return;
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedKey(key);
+      window.setTimeout(() => setCopiedKey(''), 1400);
+    } catch {
+      window.prompt('Copie a URL da imagem:', url);
+    }
+  };
 
   const generateDeckImage = async () => {
     const prompt = deckPrompt.trim();
@@ -61,6 +80,7 @@ export default function GeminiDeckImagePanel() {
       if (!response.ok || !result.ok) throw new Error(result.error || 'Nao foi possivel gerar imagem do deck.');
 
       setDeck((current: any) => ({ ...current, ...result.deck, cover_url: result.imageUrl }));
+      setGeneratedDeckUrl(result.imageUrl || '');
       setDeckPrompt('');
     } catch (error: any) {
       alert(error.message || 'Nao foi possivel gerar imagem do deck.');
@@ -84,6 +104,7 @@ export default function GeminiDeckImagePanel() {
       if (!response.ok || !result.ok) throw new Error(result.error || 'Nao foi possivel gerar imagem do personagem.');
 
       setCharacters((current) => current.map((item) => item.id === character.id ? { ...item, ...result.character, image_url: result.imageUrl } : item));
+      setGeneratedCharacterUrls((current) => ({ ...current, [character.id]: result.imageUrl || '' }));
       setCharacterPrompts((current) => ({ ...current, [character.id]: '' }));
     } catch (error: any) {
       alert(error.message || 'Nao foi possivel gerar imagem do personagem.');
@@ -139,36 +160,66 @@ export default function GeminiDeckImagePanel() {
                 <Button type="button" onClick={generateDeckImage} disabled={generatingDeck || !deckPrompt.trim()} className="h-10 w-full btn-squishy-indigo text-xs font-black uppercase text-white">
                   {generatingDeck ? 'Gerando...' : 'Gerar imagem do deck'}
                 </Button>
+
+                {generatedDeckUrl && (
+                  <div className="mt-3 rounded-xl border border-indigo-100 bg-white p-2">
+                    <p className="mb-1 text-[10px] font-black uppercase text-indigo-500">URL da imagem gerada</p>
+                    <div className="flex gap-2">
+                      <input readOnly value={generatedDeckUrl} className="min-w-0 flex-1 rounded-lg border border-slate-100 bg-slate-50 px-2 py-2 text-[11px] font-bold text-slate-600" />
+                      <button type="button" onClick={() => copyUrl('deck', generatedDeckUrl)} className="rounded-lg bg-indigo-50 px-3 text-indigo-700 border border-indigo-100">
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {copiedKey === 'deck' && <p className="mt-1 text-[10px] font-black uppercase text-emerald-600">Copiado!</p>}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
-                {characters.map((character) => (
-                  <div key={character.id} className="rounded-2xl border-2 border-slate-100 bg-white p-3 shadow-sm">
-                    <div className="mb-3 flex gap-3">
-                      <div className="h-24 w-16 shrink-0 overflow-hidden rounded-xl border-2 border-indigo-50 bg-slate-50">
-                        <CharacterImage name={character.name} imageUrl={character.image_url} isOfficial className="h-full w-full object-cover" />
+                {characters.map((character) => {
+                  const generatedUrl = generatedCharacterUrls[character.id] || character.image_url || '';
+
+                  return (
+                    <div key={character.id} className="rounded-2xl border-2 border-slate-100 bg-white p-3 shadow-sm">
+                      <div className="mb-3 flex gap-3">
+                        <div className="h-24 w-16 shrink-0 overflow-hidden rounded-xl border-2 border-indigo-50 bg-slate-50">
+                          <CharacterImage name={character.name} imageUrl={character.image_url} isOfficial className="h-full w-full object-cover" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-black text-indigo-950">{character.name}</p>
+                          <p className="text-[10px] font-bold uppercase text-slate-400">Salva em atuem/characters/</p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-black text-indigo-950">{character.name}</p>
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Salva em atuem/characters/</p>
-                      </div>
+                      <Input
+                        value={characterPrompts[character.id] || ''}
+                        onChange={(event) => setCharacterPrompts((current) => ({ ...current, [character.id]: event.target.value }))}
+                        placeholder={`Prompt para ${character.name}...`}
+                        className="mb-2 h-10 rounded-xl border-2 border-slate-100 text-xs font-bold"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => generateCharacterImage(character)}
+                        disabled={generatingCharacterId === character.id || !String(characterPrompts[character.id] || '').trim()}
+                        className="h-9 w-full btn-squishy-green text-[10px] font-black uppercase text-white"
+                      >
+                        {generatingCharacterId === character.id ? 'Gerando...' : 'Gerar imagem do personagem'}
+                      </Button>
+
+                      {generatedUrl && (
+                        <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-2">
+                          <p className="mb-1 text-[10px] font-black uppercase text-indigo-500">URL da imagem gerada</p>
+                          <div className="flex gap-2">
+                            <input readOnly value={generatedUrl} className="min-w-0 flex-1 rounded-lg border border-white bg-white px-2 py-2 text-[11px] font-bold text-slate-600" />
+                            <button type="button" onClick={() => copyUrl(character.id, generatedUrl)} className="rounded-lg bg-indigo-50 px-3 text-indigo-700 border border-indigo-100">
+                              <Copy className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {copiedKey === character.id && <p className="mt-1 text-[10px] font-black uppercase text-emerald-600">Copiado!</p>}
+                        </div>
+                      )}
                     </div>
-                    <Input
-                      value={characterPrompts[character.id] || ''}
-                      onChange={(event) => setCharacterPrompts((current) => ({ ...current, [character.id]: event.target.value }))}
-                      placeholder={`Prompt para ${character.name}...`}
-                      className="mb-2 h-10 rounded-xl border-2 border-slate-100 text-xs font-bold"
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => generateCharacterImage(character)}
-                      disabled={generatingCharacterId === character.id || !String(characterPrompts[character.id] || '').trim()}
-                      className="h-9 w-full btn-squishy-green text-[10px] font-black uppercase text-white"
-                    >
-                      {generatingCharacterId === character.id ? 'Gerando...' : 'Gerar imagem do personagem'}
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

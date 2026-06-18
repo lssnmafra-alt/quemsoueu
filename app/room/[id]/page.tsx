@@ -181,28 +181,6 @@ export default function RoomPage() {
   }, [room?.status]);
 
   useEffect(() => {
-    if (!room?.id || room.status !== 'LOBBY' || !me?.id) return;
-    if (!isBotControlledLobby(room, players)) return;
-    if (!players.some((player: any) => !player.is_bot)) return;
-
-    const attemptKey = `${room.id}:${players.length}:${room.updated_at || room.last_activity_at || ''}`;
-    if (botAutoStartAttemptRef.current === attemptKey) return;
-    botAutoStartAttemptRef.current = attemptKey;
-
-    const timer = setTimeout(() => {
-      fetch(`/api/rooms/${room.id}/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deckId: room.deck_id || undefined, auto: true }),
-      }).catch(() => {
-        botAutoStartAttemptRef.current = '';
-      });
-    }, 900);
-
-    return () => clearTimeout(timer);
-  }, [room, players, me?.id]);
-
-  useEffect(() => {
     if (roomNotices.length === 0) return;
     const latest = roomNotices[roomNotices.length - 1];
     const timer = setTimeout(() => {
@@ -225,6 +203,28 @@ export default function RoomPage() {
     if (!room || !user || !me) return false;
     return room.admin_id === user.id || Boolean(me.is_admin);
   }, [room, user, me]);
+
+  useEffect(() => {
+    if (!room?.id || room.status !== 'LOBBY' || !me?.id) return;
+    if (!isBotControlledLobby(room, players)) return;
+    if (!players.some((player: any) => !player.is_bot)) return;
+
+    const attemptKey = `${room.id}:${players.length}:${room.updated_at || room.last_activity_at || ''}`;
+    if (botAutoStartAttemptRef.current === attemptKey) return;
+    botAutoStartAttemptRef.current = attemptKey;
+
+    const timer = setTimeout(() => {
+      fetch(`/api/rooms/${room.id}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deckId: room.deck_id || undefined, auto: true }),
+      }).catch(() => {
+        botAutoStartAttemptRef.current = '';
+      });
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, [room, players, me?.id]);
 
   useEffect(() => {
     if (!me?.id || !room?.id || !user?.id) return;

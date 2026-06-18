@@ -55,9 +55,7 @@ export async function finalizeRoomPicking(roomId: string) {
   const needed = resolvePickingNeed(room, activePlayers, cards);
 
   if (activePlayers.length === 0) {
-    await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
-    await touchRoomActivity(room.id);
-    return { ok: true, finished: true, reason: 'no-active-picking-players' };
+    return { ok: true, skipped: true, reason: 'no-active-picking-players' };
   }
 
   const liveCardsByPlayer = new Map<string, any[]>();
@@ -176,35 +174,31 @@ export async function finalizeRoomPicking(roomId: string) {
     const deckCharacters = characters.length > 0 ? characters : await fetchDeckCharacters(room);
     const requiredDistinctCards = activePlayers.length * needed;
 
-    if (deckCharacters.length < requiredDistinctCards) {
-      await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id).eq('status', 'PICKING');
+    if (deckCharacters.length >= requiredDistinctCards) {
+      await supabaseGame
+        .from('player_cards')
+        .update({ is_dead: true })
+        .in('id', duplicateCards.map((card: any) => card.id));
+
+      await supabaseGame
+        .from('rooms')
+        .update({
+          turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
+          last_activity_at: new Date().toISOString(),
+        })
+        .eq('id', room.id)
+        .eq('status', 'PICKING');
+
       await touchRoomActivity(room.id);
-      return { ok: true, finished: true, reason: 'not-enough-distinct-cards-for-picking' };
+
+      return {
+        ok: true,
+        skipped: true,
+        duplicatePick: true,
+        reason: 'duplicate-picking-cards',
+        message: 'Alguns jogadores escolheram o mesmo personagem. Escolham novamente para desempatar.',
+      };
     }
-
-    await supabaseGame
-      .from('player_cards')
-      .update({ is_dead: true })
-      .in('id', duplicateCards.map((card: any) => card.id));
-
-    await supabaseGame
-      .from('rooms')
-      .update({
-        turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
-        last_activity_at: new Date().toISOString(),
-      })
-      .eq('id', room.id)
-      .eq('status', 'PICKING');
-
-    await touchRoomActivity(room.id);
-
-    return {
-      ok: true,
-      skipped: true,
-      duplicatePick: true,
-      reason: 'duplicate-picking-cards',
-      message: 'Alguns jogadores escolheram o mesmo personagem. Escolham novamente para desempatar.',
-    };
   }
 
   await transitionRoom();
@@ -215,6 +209,7 @@ export async function finalizeRoomPicking(roomId: string) {
     needed,
     randomizedMissingCards: expired && !allReady,
     autoSelectedBotCards: realPlayers.length === 0,
+    duplicatePickAllowed: duplicateCards.length > 0,
     players: activePlayers.length,
   };
 }

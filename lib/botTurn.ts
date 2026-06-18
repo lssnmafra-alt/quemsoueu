@@ -1,6 +1,6 @@
 import { supabaseGame } from './supabase';
 import { touchRoomActivity } from './roomLifecycle';
-import { advanceTurn } from './gameProgress';
+import { finishOrAdvance } from './gameProgress';
 
 type GroqTurnStatus = {
   configured: boolean;
@@ -114,19 +114,20 @@ export async function playBotTurn(
   const playersById = new Map((players || []).map((player: any) => [player.id, player]));
   const livePlayerCards = cards.filter((card: any) => activePlayerIds.has(card.player_id));
   const targetablePlayerCards = livePlayerCards.filter((card: any) => card.player_id !== activePlayer.id);
-  const liveCharacterIds = [...new Set(targetablePlayerCards.map((card: any) => card.character_id))] as string[];
+  const ownCharacterIds = new Set(livePlayerCards.filter((card: any) => card.player_id === activePlayer.id).map((card: any) => card.character_id));
+  const liveCharacterIds = [...new Set(targetablePlayerCards.map((card: any) => card.character_id))].filter((id: any) => !ownCharacterIds.has(id)) as string[];
 
   if (liveCharacterIds.length === 0 || chars.length === 0) {
-    await advanceTurn(room);
+    const progress = await finishOrAdvance(room);
     await logMatchEvents([{
       roomId: room.id,
       turnNumber: room.current_turn_number || 0,
       eventType: 'bot_skip',
       actorPlayerId: activePlayer.id,
       message: `${activePlayer.nickname} nao tinha alvo valido para votar.`,
-      metadata: { reason: 'no-valid-bot-target' },
+      metadata: { reason: 'no-valid-bot-target', progress },
     }]);
-    return { ok: true, skipped: true, reason: 'no-valid-bot-target' };
+    return { ok: true, skipped: true, reason: 'no-valid-bot-target', ...progress };
   }
 
   let targetChar: any = null;
@@ -160,7 +161,7 @@ export async function playBotTurn(
           },
           {
             role: 'user',
-            content: `Seu nome na mesa: ${activePlayer.nickname}.\nPersonagens ainda vivos na mesa (escolha apenas um desta lista): ${liveCharsNames.join(', ')}.`,
+            content: `Seu nome na mesa: ${activePlayer.nickname}.\nPersonagens validos para votar, excluindo sua propria carta (escolha apenas um desta lista): ${liveCharsNames.join(', ')}.`,
           },
         ],
         temperature: 0.8,
@@ -209,17 +210,17 @@ export async function playBotTurn(
     groqStatus.fallbackReason = groqStatus.fallbackReason || 'no-groq-target';
   }
 
-  if (!targetChar) {
-    await advanceTurn(room);
+  if (!targetChar || ownCharacterIds.has(targetChar.id)) {
+    const progress = await finishOrAdvance(room);
     await logMatchEvents([{
       roomId: room.id,
       turnNumber: room.current_turn_number || 0,
       eventType: 'bot_skip',
       actorPlayerId: activePlayer.id,
       message: `${activePlayer.nickname} nao encontrou alvo para votar.`,
-      metadata: { reason: 'no-target', groq: groqStatus },
+      metadata: { reason: 'no-target', groq: groqStatus, progress },
     }]);
-    return { ok: true, skipped: true, reason: 'no-target', groq: groqStatus };
+    return { ok: true, skipped: true, reason: 'no-target', groq: groqStatus, ...progress };
   }
 
   if (botComment) {
@@ -237,7 +238,7 @@ export async function playBotTurn(
 
   await supabaseGame.from('room_players').update({ missed_turns: 0 }).eq('id', activePlayer.id);
 
-  const hits = livePlayerCards.filter((card: any) => card.character_id === targetChar.id);
+  const hits = targetablePlayerCards.filter((card: any) => card.character_id === targetChar.id);
   const hitPlayers = [];
   const eliminatedPlayers: any[] = [];
 

@@ -107,7 +107,7 @@ export default function GeminiDeckImagePanel() {
           <div className="ml-auto flex h-full w-full max-w-2xl flex-col overflow-hidden rounded-3xl border-4 border-indigo-100 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b-2 border-indigo-50 p-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Gerador Gemini dentro do deck</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Gerador IA Flux dentro do deck</p>
                 <h2 className="text-xl font-black text-indigo-950">{deck?.name || 'Deck oficial'}</h2>
               </div>
               <button type="button" onClick={() => setOpen(false)} className="rounded-xl border border-rose-100 bg-rose-50 p-2 text-rose-600">

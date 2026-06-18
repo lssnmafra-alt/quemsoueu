@@ -30,6 +30,18 @@ function hasSkippedFlag(value: unknown): value is { ok: boolean; skipped: boolea
   return Boolean(value && typeof value === 'object' && 'skipped' in value && (value as { skipped?: unknown }).skipped === true);
 }
 
+function getProgressWinner(value: unknown) {
+  if (!value || typeof value !== 'object' || !('winner' in value)) return null;
+  const winner = (value as { winner?: unknown }).winner;
+  return typeof winner === 'string' && winner.trim() ? winner.trim() : null;
+}
+
+function getProgressReason(value: unknown) {
+  if (!value || typeof value !== 'object' || !('reason' in value)) return null;
+  const reason = (value as { reason?: unknown }).reason;
+  return typeof reason === 'string' && reason.trim() ? reason.trim() : null;
+}
+
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id: roomId } = await context.params;
   const body = await request.json().catch(() => ({}));
@@ -177,12 +189,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const result = await finishOrAdvance(room, [activePlayer]);
 
   if (result?.finished) {
+    const winner = getProgressWinner(result);
+    const reason = getProgressReason(result);
     await logMatchEvents([{
       roomId: room.id,
       turnNumber: room.current_turn_number || 0,
       eventType: 'room_finished',
-      message: result.winner ? `Partida encerrada. Campeao: ${result.winner}.` : 'Partida encerrada em empate.',
-      metadata: { winner: result.winner || null, reason: result.reason || null },
+      message: winner ? `Partida encerrada. Campeao: ${winner}.` : 'Partida encerrada em empate.',
+      metadata: { winner, reason },
     }]);
   }
 

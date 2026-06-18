@@ -33,6 +33,13 @@ async function logMatchEvents(events: any[]) {
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, reason: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(reason)), ms)),
+  ]);
+}
+
 export async function playBotTurn(
   roomId: string,
   options: { expectedTurnNumber?: number | null; expectedPlayerId?: string } = {},
@@ -76,7 +83,7 @@ export async function playBotTurn(
   const originalExpiresAt = room.turn_expires_at || null;
   let lockQuery = supabaseGame
     .from('rooms')
-    .update({ turn_expires_at: new Date(Date.now() + 20_000).toISOString() })
+    .update({ turn_expires_at: new Date(Date.now() + 12_000).toISOString() })
     .eq('id', room.id)
     .eq('status', 'PLAYING')
     .eq('current_turn_number', room.current_turn_number || 0);
@@ -141,8 +148,9 @@ export async function playBotTurn(
 
       const liveCharsForBot = chars.filter((char: any) => liveCharacterIds.includes(char.id));
       const liveCharsNames = liveCharsForBot.map((char: any) => char.name);
+      const groqBudgetMs = Math.min(3200, Math.max(1200, ((room.vote_time_seconds || 30) * 1000) - 4500));
 
-      const completion = await groq.chat.completions.create({
+      const completion = await withTimeout(groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         response_format: { type: 'json_object' },
         messages: [
@@ -156,7 +164,7 @@ export async function playBotTurn(
           },
         ],
         temperature: 0.8,
-      });
+      }), groqBudgetMs, 'groq-timeout');
 
       const contentText = completion.choices[0]?.message?.content || '{}';
       groqStatus.responded = Boolean(contentText && contentText !== '{}');
@@ -187,8 +195,8 @@ export async function playBotTurn(
         groqStatus.fallbackReason = 'groq-selected-character-not-found';
       }
     } catch (error) {
-      groqStatus.fallbackReason = error instanceof SyntaxError ? 'groq-json-parse-error' : 'groq-request-error';
-      console.error('Groq bot turn error:', error);
+      groqStatus.fallbackReason = error instanceof SyntaxError ? 'groq-json-parse-error' : error instanceof Error && error.message === 'groq-timeout' ? 'groq-timeout' : 'groq-request-error';
+      console.error('Groq bot turn fallback:', error);
     }
   } else {
     groqStatus.fallbackReason = 'missing-groq-api-key';

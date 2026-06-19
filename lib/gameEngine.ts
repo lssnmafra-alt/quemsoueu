@@ -6,7 +6,7 @@ import { startRoom } from './roomStart';
 import { touchRoomActivity } from './roomLifecycle';
 
 const LOBBY_COUNTDOWN_MS = 5_000;
-const BOT_THINK_MS = 1_500;
+const BOT_THINK_MS = 4_500;
 const ADMIN_STALE_MS = 10_000;
 
 type TickOptions = {
@@ -53,6 +53,30 @@ function getServerTurnStartedAt(room: any) {
   const expiresMs = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
   if (!Number.isFinite(expiresMs) || expiresMs <= 0) return 0;
   return expiresMs - ((room.vote_time_seconds || 30) * 1000);
+}
+
+function isBotHostedAutoLobby(room: any, players: any[]) {
+  const bots = players.filter((player: any) => player.is_bot);
+  if (!room.is_public || bots.length === 0) return false;
+  return bots.some((player: any) => player.is_admin || player.user_id === room.admin_id);
+}
+
+function getHitPlayerIdsFromEvent(event: any) {
+  const ids = event?.metadata?.hit_player_ids;
+  return Array.isArray(ids) ? ids.filter((id: unknown) => typeof id === 'string') : [];
+}
+
+async function getResolvedVoteEvent(room: any) {
+  const { data } = await supabaseGame
+    .from('match_events')
+    .select('*')
+    .eq('room_id', room.id)
+    .eq('turn_number', room.current_turn_number || 0)
+    .in('event_type', ['vote_hit', 'vote_miss'])
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  return data?.[0] || null;
 }
 
 async function transferStaleAdmin(roomId: string, players: any[], staleMs = ADMIN_STALE_MS) {
@@ -102,6 +126,13 @@ async function resolveLobbyTick(room: any, players: any[], options: TickOptions 
     return { ok: true, roomId: room.id, action: 'lobby-waiting-human' };
   }
 
+  if (!isBotHostedAutoLobby(room, players)) {
+    if (room.turn_expires_at) {
+      await supabaseGame.from('rooms').update({ turn_expires_at: null }).eq('id', room.id).eq('status', 'LOBBY');
+    }
+    return { ok: true, roomId: room.id, action: 'manual-lobby-waiting-admin' };
+  }
+
   const now = Date.now();
   const expiresMs = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
   const validExpires = Number.isFinite(expiresMs) && expiresMs > 0;
@@ -132,6 +163,26 @@ async function resolveLobbyTick(room: any, players: any[], options: TickOptions 
   }
 
   return { ok: true, roomId: room.id, action: 'lobby-started-after-human-entry', start: result };
+}
+
+async function finishResolvedVoteIfReady(room: any, voteEvent: any, now = Date.now()): Promise<TickResult | null> {
+  if (!voteEvent) return null;
+
+  const expiresMs = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
+  const waitingForReveal = Number.isFinite(expiresMs) && expiresMs > now;
+  if (waitingForReveal) {
+    return {
+      ok: true,
+      roomId: room.id,
+      action: 'turn-result-revealing',
+      secondsLeft: Math.ceil((expiresMs - now) / 1000),
+      eventType: voteEvent.event_type,
+    };
+  }
+
+  const hitPlayerIds = getHitPlayerIdsFromEvent(voteEvent);
+  const progress = await finishOrAdvance(room, hitPlayerIds);
+  return { ok: true, roomId: room.id, action: 'turn-result-finalized-after-reveal', result: progress };
 }
 
 async function applyHumanTimeout(room: any, activePlayer: any) {
@@ -190,6 +241,10 @@ async function resolvePlayingTick(room: any, players: any[]): Promise<TickResult
     return { ok: true, roomId: room.id, action: 'playing-finished-no-active-player' };
   }
 
+  const voteEvent = await getResolvedVoteEvent(room);
+  const resolvedVote = await finishResolvedVoteIfReady(room, voteEvent);
+  if (resolvedVote) return resolvedVote;
+
   if (activePlayer.is_bot) {
     const startedAt = getServerTurnStartedAt(room);
     if (startedAt && Date.now() - startedAt < BOT_THINK_MS) return { ok: true, roomId: room.id, action: 'bot-thinking', playerId: activePlayer.id };
@@ -197,8 +252,7 @@ async function resolvePlayingTick(room: any, players: any[]): Promise<TickResult
     const botResult: any = await playBotTurn(room.id, { expectedTurnNumber: room.current_turn_number || 0, expectedPlayerId: activePlayer.id });
 
     if (botResult?.ok && botResult.target) {
-      const progress = await finishOrAdvance(room, botResult.hitPlayers || []);
-      return { ok: true, roomId: room.id, action: 'bot-voted', result: { ...botResult, ...progress } };
+      return { ok: true, roomId: room.id, action: 'bot-voted-awaiting-reveal', result: botResult };
     }
 
     if (botResult?.ok && botResult.skipped) return { ok: true, roomId: room.id, action: 'bot-skipped', result: botResult };

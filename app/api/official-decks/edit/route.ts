@@ -15,7 +15,37 @@ export async function POST(req: NextRequest) {
     const deckId = String(body.deckId || '');
     const action = String(body.action || '');
 
-    if (!isOfficialDeckId(deckId)) {
+    if (action === 'create-official-deck') {
+      const name = String(body.name || '').trim();
+      const coverUrl = String(body.coverUrl || '').trim();
+
+      if (!name) {
+        return NextResponse.json({ error: 'Nome obrigatorio.' }, { status: 400 });
+      }
+
+      if (name.length > 60) {
+        return NextResponse.json({ error: 'Nome muito longo. Use ate 60 caracteres.' }, { status: 400 });
+      }
+
+      const { data, error } = await supabaseGame
+        .from('decks')
+        .insert({
+          name,
+          creator_id: null,
+          is_public: true,
+          cover_url: coverUrl,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return NextResponse.json({ deck: data });
+    }
+
+    const canEditOfficialDeck = await isEditableOfficialDeck(deckId);
+
+    if (!canEditOfficialDeck) {
       return NextResponse.json({ error: 'Deck oficial invalido.' }, { status: 403 });
     }
 
@@ -220,6 +250,21 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+async function isEditableOfficialDeck(deckId: string) {
+  if (!deckId) return false;
+  if (isOfficialDeckId(deckId)) return true;
+
+  const { data, error } = await supabaseGame
+    .from('decks')
+    .select('id, creator_id')
+    .eq('id', deckId)
+    .single();
+
+  if (error || !data) return false;
+
+  return data.creator_id === null;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

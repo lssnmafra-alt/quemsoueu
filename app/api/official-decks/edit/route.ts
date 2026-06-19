@@ -173,6 +173,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ character: data });
     }
 
+    if (action === 'update-deck-name') {
+      const name = String(body.name || '').trim();
+
+      if (!name) {
+        return NextResponse.json({ error: 'Nome obrigatorio.' }, { status: 400 });
+      }
+
+      if (name.length > 60) {
+        return NextResponse.json({ error: 'Nome muito longo. Use ate 60 caracteres.' }, { status: 400 });
+      }
+
+      const { data, error } = await supabaseGame
+        .from('decks')
+        .update({ name })
+        .eq('id', deckId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return NextResponse.json({ deck: data });
+    }
+
     if (action === 'update-cover') {
       const coverUrl = String(body.coverUrl || '').trim();
 

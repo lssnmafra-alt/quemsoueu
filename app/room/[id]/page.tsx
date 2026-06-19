@@ -46,7 +46,7 @@ export default function RoomPage() {
       return;
     }
 
-    const requestAdvance = () => fetch('/api/rooms/advance', { method: 'POST' }).catch(() => {});
+    const requestAdvance = () => fetch(`/api/rooms/${roomId}/tick`, { method: 'POST' }).catch(() => {});
 
     const syncRoomState = async (shouldAutoJoin = false) => {
       let rm: any = null;
@@ -110,6 +110,8 @@ export default function RoomPage() {
           setPlayers([...normalizedPlayers, newP]);
           setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${newP.nickname} entrou na sala` }]);
           requestAdvance();
+          setTimeout(requestAdvance, 1200);
+          setTimeout(requestAdvance, 5200);
         }
       }
 
@@ -120,7 +122,7 @@ export default function RoomPage() {
     const poll = setInterval(() => {
       syncRoomState(false);
       requestAdvance();
-    }, 2000);
+    }, 1500);
 
     const subs1 = supabaseGame.channel(`room:${roomId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
@@ -131,6 +133,8 @@ export default function RoomPage() {
           if (payload.eventType === 'INSERT') {
             setPlayers((prev) => prev.some((p) => p.id === payload.new.id) ? prev : [...prev, payload.new]);
             if (payload.new.user_id !== user.id) setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${payload.new.nickname || 'Usuario'} entrou na sala` }]);
+            requestAdvance();
+            setTimeout(requestAdvance, 5200);
           } else if (payload.eventType === 'UPDATE') {
             setPlayers((prev) => prev.map((p) => p.id === payload.new.id ? payload.new : p));
           } else {

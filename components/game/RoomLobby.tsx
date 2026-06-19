@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseGame } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -33,6 +33,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const [botsCount, setBotsCount] = useState<number>(() => players.filter((p: any) => p.is_bot).length);
   const [autoStartSeconds, setAutoStartSeconds] = useState<number | null>(null);
   const [decksLoading, setDecksLoading] = useState(true);
+  const startNudgeRef = useRef<string | null>(null);
 
   const adminPlayer = useMemo(() => players.find((p: any) => p.user_id === room.admin_id || p.is_admin), [players, room.admin_id]);
   const botIsAdmin = Boolean(adminPlayer?.is_bot);
@@ -65,19 +66,32 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   useEffect(() => {
     if (room.status !== 'LOBBY' || !room.turn_expires_at) {
       setAutoStartSeconds(null);
+      startNudgeRef.current = null;
+      return;
+    }
+
+    const expiresAt = new Date(room.turn_expires_at).getTime();
+    if (!Number.isFinite(expiresAt)) {
+      setAutoStartSeconds(null);
+      startNudgeRef.current = null;
       return;
     }
 
     const tick = () => {
-      const diffMs = new Date(room.turn_expires_at).getTime() - Date.now();
+      const diffMs = expiresAt - Date.now();
       const seconds = Math.max(0, Math.ceil(diffMs / 1000));
-      setAutoStartSeconds(seconds > 0 ? seconds : null);
+      setAutoStartSeconds(seconds);
+
+      if (seconds === 0 && startNudgeRef.current !== room.turn_expires_at) {
+        startNudgeRef.current = room.turn_expires_at;
+        fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
+      }
     };
 
     tick();
     const timer = setInterval(tick, 250);
     return () => clearInterval(timer);
-  }, [room.status, room.turn_expires_at]);
+  }, [room.id, room.status, room.turn_expires_at]);
 
   useEffect(() => {
     setBotsCount((current) => Math.min(current, maxBots));
@@ -86,7 +100,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const updateSettings = async (updates: any) => {
     if (!isAdmin || room.status !== 'LOBBY') return;
     await supabaseGame.from('rooms').update(updates).eq('id', room.id);
-    await fetch('/api/rooms/advance', { method: 'POST' }).catch(() => {});
+    await fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
   };
 
   const handleStart = async () => {
@@ -139,7 +153,9 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
               <Timer className="h-5 w-5" />
               <p className="text-sm font-black uppercase tracking-wider">Jogador entrou. Preparando partida.</p>
             </div>
-            <p className="mt-1 text-xl font-black text-amber-950 font-display">A partida começa em {autoStartSeconds} segundos.</p>
+            <p className="mt-1 text-xl font-black text-amber-950 font-display">
+              {autoStartSeconds > 0 ? `A partida começa em ${autoStartSeconds} segundos.` : 'Iniciando partida...'}
+            </p>
             <p className="mt-1 text-xs font-black uppercase tracking-wider text-amber-700">Se outro humano entrar, a contagem reinicia.</p>
           </motion.div>
         )}

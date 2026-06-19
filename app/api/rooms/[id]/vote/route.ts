@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseGame } from '@/lib/supabase';
 import { touchRoomActivity } from '@/lib/roomLifecycle';
-import { finishOrAdvance } from '@/lib/gameProgress';
 
 async function logMatchEvents(events: any[]) {
   const rows = events.filter(Boolean).map((event) => ({
@@ -79,7 +78,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   const originalExpiresAt = room.turn_expires_at || null;
-  const lockUntil = new Date(Date.now() + 20_000).toISOString();
+  const revealLockMs = Math.max(14_000, ((room.reveal_time_seconds || 8) + 6) * 1000);
+  const lockUntil = new Date(Date.now() + revealLockMs).toISOString();
   let lockQuery = supabaseGame
     .from('rooms')
     .update({ turn_expires_at: lockUntil })
@@ -185,7 +185,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       message: hits.length > 0
         ? `${activePlayer.nickname} acertou ${targetChar.name}.`
         : `${activePlayer.nickname} errou ${targetChar.name}.`,
-      metadata: { source: 'human', target_name: targetChar.name, hit_count: hits.length, hit_player_ids: hitPlayerIds },
+      metadata: { source: 'human', target_name: targetChar.name, hit_count: hits.length, hit_player_ids: hitPlayerIds, reveal_until: lockUntil },
     },
     ...eliminatedPlayers.map((player: any) => ({
       roomId: room.id,
@@ -200,7 +200,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   ]);
 
   await touchRoomActivity(room.id);
-  const progress = await finishOrAdvance(room, hitPlayers);
 
   return NextResponse.json({
     ok: true,
@@ -211,6 +210,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     hitPlayerIds,
     hitPlayers,
     hits: hits.length,
-    ...progress,
+    revealPending: true,
   });
 }

@@ -126,7 +126,7 @@ async function logTiebreakStarted(room: any, playerIds: string[], reason: string
       room_id: room.id,
       turn_number: room.current_turn_number || 0,
       event_type: 'tiebreak_started',
-      metadata: { player_ids: playerIds, reason },
+      metadata: { player_ids: playerIds, reason, sudden_death: true },
     });
   } catch (error) {
     console.warn('match_events tiebreak_started skipped:', error);
@@ -157,7 +157,7 @@ async function startTiebreakPicking(room: any, tiebreakPlayers: any[], reason = 
 
   await touchRoomActivity(room.id);
 
-  return { finished: false, tiebreak: true, needsPicking: true, tiebreakPlayerIds, reason };
+  return { finished: false, tiebreak: true, suddenDeath: true, needsPicking: true, tiebreakPlayerIds, reason };
 }
 
 function liveCardsByOwner(liveCards: any[]) {
@@ -173,6 +173,10 @@ function liveCardsByOwner(liveCards: any[]) {
   return { ownerIds, map };
 }
 
+function playersFromIds(ids: Iterable<string>, playersById: Map<string, any>) {
+  return [...ids].map((id) => playersById.get(id) || { id }).filter(Boolean);
+}
+
 export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
   const { players, liveCards, liveCounts } = await syncLivesFromLiveCards(room.id);
   const playersById = new Map((players || []).map((player: any) => [player.id, player]));
@@ -182,40 +186,38 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
   const { ownerIds } = liveCardsByOwner(liveCardsFromAlive);
   const distinctLiveCharacters = new Set((liveCardsFromAlive || []).map((card: any) => card.character_id));
 
-  // CAMPEÃO: só quando existe um único dono de todas as cartas vivas.
-  // Ex.: restam 3 cartas e as 3 pertencem ao mesmo jogador, mesmo com outros jogadores na sala.
+  // CAMPEÃO: única hipótese de campeão direto é existir um único dono de todas as cartas vivas.
+  // Ex.: restam 3 cartas e as 3 pertencem ao mesmo jogador, mesmo que ainda existam vários jogadores na sala.
+  // Também cobre desistência/abandono: se a saída do adversário deixa um único dono de cartas vivas, esse dono vence.
   if (ownerIds.size === 1) {
     const winnerId = [...ownerIds][0];
     const winner: any = playersById.get(winnerId);
     if (winner) {
       await finishRoom(room);
-      return { finished: true, winner: winner.nickname || null, winnerId, reason: 'sole-live-card-owner' };
+      return { finished: true, winner: winner.nickname || null, winnerId, reason: 'champion-sole-live-card-owner' };
     }
   }
 
-  // Sem carta viva ou sem dono claro: desempate entre quem foi atingido ou fallback para jogadores ainda não eliminados.
+  // Sem dono de carta viva: não declara campeão por chute. Vai para desempate/morte súbita entre envolvidos.
   if (ownerIds.size === 0 || alive.length === 0 || liveCardsFromAlive.length === 0) {
     const explicitTiebreakIds = uniqueIds(tiebreakPlayers.map(resolvePlayerId));
     const fallbackTiebreakIds = (players || []).filter((player: any) => !player.is_eliminated).map((player: any) => player.id);
     const tiebreakIds = explicitTiebreakIds.length > 0 ? explicitTiebreakIds : fallbackTiebreakIds;
-    const playersToPick = uniqueIds(tiebreakIds).map((id) => playersById.get(id) || { id }).filter(Boolean);
-    return startTiebreakPicking(room, playersToPick, 'no-live-card-owner');
+    return startTiebreakPicking(room, playersFromIds(uniqueIds(tiebreakIds), playersById), 'no-live-card-owner-sudden-death');
   }
 
   // MORTE SÚBITA: dois ou mais jogadores restantes com a mesma carta viva.
-  // Também cobre o caso em que todos escolheram a mesma carta no desempate.
+  // Também cobre o caso do desempate em que todos escolheram a mesma carta de novo.
   if (ownerIds.size > 1 && distinctLiveCharacters.size <= 1) {
-    const playersToPick = [...ownerIds].map((id) => playersById.get(id) || { id }).filter(Boolean);
-    return startTiebreakPicking(room, playersToPick, 'same-live-card-sudden-death');
+    return startTiebreakPicking(room, playersFromIds(ownerIds, playersById), 'same-live-card-sudden-death');
   }
 
-  // MORTE SÚBITA: sobram jogadores restantes empatados/disputando com cartas vivas.
-  // Não declara campeão por vantagem de vida enquanto houver mais de um dono de carta viva.
+  // MORTE SÚBITA: restaram 2 ou 3 jogadores disputando e nenhum deles é dono único de todas as cartas vivas.
   if (ownerIds.size > 1 && alive.length <= 3) {
-    const playersToPick = [...ownerIds].map((id) => playersById.get(id) || { id }).filter(Boolean);
-    return startTiebreakPicking(room, playersToPick, 'remaining-players-sudden-death');
+    return startTiebreakPicking(room, playersFromIds(ownerIds, playersById), 'remaining-players-sudden-death');
   }
 
+  // Caso normal: ainda há 4+ jogadores/donos de cartas vivas. A rodada continua.
   await advanceTurn(room);
-  return { finished: false };
+  return { finished: false, reason: 'round-continues' };
 }

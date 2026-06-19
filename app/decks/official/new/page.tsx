@@ -74,7 +74,7 @@ export default function NewOfficialDeckPage() {
         throw new Error('Deck criado sem ID valido.');
       }
 
-      router.push(`/decks/${result.deck.id}`);
+      router.push(`/decks/official/${result.deck.id}/edit`);
     } catch (createError: any) {
       setError(createError.message || 'Nao foi possivel criar o deck oficial.');
     } finally {

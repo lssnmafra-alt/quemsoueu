@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseGame } from '@/lib/supabase';
 import { touchRoomActivity } from '@/lib/roomLifecycle';
+import { finishOrAdvance } from '@/lib/gameProgress';
 
 async function logMatchEvents(events: any[]) {
   const rows = events.filter(Boolean).map((event) => ({
@@ -184,12 +185,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       message: hits.length > 0
         ? `${activePlayer.nickname} acertou ${targetChar.name}.`
         : `${activePlayer.nickname} errou ${targetChar.name}.`,
-      metadata: {
-        source: 'human',
-        target_name: targetChar.name,
-        hit_count: hits.length,
-        hit_player_ids: hitPlayerIds,
-      },
+      metadata: { source: 'human', target_name: targetChar.name, hit_count: hits.length, hit_player_ids: hitPlayerIds },
     },
     ...eliminatedPlayers.map((player: any) => ({
       roomId: room.id,
@@ -199,15 +195,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       targetPlayerId: player.id,
       characterId: targetChar.id,
       message: `${activePlayer.nickname} eliminou ${player.nickname} com ${targetChar.name}.`,
-      metadata: {
-        source: 'human',
-        target_name: targetChar.name,
-        eliminated_player_name: player.nickname,
-      },
+      metadata: { source: 'human', target_name: targetChar.name, eliminated_player_name: player.nickname },
     })),
   ]);
 
   await touchRoomActivity(room.id);
+  const progress = await finishOrAdvance(room, hitPlayers);
+
   return NextResponse.json({
     ok: true,
     target: targetChar.name,
@@ -217,5 +211,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     hitPlayerIds,
     hitPlayers,
     hits: hits.length,
+    ...progress,
   });
 }

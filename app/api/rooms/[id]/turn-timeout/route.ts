@@ -15,9 +15,7 @@ async function logMatchEvents(events: any[]) {
     message: event.message || null,
     metadata: event.metadata || {},
   }));
-
   if (rows.length === 0) return;
-
   try {
     const { error } = await supabaseGame.from('match_events').insert(rows);
     if (error) console.warn('match_events skipped:', error.message);
@@ -42,6 +40,23 @@ function getProgressReason(value: unknown) {
   return typeof reason === 'string' && reason.trim() ? reason.trim() : null;
 }
 
+function getHitPlayerIdsFromEvent(event: any) {
+  const ids = event?.metadata?.hit_player_ids;
+  return Array.isArray(ids) ? ids.filter((id: unknown) => typeof id === 'string') : [];
+}
+
+async function getResolvedVoteEvent(room: any) {
+  const { data } = await supabaseGame
+    .from('match_events')
+    .select('*')
+    .eq('room_id', room.id)
+    .eq('turn_number', room.current_turn_number || 0)
+    .in('event_type', ['vote_hit', 'vote_miss'])
+    .order('created_at', { ascending: false })
+    .limit(1);
+  return data?.[0] || null;
+}
+
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id: roomId } = await context.params;
   const body = await request.json().catch(() => ({}));
@@ -53,26 +68,22 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     supabaseGame.from('room_players').select('*').eq('room_id', roomId),
   ]);
 
-  if (!room || room.status !== 'PLAYING') {
-    return NextResponse.json({ ok: false, reason: 'room-not-playing' });
-  }
-
-  if (expectedTurnNumber !== null && room.current_turn_number !== expectedTurnNumber) {
-    return NextResponse.json({ ok: false, reason: 'stale-turn' });
-  }
+  if (!room || room.status !== 'PLAYING') return NextResponse.json({ ok: false, reason: 'room-not-playing' });
+  if (expectedTurnNumber !== null && room.current_turn_number !== expectedTurnNumber) return NextResponse.json({ ok: false, reason: 'stale-turn' });
 
   const now = Date.now();
   const expiredAt = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
+  if (!expiredAt || expiredAt > now) return NextResponse.json({ ok: false, reason: 'turn-not-expired' });
 
-  if (!expiredAt || expiredAt > now) {
-    return NextResponse.json({ ok: false, reason: 'turn-not-expired' });
+  const voteEvent = await getResolvedVoteEvent(room);
+  if (voteEvent) {
+    const result = await finishOrAdvance(room, getHitPlayerIdsFromEvent(voteEvent));
+    return NextResponse.json({ ok: true, resolvedVoteInsteadOfTimeout: true, ...result });
   }
 
   const orderedPlayers = [...(players || [])].sort((a: any, b: any) => (a.play_order || 0) - (b.play_order || 0));
   const activePlayers = orderedPlayers.filter((player: any) => !player.is_eliminated && player.lives > 0);
-  const activePlayer = activePlayers.length > 0
-    ? activePlayers[(room.current_turn_number || 0) % activePlayers.length]
-    : null;
+  const activePlayer = activePlayers.length > 0 ? activePlayers[(room.current_turn_number || 0) % activePlayers.length] : null;
 
   if (!activePlayer) {
     await supabaseGame.from('rooms').update({ status: 'FINISHED' }).eq('id', room.id);
@@ -80,28 +91,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ ok: true, finished: true, reason: 'no-active-player' });
   }
 
-  if (expectedPlayerId && activePlayer.id !== expectedPlayerId) {
-    return NextResponse.json({ ok: false, reason: 'stale-player' });
-  }
+  if (expectedPlayerId && activePlayer.id !== expectedPlayerId) return NextResponse.json({ ok: false, reason: 'stale-player' });
 
   if (activePlayer.is_bot) {
-    const botResult = await playBotTurn(room.id, {
-      expectedTurnNumber: room.current_turn_number || 0,
-      expectedPlayerId: activePlayer.id,
-    });
-
-    if (botResult?.ok && botResult.target) {
-      const progress = await finishOrAdvance(room, botResult.hitPlayers || []);
-      return NextResponse.json({ ...botResult, botRecoveredFromTimeout: true, ...progress, ok: true });
-    }
-
-    if (botResult?.ok && hasSkippedFlag(botResult)) {
-      return NextResponse.json({ ...botResult, botRecoveredFromTimeout: true, ok: true });
-    }
+    const botResult: any = await playBotTurn(room.id, { expectedTurnNumber: room.current_turn_number || 0, expectedPlayerId: activePlayer.id });
+    if (botResult?.ok && botResult.target) return NextResponse.json({ ...botResult, botRecoveredFromTimeout: true, revealPending: true, ok: true });
+    if (botResult?.ok && hasSkippedFlag(botResult)) return NextResponse.json({ ...botResult, botRecoveredFromTimeout: true, ok: true });
   }
 
-  // Important: several clients can notice the same expired timer at the same time.
-  // This atomic lock lets only one request apply the penalty for this turn.
   const lockUntil = new Date(now + 8_000).toISOString();
   const { data: lockedRows, error: lockError } = await supabaseGame
     .from('rooms')
@@ -112,31 +109,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     .lte('turn_expires_at', new Date(now).toISOString())
     .select('id')
     .limit(1);
-
   if (lockError) throw lockError;
-
-  if (!lockedRows || lockedRows.length === 0) {
-    return NextResponse.json({ ok: false, reason: 'timeout-already-handled' });
-  }
+  if (!lockedRows || lockedRows.length === 0) return NextResponse.json({ ok: false, reason: 'timeout-already-handled' });
 
   const missedTurns = (activePlayer.missed_turns || 0) + 1;
-  const { data: liveCards } = await supabaseGame
-    .from('player_cards')
-    .select('id')
-    .eq('room_id', room.id)
-    .eq('player_id', activePlayer.id)
-    .eq('is_dead', false);
-
+  const { data: liveCards } = await supabaseGame.from('player_cards').select('id').eq('room_id', room.id).eq('player_id', activePlayer.id).eq('is_dead', false);
   const cards = liveCards || [];
   const eliminatedByPenalty = missedTurns >= 2;
 
   if (eliminatedByPenalty) {
-    await supabaseGame
-      .from('player_cards')
-      .update({ is_dead: true })
-      .eq('room_id', room.id)
-      .eq('player_id', activePlayer.id)
-      .eq('is_dead', false);
+    await supabaseGame.from('player_cards').update({ is_dead: true }).eq('room_id', room.id).eq('player_id', activePlayer.id).eq('is_dead', false);
   } else if (cards.length > 0) {
     const randomCard = cards[Math.floor(Math.random() * cards.length)];
     await supabaseGame.from('player_cards').update({ is_dead: true }).eq('id', randomCard.id);
@@ -144,60 +126,18 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   const nextLives = eliminatedByPenalty ? 0 : Math.max(0, cards.length - 1);
   const eliminated = eliminatedByPenalty || nextLives <= 0;
-
-  await supabaseGame
-    .from('room_players')
-    .update({
-      missed_turns: missedTurns,
-      lives: nextLives,
-      is_eliminated: eliminated,
-    })
-    .eq('id', activePlayer.id);
+  await supabaseGame.from('room_players').update({ missed_turns: missedTurns, lives: nextLives, is_eliminated: eliminated }).eq('id', activePlayer.id);
 
   await logMatchEvents([
-    {
-      roomId: room.id,
-      turnNumber: room.current_turn_number || 0,
-      eventType: eliminatedByPenalty ? 'timeout_eliminated' : 'timeout_warning',
-      targetPlayerId: activePlayer.id,
-      message: eliminatedByPenalty
-        ? `${activePlayer.nickname} ficou sem votar pela 2ª vez e foi eliminado.`
-        : `${activePlayer.nickname} ficou sem votar e recebeu 1 falta.`,
-      metadata: {
-        player_name: activePlayer.nickname,
-        missed_turns: missedTurns,
-        lives_after: nextLives,
-        eliminated,
-      },
-    },
-    eliminated ? {
-      roomId: room.id,
-      turnNumber: room.current_turn_number || 0,
-      eventType: 'player_eliminated',
-      targetPlayerId: activePlayer.id,
-      message: eliminatedByPenalty
-        ? `${activePlayer.nickname} foi eliminado por 2 faltas.`
-        : `${activePlayer.nickname} foi eliminado por ficar sem vidas no timeout.`,
-      metadata: {
-        source: 'timeout',
-        player_name: activePlayer.nickname,
-        missed_turns: missedTurns,
-      },
-    } : null,
+    { roomId: room.id, turnNumber: room.current_turn_number || 0, eventType: eliminatedByPenalty ? 'timeout_eliminated' : 'timeout_warning', targetPlayerId: activePlayer.id, message: eliminatedByPenalty ? `${activePlayer.nickname} ficou sem votar pela 2ª vez e foi eliminado.` : `${activePlayer.nickname} ficou sem votar e recebeu 1 falta.`, metadata: { player_name: activePlayer.nickname, missed_turns: missedTurns, lives_after: nextLives, eliminated } },
+    eliminated ? { roomId: room.id, turnNumber: room.current_turn_number || 0, eventType: 'player_eliminated', targetPlayerId: activePlayer.id, message: eliminatedByPenalty ? `${activePlayer.nickname} foi eliminado por 2 faltas.` : `${activePlayer.nickname} foi eliminado por ficar sem vidas no timeout.`, metadata: { source: 'timeout', player_name: activePlayer.nickname, missed_turns: missedTurns } } : null,
   ]);
 
   const result = await finishOrAdvance(room, [activePlayer]);
-
   if (result?.finished) {
     const winner = getProgressWinner(result);
     const reason = getProgressReason(result);
-    await logMatchEvents([{
-      roomId: room.id,
-      turnNumber: room.current_turn_number || 0,
-      eventType: 'room_finished',
-      message: winner ? `Partida encerrada. Campeao: ${winner}.` : 'Partida encerrada em empate.',
-      metadata: { winner, reason },
-    }]);
+    await logMatchEvents([{ roomId: room.id, turnNumber: room.current_turn_number || 0, eventType: 'room_finished', message: winner ? `Partida encerrada. Campeao: ${winner}.` : 'Partida encerrada em empate.', metadata: { winner, reason } }]);
   }
 
   return NextResponse.json({ ok: true, playerId: activePlayer.id, missedTurns, lives: nextLives, eliminated, ...result });

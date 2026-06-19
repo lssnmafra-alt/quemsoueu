@@ -85,7 +85,7 @@ export async function playServerBotTurn(roomId: string, options: { expectedTurnN
   if (chars.length === 0 || livePlayerCards.length === 0) {
     const progress = await finishOrAdvance(room);
     await logMatchEvents([{ roomId: room.id, turnNumber: room.current_turn_number || 0, eventType: 'bot_skip', actorPlayerId: activePlayer.id, message: `${activePlayer.nickname} nao tinha carta viva para votar.`, metadata: { reason: 'no-live-card-target', progress } }]);
-    return { ok: true, skipped: true, reason: 'no-live-card-target', ...progress };
+    return { ...progress, ok: true, skipped: true, skipReason: 'no-live-card-target' };
   }
 
   const targetChar = chars[Math.floor(Math.random() * chars.length)];

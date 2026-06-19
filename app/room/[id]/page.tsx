@@ -46,7 +46,11 @@ export default function RoomPage() {
       return;
     }
 
-    const requestAdvance = () => fetch(`/api/rooms/${roomId}/tick`, { method: 'POST' }).catch(() => {});
+    const requestAdvance = (humanJoined = false) => fetch(`/api/rooms/${roomId}/tick`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ humanJoined }),
+    }).catch(() => {});
 
     const syncRoomState = async (shouldAutoJoin = false) => {
       let rm: any = null;
@@ -109,9 +113,9 @@ export default function RoomPage() {
         if (newP) {
           setPlayers([...normalizedPlayers, newP]);
           setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${newP.nickname} entrou na sala` }]);
-          requestAdvance();
-          setTimeout(requestAdvance, 1200);
-          setTimeout(requestAdvance, 5200);
+          requestAdvance(true);
+          setTimeout(() => requestAdvance(false), 1200);
+          setTimeout(() => requestAdvance(false), 5200);
         }
       }
 
@@ -121,7 +125,7 @@ export default function RoomPage() {
     syncRoomState(true);
     const poll = setInterval(() => {
       syncRoomState(false);
-      requestAdvance();
+      requestAdvance(false);
     }, 1500);
 
     const subs1 = supabaseGame.channel(`room:${roomId}`)
@@ -133,8 +137,9 @@ export default function RoomPage() {
           if (payload.eventType === 'INSERT') {
             setPlayers((prev) => prev.some((p) => p.id === payload.new.id) ? prev : [...prev, payload.new]);
             if (payload.new.user_id !== user.id) setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${payload.new.nickname || 'Usuario'} entrou na sala` }]);
-            requestAdvance();
-            setTimeout(requestAdvance, 5200);
+            const humanJoined = payload.new.is_bot !== true;
+            requestAdvance(humanJoined);
+            setTimeout(() => requestAdvance(false), 5200);
           } else if (payload.eventType === 'UPDATE') {
             setPlayers((prev) => prev.map((p) => p.id === payload.new.id ? payload.new : p));
           } else {

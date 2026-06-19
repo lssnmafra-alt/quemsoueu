@@ -27,11 +27,6 @@ function trackForRoomStatus(status?: string) {
   return 'lobby-theme';
 }
 
-function isBotControlledLobby(room: any, players: any[]) {
-  if (!room || room.status !== 'LOBBY') return false;
-  return players.some((player: any) => player.is_bot && (player.is_admin || player.user_id === room.admin_id));
-}
-
 export default function RoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -43,7 +38,6 @@ export default function RoomPage() {
   const [loading, setLoading] = useState(true);
   const [roomNotices, setRoomNotices] = useState<{ id: string; text: string }[]>([]);
   const pickingFinalizeAttemptAtRef = useRef(0);
-  const botAutoStartAttemptRef = useRef('');
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
@@ -52,24 +46,18 @@ export default function RoomPage() {
       return;
     }
 
+    const requestAdvance = () => fetch('/api/rooms/advance', { method: 'POST' }).catch(() => {});
+
     const syncRoomState = async (shouldAutoJoin = false) => {
       let rm: any = null;
 
       for (let attempt = 0; attempt < 3; attempt++) {
-        const { data } = await supabaseGame
-          .from('rooms')
-          .select('*')
-          .eq('id', roomId)
-          .maybeSingle();
-
+        const { data } = await supabaseGame.from('rooms').select('*').eq('id', roomId).maybeSingle();
         if (data) {
           rm = data;
           break;
         }
-
-        if (attempt < 2) {
-          await wait(300 + attempt * 200);
-        }
+        if (attempt < 2) await wait(300 + attempt * 200);
       }
 
       if (!rm) {
@@ -81,14 +69,9 @@ export default function RoomPage() {
       const currentPlayers = pls || [];
       const myRows = currentPlayers.filter((p: any) => p.user_id === user.id);
       const alreadyInRoom = myRows[0];
-      const duplicateRows = myRows.slice(1);
-      const normalizedPlayers = duplicateRows.length > 0
-        ? currentPlayers.filter((p: any) => !duplicateRows.some((duplicate: any) => duplicate.id === p.id))
-        : currentPlayers;
-
-      if (duplicateRows.length > 0) {
-        await supabaseGame.from('room_players').delete().in('id', duplicateRows.map((p: any) => p.id));
-      }
+      const normalizedPlayers = currentPlayers.filter((p: any, index: number, list: any[]) => (
+        p.user_id !== user.id || list.findIndex((item: any) => item.user_id === user.id) === index
+      ));
 
       setRoom(rm);
       setPlayers(normalizedPlayers);
@@ -97,9 +80,7 @@ export default function RoomPage() {
         const now = Date.now();
         if (now - pickingFinalizeAttemptAtRef.current > 5000) {
           pickingFinalizeAttemptAtRef.current = now;
-          fetch(`/api/rooms/${roomId}/finalize-picking`, {
-            method: 'POST',
-          }).catch(() => {
+          fetch(`/api/rooms/${roomId}/finalize-picking`, { method: 'POST' }).catch(() => {
             pickingFinalizeAttemptAtRef.current = 0;
           });
         }
@@ -124,27 +105,22 @@ export default function RoomPage() {
           nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante',
           is_admin: rm.admin_id === user.id,
         }).select().single();
-        if (newP) {
-          const joinedPlayers = [...normalizedPlayers, newP];
-          setPlayers(joinedPlayers);
-          setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${newP.nickname} entrou na sala` }]);
 
-          if (isBotControlledLobby(rm, joinedPlayers)) {
-            setTimeout(() => {
-              fetch(`/api/rooms/${roomId}/start`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ deckId: rm.deck_id || undefined, auto: true }),
-              }).catch(() => {});
-            }, 700);
-          }
+        if (newP) {
+          setPlayers([...normalizedPlayers, newP]);
+          setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${newP.nickname} entrou na sala` }]);
+          requestAdvance();
         }
       }
+
       setLoading(false);
     };
 
     syncRoomState(true);
-    const poll = setInterval(() => syncRoomState(false), 2000);
+    const poll = setInterval(() => {
+      syncRoomState(false);
+      requestAdvance();
+    }, 2000);
 
     const subs1 = supabaseGame.channel(`room:${roomId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
@@ -154,16 +130,11 @@ export default function RoomPage() {
         (payload) => {
           if (payload.eventType === 'INSERT') {
             setPlayers((prev) => prev.some((p) => p.id === payload.new.id) ? prev : [...prev, payload.new]);
-            if (payload.new.user_id !== user.id) {
-              setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${payload.new.nickname || 'Usuario'} entrou na sala` }]);
-            }
+            if (payload.new.user_id !== user.id) setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${payload.new.nickname || 'Usuario'} entrou na sala` }]);
           } else if (payload.eventType === 'UPDATE') {
             setPlayers((prev) => prev.map((p) => p.id === payload.new.id ? payload.new : p));
-          } else if (payload.eventType === 'DELETE') {
+          } else {
             setPlayers((prev) => prev.filter((p) => p.id !== payload.old.id));
-            if (payload.old.user_id !== user.id) {
-              setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${payload.old.nickname || 'Usuario'} saiu da sala` }]);
-            }
           }
         },
       )
@@ -183,9 +154,7 @@ export default function RoomPage() {
   useEffect(() => {
     if (roomNotices.length === 0) return;
     const latest = roomNotices[roomNotices.length - 1];
-    const timer = setTimeout(() => {
-      setRoomNotices((prev) => prev.filter((notice) => notice.id !== latest.id));
-    }, 3200);
+    const timer = setTimeout(() => setRoomNotices((prev) => prev.filter((notice) => notice.id !== latest.id)), 3200);
     return () => clearTimeout(timer);
   }, [roomNotices]);
 
@@ -205,30 +174,7 @@ export default function RoomPage() {
   }, [room, user, me]);
 
   useEffect(() => {
-    if (!room?.id || room.status !== 'LOBBY' || !me?.id) return;
-    if (!isBotControlledLobby(room, players)) return;
-    if (!players.some((player: any) => !player.is_bot)) return;
-
-    const attemptKey = `${room.id}:${players.length}:${room.updated_at || room.last_activity_at || ''}`;
-    if (botAutoStartAttemptRef.current === attemptKey) return;
-    botAutoStartAttemptRef.current = attemptKey;
-
-    const timer = setTimeout(() => {
-      fetch(`/api/rooms/${room.id}/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deckId: room.deck_id || undefined, auto: true }),
-      }).catch(() => {
-        botAutoStartAttemptRef.current = '';
-      });
-    }, 900);
-
-    return () => clearTimeout(timer);
-  }, [room, players, me?.id]);
-
-  useEffect(() => {
     if (!me?.id || !room?.id || !user?.id) return;
-
     const heartbeat = () => {
       fetch(`/api/rooms/${room.id}/heartbeat`, {
         method: 'POST',
@@ -245,9 +191,7 @@ export default function RoomPage() {
 
   const leaveRoom = async () => {
     if (me) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`chatClearedAt:${room.id}:${me.user_id}`, new Date().toISOString());
-      }
+      if (typeof window !== 'undefined') localStorage.setItem(`chatClearedAt:${room.id}:${me.user_id}`, new Date().toISOString());
       await fetch(`/api/rooms/${room.id}/leave`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -265,36 +209,20 @@ export default function RoomPage() {
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans">
       <AudioToggle />
       {room.status !== 'FINISHED' && (
-        <button
-          type="button"
-          onClick={leaveRoom}
-          className="fixed right-4 top-16 z-[90] rounded-2xl border-2 border-rose-200 bg-white/95 px-4 py-3 text-[10px] font-black uppercase tracking-wide text-rose-600 shadow-xl backdrop-blur transition hover:bg-rose-50"
-        >
+        <button type="button" onClick={leaveRoom} className="fixed right-4 top-16 z-[90] rounded-2xl border-2 border-rose-200 bg-white/95 px-4 py-3 text-[10px] font-black uppercase tracking-wide text-rose-600 shadow-xl backdrop-blur transition hover:bg-rose-50">
           Abandonar
         </button>
       )}
       <AnimatePresence>
         {roomNotices.map((notice) => (
-          <motion.div
-            key={notice.id}
-            initial={{ opacity: 0, y: -12, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.96 }}
-            className="fixed left-1/2 top-5 z-[90] -translate-x-1/2 rounded-2xl border-2 border-indigo-100 bg-white/90 px-5 py-3 text-xs font-black uppercase tracking-wide text-indigo-950 shadow-xl backdrop-blur-md"
-          >
+          <motion.div key={notice.id} initial={{ opacity: 0, y: -12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.96 }} className="fixed left-1/2 top-5 z-[90] -translate-x-1/2 rounded-2xl border-2 border-indigo-100 bg-white/90 px-5 py-3 text-xs font-black uppercase tracking-wide text-indigo-950 shadow-xl backdrop-blur-md">
             {notice.text}
           </motion.div>
         ))}
       </AnimatePresence>
       <GameErrorBoundary>
         <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={room.status}
-            initial={{ opacity: 0, scale: 0.985 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.01 }}
-            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-          >
+          <motion.div key={room.status} initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.01 }} transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}>
             {room.status === 'LOBBY' && <RoomLobby room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
             {room.status === 'PICKING' && <RoomPicking room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} />}
             {room.status === 'STARTING' && <RoomStarting room={room} players={enrichedPlayers} isAdmin={isAdmin} />}

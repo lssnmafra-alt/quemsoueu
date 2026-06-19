@@ -22,6 +22,17 @@ async function logMatchEvents(events: any[]) {
   }
 }
 
+function publicPlayerSnapshot(player: any) {
+  if (!player) return null;
+  return {
+    id: player.id,
+    nickname: player.nickname,
+    lives: player.lives || 0,
+    is_eliminated: Boolean(player.is_eliminated),
+    is_bot: Boolean(player.is_bot),
+  };
+}
+
 export async function playServerBotTurn(roomId: string, options: { expectedTurnNumber?: number | null; expectedPlayerId?: string } = {}) {
   const expectedTurnNumber = Number.isInteger(options.expectedTurnNumber) ? options.expectedTurnNumber : null;
   const expectedPlayerId = options.expectedPlayerId || '';
@@ -48,9 +59,10 @@ export async function playServerBotTurn(roomId: string, options: { expectedTurnN
   if (!activePlayer.is_bot) return { ok: false, reason: 'active-player-is-human' };
 
   const originalExpiresAt = room.turn_expires_at || null;
+  const revealUntil = new Date(Date.now() + Math.max(12_000, ((room.reveal_time_seconds || 8) + 4) * 1000)).toISOString();
   let lockQuery = supabaseGame
     .from('rooms')
-    .update({ turn_expires_at: new Date(Date.now() + 12_000).toISOString() })
+    .update({ turn_expires_at: revealUntil })
     .eq('id', room.id)
     .eq('status', 'PLAYING')
     .eq('current_turn_number', room.current_turn_number || 0);
@@ -101,11 +113,40 @@ export async function playServerBotTurn(roomId: string, options: { expectedTurnN
 
   await touchRoomActivity(room.id);
   const hitPlayerIds = [...new Set(hits.map((hit: any) => hit.player_id))];
+  const hitPlayerSnapshots = hitPlayers.map(publicPlayerSnapshot).filter(Boolean);
 
   await logMatchEvents([
-    { roomId: room.id, turnNumber: room.current_turn_number || 0, eventType: hits.length > 0 ? 'vote_hit' : 'vote_miss', actorPlayerId: activePlayer.id, characterId: targetChar.id, message: hits.length > 0 ? `${activePlayer.nickname} acertou ${targetChar.name}.` : `${activePlayer.nickname} errou ${targetChar.name}.`, metadata: { source: 'bot', target_name: targetChar.name, hit_count: hits.length, hit_player_ids: hitPlayerIds, selection: 'random-from-live-cards' } },
+    {
+      roomId: room.id,
+      turnNumber: room.current_turn_number || 0,
+      eventType: hits.length > 0 ? 'vote_hit' : 'vote_miss',
+      actorPlayerId: activePlayer.id,
+      characterId: targetChar.id,
+      message: hits.length > 0 ? `${activePlayer.nickname} acertou ${targetChar.name}.` : `${activePlayer.nickname} errou ${targetChar.name}.`,
+      metadata: {
+        source: 'bot',
+        voter_name: activePlayer.nickname,
+        target_name: targetChar.name,
+        hit_count: hits.length,
+        hit_player_ids: hitPlayerIds,
+        hit_players: hitPlayerSnapshots,
+        reveal_until: revealUntil,
+        selection: 'random-from-live-cards',
+      },
+    },
     ...eliminatedPlayers.map((player: any) => ({ roomId: room.id, turnNumber: room.current_turn_number || 0, eventType: 'player_eliminated', actorPlayerId: activePlayer.id, targetPlayerId: player.id, characterId: targetChar.id, message: `${activePlayer.nickname} eliminou ${player.nickname} com ${targetChar.name}.`, metadata: { source: 'bot', target_name: targetChar.name, eliminated_player_name: player.nickname } })),
   ]);
 
-  return { ok: true, target: targetChar.name, hits: hits.length, hitPlayerIds, hitPlayers, bot: { selectedBy: 'random', fallbackReason: null } };
+  return {
+    ok: true,
+    target: targetChar.name,
+    targetId: targetChar.id,
+    voterId: activePlayer.id,
+    voterName: activePlayer.nickname,
+    hits: hits.length,
+    hitPlayerIds,
+    hitPlayers,
+    revealPending: true,
+    bot: { selectedBy: 'random', fallbackReason: null },
+  };
 }

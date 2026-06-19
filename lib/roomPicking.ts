@@ -20,6 +20,19 @@ async function fetchDeckCharacters(room: any) {
   return data || [];
 }
 
+async function logPickingEvent(room: any, eventType: string, metadata: any) {
+  try {
+    await supabaseGame.from('match_events').insert({
+      room_id: room.id,
+      turn_number: room.current_turn_number || 0,
+      event_type: eventType,
+      metadata,
+    });
+  } catch (error) {
+    console.warn(`match_events ${eventType} skipped:`, error);
+  }
+}
+
 export async function finalizeRoomPicking(roomId: string, _options: { serverTick?: boolean } = {}) {
   const [{ data: room }, { data: players }, { data: currentCards }] = await Promise.all([
     supabaseGame.from('rooms').select('*').eq('id', roomId).maybeSingle(),
@@ -139,6 +152,58 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
 
     await playerUpdatePromise;
   }));
+
+  const activePlayerIds = activePlayers.map((player: any) => player.id);
+  const { data: freshLiveCards } = activePlayerIds.length > 0
+    ? await supabaseGame
+      .from('player_cards')
+      .select('id,player_id,character_id')
+      .eq('room_id', room.id)
+      .eq('is_dead', false)
+      .in('player_id', activePlayerIds)
+    : { data: [] };
+
+  const owners = new Set((freshLiveCards || []).map((card: any) => card.player_id));
+  const distinctCharacters = new Set((freshLiveCards || []).map((card: any) => card.character_id));
+
+  if (activePlayers.length > 1 && owners.size > 1 && distinctCharacters.size <= 1) {
+    await logPickingEvent(room, 'tiebreak_restarted_same_card', {
+      player_ids: [...owners],
+      character_id: [...distinctCharacters][0] || null,
+      reason: 'all-remaining-players-picked-same-card',
+    });
+
+    await supabaseGame
+      .from('player_cards')
+      .update({ is_dead: true })
+      .eq('room_id', room.id)
+      .in('player_id', [...owners])
+      .eq('is_dead', false);
+
+    await supabaseGame
+      .from('room_players')
+      .update({ lives: 1, is_eliminated: false, missed_turns: 0 })
+      .in('id', [...owners]);
+
+    await supabaseGame.from('rooms').update({
+      status: 'PICKING',
+      turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
+      last_activity_at: transitionNow.toISOString(),
+      expires_at: nextRoomExpiry(transitionNow),
+    }).eq('id', room.id).eq('status', 'PICKING');
+
+    await touchRoomActivity(room.id);
+
+    return {
+      ok: true,
+      skipped: true,
+      duplicatePick: true,
+      tiebreak: true,
+      needed: 1,
+      players: owners.size,
+      message: 'Todos escolheram a mesma carta. Morte subita continua: escolham novamente.',
+    };
+  }
 
   await transitionRoom();
   await touchRoomActivity(room.id);

@@ -201,7 +201,7 @@ async function resolvePlayingTick(room: any, players: any[]): Promise<TickResult
       return { ok: true, roomId: room.id, action: 'bot-thinking', playerId: activePlayer.id };
     }
 
-    const botResult = await playBotTurn(room.id, {
+    const botResult: any = await playBotTurn(room.id, {
       expectedTurnNumber: room.current_turn_number || 0,
       expectedPlayerId: activePlayer.id,
     });

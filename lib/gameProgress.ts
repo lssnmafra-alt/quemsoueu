@@ -120,15 +120,6 @@ export async function syncLivesFromLiveCards(roomId: string) {
   };
 }
 
-async function hasStartedTiebreakBefore(roomId: string) {
-  try {
-    const { data } = await supabaseGame.from('match_events').select('id').eq('room_id', roomId).eq('event_type', 'tiebreak_started').limit(1);
-    return Boolean(data && data.length > 0);
-  } catch {
-    return false;
-  }
-}
-
 async function logTiebreakStarted(room: any, playerIds: string[], reason: string) {
   try {
     await supabaseGame.from('match_events').insert({
@@ -151,11 +142,6 @@ async function startTiebreakPicking(room: any, tiebreakPlayers: any[], reason = 
     return { finished: false, reason: 'no-tiebreak-players-advanced' };
   }
 
-  if (await hasStartedTiebreakBefore(room.id)) {
-    await advanceTurn(room);
-    return { finished: false, reason: 'tiebreak-loop-guard-advanced' };
-  }
-
   await logTiebreakStarted(room, tiebreakPlayerIds, reason);
 
   await supabaseGame.from('player_cards').update({ is_dead: true }).eq('room_id', room.id).in('player_id', tiebreakPlayerIds).eq('is_dead', false);
@@ -171,85 +157,63 @@ async function startTiebreakPicking(room: any, tiebreakPlayers: any[], reason = 
 
   await touchRoomActivity(room.id);
 
-  return { finished: false, tiebreak: true, needsPicking: true, tiebreakPlayerIds };
+  return { finished: false, tiebreak: true, needsPicking: true, tiebreakPlayerIds, reason };
+}
+
+function liveCardsByOwner(liveCards: any[]) {
+  const ownerIds = new Set<string>();
+  const map = new Map<string, any[]>();
+  for (const card of liveCards || []) {
+    if (!card.player_id) continue;
+    ownerIds.add(card.player_id);
+    const list = map.get(card.player_id) || [];
+    list.push(card);
+    map.set(card.player_id, list);
+  }
+  return { ownerIds, map };
 }
 
 export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
   const { players, liveCards, liveCounts } = await syncLivesFromLiveCards(room.id);
   const playersById = new Map((players || []).map((player: any) => [player.id, player]));
   const alive = (players || []).filter((player: any) => !player.is_eliminated && (liveCounts.get(player.id) || 0) > 0);
-  const activeHumans = alive.filter((player: any) => !player.is_bot);
-  const activeBots = alive.filter((player: any) => player.is_bot);
   const aliveIds = new Set(alive.map((player: any) => player.id));
   const liveCardsFromAlive = (liveCards || []).filter((card: any) => aliveIds.has(card.player_id));
+  const { ownerIds } = liveCardsByOwner(liveCardsFromAlive);
   const distinctLiveCharacters = new Set((liveCardsFromAlive || []).map((card: any) => card.character_id));
-  const totalPlayers = players || [];
-  const hasAnyHumanInRoom = totalPlayers.some((player: any) => !player.is_bot);
-  const hasPlayedAtLeastOneFullTurn = (room.current_turn_number || 0) > 0;
 
-  if (!hasPlayedAtLeastOneFullTurn && alive.length > 1) {
-    await advanceTurn(room);
-    return { finished: false, reason: 'first-turn-safety-advanced' };
-  }
-
-  if (activeHumans.length === 0 && activeBots.length > 0) {
-    if (hasAnyHumanInRoom && alive.length > 1) {
-      await advanceTurn(room);
-      return { finished: false, reason: 'human-dropped-before-resolution-advanced' };
-    }
-
-    const sortedBots = [...activeBots].sort((a: any, b: any) => (liveCounts.get(b.id) || 0) - (liveCounts.get(a.id) || 0));
-    const topBot = sortedBots[0];
-    const secondBot = sortedBots[1];
-
-    if (!secondBot || (liveCounts.get(topBot.id) || 0) > (liveCounts.get(secondBot.id) || 0)) {
+  // CAMPEÃO: só quando existe um único dono de todas as cartas vivas.
+  // Ex.: restam 3 cartas e as 3 pertencem ao mesmo jogador, mesmo com outros jogadores na sala.
+  if (ownerIds.size === 1) {
+    const winnerId = [...ownerIds][0];
+    const winner: any = playersById.get(winnerId);
+    if (winner) {
       await finishRoom(room);
-      return { finished: true, winner: topBot?.nickname || null, reason: 'bots-only-life-leader' };
+      return { finished: true, winner: winner.nickname || null, winnerId, reason: 'sole-live-card-owner' };
     }
   }
 
-  if (alive.length === 2) {
-    const sorted = [...alive].sort((a: any, b: any) => (liveCounts.get(b.id) || 0) - (liveCounts.get(a.id) || 0));
-    const leaderLives = liveCounts.get(sorted[0].id) || 0;
-    const secondLives = liveCounts.get(sorted[1].id) || 0;
-
-    if (leaderLives > secondLives) {
-      await finishRoom(room);
-      return { finished: true, winner: sorted[0]?.nickname || null, reason: 'two-player-life-leader' };
-    }
-  }
-
-  if (alive.length > 1 && distinctLiveCharacters.size <= 1) {
-    const maxLives = Math.max(...alive.map((player: any) => liveCounts.get(player.id) || 0));
-    const leaders = alive.filter((player: any) => (liveCounts.get(player.id) || 0) === maxLives);
-
-    if (leaders.length === 1) {
-      const winner = leaders[0];
-      const loserIds = alive.filter((player: any) => player.id !== winner.id).map((player: any) => player.id);
-
-      if (loserIds.length > 0) {
-        await supabaseGame.from('room_players').update({ lives: 0, is_eliminated: true }).in('id', loserIds);
-        await supabaseGame.from('player_cards').update({ is_dead: true }).eq('room_id', room.id).in('player_id', loserIds).eq('is_dead', false);
-      }
-
-      await finishRoom(room);
-      return { finished: true, winner: winner?.nickname || null, reason: 'shared-card-life-leader' };
-    }
-
-    return startTiebreakPicking(room, leaders, 'shared-card');
-  }
-
-  if (alive.length === 0 || liveCardsFromAlive.length === 0) {
+  // Sem carta viva ou sem dono claro: desempate entre quem foi atingido ou fallback para jogadores ainda não eliminados.
+  if (ownerIds.size === 0 || alive.length === 0 || liveCardsFromAlive.length === 0) {
     const explicitTiebreakIds = uniqueIds(tiebreakPlayers.map(resolvePlayerId));
     const fallbackTiebreakIds = (players || []).filter((player: any) => !player.is_eliminated).map((player: any) => player.id);
     const tiebreakIds = explicitTiebreakIds.length > 0 ? explicitTiebreakIds : fallbackTiebreakIds;
     const playersToPick = uniqueIds(tiebreakIds).map((id) => playersById.get(id) || { id }).filter(Boolean);
-    return startTiebreakPicking(room, playersToPick, 'no-live-cards');
+    return startTiebreakPicking(room, playersToPick, 'no-live-card-owner');
   }
 
-  if (alive.length === 1) {
-    await finishRoom(room);
-    return { finished: true, winner: alive[0]?.nickname || null };
+  // MORTE SÚBITA: dois ou mais jogadores restantes com a mesma carta viva.
+  // Também cobre o caso em que todos escolheram a mesma carta no desempate.
+  if (ownerIds.size > 1 && distinctLiveCharacters.size <= 1) {
+    const playersToPick = [...ownerIds].map((id) => playersById.get(id) || { id }).filter(Boolean);
+    return startTiebreakPicking(room, playersToPick, 'same-live-card-sudden-death');
+  }
+
+  // MORTE SÚBITA: sobram jogadores restantes empatados/disputando com cartas vivas.
+  // Não declara campeão por vantagem de vida enquanto houver mais de um dono de carta viva.
+  if (ownerIds.size > 1 && alive.length <= 3) {
+    const playersToPick = [...ownerIds].map((id) => playersById.get(id) || { id }).filter(Boolean);
+    return startTiebreakPicking(room, playersToPick, 'remaining-players-sudden-death');
   }
 
   await advanceTurn(room);

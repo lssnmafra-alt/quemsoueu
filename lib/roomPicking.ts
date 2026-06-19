@@ -20,7 +20,7 @@ async function fetchDeckCharacters(room: any) {
   return data || [];
 }
 
-export async function finalizeRoomPicking(roomId: string) {
+export async function finalizeRoomPicking(roomId: string, _options: { serverTick?: boolean } = {}) {
   const [{ data: room }, { data: players }, { data: currentCards }] = await Promise.all([
     supabaseGame.from('rooms').select('*').eq('id', roomId).maybeSingle(),
     supabaseGame.from('room_players').select('*').eq('room_id', roomId),
@@ -148,7 +148,7 @@ export async function finalizeRoomPicking(roomId: string) {
     needed,
     randomizedMissingCards: expired && !allReady,
     autoSelectedBotCards: realPlayers.length === 0,
-    repeatedCardsAllowed: true,
+    repeatedCardsAllowed: false,
     players: activePlayers.length,
   };
 }

@@ -18,22 +18,58 @@ function sameTurnFilter(query: any, room: any) {
 }
 
 async function finishRoom(room: any) {
-  await sameTurnFilter(
-    supabaseGame
-      .from('rooms')
-      .update({ status: 'FINISHED' }),
-    room,
-  );
-
+  await sameTurnFilter(supabaseGame.from('rooms').update({ status: 'FINISHED' }), room);
   await touchRoomActivity(room.id);
 }
 
+function nextNumberForIndex(currentTurn: number, activeLength: number, desiredIndex: number) {
+  if (activeLength <= 0) return currentTurn + 1;
+  let next = currentTurn + 1;
+  while (next % activeLength !== desiredIndex) next += 1;
+  return next;
+}
+
+async function resolveNextTurnNumber(room: any) {
+  const currentTurn = room.current_turn_number || 0;
+  const { data: players } = await supabaseGame
+    .from('room_players')
+    .select('id,play_order,is_eliminated,lives')
+    .eq('room_id', room.id);
+
+  const activePlayers = [...(players || [])]
+    .filter((player: any) => !player.is_eliminated && (player.lives || 0) > 0)
+    .sort((a: any, b: any) => (a.play_order || 0) - (b.play_order || 0));
+
+  if (activePlayers.length <= 1) return currentTurn + 1;
+
+  const { data: events } = await supabaseGame
+    .from('match_events')
+    .select('actor_player_id')
+    .eq('room_id', room.id)
+    .eq('turn_number', currentTurn)
+    .not('actor_player_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  const actorId = events?.[0]?.actor_player_id;
+  const actor = actorId ? (players || []).find((player: any) => player.id === actorId) : null;
+
+  if (!actor) return currentTurn + 1;
+
+  const actorOrder = actor.play_order || 0;
+  const nextPlayer = activePlayers.find((player: any) => (player.play_order || 0) > actorOrder) || activePlayers[0];
+  const desiredIndex = activePlayers.findIndex((player: any) => player.id === nextPlayer.id);
+  return nextNumberForIndex(currentTurn, activePlayers.length, desiredIndex >= 0 ? desiredIndex : 0);
+}
+
 export async function advanceTurn(room: any) {
+  const nextTurnNumber = await resolveNextTurnNumber(room);
+
   await sameTurnFilter(
     supabaseGame
       .from('rooms')
       .update({
-        current_turn_number: (room.current_turn_number || 0) + 1,
+        current_turn_number: nextTurnNumber,
         turn_expires_at: new Date(Date.now() + (room.vote_time_seconds || 30) * 1000).toISOString(),
       }),
     room,
@@ -73,10 +109,7 @@ export async function syncLivesFromLiveCards(roomId: string) {
     const isEliminated = wasAlreadyEliminated || lives <= 0;
 
     if ((player.lives || 0) !== lives || Boolean(player.is_eliminated) !== isEliminated) {
-      await supabaseGame
-        .from('room_players')
-        .update({ lives, is_eliminated: isEliminated })
-        .eq('id', player.id);
+      await supabaseGame.from('room_players').update({ lives, is_eliminated: isEliminated }).eq('id', player.id);
     }
   }
 
@@ -89,13 +122,7 @@ export async function syncLivesFromLiveCards(roomId: string) {
 
 async function hasStartedTiebreakBefore(roomId: string) {
   try {
-    const { data } = await supabaseGame
-      .from('match_events')
-      .select('id')
-      .eq('room_id', roomId)
-      .eq('event_type', 'tiebreak_started')
-      .limit(1);
-
+    const { data } = await supabaseGame.from('match_events').select('id').eq('room_id', roomId).eq('event_type', 'tiebreak_started').limit(1);
     return Boolean(data && data.length > 0);
   } catch {
     return false;
@@ -131,17 +158,8 @@ async function startTiebreakPicking(room: any, tiebreakPlayers: any[], reason = 
 
   await logTiebreakStarted(room, tiebreakPlayerIds, reason);
 
-  await supabaseGame
-    .from('player_cards')
-    .update({ is_dead: true })
-    .eq('room_id', room.id)
-    .in('player_id', tiebreakPlayerIds)
-    .eq('is_dead', false);
-
-  await supabaseGame
-    .from('room_players')
-    .update({ lives: 1, is_eliminated: false, missed_turns: 0 })
-    .in('id', tiebreakPlayerIds);
+  await supabaseGame.from('player_cards').update({ is_dead: true }).eq('room_id', room.id).in('player_id', tiebreakPlayerIds).eq('is_dead', false);
+  await supabaseGame.from('room_players').update({ lives: 1, is_eliminated: false, missed_turns: 0 }).in('id', tiebreakPlayerIds);
 
   await sameTurnFilter(
     supabaseGame.from('rooms').update({
@@ -153,12 +171,7 @@ async function startTiebreakPicking(room: any, tiebreakPlayers: any[], reason = 
 
   await touchRoomActivity(room.id);
 
-  return {
-    finished: false,
-    tiebreak: true,
-    needsPicking: true,
-    tiebreakPlayerIds,
-  };
+  return { finished: false, tiebreak: true, needsPicking: true, tiebreakPlayerIds };
 }
 
 export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
@@ -195,6 +208,17 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
     }
   }
 
+  if (alive.length === 2) {
+    const sorted = [...alive].sort((a: any, b: any) => (liveCounts.get(b.id) || 0) - (liveCounts.get(a.id) || 0));
+    const leaderLives = liveCounts.get(sorted[0].id) || 0;
+    const secondLives = liveCounts.get(sorted[1].id) || 0;
+
+    if (leaderLives > secondLives) {
+      await finishRoom(room);
+      return { finished: true, winner: sorted[0]?.nickname || null, reason: 'two-player-life-leader' };
+    }
+  }
+
   if (alive.length > 1 && distinctLiveCharacters.size <= 1) {
     const maxLives = Math.max(...alive.map((player: any) => liveCounts.get(player.id) || 0));
     const leaders = alive.filter((player: any) => (liveCounts.get(player.id) || 0) === maxLives);
@@ -204,17 +228,8 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
       const loserIds = alive.filter((player: any) => player.id !== winner.id).map((player: any) => player.id);
 
       if (loserIds.length > 0) {
-        await supabaseGame
-          .from('room_players')
-          .update({ lives: 0, is_eliminated: true })
-          .in('id', loserIds);
-
-        await supabaseGame
-          .from('player_cards')
-          .update({ is_dead: true })
-          .eq('room_id', room.id)
-          .in('player_id', loserIds)
-          .eq('is_dead', false);
+        await supabaseGame.from('room_players').update({ lives: 0, is_eliminated: true }).in('id', loserIds);
+        await supabaseGame.from('player_cards').update({ is_dead: true }).eq('room_id', room.id).in('player_id', loserIds).eq('is_dead', false);
       }
 
       await finishRoom(room);
@@ -226,14 +241,9 @@ export async function finishOrAdvance(room: any, tiebreakPlayers: any[] = []) {
 
   if (alive.length === 0 || liveCardsFromAlive.length === 0) {
     const explicitTiebreakIds = uniqueIds(tiebreakPlayers.map(resolvePlayerId));
-    const fallbackTiebreakIds = (players || [])
-      .filter((player: any) => !player.is_eliminated)
-      .map((player: any) => player.id);
+    const fallbackTiebreakIds = (players || []).filter((player: any) => !player.is_eliminated).map((player: any) => player.id);
     const tiebreakIds = explicitTiebreakIds.length > 0 ? explicitTiebreakIds : fallbackTiebreakIds;
-    const playersToPick = uniqueIds(tiebreakIds)
-      .map((id) => playersById.get(id) || { id })
-      .filter(Boolean);
-
+    const playersToPick = uniqueIds(tiebreakIds).map((id) => playersById.get(id) || { id }).filter(Boolean);
     return startTiebreakPicking(room, playersToPick, 'no-live-cards');
   }
 

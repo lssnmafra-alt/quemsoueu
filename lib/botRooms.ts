@@ -1,7 +1,7 @@
 import { supabaseGame } from './supabase';
 import { closeAndDeleteRooms, nextRoomExpiry } from './roomLifecycle';
 
-const TARGET_BOT_LOBBY_ROOMS = 3;
+const TARGET_BOT_LOBBY_ROOMS = 1;
 const MAX_BOT_ONLY_ROOM_AGE_MS = 8 * 60 * 1000;
 
 const BOT_ROOM_SHAPES = [
@@ -78,7 +78,8 @@ async function createBotRoom(theme: { id: string | null; name: string }, index: 
   const now = new Date();
   const adminId = crypto.randomUUID();
   const code = randomCode();
-  const shape = shapeForIndex(index);
+  const rotatingIndex = Math.floor(now.getTime() / (10 * 60 * 1000)) + index;
+  const shape = shapeForIndex(rotatingIndex);
 
   const { data: room, error } = await supabaseGame
     .from('rooms')

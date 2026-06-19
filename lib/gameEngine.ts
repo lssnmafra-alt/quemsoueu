@@ -3,11 +3,11 @@ import { finishOrAdvance } from './gameProgress';
 import { playBotTurn } from './botTurn';
 import { finalizeRoomPicking } from './roomPicking';
 import { startRoom } from './roomStart';
-import { touchRoomActivity, transferStaleAdmin } from './roomLifecycle';
+import { touchRoomActivity } from './roomLifecycle';
 
-const MIN_PLAYERS_TO_START = 4;
 const LOBBY_COUNTDOWN_MS = 5_000;
 const BOT_THINK_MS = 1_500;
+const ADMIN_STALE_MS = 10_000;
 
 type TickResult = {
   ok: boolean;
@@ -49,6 +49,32 @@ function getServerTurnStartedAt(room: any) {
   const expiresMs = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
   if (!Number.isFinite(expiresMs) || expiresMs <= 0) return 0;
   return expiresMs - ((room.vote_time_seconds || 30) * 1000);
+}
+
+async function transferStaleAdmin(roomId: string, players: any[], staleMs = ADMIN_STALE_MS) {
+  if (!players || players.length === 0) return null;
+
+  const currentAdmin = players.find((player: any) => player.is_admin);
+  if (!currentAdmin || currentAdmin.is_bot) return null;
+
+  const seenAt = currentAdmin.last_seen_at || currentAdmin.joined_at || currentAdmin.created_at;
+  const isStale = !seenAt || new Date(seenAt).getTime() < Date.now() - staleMs;
+  if (!isStale) return null;
+
+  const freshHumans = players
+    .filter((player: any) => player.id !== currentAdmin.id && !player.is_bot)
+    .filter((player: any) => {
+      const playerSeenAt = player.last_seen_at || player.joined_at || player.created_at;
+      return playerSeenAt && new Date(playerSeenAt).getTime() >= Date.now() - staleMs;
+    });
+  const fallbackCandidates = players.filter((player: any) => player.id !== currentAdmin.id);
+  const nextAdmin = freshHumans[0] || fallbackCandidates.find((player: any) => !player.is_bot) || fallbackCandidates.find((player: any) => player.is_bot);
+  if (!nextAdmin) return null;
+
+  await supabaseGame.from('room_players').update({ is_admin: false }).eq('room_id', roomId);
+  await supabaseGame.from('room_players').update({ is_admin: true }).eq('id', nextAdmin.id);
+  await supabaseGame.from('rooms').update({ admin_id: nextAdmin.user_id }).eq('id', roomId);
+  return nextAdmin;
 }
 
 async function resolveLobbyTick(room: any, players: any[]): Promise<TickResult> {
@@ -143,12 +169,7 @@ async function applyHumanTimeout(room: any, activePlayer: any) {
       message: eliminatedByPenalty
         ? `${activePlayer.nickname} ficou sem votar pela 2ª vez e foi eliminado.`
         : `${activePlayer.nickname} ficou sem votar e recebeu 1 falta.`,
-      metadata: {
-        player_name: activePlayer.nickname,
-        missed_turns: missedTurns,
-        lives_after: nextLives,
-        eliminated,
-      },
+      metadata: { player_name: activePlayer.nickname, missed_turns: missedTurns, lives_after: nextLives, eliminated },
     },
     eliminated ? {
       roomId: room.id,
@@ -214,7 +235,7 @@ export async function resolveRoomTick(roomId: string): Promise<TickResult> {
 
   if (!room) return { ok: false, roomId, action: 'room-not-found' };
 
-  await transferStaleAdmin(room.id, players || [], 10_000);
+  await transferStaleAdmin(room.id, players || [], ADMIN_STALE_MS);
 
   if (room.status === 'LOBBY') return resolveLobbyTick(room, players || []);
 

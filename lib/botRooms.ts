@@ -1,10 +1,16 @@
 import { supabaseGame } from './supabase';
 import { closeAndDeleteRooms, nextRoomExpiry } from './roomLifecycle';
 
-const TARGET_BOT_LOBBY_ROOMS = 1;
-const MAX_BOT_ONLY_ROOM_AGE_MS = 4 * 60 * 1000;
-const BOT_ROOM_SIZE = 3;
-const BOT_ROOM_MAX_PLAYERS = 4;
+const TARGET_BOT_LOBBY_ROOMS = 3;
+const MAX_BOT_ONLY_ROOM_AGE_MS = 8 * 60 * 1000;
+
+const BOT_ROOM_SHAPES = [
+  { bots: 3, maxPlayers: 4 },
+  { bots: 4, maxPlayers: 6 },
+  { bots: 5, maxPlayers: 6 },
+  { bots: 5, maxPlayers: 10 },
+  { bots: 6, maxPlayers: 10 },
+];
 
 const BOT_NAMES = [
   'jugameplays',
@@ -34,14 +40,16 @@ const BOT_NAMES = [
 function randomCode() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = 'B';
-  while (code.length < 6) {
-    code += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
+  while (code.length < 6) code += alphabet[Math.floor(Math.random() * alphabet.length)];
   return code;
 }
 
 function shuffle<T>(items: T[]) {
   return [...items].sort(() => Math.random() - 0.5);
+}
+
+function shapeForIndex(index: number) {
+  return BOT_ROOM_SHAPES[index % BOT_ROOM_SHAPES.length];
 }
 
 async function getPlayableThemes(charsPerPlayer = 3) {
@@ -56,9 +64,7 @@ async function getPlayableThemes(charsPerPlayer = 3) {
     : { data: [] };
 
   const counts = new Map<string, number>();
-  (deckCharacters || []).forEach((character: any) => {
-    counts.set(character.deck_id, (counts.get(character.deck_id) || 0) + 1);
-  });
+  (deckCharacters || []).forEach((character: any) => counts.set(character.deck_id, (counts.get(character.deck_id) || 0) + 1));
 
   return [
     ...(publicDecks || [])
@@ -72,6 +78,7 @@ async function createBotRoom(theme: { id: string | null; name: string }, index: 
   const now = new Date();
   const adminId = crypto.randomUUID();
   const code = randomCode();
+  const shape = shapeForIndex(index);
 
   const { data: room, error } = await supabaseGame
     .from('rooms')
@@ -80,13 +87,14 @@ async function createBotRoom(theme: { id: string | null; name: string }, index: 
       admin_id: adminId,
       is_public: true,
       deck_id: theme.id,
-      max_players: BOT_ROOM_MAX_PLAYERS,
+      max_players: shape.maxPlayers,
       chars_per_player: 3,
       pick_time_seconds: 30,
       vote_time_seconds: 30,
       reveal_time_seconds: 8,
       status: 'LOBBY',
       current_turn_number: 0,
+      turn_expires_at: null,
       last_activity_at: now.toISOString(),
       expires_at: nextRoomExpiry(now),
     })
@@ -95,7 +103,7 @@ async function createBotRoom(theme: { id: string | null; name: string }, index: 
 
   if (error) throw error;
 
-  const names = shuffle(BOT_NAMES).slice(0, BOT_ROOM_SIZE);
+  const names = shuffle(BOT_NAMES).slice(0, shape.bots);
   const players = names.map((name, botIndex) => {
     const userId = botIndex === 0 ? adminId : crypto.randomUUID();
     return {
@@ -113,11 +121,15 @@ async function createBotRoom(theme: { id: string | null; name: string }, index: 
   const { error: playersError } = await supabaseGame.from('room_players').insert(players);
   if (playersError) throw playersError;
 
-  return { id: room.id, code: room.code, theme: theme.name };
+  return { id: room.id, code: room.code, theme: theme.name, shape };
 }
 
 function isBotOnlyRoom(roomPlayers: any[]) {
   return roomPlayers.length > 0 && roomPlayers.every((player: any) => player.is_bot);
+}
+
+function isExpectedBotRoomShape(room: any, players: any[]) {
+  return BOT_ROOM_SHAPES.some((shape) => shape.maxPlayers === (room.max_players || 6) && shape.bots === players.length);
 }
 
 export async function runBotRoomCycle() {
@@ -145,25 +157,16 @@ export async function runBotRoomCycle() {
     const roomPlayers = playersByRoom.get(room.id) || [];
     const age = now - new Date(room.created_at).getTime();
     const expired = room.expires_at && new Date(room.expires_at).getTime() < now;
-    const fullBotOnlyLobby = room.status === 'LOBBY' && roomPlayers.length >= (room.max_players || BOT_ROOM_MAX_PLAYERS);
-    const oldBotRoomShape = room.status === 'LOBBY' && (room.max_players || BOT_ROOM_MAX_PLAYERS) !== BOT_ROOM_MAX_PLAYERS;
     const oldBotNicknames = roomPlayers.some((player: any) => /^bot\s/i.test(String(player.nickname || '')));
-    return expired || room.status !== 'LOBBY' || room.status === 'FINISHED' || fullBotOnlyLobby || oldBotRoomShape || oldBotNicknames || age > MAX_BOT_ONLY_ROOM_AGE_MS;
+    const wrongShape = room.status === 'LOBBY' && !isExpectedBotRoomShape(room, roomPlayers);
+    return expired || room.status !== 'LOBBY' || room.status === 'FINISHED' || oldBotNicknames || wrongShape || age > MAX_BOT_ONLY_ROOM_AGE_MS;
   });
 
   await closeAndDeleteRooms(staleBotRooms.map((room: any) => room.id));
 
-  const activeBotRooms = botOnlyRooms
-    .filter((room: any) => !staleBotRooms.some((stale: any) => stale.id === room.id));
-
+  const activeBotRooms = botOnlyRooms.filter((room: any) => !staleBotRooms.some((stale: any) => stale.id === room.id));
   const activeBotLobbyRooms = activeBotRooms
-    .filter((room: any) => {
-      const roomPlayers = playersByRoom.get(room.id) || [];
-      return room.status === 'LOBBY'
-        && (room.max_players || BOT_ROOM_MAX_PLAYERS) === BOT_ROOM_MAX_PLAYERS
-        && roomPlayers.length === BOT_ROOM_SIZE
-        && !staleBotRooms.some((stale: any) => stale.id === room.id);
-    })
+    .filter((room: any) => room.status === 'LOBBY' && !staleBotRooms.some((stale: any) => stale.id === room.id))
     .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const keptBotLobbyRooms = activeBotLobbyRooms.slice(0, TARGET_BOT_LOBBY_ROOMS);

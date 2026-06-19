@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ChatMenu from './ChatMenu';
 import { motion } from 'motion/react';
-import { LogOut, Search, Settings, Play, Users, Cpu, Shield, Sparkles, Timer } from 'lucide-react';
+import { LogOut, Search, Settings, Play, Users, Cpu, Shield, Sparkles, Timer, Palette } from 'lucide-react';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
+import AvatarPickerModal from '@/components/avatar/AvatarPickerModal';
+import { avatarSelectionToUrl, selectionFromAvatarUrl, type AvatarSelection } from '@/lib/avatars';
 
 const MIN_PLAYERS_TO_START = 4;
 
@@ -33,6 +35,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const [botsCount, setBotsCount] = useState<number>(() => players.filter((p: any) => p.is_bot).length);
   const [autoStartSeconds, setAutoStartSeconds] = useState<number | null>(null);
   const [decksLoading, setDecksLoading] = useState(true);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const startNudgeRef = useRef<string | null>(null);
 
   const adminPlayer = useMemo(() => players.find((p: any) => p.user_id === room.admin_id || p.is_admin), [players, room.admin_id]);
@@ -44,6 +47,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const clampedBotsCount = Math.min(botsCount, maxBots);
   const expectedParticipants = realPlayersCount + clampedBotsCount;
   const canStart = expectedParticipants >= MIN_PLAYERS_TO_START;
+  const myAvatarSelection = useMemo(() => selectionFromAvatarUrl(me?.avatar_url), [me?.avatar_url]);
 
   useEffect(() => {
     const fetchDecks = async () => {
@@ -101,6 +105,13 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
     if (!isAdmin || room.status !== 'LOBBY') return;
     await supabaseGame.from('rooms').update(updates).eq('id', room.id);
     await fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
+  };
+
+  const saveAvatar = async (selection: AvatarSelection) => {
+    if (!me?.id || room.status !== 'LOBBY') return;
+    const avatarUrl = avatarSelectionToUrl(selection);
+    const { error } = await supabaseGame.from('room_players').update({ avatar_url: avatarUrl }).eq('id', me.id);
+    if (!error) setAvatarPickerOpen(false);
   };
 
   const handleStart = async () => {
@@ -167,30 +178,62 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
             </h2>
 
             <div className="bg-white border-4 border-indigo-100 rounded-3xl p-5 flex-1 overflow-y-auto space-y-3 shadow-md min-h-[250px]">
-              {players.map((p: any, i: number) => (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  key={p.id}
-                  className={cn(
-                    'flex items-center gap-4 p-4 border-2 transition-all relative overflow-hidden shadow-sm rounded-2xl bg-white',
-                    p.user_id === me.user_id ? cn(p.color?.border || 'border-indigo-400', p.color?.lightBgc || 'bg-indigo-50/20') : 'border-slate-100 hover:border-slate-200',
-                  )}
-                >
-                  <div className={cn('absolute top-0 left-0 w-1.5 h-full', p.color?.bg || 'bg-slate-400')} />
-                  <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn('w-12 h-12 border-2 rounded-2xl shadow-sm shrink-0', p.color?.border || 'border-slate-200', p.color?.lightBgc || 'bg-slate-100')} />
-                  <div className="flex-1">
-                    <p className={cn('text-base font-bold', p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {p.is_admin && <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2.5 py-0.5 border border-amber-200 rounded-full flex items-center gap-1"><Shield className="w-3 h-3" /> Dono da Sala</span>}
-                      {!p.is_admin && <span className="text-[10px] bg-slate-50 text-slate-600 px-2.5 py-0.5 border border-slate-200 rounded-full">Jogador</span>}
-                      {p.is_bot && <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-0.5 border border-indigo-200 rounded-full font-bold">Bot Convidado</span>}
-                      {p.user_id === me.user_id && <span className="text-[10px] bg-indigo-600 text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm">Voce</span>}
+              {players.map((p: any, i: number) => {
+                const isMe = p.user_id === me.user_id;
+                return (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    key={p.id}
+                    className={cn(
+                      'flex items-center gap-4 p-4 border-2 transition-all relative overflow-hidden shadow-sm rounded-2xl bg-white',
+                      isMe ? cn(p.color?.border || 'border-indigo-400', p.color?.lightBgc || 'bg-indigo-50/20') : 'border-slate-100 hover:border-slate-200',
+                    )}
+                  >
+                    <div className={cn('absolute top-0 left-0 w-1.5 h-full', p.color?.bg || 'bg-slate-400')} />
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        disabled={!isMe || room.status !== 'LOBBY'}
+                        onClick={() => isMe && setAvatarPickerOpen(true)}
+                        className="block disabled:cursor-default rounded-2xl"
+                        aria-label={isMe ? 'Trocar avatar' : `Avatar de ${p.nickname}`}
+                      >
+                        <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn('w-12 h-12 border-2 rounded-2xl shadow-sm shrink-0', p.color?.border || 'border-slate-200', p.color?.lightBgc || 'bg-slate-100')} />
+                      </button>
+                      {isMe && room.status === 'LOBBY' && (
+                        <button
+                          type="button"
+                          onClick={() => setAvatarPickerOpen(true)}
+                          className="absolute -bottom-1.5 -right-1.5 h-7 w-7 rounded-xl border-2 border-white bg-indigo-600 text-white shadow-md flex items-center justify-center hover:bg-indigo-700 transition-all"
+                          aria-label="Trocar avatar"
+                        >
+                          <Palette className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <p className={cn('text-base font-bold truncate', p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {p.is_admin && <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2.5 py-0.5 border border-amber-200 rounded-full flex items-center gap-1"><Shield className="w-3 h-3" /> Dono da Sala</span>}
+                        {!p.is_admin && <span className="text-[10px] bg-slate-50 text-slate-600 px-2.5 py-0.5 border border-slate-200 rounded-full">Jogador</span>}
+                        {p.is_bot && <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-0.5 border border-indigo-200 rounded-full font-bold">Bot Convidado</span>}
+                        {isMe && <span className="text-[10px] bg-indigo-600 text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm">Voce</span>}
+                        {isMe && room.status === 'LOBBY' && (
+                          <button
+                            type="button"
+                            onClick={() => setAvatarPickerOpen(true)}
+                            className="text-[10px] bg-white text-indigo-600 font-bold px-2.5 py-0.5 border border-indigo-200 rounded-full flex items-center gap-1 hover:bg-indigo-50 transition-all"
+                          >
+                            <Palette className="w-3 h-3" /> Trocar avatar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           </motion.div>
 
@@ -289,6 +332,12 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
       </div>
 
       <ChatMenu roomId={room.id} me={me} players={players} collapsible={true} />
+      <AvatarPickerModal
+        open={avatarPickerOpen}
+        initial={myAvatarSelection}
+        onClose={() => setAvatarPickerOpen(false)}
+        onSave={saveAvatar}
+      />
     </div>
   );
 }

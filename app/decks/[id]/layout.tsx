@@ -18,22 +18,20 @@ export default function DeckRouteLayout({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [deckName, setDeckName] = useState('');
   const [originalDeckName, setOriginalDeckName] = useState('');
+  const [isDatabaseOfficialDeck, setIsDatabaseOfficialDeck] = useState(false);
   const [loadingDeckName, setLoadingDeckName] = useState(false);
   const [savingDeckName, setSavingDeckName] = useState(false);
   const [error, setError] = useState('');
 
-  const isOfficialDeck = isOfficialDeckId(deckId);
-  const canEditOfficialDeck = Boolean(
-    user &&
-      authInitialized &&
-      !authLoading &&
-      TEMP_OFFICIAL_DECK_EDITING_ENABLED &&
-      isOfficialDeck &&
-      pathname === `/decks/${deckId}`,
+  const isStaticOfficialDeck = isOfficialDeckId(deckId);
+  const isDeckRoute = pathname === `/decks/${deckId}`;
+  const canInspectOfficialDeck = Boolean(
+    user && authInitialized && !authLoading && TEMP_OFFICIAL_DECK_EDITING_ENABLED && isDeckRoute && deckId,
   );
+  const canEditOfficialDeck = Boolean(canInspectOfficialDeck && (isStaticOfficialDeck || isDatabaseOfficialDeck));
 
   useEffect(() => {
-    if (!canEditOfficialDeck) return;
+    if (!canInspectOfficialDeck) return;
 
     const fetchDeckName = async () => {
       setLoadingDeckName(true);
@@ -41,7 +39,7 @@ export default function DeckRouteLayout({ children }: { children: ReactNode }) {
       try {
         const { data, error: deckError } = await supabaseGame
           .from('decks')
-          .select('name')
+          .select('name, creator_id')
           .eq('id', deckId)
           .single();
 
@@ -50,7 +48,9 @@ export default function DeckRouteLayout({ children }: { children: ReactNode }) {
         const name = String(data?.name || '');
         setDeckName(name);
         setOriginalDeckName(name);
+        setIsDatabaseOfficialDeck(data?.creator_id === null);
       } catch (fetchError: any) {
+        setIsDatabaseOfficialDeck(false);
         setError(fetchError.message || 'Nao foi possivel carregar o nome do deck.');
       } finally {
         setLoadingDeckName(false);
@@ -58,7 +58,7 @@ export default function DeckRouteLayout({ children }: { children: ReactNode }) {
     };
 
     void fetchDeckName();
-  }, [canEditOfficialDeck, deckId]);
+  }, [canInspectOfficialDeck, deckId]);
 
   const handleSaveDeckName = async () => {
     if (!canEditOfficialDeck || savingDeckName) return;

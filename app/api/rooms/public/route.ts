@@ -9,11 +9,14 @@ function roomIsJoinable(room: any, players: any[]) {
   const playerCount = players.length;
   const maxPlayers = room.max_players || 6;
   const oldBotNickname = players.some((player: any) => player.is_bot && /^bot\s/i.test(String(player.nickname || '')));
+  const expiresMs = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
+  const countdownExpired = Number.isFinite(expiresMs) && expiresMs > 0 && expiresMs <= Date.now();
 
   return room.status === 'LOBBY'
     && room.is_public === true
     && playerCount < maxPlayers
-    && !oldBotNickname;
+    && !oldBotNickname
+    && !countdownExpired;
 }
 
 export async function GET() {
@@ -51,10 +54,15 @@ export async function GET() {
     .map((room: any) => {
       const players = playersByRoom.get(room.id) || [];
       const humanCount = players.filter((player: any) => !player.is_bot).length;
+      const expiresMs = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
+      const startsInSeconds = Number.isFinite(expiresMs) && expiresMs > Date.now()
+        ? Math.ceil((expiresMs - Date.now()) / 1000)
+        : null;
       return {
         ...room,
         player_count: players.length,
         human_count: humanCount,
+        starts_in_seconds: startsInSeconds,
       };
     })
     .filter((room: any) => roomIsJoinable(room, playersByRoom.get(room.id) || []))

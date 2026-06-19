@@ -9,6 +9,10 @@ const LOBBY_COUNTDOWN_MS = 5_000;
 const BOT_THINK_MS = 1_500;
 const ADMIN_STALE_MS = 10_000;
 
+type TickOptions = {
+  humanJoined?: boolean;
+};
+
 type TickResult = {
   ok: boolean;
   roomId: string;
@@ -36,12 +40,6 @@ async function logMatchEvents(events: any[]) {
   } catch (error) {
     console.warn('match_events failed:', error);
   }
-}
-
-function getPlayerSeenOrJoinedMs(player: any) {
-  const value = player.joined_at || player.created_at || player.last_seen_at;
-  const ms = value ? new Date(value).getTime() : 0;
-  return Number.isFinite(ms) ? ms : 0;
 }
 
 function getActivePlayer(room: any, players: any[]) {
@@ -94,7 +92,7 @@ async function startLobbyCountdown(room: any, action: string): Promise<TickResul
   return { ok: true, roomId: room.id, action, countdownUntil };
 }
 
-async function resolveLobbyTick(room: any, players: any[]): Promise<TickResult> {
+async function resolveLobbyTick(room: any, players: any[], options: TickOptions = {}): Promise<TickResult> {
   const humans = players.filter((player: any) => !player.is_bot);
 
   if (humans.length === 0) {
@@ -112,11 +110,7 @@ async function resolveLobbyTick(room: any, players: any[]): Promise<TickResult> 
     return startLobbyCountdown(room, 'lobby-countdown-started');
   }
 
-  const latestHumanJoinMs = Math.max(...humans.map(getPlayerSeenOrJoinedMs));
-  const countdownStartedMs = expiresMs - LOBBY_COUNTDOWN_MS;
-  const humanJoinedDuringCountdown = expiresMs > now && latestHumanJoinMs > countdownStartedMs + 250;
-
-  if (humanJoinedDuringCountdown) {
+  if (options.humanJoined && expiresMs > now) {
     return startLobbyCountdown(room, 'lobby-countdown-restarted-human-joined');
   }
 
@@ -218,7 +212,7 @@ async function resolvePlayingTick(room: any, players: any[]): Promise<TickResult
   return { ok: true, roomId: room.id, action: 'human-timeout-applied', result: timeout };
 }
 
-export async function resolveRoomTick(roomId: string): Promise<TickResult> {
+export async function resolveRoomTick(roomId: string, options: TickOptions = {}): Promise<TickResult> {
   const [{ data: room }, { data: players }] = await Promise.all([
     supabaseGame.from('rooms').select('*').eq('id', roomId).maybeSingle(),
     supabaseGame.from('room_players').select('*').eq('room_id', roomId),
@@ -228,7 +222,7 @@ export async function resolveRoomTick(roomId: string): Promise<TickResult> {
 
   await transferStaleAdmin(room.id, players || [], ADMIN_STALE_MS);
 
-  if (room.status === 'LOBBY') return resolveLobbyTick(room, players || []);
+  if (room.status === 'LOBBY') return resolveLobbyTick(room, players || [], options);
 
   if (room.status === 'PICKING') {
     const result = await finalizeRoomPicking(room.id, { serverTick: true });

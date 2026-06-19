@@ -7,16 +7,12 @@ export const revalidate = 0;
 
 function roomIsJoinable(room: any, players: any[]) {
   const playerCount = players.length;
-  const humanCount = players.filter((player: any) => !player.is_bot).length;
   const maxPlayers = room.max_players || 6;
-  const botOnly = playerCount > 0 && humanCount === 0;
-  const oldBotOnlyShape = botOnly && maxPlayers !== 4;
   const oldBotNickname = players.some((player: any) => player.is_bot && /^bot\s/i.test(String(player.nickname || '')));
 
   return room.status === 'LOBBY'
     && room.is_public === true
     && playerCount < maxPlayers
-    && !oldBotOnlyShape
     && !oldBotNickname;
 }
 
@@ -33,7 +29,7 @@ export async function GET() {
     .eq('is_public', true)
     .eq('status', 'LOBBY')
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(30);
 
   if (roomsError) {
     return NextResponse.json({ rooms: [], error: roomsError.message }, { status: 200 });
@@ -41,10 +37,7 @@ export async function GET() {
 
   const roomIds = (rooms || []).map((room: any) => room.id);
   const { data: roomPlayers } = roomIds.length > 0
-    ? await supabaseGame
-      .from('room_players')
-      .select('id,room_id,is_bot,nickname')
-      .in('room_id', roomIds)
+    ? await supabaseGame.from('room_players').select('id,room_id,is_bot,nickname').in('room_id', roomIds)
     : { data: [] };
 
   const playersByRoom = new Map<string, any[]>();
@@ -65,7 +58,7 @@ export async function GET() {
       };
     })
     .filter((room: any) => roomIsJoinable(room, playersByRoom.get(room.id) || []))
-    .sort((a: any, b: any) => (b.player_count || 0) - (a.player_count || 0))
+    .sort((a: any, b: any) => (b.player_count || 0) - (a.player_count || 0) || (b.max_players || 0) - (a.max_players || 0))
     .slice(0, 8);
 
   return NextResponse.json({ rooms: joinableRooms });

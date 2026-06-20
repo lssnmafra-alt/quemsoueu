@@ -64,16 +64,17 @@ async function countPlayableCharacters() {
   return { counts, officialCount };
 }
 
-async function resolveDeckId(requestedDeckId: string | null, room: any) {
-  const needed = room.chars_per_player || 3;
+async function resolveDeckId(requestedDeckId: string | null, room: any, participantCount: number) {
+  const cardsPerPlayer = room.chars_per_player || 3;
+  const needed = Math.max(cardsPerPlayer, cardsPerPlayer * Math.max(1, participantCount));
   const { counts, officialCount } = await countPlayableCharacters();
 
   if (requestedDeckId && (counts.get(requestedDeckId) || 0) >= needed) {
-    return { deckId: requestedDeckId, source: 'selected' };
+    return { deckId: requestedDeckId, source: 'selected', needed };
   }
 
   if (room.deck_id && (counts.get(room.deck_id) || 0) >= needed) {
-    return { deckId: room.deck_id, source: 'room' };
+    return { deckId: room.deck_id, source: 'room', needed };
   }
 
   const { data: decks } = await supabaseGame
@@ -82,16 +83,16 @@ async function resolveDeckId(requestedDeckId: string | null, room: any) {
     .order('created_at', { ascending: false });
 
   const publicDeck = (decks || []).find((deck: any) => deck.is_public && (counts.get(deck.id) || 0) >= needed);
-  if (publicDeck) return { deckId: publicDeck.id, source: 'public' };
+  if (publicDeck) return { deckId: publicDeck.id, source: 'public', needed };
 
   if (officialCount >= needed) {
-    return { deckId: null, source: 'official' };
+    return { deckId: null, source: 'official', needed };
   }
 
   const anyDeck = (decks || []).find((deck: any) => (counts.get(deck.id) || 0) >= needed);
-  if (anyDeck) return { deckId: anyDeck.id, source: 'any' };
+  if (anyDeck) return { deckId: anyDeck.id, source: 'any', needed };
 
-  return { deckId: undefined, source: 'none' };
+  return { deckId: undefined, source: 'none', needed };
 }
 
 async function syncBots(room: any, players: any[], desiredBots?: number, auto = false) {
@@ -186,21 +187,21 @@ export async function startRoom(
     return { ok: false, status: 400, error: 'A sala precisa ter pelo menos um jogador.' };
   }
 
-  const resolved = await resolveDeckId(requestedDeckId, room);
-  if (resolved.deckId === undefined) {
-    return {
-      ok: false,
-      status: 400,
-      error: `Nenhum deck tem pelo menos ${room.chars_per_player || 3} personagens.`,
-    };
-  }
-
   const botSync = await syncBots(room, playablePlayers, desiredBots, auto);
   if (botSync.players.length < MIN_PLAYERS_TO_START) {
     return {
       ok: false,
       status: 400,
       error: 'A partida precisa de pelo menos 4 participantes. Convide alguem ou adicione bots.',
+    };
+  }
+
+  const resolved = await resolveDeckId(requestedDeckId, room, botSync.players.length);
+  if (resolved.deckId === undefined) {
+    return {
+      ok: false,
+      status: 400,
+      error: `Nenhum deck tem pelo menos ${resolved.needed} personagens únicos para ${botSync.players.length} participantes.`,
     };
   }
 

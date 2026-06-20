@@ -8,14 +8,34 @@ import { Check, Layers, Lightbulb } from 'lucide-react';
 import CharacterImage from '@/components/CharacterImage';
 import { isOfficialDeckId } from '@/lib/officialDecks';
 
+const ALLOWED_PICK_SECONDS = [15, 30, 45] as const;
+const DEFAULT_PICK_SECONDS = 30;
+const TIMER_REPAIR_GRACE_SECONDS = 2;
+
+function clampPickSeconds(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_PICK_SECONDS;
+  const rounded = Math.round(parsed);
+  return (ALLOWED_PICK_SECONDS as readonly number[]).includes(rounded) ? rounded : DEFAULT_PICK_SECONDS;
+}
+
+function formatSeconds(totalSeconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 export default function RoomPicking({ room, players, me, isAdmin }: any) {
+  const safePickSeconds = clampPickSeconds(room.pick_time_seconds);
   const [deckChars, setDeckChars] = useState<any[]>([]);
   const [currentCards, setCurrentCards] = useState<any[]>([]);
   const [selectedChars, setSelectedChars] = useState<string[]>([]);
-  const [timeLeft, setTimeLeft] = useState(room.pick_time_seconds || 30);
+  const [timeLeft, setTimeLeft] = useState(safePickSeconds);
   const [confirmed, setConfirmed] = useState(false);
   const [pickingNotice, setPickingNotice] = useState('');
   const finalizingRef = useRef(false);
+  const timerRepairRef = useRef('');
 
   const baseActivePlayers = useMemo(() => players.filter((p: any) => !p.is_eliminated), [players]);
   const baseIsTiebreak = currentCards.length > 0 && baseActivePlayers.length > 1 && baseActivePlayers.every((p: any) => (p.lives || 0) <= 1);
@@ -142,18 +162,29 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
       return;
     }
 
-    const i = setInterval(() => {
+    const updateTimer = () => {
       const diff = differenceInSeconds(new Date(room.turn_expires_at), new Date());
-      if (diff <= 0) {
+      const rawSeconds = Math.max(0, diff);
+      const visibleSeconds = Math.min(rawSeconds || safePickSeconds, safePickSeconds);
+
+      if (rawSeconds > safePickSeconds + TIMER_REPAIR_GRACE_SECONDS && timerRepairRef.current !== room.turn_expires_at) {
+        timerRepairRef.current = room.turn_expires_at || 'missing';
+        fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
+      }
+
+      if (rawSeconds <= 0) {
         setTimeLeft(0);
         finalizePicking();
       } else {
-        setTimeLeft(diff);
+        setTimeLeft(visibleSeconds);
       }
-    }, 1000);
+    };
+
+    updateTimer();
+    const i = setInterval(updateTimer, 1000);
 
     return () => clearInterval(i);
-  }, [allRealPlayersReady, room.turn_expires_at, finalizePicking]);
+  }, [allRealPlayersReady, room.turn_expires_at, room.id, safePickSeconds, finalizePicking]);
 
   const toggleChar = (id: string) => {
     if (confirmed || !isMeEligible) return;
@@ -194,7 +225,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
     await loadPickingState();
   };
 
-  const totalTime = room.pick_time_seconds || 30;
+  const totalTime = safePickSeconds;
   const progressPercent = allRealPlayersReady ? 0 : Math.max(0, (timeLeft / totalTime) * 100);
   const usesOfficialImages = !room.deck_id || isOfficialDeckId(room.deck_id);
 
@@ -218,7 +249,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
           </p>
           {!allRealPlayersReady && !confirmed && (
             <p className="mt-2 text-xs text-indigo-500 font-bold uppercase tracking-wider">
-              Tempo restante: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{timeLeft}s</span>
+              Tempo restante: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{formatSeconds(timeLeft)}</span>
             </p>
           )}
         </div>
@@ -278,7 +309,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
           })}
         </div>
 
-        <div className="mt-auto">
+        <div className="flex justify-center">
           <Button
             onClick={confirmSelection}
             disabled={selectedChars.length !== pickCount || confirmed || !isMeEligible}

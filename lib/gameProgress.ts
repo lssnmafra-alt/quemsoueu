@@ -1,5 +1,6 @@
 import { supabaseGame } from './supabase';
 import { touchRoomActivity } from './roomLifecycle';
+import { nextPickExpiresAt, nextVoteExpiresAt } from './roomTimers';
 
 function resolvePlayerId(player: any) {
   if (typeof player === 'string') return player;
@@ -70,7 +71,7 @@ export async function advanceTurn(room: any) {
       .from('rooms')
       .update({
         current_turn_number: nextTurnNumber,
-        turn_expires_at: new Date(Date.now() + (room.vote_time_seconds || 30) * 1000).toISOString(),
+        turn_expires_at: nextVoteExpiresAt(room.vote_time_seconds),
       }),
     room,
   );
@@ -150,7 +151,7 @@ async function startTiebreakPicking(room: any, tiebreakPlayers: any[], reason = 
   await sameTurnFilter(
     supabaseGame.from('rooms').update({
       status: 'PICKING',
-      turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
+      turn_expires_at: nextPickExpiresAt(room.pick_time_seconds),
     }),
     room,
   );

@@ -12,8 +12,6 @@ import AvatarPickerModal from '@/components/avatar/AvatarPickerModal';
 import { avatarSelectionToUrl, selectionFromAvatarUrl, type AvatarSelection } from '@/lib/avatars';
 
 const MIN_PLAYERS_TO_START = 4;
-const LOBBY_COUNTDOWN_SECONDS = 5;
-const TIMER_REPAIR_GRACE_SECONDS = 2;
 
 const officialDeck = {
   id: '',
@@ -30,13 +28,6 @@ const settingGroups = [
   { label: 'Tempo de Revelacao (S)', key: 'reveal_time_seconds', options: [5, 8, 12] },
 ] as const;
 
-function secondsUntil(expiresAt?: string | null) {
-  if (!expiresAt) return 0;
-  const expiresMs = new Date(expiresAt).getTime();
-  if (!Number.isFinite(expiresMs)) return 0;
-  return Math.max(0, Math.ceil((expiresMs - Date.now()) / 1000));
-}
-
 export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any) {
   const [decks, setDecks] = useState<any[]>([officialDeck]);
   const [selectedDeck, setSelectedDeck] = useState(room.deck_id || '');
@@ -46,7 +37,6 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const [decksLoading, setDecksLoading] = useState(true);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const startNudgeRef = useRef<string | null>(null);
-  const repairNudgeRef = useRef<string | null>(null);
 
   const adminPlayer = useMemo(() => players.find((p: any) => p.user_id === room.admin_id || p.is_admin), [players, room.admin_id]);
   const botIsAdmin = Boolean(adminPlayer?.is_bot);
@@ -81,21 +71,22 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
     if (room.status !== 'LOBBY' || !room.turn_expires_at) {
       setAutoStartSeconds(null);
       startNudgeRef.current = null;
-      repairNudgeRef.current = null;
+      return;
+    }
+
+    const expiresAt = new Date(room.turn_expires_at).getTime();
+    if (!Number.isFinite(expiresAt)) {
+      setAutoStartSeconds(null);
+      startNudgeRef.current = null;
       return;
     }
 
     const tick = () => {
-      const rawSeconds = secondsUntil(room.turn_expires_at);
-      const seconds = Math.min(rawSeconds, LOBBY_COUNTDOWN_SECONDS);
+      const diffMs = expiresAt - Date.now();
+      const seconds = Math.max(0, Math.ceil(diffMs / 1000));
       setAutoStartSeconds(seconds);
 
-      if (rawSeconds > LOBBY_COUNTDOWN_SECONDS + TIMER_REPAIR_GRACE_SECONDS && repairNudgeRef.current !== room.turn_expires_at) {
-        repairNudgeRef.current = room.turn_expires_at;
-        fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
-      }
-
-      if (rawSeconds === 0 && startNudgeRef.current !== room.turn_expires_at) {
+      if (seconds === 0 && startNudgeRef.current !== room.turn_expires_at) {
         startNudgeRef.current = room.turn_expires_at;
         fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
       }

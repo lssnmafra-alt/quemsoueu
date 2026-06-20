@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ChatMenu from './ChatMenu';
 import { motion } from 'motion/react';
-import { LogOut, Search, Settings, Play, Users, Cpu, Shield, Sparkles, Timer, Palette } from 'lucide-react';
+import { LogOut, Search, Settings, Play, Users, Cpu, Shield, Sparkles, Timer, Palette, Copy, MessageCircle, Check } from 'lucide-react';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import AvatarPickerModal from '@/components/avatar/AvatarPickerModal';
 import { avatarSelectionToUrl, selectionFromAvatarUrl, type AvatarSelection } from '@/lib/avatars';
@@ -39,6 +39,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const [decksLoading, setDecksLoading] = useState(true);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [settingsNotice, setSettingsNotice] = useState('');
+  const [shareNotice, setShareNotice] = useState('');
   const startNudgeRef = useRef<string | null>(null);
   const repairNudgeRef = useRef<string | null>(null);
 
@@ -52,6 +53,15 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const expectedParticipants = realPlayersCount + clampedBotsCount;
   const canStart = expectedParticipants >= MIN_PLAYERS_TO_START;
   const myAvatarSelection = useMemo(() => selectionFromAvatarUrl(me?.avatar_url), [me?.avatar_url]);
+
+  const roomInviteLink = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    return `${window.location.origin}/room/${room.id}`;
+  }, [room.id]);
+
+  const inviteText = useMemo(() => (
+    `Entre na minha sala do Quem Sou Eu? Sala #${room.code}: ${roomInviteLink}`
+  ), [room.code, roomInviteLink]);
 
   useEffect(() => {
     const fetchDecks = async () => {
@@ -127,6 +137,22 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
     }
 
     await fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
+  };
+
+  const copyInviteLink = async () => {
+    if (!roomInviteLink) return;
+    try {
+      await navigator.clipboard.writeText(roomInviteLink);
+      setShareNotice('Link copiado!');
+    } catch {
+      setShareNotice('Copie o link manualmente.');
+    }
+    setTimeout(() => setShareNotice(''), 2500);
+  };
+
+  const shareOnWhatsApp = () => {
+    if (!roomInviteLink) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(inviteText)}`, '_blank', 'noopener,noreferrer');
   };
 
   const saveAvatar = async (selection: AvatarSelection) => {
@@ -256,6 +282,23 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
                   </motion.div>
                 );
               })}
+            </div>
+
+            <div className="bg-white border-4 border-emerald-100 rounded-3xl p-4 shadow-md">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-emerald-600">Convidar amigos</p>
+                  <p className="mt-1 text-xs font-bold text-slate-500 break-all">{roomInviteLink}</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Button type="button" onClick={shareOnWhatsApp} className="h-11 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2">
+                    <MessageCircle className="h-4 w-4" /> WhatsApp
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={copyInviteLink} className="h-11 rounded-2xl border-2 border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2">
+                    {shareNotice ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {shareNotice || 'Copiar link'}
+                  </Button>
+                </div>
+              </div>
             </div>
           </motion.div>
 

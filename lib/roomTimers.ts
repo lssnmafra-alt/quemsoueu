@@ -22,10 +22,16 @@ export function nextVoteExpiresAt(value: unknown) {
   return new Date(Date.now() + clampVoteSeconds(value) * 1000).toISOString();
 }
 
-function clampAllowedSeconds<T extends readonly number[]>(value: unknown, allowed: T, fallback: T[number]) {
+function clampAllowedSeconds<T extends readonly number[]>(
+  value: unknown,
+  allowed: T,
+  fallback: T[number],
+) {
   const parsed = Number(value);
+
   if (!Number.isFinite(parsed)) return fallback;
 
   const rounded = Math.round(parsed);
+
   return (allowed as readonly number[]).includes(rounded) ? rounded : fallback;
 }

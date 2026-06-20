@@ -33,6 +33,16 @@ function publicPlayerSnapshot(player: any) {
   };
 }
 
+function playerAfterHit(player: any, hitCount: number) {
+  const previousLives = player?.lives || 0;
+  const newLives = Math.max(0, previousLives - hitCount);
+  return {
+    ...player,
+    lives: newLives,
+    is_eliminated: newLives <= 0,
+  };
+}
+
 export async function playServerBotTurn(roomId: string, options: { expectedTurnNumber?: number | null; expectedPlayerId?: string } = {}) {
   const expectedTurnNumber = Number.isInteger(options.expectedTurnNumber) ? options.expectedTurnNumber : null;
   const expectedPlayerId = options.expectedPlayerId || '';
@@ -79,8 +89,11 @@ export async function playServerBotTurn(roomId: string, options: { expectedTurnN
   const activePlayerIds = new Set(activePlayers.map((player: any) => player.id));
   const playersById = new Map((players || []).map((player: any) => [player.id, player]));
   const livePlayerCards = (liveCards || []).filter((card: any) => activePlayerIds.has(card.player_id));
+  const botOwnCharacterIds = new Set(livePlayerCards.filter((card: any) => card.player_id === activePlayer.id).map((card: any) => card.character_id));
   const liveCharacterIds = new Set(livePlayerCards.map((card: any) => card.character_id));
-  const chars = (deckChars || []).filter((char: any) => liveCharacterIds.has(char.id));
+  const allLiveChars = (deckChars || []).filter((char: any) => liveCharacterIds.has(char.id));
+  const nonSelfChars = allLiveChars.filter((char: any) => !botOwnCharacterIds.has(char.id));
+  const chars = nonSelfChars.length > 0 ? nonSelfChars : allLiveChars;
 
   if (chars.length === 0 || livePlayerCards.length === 0) {
     const progress = await finishOrAdvance(room);
@@ -92,23 +105,17 @@ export async function playServerBotTurn(roomId: string, options: { expectedTurnN
   await supabaseGame.from('room_players').update({ missed_turns: 0 }).eq('id', activePlayer.id);
 
   const hits = livePlayerCards.filter((card: any) => card.character_id === targetChar.id);
-  const hitPlayers = [];
-  const eliminatedPlayers: any[] = [];
-
-  if (hits.length > 0) await supabaseGame.from('player_cards').update({ is_dead: true }).in('id', hits.map((hit: any) => hit.id));
-
   const hitCountByPlayer = new Map<string, number>();
   for (const hit of hits) hitCountByPlayer.set(hit.player_id, (hitCountByPlayer.get(hit.player_id) || 0) + 1);
 
+  const hitPlayers: any[] = [];
+  const eliminatedPlayers: any[] = [];
   for (const [playerId, hitCount] of hitCountByPlayer.entries()) {
     const targetPlayer: any = playersById.get(playerId);
     if (!targetPlayer) continue;
-    const previousLives = targetPlayer.lives || 0;
-    const newLives = Math.max(0, previousLives - hitCount);
-    const updatedPlayer = { ...targetPlayer, lives: newLives, is_eliminated: newLives <= 0 };
+    const updatedPlayer = playerAfterHit(targetPlayer, hitCount);
     hitPlayers.push(updatedPlayer);
-    if (previousLives > 0 && newLives <= 0) eliminatedPlayers.push(updatedPlayer);
-    await supabaseGame.from('room_players').update({ lives: newLives, is_eliminated: newLives <= 0 }).eq('id', targetPlayer.id);
+    if ((targetPlayer.lives || 0) > 0 && updatedPlayer.is_eliminated) eliminatedPlayers.push(updatedPlayer);
   }
 
   await touchRoomActivity(room.id);
@@ -131,10 +138,11 @@ export async function playServerBotTurn(roomId: string, options: { expectedTurnN
         hit_player_ids: hitPlayerIds,
         hit_players: hitPlayerSnapshots,
         reveal_until: revealUntil,
-        selection: 'random-from-live-cards',
+        selection: nonSelfChars.length > 0 ? 'random-non-self-live-card' : 'random-from-live-cards-fallback-self-only',
+        damage_pending: true,
       },
     },
-    ...eliminatedPlayers.map((player: any) => ({ roomId: room.id, turnNumber: room.current_turn_number || 0, eventType: 'player_eliminated', actorPlayerId: activePlayer.id, targetPlayerId: player.id, characterId: targetChar.id, message: `${activePlayer.nickname} eliminou ${player.nickname} com ${targetChar.name}.`, metadata: { source: 'bot', target_name: targetChar.name, eliminated_player_name: player.nickname } })),
+    ...eliminatedPlayers.map((player: any) => ({ roomId: room.id, turnNumber: room.current_turn_number || 0, eventType: 'player_eliminated', actorPlayerId: activePlayer.id, targetPlayerId: player.id, characterId: targetChar.id, message: `${activePlayer.nickname} eliminou ${player.nickname} com ${targetChar.name}.`, metadata: { source: 'bot', target_name: targetChar.name, eliminated_player_name: player.nickname, damage_pending: true } })),
   ]);
 
   return {
@@ -147,6 +155,6 @@ export async function playServerBotTurn(roomId: string, options: { expectedTurnN
     hitPlayerIds,
     hitPlayers,
     revealPending: true,
-    bot: { selectedBy: 'random', fallbackReason: null },
+    bot: { selectedBy: nonSelfChars.length > 0 ? 'random-non-self' : 'random-self-fallback', fallbackReason: nonSelfChars.length > 0 ? null : 'only-self-cards-left' },
   };
 }

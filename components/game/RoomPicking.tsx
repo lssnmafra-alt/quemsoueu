@@ -7,28 +7,12 @@ import { motion } from 'motion/react';
 import { Check, Layers, Lightbulb } from 'lucide-react';
 import CharacterImage from '@/components/CharacterImage';
 import { isOfficialDeckId } from '@/lib/officialDecks';
-import { clampPickSeconds } from '@/lib/roomTimers';
-
-function formatSeconds(totalSeconds: number) {
-  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-  const minutes = Math.floor(safeSeconds / 60);
-  const seconds = safeSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-function getCappedSecondsLeft(expiresAt: string | null | undefined, maxSeconds: number) {
-  if (!expiresAt) return maxSeconds;
-  const diff = differenceInSeconds(new Date(expiresAt), new Date());
-  if (!Number.isFinite(diff)) return maxSeconds;
-  return Math.min(Math.max(0, diff), maxSeconds);
-}
 
 export default function RoomPicking({ room, players, me, isAdmin }: any) {
-  const safePickSeconds = clampPickSeconds(room.pick_time_seconds);
   const [deckChars, setDeckChars] = useState<any[]>([]);
   const [currentCards, setCurrentCards] = useState<any[]>([]);
   const [selectedChars, setSelectedChars] = useState<string[]>([]);
-  const [timeLeft, setTimeLeft] = useState(getCappedSecondsLeft(room.turn_expires_at, safePickSeconds));
+  const [timeLeft, setTimeLeft] = useState(room.pick_time_seconds || 30);
   const [confirmed, setConfirmed] = useState(false);
   const [pickingNotice, setPickingNotice] = useState('');
   const finalizingRef = useRef(false);
@@ -159,23 +143,17 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
     }
 
     const i = setInterval(() => {
-      const rawDiff = differenceInSeconds(new Date(room.turn_expires_at), new Date());
-      const cappedDiff = Math.min(Math.max(0, rawDiff), safePickSeconds);
-
-      if (rawDiff > safePickSeconds + 2) {
-        fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
-      }
-
-      if (rawDiff <= 0) {
+      const diff = differenceInSeconds(new Date(room.turn_expires_at), new Date());
+      if (diff <= 0) {
         setTimeLeft(0);
         finalizePicking();
       } else {
-        setTimeLeft(cappedDiff);
+        setTimeLeft(diff);
       }
     }, 1000);
 
     return () => clearInterval(i);
-  }, [allRealPlayersReady, room.id, room.turn_expires_at, finalizePicking, safePickSeconds]);
+  }, [allRealPlayersReady, room.turn_expires_at, finalizePicking]);
 
   const toggleChar = (id: string) => {
     if (confirmed || !isMeEligible) return;
@@ -216,7 +194,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
     await loadPickingState();
   };
 
-  const totalTime = safePickSeconds;
+  const totalTime = room.pick_time_seconds || 30;
   const progressPercent = allRealPlayersReady ? 0 : Math.max(0, (timeLeft / totalTime) * 100);
   const usesOfficialImages = !room.deck_id || isOfficialDeckId(room.deck_id);
 
@@ -240,7 +218,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
           </p>
           {!allRealPlayersReady && !confirmed && (
             <p className="mt-2 text-xs text-indigo-500 font-bold uppercase tracking-wider">
-              Tempo restante: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{formatSeconds(timeLeft)}</span>
+              Tempo restante: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{timeLeft}s</span>
             </p>
           )}
         </div>
@@ -283,22 +261,37 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
                   avatarConfig={c.avatar_config}
                   isOfficial={usesOfficialImages}
                   alt=""
-                  className="w-full aspect-[2/3] object-cover bg-slate-200"
+                  className="flex-1 object-cover w-full h-full bg-slate-100"
                 />
-                <div className="p-2 bg-white flex-1 flex flex-col justify-center min-h-[58px]">
-                  <p className="text-xs md:text-sm font-black text-indigo-950 line-clamp-2 leading-tight">{c.name}</p>
+
+                <div className="p-3 bg-white w-full border-t-2 border-slate-100">
+                  <p className="text-sm font-black text-center text-indigo-950 truncate">{c.name}</p>
                 </div>
-                {isSelected && <div className="absolute inset-0 bg-indigo-600/20 flex items-center justify-center"><div className="bg-indigo-600 text-white p-3 rounded-full shadow-xl"><Check className="h-8 w-8 stroke-[4px]" /></div></div>}
+
+                {isSelected && (
+                  <div className="absolute top-2.5 right-2.5 w-7 h-7 bg-indigo-500 rounded-full flex items-center justify-center text-white shadow-md z-30 animate-bounce">
+                    <Check className="w-4 h-4 stroke-[3px]" />
+                  </div>
+                )}
               </motion.div>
             );
           })}
         </div>
 
-        {!confirmed && isMeEligible && (
-          <Button disabled={selectedChars.length !== pickCount} onClick={confirmSelection} className="w-full h-14 text-lg font-black tracking-wider uppercase btn-squishy-indigo text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-            Confirmar Escolha ({selectedChars.length}/{pickCount})
+        <div className="mt-auto">
+          <Button
+            onClick={confirmSelection}
+            disabled={selectedChars.length !== pickCount || confirmed || !isMeEligible}
+            className={cn(
+              'w-full md:w-96 h-14 text-sm font-black tracking-wider uppercase transition-all rounded-2xl cursor-pointer',
+              selectedChars.length === pickCount && !confirmed && isMeEligible
+                ? 'btn-squishy-green text-white'
+                : 'bg-indigo-50 text-indigo-400/80 border-2 border-indigo-100 opacity-60'
+            )}
+          >
+            {confirmed ? 'Selecao Confirmada' : (selectedChars.length === pickCount ? 'Confirmar Escolha' : `Faltam ${pickCount - selectedChars.length} ${pickCount - selectedChars.length === 1 ? 'personagem' : 'personagens'}`)}
           </Button>
-        )}
+        </div>
       </motion.div>
     </div>
   );

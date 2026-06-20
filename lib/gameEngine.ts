@@ -4,6 +4,7 @@ import { playBotTurn } from './botTurn';
 import { finalizeRoomPicking } from './roomPicking';
 import { startRoom } from './roomStart';
 import { touchRoomActivity } from './roomLifecycle';
+import { clampVoteSeconds, nextVoteExpiresAt } from './roomTimers';
 
 const LOBBY_COUNTDOWN_MS = 5_000;
 const BOT_THINK_MS = 4_500;
@@ -52,7 +53,7 @@ function getActivePlayer(room: any, players: any[]) {
 function getServerTurnStartedAt(room: any) {
   const expiresMs = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
   if (!Number.isFinite(expiresMs) || expiresMs <= 0) return 0;
-  return expiresMs - ((room.vote_time_seconds || 30) * 1000);
+  return expiresMs - (clampVoteSeconds(room.vote_time_seconds) * 1000);
 }
 
 function isBotHostedAutoLobby(room: any, players: any[]) {
@@ -287,7 +288,15 @@ export async function resolveRoomTick(roomId: string, options: TickOptions = {})
     const expiresMs = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
     if (expiresMs && expiresMs > Date.now()) return { ok: true, roomId: room.id, action: 'starting-countdown-running' };
 
-    await supabaseGame.from('rooms').update({ status: 'PLAYING', turn_expires_at: new Date(Date.now() + ((room.vote_time_seconds || 30) * 1000)).toISOString() }).eq('id', room.id).eq('status', 'STARTING');
+    await supabaseGame
+      .from('rooms')
+      .update({
+        status: 'PLAYING',
+        vote_time_seconds: clampVoteSeconds(room.vote_time_seconds),
+        turn_expires_at: nextVoteExpiresAt(room.vote_time_seconds),
+      })
+      .eq('id', room.id)
+      .eq('status', 'STARTING');
     await touchRoomActivity(room.id);
     return { ok: true, roomId: room.id, action: 'starting-to-playing' };
   }

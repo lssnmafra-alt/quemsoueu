@@ -24,6 +24,17 @@ async function logMatchEvents(events: any[]) {
   }
 }
 
+function publicPlayerSnapshot(player: any) {
+  if (!player) return null;
+  return {
+    id: player.id,
+    nickname: player.nickname,
+    lives: player.lives || 0,
+    is_eliminated: Boolean(player.is_eliminated),
+    is_bot: Boolean(player.is_bot),
+  };
+}
+
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id: roomId } = await context.params;
   const body = await request.json().catch(() => ({}));
@@ -151,30 +162,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const hitPlayers: any[] = [];
   const eliminatedPlayers: any[] = [];
 
-  if (hits.length > 0) {
-    await supabaseGame
-      .from('player_cards')
-      .update({ is_dead: true })
-      .in('id', hits.map((hit: any) => hit.id));
+  for (const [playerId, hitCount] of hitCountByPlayer.entries()) {
+    const targetPlayer: any = playersById.get(playerId);
+    if (!targetPlayer) continue;
 
-    for (const [playerId, hitCount] of hitCountByPlayer.entries()) {
-      const targetPlayer: any = playersById.get(playerId);
-      if (!targetPlayer) continue;
-
-      const previousLives = targetPlayer.lives || 0;
-      const newLives = Math.max(0, previousLives - hitCount);
-      const updatedPlayer = { ...targetPlayer, lives: newLives, is_eliminated: newLives <= 0 };
-      hitPlayers.push(updatedPlayer);
-      if (previousLives > 0 && newLives <= 0) eliminatedPlayers.push(updatedPlayer);
-
-      await supabaseGame
-        .from('room_players')
-        .update({ lives: newLives, is_eliminated: newLives <= 0 })
-        .eq('id', targetPlayer.id);
-    }
+    const previousLives = targetPlayer.lives || 0;
+    const newLives = Math.max(0, previousLives - hitCount);
+    const updatedPlayer = { ...targetPlayer, lives: newLives, is_eliminated: newLives <= 0 };
+    hitPlayers.push(updatedPlayer);
+    if (previousLives > 0 && newLives <= 0) eliminatedPlayers.push(updatedPlayer);
   }
 
   const hitPlayerIds = [...new Set(hits.map((hit: any) => hit.player_id))];
+  const hitPlayerSnapshots = hitPlayers.map(publicPlayerSnapshot).filter(Boolean);
+
   await logMatchEvents([
     {
       roomId: room.id,
@@ -185,7 +186,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       message: hits.length > 0
         ? `${activePlayer.nickname} acertou ${targetChar.name}.`
         : `${activePlayer.nickname} errou ${targetChar.name}.`,
-      metadata: { source: 'human', target_name: targetChar.name, hit_count: hits.length, hit_player_ids: hitPlayerIds, reveal_until: lockUntil },
+      metadata: { source: 'human', target_name: targetChar.name, hit_count: hits.length, hit_player_ids: hitPlayerIds, hit_players: hitPlayerSnapshots, reveal_until: lockUntil, damage_pending: true },
     },
     ...eliminatedPlayers.map((player: any) => ({
       roomId: room.id,
@@ -195,7 +196,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       targetPlayerId: player.id,
       characterId: targetChar.id,
       message: `${activePlayer.nickname} eliminou ${player.nickname} com ${targetChar.name}.`,
-      metadata: { source: 'human', target_name: targetChar.name, eliminated_player_name: player.nickname },
+      metadata: { source: 'human', target_name: targetChar.name, eliminated_player_name: player.nickname, damage_pending: true },
     })),
   ]);
 

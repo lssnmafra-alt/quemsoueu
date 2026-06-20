@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabaseGame } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { Heart, Target, Clock, LogOut, Zap, List, Skull, Eye, CheckCircle2, Circle, PlayCircle, XCircle } from 'lucide-react';
+import { Heart, Target, Clock, LogOut, Zap, List, Skull, CheckCircle2, Circle, PlayCircle, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { audioManager } from '@/lib/audioManager';
 import ChatMenu from './ChatMenu';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import CharacterImage from '@/components/CharacterImage';
 import { isOfficialDeckId } from '@/lib/officialDecks';
+import { clampVoteSeconds } from '@/lib/roomTimers';
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -18,6 +19,18 @@ function secondsLeft(expiresAt?: string | null) {
   const expiresMs = new Date(expiresAt).getTime();
   if (!Number.isFinite(expiresMs)) return 0;
   return Math.max(0, Math.ceil((expiresMs - Date.now()) / 1000));
+}
+
+function cappedSecondsLeft(expiresAt: string | null | undefined, maxSeconds: number) {
+  const rawSeconds = secondsLeft(expiresAt);
+  return Math.min(rawSeconds, maxSeconds);
+}
+
+function formatSeconds(totalSeconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 function getHitIds(value: any) {
@@ -34,8 +47,9 @@ function isVoteEvent(event: any) {
 }
 
 export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
+  const safeVoteSeconds = clampVoteSeconds(room.vote_time_seconds);
   const [deckChars, setDeckChars] = useState<any[]>([]);
-  const [timeLeft, setTimeLeft] = useState(secondsLeft(room.turn_expires_at) || room.vote_time_seconds || 30);
+  const [timeLeft, setTimeLeft] = useState(cappedSecondsLeft(room.turn_expires_at, safeVoteSeconds) || safeVoteSeconds);
   const [actionLog, setActionLog] = useState<{ id: string; msg: string }[]>([]);
   const [isRevealing, setIsRevealing] = useState(false);
   const [revealStage, setRevealStage] = useState<'thinking' | 'card' | 'owner' | 'result' | 'consequence'>('thinking');
@@ -54,6 +68,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const handledRevealKeysRef = useRef<Set<string>>(new Set());
   const handledEventIdsRef = useRef<Set<string>>(new Set());
   const suddenDeathAnnouncedRef = useRef(false);
+  const timerRepairRef = useRef('');
 
   const orderedPlayers = useMemo(() => [...players].sort((a, b) => (a.play_order || 0) - (b.play_order || 0)), [players]);
   const activePlayers = useMemo(() => orderedPlayers.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0), [orderedPlayers]);
@@ -244,12 +259,13 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     handlingTimeoutRef.current = false;
     voteProcessingRef.current = false;
     botTurnRef.current = '';
+    timerRepairRef.current = '';
     setIsVoting(false);
     setMyPendingChoice(null);
-    setTimeLeft(secondsLeft(room.turn_expires_at) || room.vote_time_seconds || 30);
+    setTimeLeft(cappedSecondsLeft(room.turn_expires_at, safeVoteSeconds) || safeVoteSeconds);
     void refreshLiveCards();
     audioManager.playSFX('turn');
-  }, [room.current_turn_number, room.vote_time_seconds, refreshLiveCards]);
+  }, [room.current_turn_number, room.turn_expires_at, safeVoteSeconds, refreshLiveCards]);
 
   useEffect(() => {
     audioManager.setMusicRate(isSuddenDeath ? 1.18 : 1);
@@ -271,11 +287,19 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   useEffect(() => {
     const interval = setInterval(() => {
       if (isRevealing || isVoting) return;
-      const diff = secondsLeft(room.turn_expires_at);
-      if (diff > 0) {
-        setTimeLeft(diff);
+      const rawDiff = secondsLeft(room.turn_expires_at);
+      const visibleDiff = Math.min(rawDiff, safeVoteSeconds);
+
+      if (rawDiff > safeVoteSeconds + 2 && timerRepairRef.current !== room.turn_expires_at) {
+        timerRepairRef.current = room.turn_expires_at || 'no-expires';
+        fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
+      }
+
+      if (rawDiff > 0) {
+        setTimeLeft(visibleDiff);
         return;
       }
+
       setTimeLeft(0);
       if (!activePlayer || handlingTimeoutRef.current || voteProcessingRef.current) return;
       const timeoutKey = `timeout-lock-${room.id}-${room.current_turn_number}-${activePlayer.id}`;
@@ -312,7 +336,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
         .finally(() => { handlingTimeoutRef.current = false; });
     }, 500);
     return () => clearInterval(interval);
-  }, [activePlayer, addLog, isRevealing, isVoting, refreshLiveCards, room.current_turn_number, room.id, room.turn_expires_at, runVoteResult, showEliminationNotice]);
+  }, [activePlayer, addLog, isRevealing, isVoting, refreshLiveCards, room.current_turn_number, room.id, room.turn_expires_at, runVoteResult, showEliminationNotice, safeVoteSeconds]);
 
   useEffect(() => {
     if (!activePlayer?.is_bot || activePlayer.is_eliminated || isRevealing || isVoting) return;
@@ -320,7 +344,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     if (botTurnRef.current === turnKey) return;
     addLog(`${activePlayer.nickname} está pensando no palpite...`);
     botTurnRef.current = turnKey;
-    const voteSeconds = Math.max(5, room.vote_time_seconds || 30);
+    const voteSeconds = Math.max(5, safeVoteSeconds);
     const maxDelay = Math.max(900, voteSeconds * 1000 - 4500);
     const preferredDelay = isSuddenDeath ? (humanPlayers.length === 1 ? 1700 : 2200) + Math.floor(Math.random() * 600) : (humanPlayers.length === 1 ? 2100 : 2800) + Math.floor(Math.random() * 700);
     const delay = Math.min(maxDelay, preferredDelay);
@@ -332,7 +356,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
       else if (result?.reason !== 'bot-turn-already-handled') botTurnRef.current = '';
     }, delay);
     return () => clearTimeout(timer);
-  }, [activePlayer, addLog, humanPlayers.length, isRevealing, isVoting, isSuddenDeath, room.current_turn_number, room.id, room.vote_time_seconds, runVoteResult]);
+  }, [activePlayer, addLog, humanPlayers.length, isRevealing, isVoting, isSuddenDeath, room.current_turn_number, room.id, safeVoteSeconds, runVoteResult]);
 
   const turnTitle = isSpectator
     ? 'Você está fora da rodada'
@@ -382,7 +406,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
               {!isRevealing && !isVoting && (
                 <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border-2 bg-white shadow-sm', timeLeft <= 5 ? 'border-rose-200 text-rose-600' : 'border-indigo-100 text-indigo-950')}>
                   <Clock className="w-4 h-4" />
-                  <span className="text-xl md:text-2xl font-black font-mono">00:{timeLeft.toString().padStart(2, '0')}</span>
+                  <span className="text-xl md:text-2xl font-black font-mono">{formatSeconds(timeLeft)}</span>
                 </div>
               )}
               <button onClick={leaveRoom} className="h-10 px-3 rounded-2xl border-2 border-rose-100 bg-rose-50 text-rose-600 text-[10px] md:text-xs font-black uppercase flex items-center gap-1.5 hover:bg-rose-100 transition-all cursor-pointer">
@@ -409,13 +433,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
               const StatusIcon = isOut ? XCircle : isActive ? PlayCircle : Circle;
 
               return (
-                <div
-                  key={p.id}
-                  className={cn(
-                    'rounded-2xl border-2 bg-white px-3 py-2.5 shadow-sm flex items-center gap-3 min-w-0',
-                    isOut ? 'border-slate-200 bg-slate-50 opacity-75 grayscale' : isActive ? 'border-indigo-300 bg-indigo-50' : 'border-slate-100',
-                  )}
-                >
+                <div key={p.id} className={cn('rounded-2xl border-2 bg-white px-3 py-2.5 shadow-sm flex items-center gap-3 min-w-0', isOut ? 'border-slate-200 bg-slate-50 opacity-75 grayscale' : isActive ? 'border-indigo-300 bg-indigo-50' : 'border-slate-100')}>
                   <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn('w-10 h-10 rounded-2xl border-2 shrink-0', isOut ? 'border-slate-300 bg-slate-200' : p.color?.border || 'border-indigo-100')} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 min-w-0">
@@ -424,13 +442,9 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
                     </div>
                     <p className={cn('mt-0.5 text-[10px] font-black uppercase tracking-wide', isOut ? 'text-slate-400' : isActive ? 'text-indigo-600' : 'text-slate-400')}>{statusText}</p>
                   </div>
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    {Array.from({ length: room.chars_per_player }).map((_, i) => i < (p.lives || 0) && !isOut ? (
-                      <Heart key={i} className={cn('w-3.5 h-3.5 fill-current', p.color?.text || 'text-indigo-500')} />
-                    ) : (
-                      <Skull key={i} className="w-3.5 h-3.5 text-slate-300" />
-                    ))}
-                  </div>
+                  <p className={cn('text-[10px] font-black uppercase tracking-wide shrink-0', isOut ? 'text-slate-400' : p.color?.text || 'text-indigo-500')}>
+                    {isOut ? 'eliminado' : `${p.lives || 0} vida${(p.lives || 0) === 1 ? '' : 's'}`}
+                  </p>
                 </div>
               );
             })}
@@ -471,17 +485,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
 
             <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4 mb-4 p-1 sm:p-2">
               {visibleDeckChars.map((c, i) => (
-                <motion.button
-                  type="button"
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.03 }}
-                  key={c.id}
-                  onClick={() => processVote(c.id)}
-                  disabled={!isMyTurn || isVoting || voteProcessingRef.current}
-                  className="bg-white border-4 border-slate-100 hover:border-indigo-400 hover:shadow-xl rounded-3xl p-2 md:p-2.5 cursor-pointer transition-all flex flex-col group hover:-translate-y-1 relative disabled:opacity-60 disabled:cursor-wait"
-                >
+                <motion.button type="button" layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.03 }} key={c.id} onClick={() => processVote(c.id)} disabled={!isMyTurn || isVoting || voteProcessingRef.current} className="bg-white border-4 border-slate-100 hover:border-indigo-400 hover:shadow-xl rounded-3xl p-2 md:p-2.5 cursor-pointer transition-all flex flex-col group hover:-translate-y-1 relative disabled:opacity-60 disabled:cursor-wait">
                   <div className="aspect-[2/3] relative rounded-2xl overflow-hidden bg-slate-950 mb-2 shadow-inner">
                     <CharacterImage name={c.name} imageUrl={c.image_url} avatarConfig={c.avatar_config} isOfficial={usesOfficialImages} alt="" className="object-cover w-full h-full" />
                   </div>

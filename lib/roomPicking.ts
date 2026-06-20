@@ -5,13 +5,20 @@ function shuffle<T>(items: T[]) {
   return [...items].sort(() => Math.random() - 0.5);
 }
 
-function resolvePickingNeed(room: any, players: any[], currentCards: any[]) {
-  const activePlayers = players.filter((player: any) => !player.is_eliminated);
-  const hasHistoricalCards = currentCards.length > 0;
-  const activeLives = activePlayers.map((player: any) => player.lives || 0);
-  const isTiebreak = hasHistoricalCards && activePlayers.length > 1 && activeLives.every((lives: number) => lives <= 1);
+async function isTiebreakPicking(room: any) {
+  const { data } = await supabaseGame
+    .from('match_events')
+    .select('id')
+    .eq('room_id', room.id)
+    .eq('turn_number', room.current_turn_number || 0)
+    .in('event_type', ['tiebreak_started', 'tiebreak_restarted_same_card'])
+    .limit(1);
 
-  return isTiebreak ? 1 : room.chars_per_player || 3;
+  return Boolean(data?.length);
+}
+
+function resolvePickingNeed(room: any, tiebreakPicking: boolean) {
+  return tiebreakPicking ? 1 : room.chars_per_player || 3;
 }
 
 async function fetchDeckCharacters(room: any) {
@@ -33,6 +40,20 @@ async function logPickingEvent(room: any, eventType: string, metadata: any) {
   }
 }
 
+function duplicateLivePicks(cards: any[]) {
+  const byCharacter = new Map<string, any[]>();
+  for (const card of cards || []) {
+    if (!card.character_id || !card.player_id) continue;
+    const list = byCharacter.get(card.character_id) || [];
+    list.push(card);
+    byCharacter.set(card.character_id, list);
+  }
+
+  return [...byCharacter.entries()]
+    .filter(([, list]) => new Set(list.map((card) => card.player_id)).size > 1)
+    .map(([characterId, list]) => ({ characterId, cards: list }));
+}
+
 export async function finalizeRoomPicking(roomId: string, _options: { serverTick?: boolean } = {}) {
   const [{ data: room }, { data: players }, { data: currentCards }] = await Promise.all([
     supabaseGame.from('rooms').select('*').eq('id', roomId).maybeSingle(),
@@ -52,7 +73,8 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
   const allPlayers = players || [];
   const cards = currentCards || [];
   const activePlayers = allPlayers.filter((player: any) => !player.is_eliminated);
-  const needed = resolvePickingNeed(room, activePlayers, cards);
+  const tiebreakPicking = await isTiebreakPicking(room);
+  const needed = resolvePickingNeed(room, tiebreakPicking);
 
   if (activePlayers.length === 0) {
     return { ok: true, skipped: true, reason: 'no-active-picking-players' };
@@ -80,13 +102,10 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
     return { ok: true, skipped: true, reason: 'waiting-for-players' };
   }
 
-  const needsAssignments = activePlayers.some((player: any) => (liveCardsByPlayer.get(player.id)?.length || 0) < needed);
-  let characters: any[] = [];
-  if (needsAssignments) {
-    characters = await fetchDeckCharacters(room);
-    if (characters.length < needed) {
-      return { ok: false, status: 400, error: `O deck precisa ter pelo menos ${needed} personagens.` };
-    }
+  let characters = await fetchDeckCharacters(room);
+  const totalNeeded = needed * activePlayers.length;
+  if (characters.length < totalNeeded) {
+    return { ok: false, status: 400, error: `O deck precisa ter pelo menos ${totalNeeded} personagens únicos para ${activePlayers.length} participantes.` };
   }
 
   const randomizedPlayers = shuffle(activePlayers);
@@ -101,32 +120,46 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
     expires_at: nextRoomExpiry(transitionNow),
   }).eq('id', room.id).eq('status', 'PICKING');
 
-  await Promise.all(activePlayers.map(async (player: any) => {
-    const existingLiveCards = liveCardsByPlayer.get(player.id) || [];
-    const missing = Math.max(0, needed - existingLiveCards.length);
-    const playerUpdatePromise = (async () => {
-      await supabaseGame
-        .from('room_players')
-        .update({
-          lives: needed,
-          is_eliminated: false,
-          missed_turns: 0,
-          play_order: playOrderByPlayerId.get(player.id),
-        })
-        .eq('id', player.id);
-    })();
+  const assignedCharacterIds = new Set<string>();
+  for (const liveCards of liveCardsByPlayer.values()) {
+    for (const card of liveCards.slice(0, needed)) {
+      if (card.character_id) assignedCharacterIds.add(card.character_id);
+    }
+  }
 
-    if (existingLiveCards.length > needed) {
-      const extras = existingLiveCards.slice(needed);
+  for (const player of activePlayers) {
+    const existingLiveCards = liveCardsByPlayer.get(player.id) || [];
+    const keptLiveCards = existingLiveCards.slice(0, needed);
+    const extras = existingLiveCards.slice(needed);
+    const missing = Math.max(0, needed - keptLiveCards.length);
+
+    await supabaseGame
+      .from('room_players')
+      .update({
+        lives: needed,
+        is_eliminated: false,
+        missed_turns: 0,
+        play_order: playOrderByPlayerId.get(player.id),
+      })
+      .eq('id', player.id);
+
+    if (extras.length > 0) {
       await supabaseGame.from('player_cards').update({ is_dead: true }).in('id', extras.map((card: any) => card.id));
     }
 
     if (missing > 0) {
       const allPlayerCards = allCardsByPlayer.get(player.id) || [];
       const existingCharacterIds = new Set(allPlayerCards.map((card: any) => card.character_id));
-      const preferred = characters.filter((character: any) => !existingCharacterIds.has(character.id));
-      const pool = preferred.length > 0 ? preferred : characters;
+      const preferred = characters.filter((character: any) => !existingCharacterIds.has(character.id) && !assignedCharacterIds.has(character.id));
+      const fallback = characters.filter((character: any) => !assignedCharacterIds.has(character.id));
+      const pool = preferred.length >= missing ? preferred : fallback;
       const selected = shuffle(pool).slice(0, missing);
+
+      if (selected.length < missing) {
+        return { ok: false, status: 400, error: 'Nao ha personagens únicos suficientes para completar a escolha.' };
+      }
+
+      selected.forEach((character: any) => assignedCharacterIds.add(character.id));
 
       const reusableCards = allPlayerCards.filter((card: any) => card.is_dead).slice(0, selected.length);
       const failedReusableCharacters: any[] = [];
@@ -149,9 +182,7 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
         })));
       }
     }
-
-    await playerUpdatePromise;
-  }));
+  }
 
   const activePlayerIds = activePlayers.map((player: any) => player.id);
   const { data: freshLiveCards } = activePlayerIds.length > 0
@@ -163,27 +194,21 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
       .in('player_id', activePlayerIds)
     : { data: [] };
 
-  const owners = new Set((freshLiveCards || []).map((card: any) => card.player_id));
-  const distinctCharacters = new Set((freshLiveCards || []).map((card: any) => card.character_id));
+  const duplicates = duplicateLivePicks(freshLiveCards || []);
+  if (duplicates.length > 0) {
+    const duplicateCardIds = duplicates.flatMap((item) => item.cards.map((card: any) => card.id));
+    const duplicatePlayerIds = [...new Set(duplicates.flatMap((item) => item.cards.map((card: any) => card.player_id)))] as string[];
 
-  if (activePlayers.length > 1 && owners.size > 1 && distinctCharacters.size <= 1) {
-    await logPickingEvent(room, 'tiebreak_restarted_same_card', {
-      player_ids: [...owners],
-      character_id: [...distinctCharacters][0] || null,
-      reason: 'all-remaining-players-picked-same-card',
+    await logPickingEvent(room, 'picking_restarted_duplicate_card', {
+      player_ids: duplicatePlayerIds,
+      character_ids: duplicates.map((item) => item.characterId),
+      reason: tiebreakPicking ? 'duplicate-card-in-tiebreak' : 'duplicate-card-in-initial-picking',
     });
 
     await supabaseGame
       .from('player_cards')
       .update({ is_dead: true })
-      .eq('room_id', room.id)
-      .in('player_id', [...owners])
-      .eq('is_dead', false);
-
-    await supabaseGame
-      .from('room_players')
-      .update({ lives: 1, is_eliminated: false, missed_turns: 0 })
-      .in('id', [...owners]);
+      .in('id', duplicateCardIds);
 
     await supabaseGame.from('rooms').update({
       status: 'PICKING',
@@ -198,10 +223,10 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
       ok: true,
       skipped: true,
       duplicatePick: true,
-      tiebreak: true,
-      needed: 1,
-      players: owners.size,
-      message: 'Todos escolheram a mesma carta. Morte subita continua: escolham novamente.',
+      tiebreak: tiebreakPicking,
+      needed,
+      players: duplicatePlayerIds.length,
+      message: 'Personagem repetido detectado. Os jogadores afetados precisam escolher novamente.',
     };
   }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabaseGame } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { Heart, Target, Clock, LogOut, Zap, List, Skull, CheckCircle2, Circle, PlayCircle, XCircle } from 'lucide-react';
+import { Target, Clock, LogOut, Zap, List, Skull, CheckCircle2, Circle, PlayCircle, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { audioManager } from '@/lib/audioManager';
 import ChatMenu from './ChatMenu';
@@ -19,11 +19,6 @@ function secondsLeft(expiresAt?: string | null) {
   const expiresMs = new Date(expiresAt).getTime();
   if (!Number.isFinite(expiresMs)) return 0;
   return Math.max(0, Math.ceil((expiresMs - Date.now()) / 1000));
-}
-
-function cappedSecondsLeft(expiresAt: string | null | undefined, maxSeconds: number) {
-  const rawSeconds = secondsLeft(expiresAt);
-  return Math.min(rawSeconds, maxSeconds);
 }
 
 function formatSeconds(totalSeconds: number) {
@@ -49,7 +44,7 @@ function isVoteEvent(event: any) {
 export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const safeVoteSeconds = clampVoteSeconds(room.vote_time_seconds);
   const [deckChars, setDeckChars] = useState<any[]>([]);
-  const [timeLeft, setTimeLeft] = useState(cappedSecondsLeft(room.turn_expires_at, safeVoteSeconds) || safeVoteSeconds);
+  const [timeLeft, setTimeLeft] = useState(safeVoteSeconds);
   const [actionLog, setActionLog] = useState<{ id: string; msg: string }[]>([]);
   const [isRevealing, setIsRevealing] = useState(false);
   const [revealStage, setRevealStage] = useState<'thinking' | 'card' | 'owner' | 'result' | 'consequence'>('thinking');
@@ -69,6 +64,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const handledEventIdsRef = useRef<Set<string>>(new Set());
   const suddenDeathAnnouncedRef = useRef(false);
   const timerRepairRef = useRef('');
+  const localTurnStartedAtRef = useRef(Date.now());
 
   const orderedPlayers = useMemo(() => [...players].sort((a, b) => (a.play_order || 0) - (b.play_order || 0)), [players]);
   const activePlayers = useMemo(() => orderedPlayers.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0), [orderedPlayers]);
@@ -87,6 +83,17 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     setActionLog((prev) => [...prev.slice(-2), { id, msg }]);
     setTimeout(() => setActionLog((prev) => prev.filter((log) => log.id !== id)), 4200);
   }, []);
+
+  const getVisibleTurnSeconds = useCallback(() => {
+    const rawDiff = secondsLeft(room.turn_expires_at);
+
+    if (rawDiff > safeVoteSeconds + 2) {
+      const elapsed = Math.floor((Date.now() - localTurnStartedAtRef.current) / 1000);
+      return Math.max(0, safeVoteSeconds - elapsed);
+    }
+
+    return Math.min(rawDiff || safeVoteSeconds, safeVoteSeconds);
+  }, [room.turn_expires_at, safeVoteSeconds]);
 
   const showEliminationNotice = useCallback((player: any, reason?: string) => {
     if (!player?.id) return;
@@ -131,21 +138,21 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     setRevelation({ ...payload, card, eliminatedPlayers });
     audioManager.playSFX('vote');
 
-    await sleep(900);
+    await sleep(700);
     setRevealStage('card');
     audioManager.playSFX('card_reveal');
-    await sleep(2600);
+    await sleep(2100);
 
     setRevealStage('owner');
-    await sleep(2400);
+    await sleep(1800);
 
     setRevealStage('result');
     audioManager.playSFX(hitPlayers.length > 0 ? 'life_lost' : 'miss');
-    await sleep(1600);
+    await sleep(1300);
 
     setRevealStage('consequence');
     if (eliminatedPlayers.length > 0) audioManager.playSFX(eliminatedPlayers.some((p: any) => p.id === me?.id) ? 'defeat' : 'player_eliminated');
-    await sleep(eliminatedPlayers.length > 0 ? 3800 : 2400);
+    await sleep(eliminatedPlayers.length > 0 ? 2600 : 1500);
 
     setIsRevealing(false);
     setRevelation(null);
@@ -260,9 +267,10 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     voteProcessingRef.current = false;
     botTurnRef.current = '';
     timerRepairRef.current = '';
+    localTurnStartedAtRef.current = Date.now();
     setIsVoting(false);
     setMyPendingChoice(null);
-    setTimeLeft(cappedSecondsLeft(room.turn_expires_at, safeVoteSeconds) || safeVoteSeconds);
+    setTimeLeft(safeVoteSeconds);
     void refreshLiveCards();
     audioManager.playSFX('turn');
   }, [room.current_turn_number, room.turn_expires_at, safeVoteSeconds, refreshLiveCards]);
@@ -288,14 +296,14 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const interval = setInterval(() => {
       if (isRevealing || isVoting) return;
       const rawDiff = secondsLeft(room.turn_expires_at);
-      const visibleDiff = Math.min(rawDiff, safeVoteSeconds);
+      const visibleDiff = getVisibleTurnSeconds();
 
       if (rawDiff > safeVoteSeconds + 2 && timerRepairRef.current !== room.turn_expires_at) {
         timerRepairRef.current = room.turn_expires_at || 'no-expires';
         fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
       }
 
-      if (rawDiff > 0) {
+      if (visibleDiff > 0) {
         setTimeLeft(visibleDiff);
         return;
       }
@@ -336,7 +344,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
         .finally(() => { handlingTimeoutRef.current = false; });
     }, 500);
     return () => clearInterval(interval);
-  }, [activePlayer, addLog, isRevealing, isVoting, refreshLiveCards, room.current_turn_number, room.id, room.turn_expires_at, runVoteResult, showEliminationNotice, safeVoteSeconds]);
+  }, [activePlayer, addLog, getVisibleTurnSeconds, isRevealing, isVoting, refreshLiveCards, room.current_turn_number, room.id, room.turn_expires_at, runVoteResult, showEliminationNotice, safeVoteSeconds]);
 
   useEffect(() => {
     if (!activePlayer?.is_bot || activePlayer.is_eliminated || isRevealing || isVoting) return;
@@ -379,7 +387,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
       : isRevealing
         ? 'A arena vai mostrar quem tinha a carta.'
         : isMyTurn
-          ? 'Toque em uma carta da mesa para palpitar.'
+          ? 'Toque em uma carta para palpitar.'
           : activePlayer?.is_bot
             ? 'O bot vai confirmar o palpite em instantes.'
             : activePlayer
@@ -388,25 +396,25 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
 
   return (
     <div className={cn('flex h-[100dvh] overflow-hidden bg-[#f5f6ff] font-sans relative party-grid-bg', isSpectator && 'grayscale-[0.12]')}>
-      <div className="flex-1 flex flex-col p-2.5 md:p-6 overflow-y-auto relative z-10">
-        <header className={cn('mb-3 bg-white border-4 p-4 md:p-5 rounded-3xl shrink-0 shadow-md', isSpectator ? 'border-slate-300 bg-slate-950 text-white' : isSuddenDeath ? 'border-rose-200 bg-rose-50' : 'border-indigo-100')}>
-          <div className="flex items-start justify-between gap-3">
+      <div className="flex-1 flex flex-col gap-2 p-2 md:p-4 overflow-hidden relative z-10">
+        <header className={cn('bg-white border-4 px-4 py-3 rounded-3xl shrink-0 shadow-sm', isSpectator ? 'border-slate-300 bg-slate-950 text-white' : isSuddenDeath ? 'border-rose-200 bg-rose-50' : 'border-indigo-100')}>
+          <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 text-left">
-              <div className={cn('mb-2 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wider', isSpectator ? 'border-slate-600 bg-slate-800 text-slate-200' : isSuddenDeath ? 'border-rose-200 bg-white text-rose-600' : 'border-indigo-100 bg-indigo-50 text-indigo-600')}>
+              <div className={cn('mb-1 inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider', isSpectator ? 'border-slate-600 bg-slate-800 text-slate-200' : isSuddenDeath ? 'border-rose-200 bg-white text-rose-600' : 'border-indigo-100 bg-indigo-50 text-indigo-600')}>
                 <span>Turno {(room.current_turn_number || 0) + 1}</span>
                 <span>•</span>
                 <span>{activePlayers.length} vivos</span>
                 {isSuddenDeath && <span>• Morte súbita</span>}
               </div>
-              <h2 className={cn('text-2xl md:text-4xl font-black font-display leading-none', isSpectator ? 'text-white' : 'text-indigo-950')}>{turnTitle}</h2>
-              <p className={cn('mt-2 text-sm md:text-base font-bold', isSpectator ? 'text-slate-300' : 'text-slate-500')}>{turnSubtitle}</p>
+              <h2 className={cn('text-xl md:text-3xl font-black font-display leading-none truncate', isSpectator ? 'text-white' : 'text-indigo-950')}>{turnTitle}</h2>
+              <p className={cn('mt-1 text-xs md:text-sm font-bold truncate', isSpectator ? 'text-slate-300' : 'text-slate-500')}>{turnSubtitle}</p>
             </div>
 
-            <div className="flex flex-col items-end gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               {!isRevealing && !isVoting && (
-                <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border-2 bg-white shadow-sm', timeLeft <= 5 ? 'border-rose-200 text-rose-600' : 'border-indigo-100 text-indigo-950')}>
+                <div className={cn('flex items-center gap-1.5 px-3 py-2 rounded-2xl border-2 bg-white shadow-sm', timeLeft <= 5 ? 'border-rose-200 text-rose-600' : 'border-indigo-100 text-indigo-950')}>
                   <Clock className="w-4 h-4" />
-                  <span className="text-xl md:text-2xl font-black font-mono">{formatSeconds(timeLeft)}</span>
+                  <span className="text-lg md:text-xl font-black font-mono">{formatSeconds(timeLeft)}</span>
                 </div>
               )}
               <button onClick={leaveRoom} className="h-10 px-3 rounded-2xl border-2 border-rose-100 bg-rose-50 text-rose-600 text-[10px] md:text-xs font-black uppercase flex items-center gap-1.5 hover:bg-rose-100 transition-all cursor-pointer">
@@ -416,15 +424,15 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
           </div>
         </header>
 
-        <section className="mb-3 rounded-3xl border-4 border-indigo-100 bg-white p-3 md:p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-xs md:text-sm font-black text-indigo-950 uppercase tracking-wide flex items-center gap-2">
+        <section className="rounded-3xl border-4 border-indigo-100 bg-white px-3 py-2 shadow-sm shrink-0">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <h3 className="text-[11px] md:text-xs font-black text-indigo-950 uppercase tracking-wide flex items-center gap-2">
               <List className="w-4 h-4 text-indigo-500" /> Ordem da rodada
             </h3>
-            <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">Quem joga / quem saiu</span>
+            <span className="text-[9px] font-black uppercase tracking-wide text-slate-400">Quem joga / quem saiu</span>
           </div>
 
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {orderedPlayers.map((p: any) => {
               const isOut = p.is_eliminated || (p.lives || 0) <= 0;
               const isActive = activePlayer?.id === p.id && !isOut;
@@ -433,16 +441,16 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
               const StatusIcon = isOut ? XCircle : isActive ? PlayCircle : Circle;
 
               return (
-                <div key={p.id} className={cn('rounded-2xl border-2 bg-white px-3 py-2.5 shadow-sm flex items-center gap-3 min-w-0', isOut ? 'border-slate-200 bg-slate-50 opacity-75 grayscale' : isActive ? 'border-indigo-300 bg-indigo-50' : 'border-slate-100')}>
-                  <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn('w-10 h-10 rounded-2xl border-2 shrink-0', isOut ? 'border-slate-300 bg-slate-200' : p.color?.border || 'border-indigo-100')} />
+                <div key={p.id} className={cn('rounded-2xl border-2 bg-white px-2.5 py-2 shadow-sm flex items-center gap-2 min-w-0', isOut ? 'border-slate-200 bg-slate-50 opacity-75 grayscale' : isActive ? 'border-indigo-300 bg-indigo-50' : 'border-slate-100')}>
+                  <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn('w-8 h-8 rounded-xl border-2 shrink-0', isOut ? 'border-slate-300 bg-slate-200' : p.color?.border || 'border-indigo-100')} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <StatusIcon className={cn('w-4 h-4 shrink-0', isOut ? 'text-slate-400' : isActive ? 'text-indigo-600' : 'text-slate-300')} />
-                      <p className={cn('text-sm font-black truncate', isOut ? 'text-slate-500' : 'text-indigo-950')}>{isMe ? 'Você' : p.nickname}</p>
+                      <StatusIcon className={cn('w-3.5 h-3.5 shrink-0', isOut ? 'text-slate-400' : isActive ? 'text-indigo-600' : 'text-slate-300')} />
+                      <p className={cn('text-xs md:text-sm font-black truncate', isOut ? 'text-slate-500' : 'text-indigo-950')}>{isMe ? 'Você' : p.nickname}</p>
                     </div>
-                    <p className={cn('mt-0.5 text-[10px] font-black uppercase tracking-wide', isOut ? 'text-slate-400' : isActive ? 'text-indigo-600' : 'text-slate-400')}>{statusText}</p>
+                    <p className={cn('text-[9px] md:text-[10px] font-black uppercase tracking-wide', isOut ? 'text-slate-400' : isActive ? 'text-indigo-600' : 'text-slate-400')}>{statusText}</p>
                   </div>
-                  <p className={cn('text-[10px] font-black uppercase tracking-wide shrink-0', isOut ? 'text-slate-400' : p.color?.text || 'text-indigo-500')}>
+                  <p className={cn('text-[9px] md:text-[10px] font-black uppercase tracking-wide shrink-0', isOut ? 'text-slate-400' : p.color?.text || 'text-indigo-500')}>
                     {isOut ? 'eliminado' : `${p.lives || 0} vida${(p.lives || 0) === 1 ? '' : 's'}`}
                   </p>
                 </div>
@@ -452,52 +460,59 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
         </section>
 
         {isVoting ? (
-          <div className="mb-3 rounded-3xl border-4 border-emerald-100 bg-white p-6 text-center shadow-sm">
-            <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-emerald-500" />
+          <div className="rounded-3xl border-4 border-emerald-100 bg-white p-4 text-center shadow-sm shrink-0">
+            <CheckCircle2 className="mx-auto mb-2 h-9 w-9 text-emerald-500" />
             <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-600">Escolha registrada</p>
-            <h3 className="mt-2 text-2xl font-black font-display text-indigo-950">Você escolheu {myPendingChoice?.name || 'uma carta'}</h3>
-            <p className="mt-2 text-sm font-bold text-slate-500">Essa informação aparece só para você. Aguarde o resultado.</p>
+            <h3 className="mt-1 text-xl font-black font-display text-indigo-950">Você escolheu {myPendingChoice?.name || 'uma carta'}</h3>
+            <p className="mt-1 text-xs font-bold text-slate-500">Essa informação aparece só para você. Aguarde o resultado.</p>
           </div>
-        ) : ((!isMyTurn && !isVoting) || isRevealing) ? (
-          <div className="bg-white border-4 border-indigo-100 rounded-3xl p-3 md:p-4 mb-3 max-h-[58vh] overflow-y-auto shadow-sm">
-            <h3 className="text-xs md:text-sm font-black text-indigo-950 uppercase mb-2 border-b-2 border-indigo-50 pb-2 flex items-center gap-2">
-              <List className="w-4 h-4 md:w-5 md:h-5 text-indigo-500" /> Cartas ainda na arena
-            </h3>
-            <ul className="divide-y divide-slate-100">
-              {visibleDeckChars.map((c) => (
-                <li key={c.id} className="flex items-center gap-2 py-1.5 sm:py-2">
-                  <CharacterImage name={c.name} imageUrl={c.image_url} avatarConfig={c.avatar_config} isOfficial={usesOfficialImages} alt="" className="w-9 h-11 sm:w-12 sm:h-14 rounded-lg sm:rounded-xl object-cover bg-slate-200 shrink-0" />
-                  <span className="text-xs sm:text-sm font-bold text-indigo-950 truncate">{c.name}</span>
-                </li>
-              ))}
-            </ul>
+        ) : isMyTurn ? (
+          <div className="rounded-3xl border-4 border-indigo-100 bg-white px-4 py-3 shadow-sm shrink-0 flex items-center gap-3">
+            <AvatarFigure avatarUrl={me.avatar_url} label={me.nickname} state="vote" primaryColor={me.color?.hex} className={cn('w-10 h-10 rounded-xl border-2 shrink-0', me.color?.border || 'border-indigo-400')} />
+            <div className="text-left min-w-0">
+              <p className={cn('text-[10px] font-black uppercase tracking-widest', me.color?.text || 'text-indigo-600')}>Sua vez</p>
+              <h3 className="text-lg md:text-xl font-black text-indigo-950 font-display truncate">Escolha uma carta</h3>
+              <p className="text-xs font-bold text-slate-500">Só você verá sua escolha antes do resultado.</p>
+            </div>
           </div>
-        ) : (
-          <div>
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className={cn('mb-4 md:mb-5 rounded-3xl border-4 p-4 md:p-5 shadow-lg flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4', me.color?.border || 'border-indigo-300', me.color?.lightBgc || 'bg-indigo-50')}>
-              <AvatarFigure avatarUrl={me.avatar_url} label={me.nickname} state="vote" primaryColor={me.color?.hex} className={cn('w-16 h-16 md:w-20 md:h-20 rounded-2xl border-4 shrink-0', me.color?.border || 'border-indigo-400')} />
-              <div className="text-left">
-                <p className={cn('text-[10px] md:text-xs font-black uppercase tracking-widest', me.color?.text || 'text-indigo-600')}>Sua vez</p>
-                <h3 className="text-xl md:text-2xl font-black text-indigo-950 font-display">Escolha uma carta</h3>
-                <p className="text-xs font-bold text-slate-500 mt-1">Só você verá sua escolha antes do resultado.</p>
-              </div>
-            </motion.div>
+        ) : null}
 
-            <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4 mb-4 p-1 sm:p-2">
-              {visibleDeckChars.map((c, i) => (
-                <motion.button type="button" layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.03 }} key={c.id} onClick={() => processVote(c.id)} disabled={!isMyTurn || isVoting || voteProcessingRef.current} className="bg-white border-4 border-slate-100 hover:border-indigo-400 hover:shadow-xl rounded-3xl p-2 md:p-2.5 cursor-pointer transition-all flex flex-col group hover:-translate-y-1 relative disabled:opacity-60 disabled:cursor-wait">
-                  <div className="aspect-[2/3] relative rounded-2xl overflow-hidden bg-slate-950 mb-2 shadow-inner">
-                    <CharacterImage name={c.name} imageUrl={c.image_url} avatarConfig={c.avatar_config} isOfficial={usesOfficialImages} alt="" className="object-cover w-full h-full" />
-                  </div>
-                  <p className="text-xs md:text-sm font-black text-center text-indigo-950 line-clamp-2 min-h-[2.25rem] md:min-h-[2.5rem] flex items-center justify-center w-full">{c.name}</p>
-                  <div className="absolute inset-0 bg-indigo-500/0 group-hover:bg-indigo-500/10 transition-all rounded-3xl flex items-center justify-center pointer-events-none">
-                    <Target className="w-10 h-10 text-indigo-500 opacity-0 group-hover:opacity-100 shadow-md bg-white p-2 rounded-full scale-90 group-hover:scale-100 transition-all" />
-                  </div>
-                </motion.button>
-              ))}
-            </motion.div>
+        <section className="flex-1 min-h-0 bg-white border-4 border-indigo-100 rounded-3xl p-3 md:p-4 shadow-sm overflow-hidden">
+          <h3 className="text-xs md:text-sm font-black text-indigo-950 uppercase mb-2 border-b-2 border-indigo-50 pb-2 flex items-center gap-2 shrink-0">
+            <List className="w-4 h-4 md:w-5 md:h-5 text-indigo-500" /> Cartas ainda na arena
+          </h3>
+
+          <div className={cn('h-full overflow-y-auto pr-1', isMyTurn ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8 gap-3 auto-rows-max' : 'grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2 auto-rows-max')}>
+            {visibleDeckChars.map((c, i) => isMyTurn ? (
+              <motion.button
+                type="button"
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.02 }}
+                key={c.id}
+                onClick={() => processVote(c.id)}
+                disabled={!isMyTurn || isVoting || voteProcessingRef.current}
+                className="bg-white border-4 border-slate-100 hover:border-indigo-400 hover:shadow-xl rounded-3xl p-2 cursor-pointer transition-all flex flex-col group hover:-translate-y-1 relative disabled:opacity-60 disabled:cursor-wait"
+              >
+                <div className="aspect-[2/3] relative rounded-2xl overflow-hidden bg-slate-950 mb-2 shadow-inner">
+                  <CharacterImage name={c.name} imageUrl={c.image_url} avatarConfig={c.avatar_config} isOfficial={usesOfficialImages} alt="" className="object-cover w-full h-full" />
+                </div>
+                <p className="text-xs font-black text-center text-indigo-950 line-clamp-2 min-h-[2rem] flex items-center justify-center w-full">{c.name}</p>
+                <div className="absolute inset-0 bg-indigo-500/0 group-hover:bg-indigo-500/10 transition-all rounded-3xl flex items-center justify-center pointer-events-none">
+                  <Target className="w-10 h-10 text-indigo-500 opacity-0 group-hover:opacity-100 shadow-md bg-white p-2 rounded-full scale-90 group-hover:scale-100 transition-all" />
+                </div>
+              </motion.button>
+            ) : (
+              <div key={c.id} className="min-w-0 rounded-2xl border-2 border-slate-100 bg-slate-50 p-1.5">
+                <div className="aspect-[2/3] rounded-xl overflow-hidden bg-slate-200">
+                  <CharacterImage name={c.name} imageUrl={c.image_url} avatarConfig={c.avatar_config} isOfficial={usesOfficialImages} alt="" className="h-full w-full object-cover" />
+                </div>
+                <p className="mt-1 text-[10px] md:text-xs font-black text-indigo-950 truncate text-center">{c.name}</p>
+              </div>
+            ))}
           </div>
-        )}
+        </section>
 
         <div className="fixed right-4 top-20 z-[70] flex flex-col gap-2 pointer-events-none max-w-[320px]">
           <AnimatePresence>

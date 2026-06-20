@@ -12,6 +12,8 @@ import AvatarPickerModal from '@/components/avatar/AvatarPickerModal';
 import { avatarSelectionToUrl, selectionFromAvatarUrl, type AvatarSelection } from '@/lib/avatars';
 
 const MIN_PLAYERS_TO_START = 4;
+const LOBBY_COUNTDOWN_SECONDS = 5;
+const TIMER_REPAIR_GRACE_SECONDS = 2;
 
 const officialDeck = {
   id: '',
@@ -37,6 +39,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const [decksLoading, setDecksLoading] = useState(true);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const startNudgeRef = useRef<string | null>(null);
+  const repairNudgeRef = useRef<string | null>(null);
 
   const adminPlayer = useMemo(() => players.find((p: any) => p.user_id === room.admin_id || p.is_admin), [players, room.admin_id]);
   const botIsAdmin = Boolean(adminPlayer?.is_bot);
@@ -71,6 +74,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
     if (room.status !== 'LOBBY' || !room.turn_expires_at) {
       setAutoStartSeconds(null);
       startNudgeRef.current = null;
+      repairNudgeRef.current = null;
       return;
     }
 
@@ -78,15 +82,22 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
     if (!Number.isFinite(expiresAt)) {
       setAutoStartSeconds(null);
       startNudgeRef.current = null;
+      repairNudgeRef.current = null;
       return;
     }
 
     const tick = () => {
       const diffMs = expiresAt - Date.now();
-      const seconds = Math.max(0, Math.ceil(diffMs / 1000));
-      setAutoStartSeconds(seconds);
+      const rawSeconds = Math.max(0, Math.ceil(diffMs / 1000));
+      const visibleSeconds = Math.min(rawSeconds, LOBBY_COUNTDOWN_SECONDS);
+      setAutoStartSeconds(visibleSeconds);
 
-      if (seconds === 0 && startNudgeRef.current !== room.turn_expires_at) {
+      if (rawSeconds > LOBBY_COUNTDOWN_SECONDS + TIMER_REPAIR_GRACE_SECONDS && repairNudgeRef.current !== room.turn_expires_at) {
+        repairNudgeRef.current = room.turn_expires_at;
+        fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
+      }
+
+      if (rawSeconds === 0 && startNudgeRef.current !== room.turn_expires_at) {
         startNudgeRef.current = room.turn_expires_at;
         fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
       }

@@ -1,5 +1,6 @@
 import { supabaseGame } from './supabase';
 import { touchRoomActivity } from './roomLifecycle';
+import { clampPickSeconds, clampVoteSeconds, clampRevealSeconds, nextPickExpiresAt } from './roomTimers';
 
 const MIN_PLAYERS_TO_START = 4;
 
@@ -207,7 +208,10 @@ export async function startRoom(
   await supabaseGame.from('rooms').update({
     status: 'PICKING',
     deck_id: resolved.deckId,
-    turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
+    pick_time_seconds: clampPickSeconds(room.pick_time_seconds),
+    vote_time_seconds: clampVoteSeconds(room.vote_time_seconds),
+    reveal_time_seconds: clampRevealSeconds(room.reveal_time_seconds),
+    turn_expires_at: nextPickExpiresAt(room.pick_time_seconds),
   }).eq('id', room.id);
 
   await touchRoomActivity(room.id);

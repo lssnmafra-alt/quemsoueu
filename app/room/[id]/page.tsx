@@ -103,19 +103,34 @@ export default function RoomPage() {
           return;
         }
 
+        const botAdmin = normalizedPlayers.find((p: any) => p.is_bot && (p.is_admin || p.user_id === rm.admin_id));
+        const shouldHumanBecomeAdmin = rm.status === 'LOBBY' && Boolean(botAdmin);
+
         const { data: newP } = await supabaseGame.from('room_players').insert({
           room_id: roomId,
           user_id: user.id,
           nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante',
-          is_admin: rm.admin_id === user.id,
+          is_admin: rm.admin_id === user.id || shouldHumanBecomeAdmin,
         }).select().single();
 
         if (newP) {
-          setPlayers([...normalizedPlayers, newP]);
+          let nextRoom = rm;
+          let nextPlayers = [...normalizedPlayers, newP];
+
+          if (shouldHumanBecomeAdmin) {
+            await supabaseGame.from('room_players').update({ is_admin: false }).eq('room_id', roomId);
+            await supabaseGame.from('room_players').update({ is_admin: true }).eq('id', newP.id);
+            await supabaseGame.from('rooms').update({ admin_id: user.id }).eq('id', roomId).eq('status', 'LOBBY');
+
+            nextRoom = { ...rm, admin_id: user.id };
+            nextPlayers = normalizedPlayers.map((p: any) => ({ ...p, is_admin: false })).concat({ ...newP, is_admin: true });
+          }
+
+          setRoom(nextRoom);
+          setPlayers(nextPlayers);
           setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${newP.nickname} entrou na sala` }]);
           requestAdvance(true);
           setTimeout(() => requestAdvance(false), 1200);
-          setTimeout(() => requestAdvance(false), 5200);
         }
       }
 
@@ -125,7 +140,6 @@ export default function RoomPage() {
     syncRoomState(true);
     const poll = setInterval(() => {
       syncRoomState(false);
-      requestAdvance(false);
     }, 1500);
 
     const subs1 = supabaseGame.channel(`room:${roomId}`)
@@ -139,7 +153,6 @@ export default function RoomPage() {
             if (payload.new.user_id !== user.id) setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${payload.new.nickname || 'Usuario'} entrou na sala` }]);
             const humanJoined = payload.new.is_bot !== true;
             requestAdvance(humanJoined);
-            setTimeout(() => requestAdvance(false), 5200);
           } else if (payload.eventType === 'UPDATE') {
             setPlayers((prev) => prev.map((p) => p.id === payload.new.id ? payload.new : p));
           } else {

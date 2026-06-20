@@ -38,6 +38,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const [autoStartSeconds, setAutoStartSeconds] = useState<number | null>(null);
   const [decksLoading, setDecksLoading] = useState(true);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+  const [settingsNotice, setSettingsNotice] = useState('');
   const startNudgeRef = useRef<string | null>(null);
   const repairNudgeRef = useRef<string | null>(null);
 
@@ -113,8 +114,18 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   }, [maxBots, botRowsCount]);
 
   const updateSettings = async (updates: any) => {
-    if (!isAdmin || room.status !== 'LOBBY') return;
-    await supabaseGame.from('rooms').update(updates).eq('id', room.id);
+    if (!isAdmin || room.status !== 'LOBBY') {
+      setSettingsNotice('Só o dono da sala pode alterar as configurações antes da partida começar.');
+      return;
+    }
+
+    setSettingsNotice('');
+    const { error } = await supabaseGame.from('rooms').update(updates).eq('id', room.id);
+    if (error) {
+      setSettingsNotice(`Não foi possível salvar: ${error.message}`);
+      return;
+    }
+
     await fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
   };
 
@@ -253,6 +264,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
               <Settings className="w-5 h-5 text-indigo-500" /> Configuracoes da Partida
             </h2>
             <div className="bg-white border-4 border-indigo-100 rounded-3xl p-6 flex flex-col gap-5 flex-1 shadow-md overflow-y-auto">
+              {settingsNotice && <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-xs font-black uppercase tracking-wide text-amber-700">{settingsNotice}</div>}
               <div>
                 <label className="text-xs font-black text-indigo-600 uppercase tracking-wider block mb-2 border-l-4 border-indigo-500 pl-2 select-none">Tema de Cartas Escolhido</label>
                 <div className="bg-indigo-50/40 border-2 border-indigo-100 rounded-2xl p-3 space-y-3">

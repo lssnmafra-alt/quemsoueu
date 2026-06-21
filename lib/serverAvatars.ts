@@ -1,5 +1,5 @@
-import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { AVATARS, avatarSelectionToUrl, normalizeAvatarSelection } from './avatars';
+import { getPublicR2Url, listR2Objects } from './r2Storage';
 
 export type ServerAvatarOption = {
   key: string;
@@ -10,7 +10,6 @@ export type ServerAvatarOption = {
 export const R2_AVATAR_PREFIX = 'atuem/avatar/';
 
 const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
-const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
 const BOT_PALETTES = [
   ['#EF4444', '#111827'],
   ['#2563EB', '#F59E0B'],
@@ -23,22 +22,14 @@ const BOT_PALETTES = [
 ];
 
 export async function listServerAvatars(limit = 100): Promise<ServerAvatarOption[]> {
-  const env = await getRuntimeEnv();
-  const bucket = getR2Bucket(env);
-  const publicBaseUrl = getStringEnv(env, 'R2_PUBLIC_URL');
+  const listed = await listR2Objects(R2_AVATAR_PREFIX, limit);
+  const keys = listed.map((object) => object.key).filter(isImageKey).sort();
 
-  if (!bucket || !publicBaseUrl) return [];
-
-  const listed = await bucket.list({ prefix: R2_AVATAR_PREFIX, limit });
-  return (listed.objects || [])
-    .map((object: any) => String(object.key || ''))
-    .filter(isImageKey)
-    .sort()
-    .map((key: string) => ({
-      key,
-      name: humanizeName(key.replace(R2_AVATAR_PREFIX, '')),
-      url: publicUrlForKey(publicBaseUrl, key),
-    }));
+  return Promise.all(keys.map(async (key) => ({
+    key,
+    name: humanizeName(key.replace(R2_AVATAR_PREFIX, '')),
+    url: await getPublicR2Url(key),
+  })));
 }
 
 export function pickBotAvatarUrl(pool: ServerAvatarOption[], seed: string, index: number) {
@@ -65,35 +56,6 @@ export async function getBotAvatarPool() {
     console.warn('Bot avatar pool unavailable:', error);
     return [];
   }
-}
-
-export function publicUrlForKey(publicBaseUrl: string, key: string) {
-  const encodedKey = String(key || '')
-    .split('/')
-    .map((part) => encodeURIComponent(part))
-    .join('/');
-  return `${publicBaseUrl.replace(/\/+$/, '')}/${encodedKey}`;
-}
-
-async function getRuntimeEnv() {
-  try {
-    return (await getCloudflareContext({ async: true })).env as Record<string, any>;
-  } catch {
-    return process.env as Record<string, any>;
-  }
-}
-
-function getR2Bucket(env: Record<string, any>) {
-  for (const name of BINDING_NAMES) {
-    const bucket = env[name];
-    if (bucket && typeof bucket.list === 'function') return bucket;
-  }
-  return null;
-}
-
-function getStringEnv(env: Record<string, any>, key: string) {
-  const value = env[key] ?? process.env[key];
-  return typeof value === 'string' ? value.trim() : '';
 }
 
 function isImageKey(key: string) {

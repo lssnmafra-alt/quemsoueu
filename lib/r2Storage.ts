@@ -198,13 +198,14 @@ function awsEncode(value: string) {
 }
 
 async function sha256Hex(value: string) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  const data = toArrayBuffer(new TextEncoder().encode(value));
+  const digest = await crypto.subtle.digest('SHA-256', data);
   return bytesToHex(new Uint8Array(digest));
 }
 
 async function hmac(key: ArrayBuffer | Uint8Array, value: string) {
-  const cryptoKey = await crypto.subtle.importKey('raw', key instanceof Uint8Array ? key : new Uint8Array(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(value));
+  const cryptoKey = await crypto.subtle.importKey('raw', toArrayBuffer(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, toArrayBuffer(new TextEncoder().encode(value)));
   return new Uint8Array(signature);
 }
 
@@ -213,6 +214,13 @@ async function getSignatureKey(secret: string, dateStamp: string, regionName: st
   const kRegion = await hmac(kDate, regionName);
   const kService = await hmac(kRegion, serviceName);
   return hmac(kService, 'aws4_request');
+}
+
+function toArrayBuffer(value: ArrayBuffer | Uint8Array) {
+  if (value instanceof ArrayBuffer) return value;
+  const copy = new Uint8Array(value.byteLength);
+  copy.set(value);
+  return copy.buffer;
 }
 
 function bytesToHex(bytes: Uint8Array | ArrayBuffer) {

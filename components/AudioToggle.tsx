@@ -1,17 +1,41 @@
 'use client';
 
-import { useState } from 'react';
-import { audioManager } from '@/lib/audioManager';
+import { useEffect, useState } from 'react';
+import { audioManager, type CurrentMusicInfo } from '@/lib/audioManager';
 import { Music, Volume2, VolumeX, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 
+const NOW_PLAYING_EVENT = 'quemSouEu:music-track';
+
 export default function AudioToggle() {
   const [open, setOpen] = useState(false);
   const [prefs, setPrefs] = useState({ ...audioManager.prefs });
+  const [currentTrack, setCurrentTrack] = useState<CurrentMusicInfo | null>(() => audioManager.getCurrentMusicInfo());
+  const [toastTrack, setToastTrack] = useState<CurrentMusicInfo | null>(null);
+
+  useEffect(() => {
+    let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const onTrack = (event: Event) => {
+      const detail = (event as CustomEvent<CurrentMusicInfo>).detail;
+      if (!detail?.url) return;
+      setCurrentTrack(detail);
+      setToastTrack(detail);
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => setToastTrack(null), 5200);
+    };
+
+    window.addEventListener(NOW_PLAYING_EVENT, onTrack as EventListener);
+    return () => {
+      if (toastTimer) clearTimeout(toastTimer);
+      window.removeEventListener(NOW_PLAYING_EVENT, onTrack as EventListener);
+    };
+  }, []);
 
   const syncPrefs = () => {
     setPrefs({ ...audioManager.prefs });
+    setCurrentTrack(audioManager.getCurrentMusicInfo());
   };
 
   const update = (next: Partial<typeof prefs>) => {
@@ -33,6 +57,23 @@ export default function AudioToggle() {
   return (
     <div className="fixed bottom-4 left-4 z-[90]">
       <AnimatePresence>
+        {toastTrack && !prefs.muted && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.96 }}
+            className="mb-3 w-[calc(100vw-2rem)] max-w-72 rounded-2xl border-2 border-indigo-100 bg-white p-4 shadow-xl"
+          >
+            <p className="text-[10px] font-black uppercase tracking-wider text-indigo-500 flex items-center gap-1.5">
+              <Music className="h-3.5 w-3.5" /> Tocando agora
+            </p>
+            <p className="mt-1 truncate text-sm font-black text-indigo-950">{toastTrack.title || 'Musica'}</p>
+            <p className="mt-0.5 truncate text-xs font-bold text-slate-500">Categoria: {toastTrack.genre || 'Selecionada'}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {open && (
           <motion.div
             initial={{ opacity: 0, y: 10, scale: 0.96 }}
@@ -50,6 +91,14 @@ export default function AudioToggle() {
                 {prefs.muted ? 'Mutado' : 'Ativo'}
               </button>
             </div>
+
+            {currentTrack?.url && (
+              <div className="mb-4 rounded-2xl border-2 border-indigo-50 bg-indigo-50/50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wider text-indigo-500">Musica atual</p>
+                <p className="mt-1 truncate text-xs font-black text-indigo-950">{currentTrack.title || 'Musica'}</p>
+                <p className="mt-0.5 truncate text-[11px] font-bold text-slate-500">Categoria: {currentTrack.genre || 'Selecionada'}</p>
+              </div>
+            )}
 
             <label className="mb-3 flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
               <span className="flex items-center gap-2"><Music className="h-4 w-4 text-indigo-500" /> Musica</span>

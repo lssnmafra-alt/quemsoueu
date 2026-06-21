@@ -26,7 +26,12 @@ export async function GET(req: NextRequest) {
 
       if (tracks.length > 0) {
         const key = tracks[pickIndex(mood, tracks.length)];
-        return NextResponse.json({ key, url: `${publicBaseUrl.replace(/\/+$/, '')}/${key}` });
+        return NextResponse.json({
+          key,
+          url: `${publicBaseUrl.replace(/\/+$/, '')}/${key}`,
+          genre,
+          title: cleanTitle(key),
+        });
       }
     }
 
@@ -60,6 +65,14 @@ function getStringEnv(env: Record<string, any>, key: string) {
 
 function cleanFolderName(value: string) {
   return value.split('/').join('').split('..').join('').trim();
+}
+
+function cleanTitle(key: string) {
+  return (key.split('/').pop() || key)
+    .replace(/\.[^.]+$/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim() || 'Musica';
 }
 
 function isAudioKey(key: string) {

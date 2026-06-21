@@ -33,8 +33,9 @@ export async function POST(req: NextRequest) {
         .from('decks')
         .insert({
           name,
-          creator_id: null,
+          creator_id: userId,
           is_public: true,
+          is_official: true,
           cover_url: coverUrl,
         })
         .select()
@@ -85,6 +86,44 @@ export async function POST(req: NextRequest) {
       if (error) throw error;
 
       return NextResponse.json({ character: data });
+    }
+
+    if (action === 'bulk-add-characters') {
+      const rows = Array.isArray(body.characters) ? body.characters : [];
+      const cleanRows = rows
+        .map((row: any) => ({
+          name: String(row?.name || '').trim(),
+          image_url: String(row?.imageUrl || row?.image_url || '').trim(),
+        }))
+        .filter((row: any) => row.name)
+        .slice(0, MAX_CHARACTERS_PER_DECK);
+
+      if (!cleanRows.length) {
+        return NextResponse.json({ error: 'Cole pelo menos um personagem valido.' }, { status: 400 });
+      }
+
+      const { count, error: countError } = await supabaseGame
+        .from('characters')
+        .select('id', { count: 'exact', head: true })
+        .eq('deck_id', deckId);
+
+      if (countError) throw countError;
+
+      const availableSlots = Math.max(0, MAX_CHARACTERS_PER_DECK - (count || 0));
+      const selectedRows = cleanRows.slice(0, availableSlots);
+
+      if (!selectedRows.length) {
+        return NextResponse.json({ error: `O deck ja atingiu o limite de ${MAX_CHARACTERS_PER_DECK} personagens.` }, { status: 400 });
+      }
+
+      const { data, error } = await supabaseGame
+        .from('characters')
+        .insert(selectedRows.map((row: any) => ({ deck_id: deckId, name: row.name, image_url: row.image_url })))
+        .select();
+
+      if (error) throw error;
+
+      return NextResponse.json({ characters: data || [], inserted: data?.length || 0, skipped: cleanRows.length - selectedRows.length });
     }
 
     if (action === 'delete-character') {
@@ -218,7 +257,7 @@ export async function POST(req: NextRequest) {
 
       const { data, error } = await supabaseGame
         .from('decks')
-        .update({ name })
+        .update({ name, is_official: true, is_public: true })
         .eq('id', deckId)
         .select()
         .single();
@@ -233,7 +272,7 @@ export async function POST(req: NextRequest) {
 
       const { data, error } = await supabaseGame
         .from('decks')
-        .update({ cover_url: coverUrl })
+        .update({ cover_url: coverUrl, is_official: true, is_public: true })
         .eq('id', deckId)
         .select()
         .single();
@@ -260,13 +299,13 @@ async function isEditableOfficialDeck(deckId: string) {
 
   const { data, error } = await supabaseGame
     .from('decks')
-    .select('id, creator_id')
+    .select('id, creator_id, is_official')
     .eq('id', deckId)
     .single();
 
   if (error || !data) return false;
 
-  return data.creator_id === null;
+  return Boolean(data.is_official) || data.creator_id === null;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

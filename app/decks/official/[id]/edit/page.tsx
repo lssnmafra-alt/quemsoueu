@@ -32,7 +32,7 @@ export default function OfficialDeckManagerPage() {
   const [deletingCharacterId, setDeletingCharacterId] = useState('');
   const [error, setError] = useState('');
 
-  const isOfficial = isOfficialDeckId(deckId) || deck?.creator_id === null;
+  const isOfficial = isOfficialDeckId(deckId) || Boolean(deck?.is_official) || deck?.creator_id === null;
   const canManageOfficialDeck = isProjectAdmin(user?.id) && isOfficial;
 
   const fetchDeck = async () => {
@@ -174,20 +174,16 @@ export default function OfficialDeckManagerPage() {
     try {
       const availableSlots = MAX_CHARACTERS_PER_DECK - characters.length;
       const selectedRows = rows.slice(0, Math.max(0, availableSlots));
-      const createdCharacters: any[] = [];
-
-      for (const row of selectedRows) {
-        const result = await officialRequest({ action: 'add-character', name: row.name, imageUrl: row.imageUrl });
-        if (result.character) createdCharacters.push(result.character);
-      }
+      const result = await officialRequest({ action: 'bulk-add-characters', characters: selectedRows });
+      const createdCharacters = Array.isArray(result.characters) ? result.characters : [];
 
       if (createdCharacters.length) {
         setCharacters((current) => [...current, ...createdCharacters]);
         setBulkLines('');
       }
 
-      if (rows.length > selectedRows.length) {
-        setError(`Importei ${selectedRows.length}. O restante passou do limite de ${MAX_CHARACTERS_PER_DECK} personagens.`);
+      if (rows.length > selectedRows.length || result.skipped > 0) {
+        setError(`Importei ${createdCharacters.length}. O restante passou do limite de ${MAX_CHARACTERS_PER_DECK} personagens.`);
       }
     } catch (bulkError: any) {
       setError(bulkError.message || 'Nao foi possivel importar em massa.');

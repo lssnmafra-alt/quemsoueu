@@ -1,4 +1,4 @@
-export const TEMP_OFFICIAL_DECK_EDITING_ENABLED = true;
+export const TEMP_OFFICIAL_DECK_EDITING_ENABLED = false;
 
 export const OFFICIAL_DECK_IDS = new Set([
   '7743c471-0b7a-450d-bb34-11b8b8104d5b',

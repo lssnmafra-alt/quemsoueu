@@ -14,7 +14,8 @@ const CLIP_CANDIDATES = {
 export async function GET(req: NextRequest) {
   try {
     const avatarUrl = req.nextUrl.searchParams.get('avatarUrl') || '';
-    const slug = slugFromAvatarUrl(avatarUrl);
+    const explicitSlug = req.nextUrl.searchParams.get('slug') || req.nextUrl.searchParams.get('avatar') || '';
+    const slug = cleanSlug(explicitSlug) || slugFromAvatarUrl(avatarUrl);
 
     if (!slug) {
       return NextResponse.json({ available: false, reason: 'avatar-sem-slug', clipCandidates: CLIP_CANDIDATES });

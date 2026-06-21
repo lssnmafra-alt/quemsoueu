@@ -1,27 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { listR2Objects } from '@/lib/r2Storage';
 
 const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/'];
 const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
-const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
 const DEFAULT_GENRES = ['Disco', 'Kpop', 'Rock'];
 
 type Track = { key: string; genre: string };
 
 export async function GET(req: NextRequest) {
   try {
-    const env = await getRuntimeEnv();
-    const bucket = getR2Bucket(env);
     const mood = req.nextUrl.searchParams.get('mood') || 'lobby-theme';
     const genresFromQuery = req.nextUrl.searchParams.getAll('genre').map(cleanFolderName).filter(Boolean);
     const genres = genresFromQuery.length > 0 ? genresFromQuery : DEFAULT_GENRES;
     const excludedKeys = new Set(req.nextUrl.searchParams.getAll('exclude').map((key) => decodeURIComponent(key)).filter(isSafeKey));
 
-    if (!bucket) {
-      return NextResponse.json({ url: '', reason: 'bucket-r2-nao-configurado' });
-    }
-
-    const allTracks = (await listAllTracks(bucket)).filter((track) => !excludedKeys.has(track.key));
+    const allTracks = (await listAllTracks()).filter((track) => !excludedKeys.has(track.key));
     const matchedTracks = findTracksForGenres(allTracks, genres);
     const tracks = genresFromQuery.length > 0 ? matchedTracks : (matchedTracks.length > 0 ? matchedTracks : allTracks);
 
@@ -50,24 +43,16 @@ export async function GET(req: NextRequest) {
   }
 }
 
-async function listAllTracks(bucket: any): Promise<Track[]> {
+async function listAllTracks(): Promise<Track[]> {
   const tracks: Track[] = [];
 
   for (const prefix of MUSIC_PREFIXES) {
-    let cursor: string | undefined;
-    do {
-      try {
-        const listed = await bucket.list({ prefix, limit: 1000, cursor });
-        cursor = listed.cursor;
-        for (const object of listed.objects || []) {
-          const key = String(object.key || '');
-          if (!isAudioKey(key)) continue;
-          tracks.push({ key, genre: genreFromKey(key, prefix) });
-        }
-      } catch {
-        cursor = undefined;
-      }
-    } while (cursor);
+    const listed = await listR2Objects(prefix, 1000);
+    for (const object of listed || []) {
+      const key = String(object.key || '');
+      if (!isAudioKey(key)) continue;
+      tracks.push({ key, genre: genreFromKey(key, prefix) });
+    }
   }
 
   const unique = new Map<string, Track>();
@@ -85,22 +70,6 @@ function genreFromKey(key: string, prefix: string) {
   const firstFolder = rest.split('/')[0];
   if (firstFolder && firstFolder !== rest) return humanize(firstFolder);
   return 'Musicas';
-}
-
-async function getRuntimeEnv() {
-  try {
-    return (await getCloudflareContext({ async: true })).env as Record<string, any>;
-  } catch {
-    return process.env as Record<string, any>;
-  }
-}
-
-function getR2Bucket(env: Record<string, any>) {
-  for (const name of BINDING_NAMES) {
-    const bucket = env[name];
-    if (bucket && typeof bucket.list === 'function') return bucket;
-  }
-  return null;
 }
 
 function cleanFolderName(value: string) {

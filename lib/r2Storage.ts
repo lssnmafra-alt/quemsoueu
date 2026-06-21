@@ -174,9 +174,15 @@ function getS3Configs(env: Record<string, any>): R2S3Config[] {
     getStringEnv(env, 'R2_ACCOUNT_ID'),
   ].filter(Boolean);
   const uniqueAccountIds = [...new Set(accountIds)];
-  const bucketName = getStringEnv(env, 'R2_BUCKET_NAME') || getStringEnv(env, 'R2_BUCKET') || getStringEnv(env, 'BUCKET_NAME');
-  const accessKeyId = getStringEnv(env, 'R2_ACCESS_KEY_ID') || getStringEnv(env, 'AWS_ACCESS_KEY_ID');
-  const secretAccessKey = getStringEnv(env, 'R2_SECRET_ACCESS_KEY') || getStringEnv(env, 'AWS_SECRET_ACCESS_KEY');
+  const bucketName = getFirstStringEnv(env, ['R2_BUCKET_NAME', 'R2_BUCKET', 'BUCKET_NAME']);
+  const accessKeyId = getFirstStringEnv(env, ['R2_ACCESS_KEY_ID', 'CLOUDFLARE_R2_ACCESS_KEY_ID', 'AWS_ACCESS_KEY_ID']);
+  const secretAccessKey = getFirstStringEnv(env, [
+    'R2_SECRET_ACCESS_KEY',
+    'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
+    'R2_SECRET_KEY',
+    'R2_ACCESS_KEY_SECRET',
+    'AWS_SECRET_ACCESS_KEY',
+  ]);
 
   if (!uniqueAccountIds.length || !bucketName || !accessKeyId || !secretAccessKey) return [];
   return uniqueAccountIds.map((accountId) => ({ accountId, bucketName, accessKeyId, secretAccessKey }));
@@ -201,6 +207,14 @@ async function getS3Client(config: R2S3Config) {
 function getStringEnv(env: Record<string, any>, key: string) {
   const value = env[key] ?? process.env[key];
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function getFirstStringEnv(env: Record<string, any>, keys: string[]) {
+  for (const key of keys) {
+    const value = getStringEnv(env, key);
+    if (value) return value;
+  }
+  return '';
 }
 
 async function streamToUint8Array(stream: any) {

@@ -17,6 +17,7 @@ interface UserState {
 const APP_USER_KEY = 'quemSouEu:user';
 const APP_PROFILE_KEY = 'quemSouEu:profile';
 const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
+const MUSIC_BLOCKED_TRACKS_KEY = 'quemSouEu:musicBlockedTracks';
 
 function readJson(key: string) {
   if (typeof window === 'undefined') return null;
@@ -42,9 +43,13 @@ function persistAuth(user: any | null | undefined, profile: any | null | undefin
       if (Array.isArray(profile.music_genres)) {
         localStorage.setItem(MUSIC_GENRES_KEY, JSON.stringify(profile.music_genres));
       }
+      if (Array.isArray(profile.music_blocked_tracks)) {
+        localStorage.setItem(MUSIC_BLOCKED_TRACKS_KEY, JSON.stringify(profile.music_blocked_tracks));
+      }
     } else {
       localStorage.removeItem(APP_PROFILE_KEY);
       localStorage.removeItem(MUSIC_GENRES_KEY);
+      localStorage.removeItem(MUSIC_BLOCKED_TRACKS_KEY);
     }
   }
 }

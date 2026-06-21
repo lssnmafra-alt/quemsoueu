@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseGame } from '@/lib/supabase';
-import { isOfficialDeckId, TEMP_OFFICIAL_DECK_EDITING_ENABLED } from '@/lib/officialDecks';
+import { isOfficialDeckId } from '@/lib/officialDecks';
 import { MAX_CHARACTERS_PER_DECK } from '@/lib/deckRules';
+import { isProjectAdmin } from '@/lib/admin';
 
 const OFFICIAL_FRAME_THEMES = new Set(['arcane', 'nature', 'ruby', 'shadow', 'celestial']);
 
 export async function POST(req: NextRequest) {
   try {
-    if (!TEMP_OFFICIAL_DECK_EDITING_ENABLED) {
-      return NextResponse.json({ error: 'Edicao oficial desativada.' }, { status: 403 });
-    }
-
     const body = await req.json();
     const deckId = String(body.deckId || '');
     const action = String(body.action || '');
+    const userId = String(body.userId || body.requesterId || '').trim();
+
+    if (!isProjectAdmin(userId)) {
+      return NextResponse.json({ error: 'Acesso de ADM necessario.' }, { status: 403 });
+    }
 
     if (action === 'create-official-deck') {
       const name = String(body.name || '').trim();

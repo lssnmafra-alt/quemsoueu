@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseGame
       .from('profiles')
-      .select('id,nickname,avatar_url,music_genres,music_blocked_tracks,played_matches,wins,is_guest,updated_at')
+      .select('id,nickname,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,updated_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     const avatarUrl = String(body.avatar_url || body.avatarUrl || '').trim();
     const musicGenres = normalizeGenres(body.music_genres || body.musicGenres);
     const musicBlockedTracks = normalizeBlockedTracks(body.music_blocked_tracks || body.musicBlockedTracks);
+    const profileCompleted = Boolean(body.profile_completed ?? body.profileCompleted ?? true);
     const isGuest = Boolean(body.is_guest ?? body.isGuest);
 
     if (!isUuid(id)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
@@ -44,10 +45,11 @@ export async function POST(req: NextRequest) {
         avatar_url: avatarUrl,
         music_genres: musicGenres,
         music_blocked_tracks: musicBlockedTracks,
+        profile_completed: profileCompleted,
         is_guest: isGuest,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'id' })
-      .select('id,nickname,avatar_url,music_genres,music_blocked_tracks,played_matches,wins,is_guest,updated_at')
+      .select('id,nickname,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,updated_at')
       .single();
 
     if (error) throw error;

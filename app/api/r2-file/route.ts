@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getR2Object } from '@/lib/r2Storage';
 
-const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
-const ALLOWED_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/', 'atuem/Animacao/', 'atuem/atuem/Animacao/'];
-const ALLOWED_EXTENSIONS = ['.mp3', '.ogg', '.wav', '.m4a', '.glb'];
+const ALLOWED_PREFIXES = ['atuem/avatar/', 'atuem/atuem/avatar/', 'atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/', 'atuem/Animacao/', 'atuem/atuem/Animacao/'];
+const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.mp3', '.ogg', '.wav', '.m4a', '.glb'];
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,22 +12,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Arquivo nao permitido.' }, { status: 400 });
     }
 
-    const env = await getRuntimeEnv();
-    const bucket = getR2Bucket(env);
-
-    if (!bucket) {
-      return NextResponse.json({ error: 'Bucket R2 nao configurado.' }, { status: 500 });
-    }
-
-    const object = await bucket.get(key);
+    const object = await getR2Object(key);
 
     if (!object?.body) {
       return NextResponse.json({ error: 'Arquivo nao encontrado no R2.', key }, { status: 404 });
     }
 
-    return new NextResponse(object.body, {
+    return new NextResponse(object.body as any, {
       headers: {
-        'Content-Type': contentTypeForKey(key),
+        'Content-Type': object.httpMetadata?.contentType || contentTypeForKey(key),
         'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
         'Access-Control-Allow-Origin': '*',
         'Cross-Origin-Resource-Policy': 'cross-origin',
@@ -40,22 +32,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-async function getRuntimeEnv() {
-  try {
-    return (await getCloudflareContext({ async: true })).env as Record<string, any>;
-  } catch {
-    return process.env as Record<string, any>;
-  }
-}
-
-function getR2Bucket(env: Record<string, any>) {
-  for (const name of BINDING_NAMES) {
-    const bucket = env[name];
-    if (bucket && typeof bucket.get === 'function') return bucket;
-  }
-  return null;
-}
-
 function isSafeKey(key: string) {
   if (!key || key.includes('..') || key.startsWith('/') || key.includes('\\')) return false;
   const lower = key.toLowerCase();
@@ -64,6 +40,9 @@ function isSafeKey(key: string) {
 
 function contentTypeForKey(key: string) {
   const lower = key.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.webp')) return 'image/webp';
   if (lower.endsWith('.mp3')) return 'audio/mpeg';
   if (lower.endsWith('.ogg')) return 'audio/ogg';
   if (lower.endsWith('.wav')) return 'audio/wav';

@@ -1,5 +1,6 @@
 import { supabaseGame } from './supabase';
 import { closeAndDeleteRooms, nextRoomExpiry } from './roomLifecycle';
+import { getBotAvatarPool, pickBotAvatarUrl } from './serverAvatars';
 
 const TARGET_BOT_LOBBY_ROOMS = 1;
 const MAX_BOT_ONLY_ROOM_AGE_MS = 8 * 60 * 1000;
@@ -80,6 +81,7 @@ async function createBotRoom(theme: { id: string | null; name: string }, index: 
   const code = randomCode();
   const rotatingIndex = Math.floor(now.getTime() / (10 * 60 * 1000)) + index;
   const shape = shapeForIndex(rotatingIndex);
+  const avatarPool = await getBotAvatarPool();
 
   const { data: room, error } = await supabaseGame
     .from('rooms')
@@ -111,6 +113,7 @@ async function createBotRoom(theme: { id: string | null; name: string }, index: 
       room_id: room.id,
       user_id: userId,
       nickname: name,
+      avatar_url: pickBotAvatarUrl(avatarPool, `${room.id}:${name}:${userId}`, botIndex),
       is_bot: true,
       is_admin: botIndex === 0,
       lives: 0,
@@ -142,7 +145,7 @@ export async function runBotRoomCycle() {
 
   const roomIds = (rooms || []).map((room: any) => room.id);
   const { data: players } = roomIds.length > 0
-    ? await supabaseGame.from('room_players').select('id,room_id,is_bot,is_eliminated,lives,play_order,nickname').in('room_id', roomIds)
+    ? await supabaseGame.from('room_players').select('id,room_id,is_bot,is_eliminated,lives,play_order,nickname,avatar_url').in('room_id', roomIds)
     : { data: [] };
 
   const playersByRoom = new Map<string, any[]>();
@@ -159,8 +162,9 @@ export async function runBotRoomCycle() {
     const age = now - new Date(room.created_at).getTime();
     const expired = room.expires_at && new Date(room.expires_at).getTime() < now;
     const oldBotNicknames = roomPlayers.some((player: any) => /^bot\s/i.test(String(player.nickname || '')));
+    const missingAvatar = roomPlayers.some((player: any) => !String(player.avatar_url || '').trim());
     const wrongShape = room.status === 'LOBBY' && !isExpectedBotRoomShape(room, roomPlayers);
-    return expired || room.status !== 'LOBBY' || room.status === 'FINISHED' || oldBotNicknames || wrongShape || age > MAX_BOT_ONLY_ROOM_AGE_MS;
+    return expired || room.status !== 'LOBBY' || room.status === 'FINISHED' || oldBotNicknames || missingAvatar || wrongShape || age > MAX_BOT_ONLY_ROOM_AGE_MS;
   });
 
   await closeAndDeleteRooms(staleBotRooms.map((room: any) => room.id));

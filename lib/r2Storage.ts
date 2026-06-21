@@ -11,12 +11,16 @@ type R2S3Config = {
   bucketName: string;
   accessKeyId: string;
   secretAccessKey: string;
-  region: string;
-  service: string;
+};
+
+type R2GetResult = {
+  body: BodyInit;
+  httpMetadata: { contentType?: string };
+  size?: number;
 };
 
 const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
-const EMPTY_SHA256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+let awsClientModulePromise: Promise<any> | null = null;
 
 export async function getRuntimeEnv() {
   try {
@@ -46,35 +50,48 @@ export async function listR2Objects(prefix: string, limit = 1000): Promise<R2Obj
     return objects;
   }
 
-  const s3 = getS3Config(env);
-  if (!s3) return [];
+  const s3Configs = getS3Configs(env);
+  if (!s3Configs.length) return [];
 
-  const objects: R2ObjectInfo[] = [];
-  let continuationToken = '';
+  const errors: string[] = [];
 
-  do {
-    const query: Record<string, string> = {
-      'list-type': '2',
-      'max-keys': String(Math.min(1000, limit)),
-      prefix,
-    };
-    if (continuationToken) query['continuation-token'] = continuationToken;
+  for (const config of s3Configs) {
+    try {
+      const { client, ListObjectsV2Command } = await getS3Client(config);
+      const objects: R2ObjectInfo[] = [];
+      let ContinuationToken: string | undefined;
 
-    const response = await signedR2Fetch(s3, '', query);
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      throw new Error(`R2 list falhou (${response.status}): ${text.slice(0, 180)}`);
+      do {
+        const response = await client.send(new ListObjectsV2Command({
+          Bucket: config.bucketName,
+          Prefix: prefix,
+          MaxKeys: Math.min(1000, limit),
+          ContinuationToken,
+        }));
+
+        for (const object of response.Contents || []) {
+          if (!object.Key) continue;
+          objects.push({
+            key: String(object.Key),
+            size: typeof object.Size === 'number' ? object.Size : undefined,
+            uploaded: object.LastModified instanceof Date ? object.LastModified.toISOString() : undefined,
+          });
+          if (objects.length >= limit) return objects;
+        }
+
+        ContinuationToken = response.NextContinuationToken;
+      } while (ContinuationToken && objects.length < limit);
+
+      return objects.slice(0, limit);
+    } catch (error: any) {
+      errors.push(`${config.accountId}: ${error?.name || 'R2Error'} ${error?.message || String(error)}`);
     }
+  }
 
-    const xml = await response.text();
-    objects.push(...parseListObjectsXml(xml));
-    continuationToken = readXmlTag(xml, 'NextContinuationToken');
-  } while (continuationToken && objects.length < limit);
-
-  return objects.slice(0, limit);
+  throw new Error(errors.join(' | ') || 'R2 list falhou.');
 }
 
-export async function getR2Object(key: string) {
+export async function getR2Object(key: string): Promise<R2GetResult | null> {
   const env = await getRuntimeEnv();
   const binding = getR2Binding(env);
 
@@ -84,21 +101,34 @@ export async function getR2Object(key: string) {
     return { body: object.body, httpMetadata: object.httpMetadata || {}, size: object.size };
   }
 
-  const s3 = getS3Config(env);
-  if (!s3) return null;
+  const s3Configs = getS3Configs(env);
+  if (!s3Configs.length) return null;
 
-  const response = await signedR2Fetch(s3, key, {});
-  if (response.status === 404) return null;
-  if (!response.ok || !response.body) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`R2 get falhou (${response.status}): ${text.slice(0, 180)}`);
+  const errors: string[] = [];
+
+  for (const config of s3Configs) {
+    try {
+      const { client, GetObjectCommand } = await getS3Client(config);
+      const response = await client.send(new GetObjectCommand({ Bucket: config.bucketName, Key: key }));
+      if (!response.Body) return null;
+
+      const bytes = typeof response.Body.transformToByteArray === 'function'
+        ? await response.Body.transformToByteArray()
+        : await streamToUint8Array(response.Body);
+
+      return {
+        body: new Blob([bytes]).stream() as unknown as BodyInit,
+        httpMetadata: { contentType: response.ContentType || undefined },
+        size: typeof response.ContentLength === 'number' ? response.ContentLength : bytes.byteLength,
+      };
+    } catch (error: any) {
+      const status = error?.$metadata?.httpStatusCode;
+      if (status === 404 || error?.name === 'NoSuchKey' || error?.name === 'NotFound') return null;
+      errors.push(`${config.accountId}: ${error?.name || 'R2Error'} ${error?.message || String(error)}`);
+    }
   }
 
-  return {
-    body: response.body,
-    httpMetadata: { contentType: response.headers.get('content-type') || undefined },
-    size: Number(response.headers.get('content-length') || 0) || undefined,
-  };
+  throw new Error(errors.join(' | ') || 'R2 get falhou.');
 }
 
 export async function hasR2Object(key: string) {
@@ -138,14 +168,34 @@ function getR2Binding(env: Record<string, any>) {
   return null;
 }
 
-function getS3Config(env: Record<string, any>): R2S3Config | null {
-  const accountId = getStringEnv(env, 'R2_ACCOUNT_ID') || getStringEnv(env, 'CLOUDFLARE_ACCOUNT_ID');
+function getS3Configs(env: Record<string, any>): R2S3Config[] {
+  const accountIds = [
+    getStringEnv(env, 'CLOUDFLARE_ACCOUNT_ID'),
+    getStringEnv(env, 'R2_ACCOUNT_ID'),
+  ].filter(Boolean);
+  const uniqueAccountIds = [...new Set(accountIds)];
   const bucketName = getStringEnv(env, 'R2_BUCKET_NAME') || getStringEnv(env, 'R2_BUCKET') || getStringEnv(env, 'BUCKET_NAME');
   const accessKeyId = getStringEnv(env, 'R2_ACCESS_KEY_ID') || getStringEnv(env, 'AWS_ACCESS_KEY_ID');
   const secretAccessKey = getStringEnv(env, 'R2_SECRET_ACCESS_KEY') || getStringEnv(env, 'AWS_SECRET_ACCESS_KEY');
 
-  if (!accountId || !bucketName || !accessKeyId || !secretAccessKey) return null;
-  return { accountId, bucketName, accessKeyId, secretAccessKey, region: 'auto', service: 's3' };
+  if (!uniqueAccountIds.length || !bucketName || !accessKeyId || !secretAccessKey) return [];
+  return uniqueAccountIds.map((accountId) => ({ accountId, bucketName, accessKeyId, secretAccessKey }));
+}
+
+async function getS3Client(config: R2S3Config) {
+  awsClientModulePromise ||= import('@aws-sdk/client-s3');
+  const { S3Client, ListObjectsV2Command, GetObjectCommand } = await awsClientModulePromise;
+  const client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+    forcePathStyle: true,
+  });
+
+  return { client, ListObjectsV2Command, GetObjectCommand };
 }
 
 function getStringEnv(env: Record<string, any>, key: string) {
@@ -153,107 +203,28 @@ function getStringEnv(env: Record<string, any>, key: string) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-async function signedR2Fetch(config: R2S3Config, key: string, query: Record<string, string>) {
-  const host = `${config.accountId}.r2.cloudflarestorage.com`;
-  const method = 'GET';
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-  const dateStamp = amzDate.slice(0, 8);
-  const canonicalUri = `/${encodeUriPath(config.bucketName)}${key ? `/${encodeUriPath(key)}` : ''}`;
-  const canonicalQueryString = canonicalQuery(query);
-  const credentialScope = `${dateStamp}/${config.region}/${config.service}/aws4_request`;
-  const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
-  const canonicalHeaders = `host:${host}\nx-amz-content-sha256:${EMPTY_SHA256}\nx-amz-date:${amzDate}\n`;
-  const canonicalRequest = [method, canonicalUri, canonicalQueryString, canonicalHeaders, signedHeaders, EMPTY_SHA256].join('\n');
-  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, credentialScope, await sha256Hex(canonicalRequest)].join('\n');
-  const signingKey = await getSignatureKey(config.secretAccessKey, dateStamp, config.region, config.service);
-  const signature = bytesToHex(await hmac(signingKey, stringToSign));
-  const authorization = `AWS4-HMAC-SHA256 Credential=${config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-  const url = `https://${host}${canonicalUri}${canonicalQueryString ? `?${canonicalQueryString}` : ''}`;
+async function streamToUint8Array(stream: any) {
+  const chunks: Uint8Array[] = [];
 
-  return fetch(url, {
-    method,
-    headers: {
-      Authorization: authorization,
-      'x-amz-content-sha256': EMPTY_SHA256,
-      'x-amz-date': amzDate,
-    },
-  });
-}
-
-function canonicalQuery(query: Record<string, string>) {
-  return Object.entries(query)
-    .filter(([, value]) => value !== undefined && value !== null)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${awsEncode(key)}=${awsEncode(value)}`)
-    .join('&');
-}
-
-function encodeUriPath(path: string) {
-  return String(path).split('/').map(awsEncode).join('/');
-}
-
-function awsEncode(value: string) {
-  return encodeURIComponent(value).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
-}
-
-async function sha256Hex(value: string) {
-  const data = toArrayBuffer(new TextEncoder().encode(value));
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return bytesToHex(new Uint8Array(digest));
-}
-
-async function hmac(key: ArrayBuffer | Uint8Array, value: string) {
-  const cryptoKey = await crypto.subtle.importKey('raw', toArrayBuffer(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, toArrayBuffer(new TextEncoder().encode(value)));
-  return new Uint8Array(signature);
-}
-
-async function getSignatureKey(secret: string, dateStamp: string, regionName: string, serviceName: string) {
-  const kDate = await hmac(new TextEncoder().encode(`AWS4${secret}`), dateStamp);
-  const kRegion = await hmac(kDate, regionName);
-  const kService = await hmac(kRegion, serviceName);
-  return hmac(kService, 'aws4_request');
-}
-
-function toArrayBuffer(value: ArrayBuffer | Uint8Array) {
-  if (value instanceof ArrayBuffer) return value;
-  const copy = new Uint8Array(value.byteLength);
-  copy.set(value);
-  return copy.buffer;
-}
-
-function bytesToHex(bytes: Uint8Array | ArrayBuffer) {
-  const array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  return Array.from(array).map((byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-function parseListObjectsXml(xml: string): R2ObjectInfo[] {
-  const objects: R2ObjectInfo[] = [];
-  const contents = xml.match(/<Contents>[\s\S]*?<\/Contents>/g) || [];
-
-  for (const item of contents) {
-    const key = readXmlTag(item, 'Key');
-    if (!key) continue;
-    const size = Number(readXmlTag(item, 'Size') || 0) || undefined;
-    const uploaded = readXmlTag(item, 'LastModified') || undefined;
-    objects.push({ key, size, uploaded });
+  if (typeof stream?.getReader === 'function') {
+    const reader = stream.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value instanceof Uint8Array ? value : new Uint8Array(value));
+    }
+  } else if (stream && Symbol.asyncIterator in stream) {
+    for await (const chunk of stream) {
+      chunks.push(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk));
+    }
   }
 
-  return objects;
-}
-
-function readXmlTag(xml: string, tag: string) {
-  const match = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
-  return match ? decodeXml(match[1]) : '';
-}
-
-function decodeXml(value: string) {
-  return value
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
+  const length = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
+  const result = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
 }

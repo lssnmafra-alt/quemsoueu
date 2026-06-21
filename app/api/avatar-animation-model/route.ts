@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { publicUrlForKey } from '@/lib/serverAvatars';
 
-const ANIMATION_PREFIXES = ['atuem/atuem/Animacao/', 'atuem/Animacao/'];
+const ANIMATION_PREFIXES = ['atuem/Animacao/', 'atuem/atuem/Animacao/'];
 const MODEL_FILENAMES = ['personagem.glb', 'character.glb', 'modelo.glb', 'model.glb'];
 const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
 
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ available: false, slug, expectedKeys: candidateKeys, clipCandidates: CLIP_CANDIDATES });
     }
 
-    const key = await findExistingKey(bucket, candidateKeys);
+    const key = await findExistingKey(bucket, candidateKeys, slug);
     if (!key) {
       return NextResponse.json({ available: false, slug, expectedKeys: candidateKeys, clipCandidates: CLIP_CANDIDATES });
     }
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
       available: true,
       slug,
       key,
-      url: `${publicBaseUrl.replace(/\/+$/, '')}/${key}`,
+      url: publicUrlForKey(publicBaseUrl, key),
       clipCandidates: CLIP_CANDIDATES,
       clipIndex: { defeat: 0, intro: 1, victory: 2 },
     });
@@ -87,10 +88,15 @@ function cleanSlug(value: string) {
 }
 
 function buildCandidateKeys(slug: string) {
-  return ANIMATION_PREFIXES.flatMap((prefix) => MODEL_FILENAMES.map((filename) => `${prefix}${slug}/${filename}`));
+  const fileNames = [...MODEL_FILENAMES, `${slug}.glb`];
+  const folderKeys = ANIMATION_PREFIXES.flatMap((prefix) => MODEL_FILENAMES.map((filename) => `${prefix}${slug}/${filename}`));
+  const flatKeys = ANIMATION_PREFIXES.flatMap((prefix) => fileNames.map((filename) => `${prefix}${filename}`));
+  return [...folderKeys, ...flatKeys];
 }
 
-async function findExistingKey(bucket: any, keys: string[]) {
+async function findExistingKey(bucket: any, keys: string[], slug: string) {
+  const lowerSlug = slug.toLowerCase();
+
   for (const key of keys) {
     try {
       if (typeof bucket.head === 'function') {
@@ -100,13 +106,16 @@ async function findExistingKey(bucket: any, keys: string[]) {
     } catch {}
   }
 
-  for (const key of keys) {
+  for (const prefix of ANIMATION_PREFIXES) {
     try {
-      const folder = key.split('/').slice(0, -1).join('/') + '/';
-      const listed = await bucket.list({ prefix: folder, limit: 20 });
+      const listed = await bucket.list({ prefix, limit: 200 });
       const found = (listed.objects || [])
         .map((object: any) => String(object.key || ''))
-        .find((objectKey: string) => objectKey.toLowerCase().endsWith('.glb'));
+        .find((objectKey: string) => {
+          const lower = objectKey.toLowerCase();
+          const filename = lower.split('/').pop() || '';
+          return lower.endsWith('.glb') && (filename === `${lowerSlug}.glb` || lower.includes(`/${lowerSlug}/`));
+        });
       if (found) return found;
     } catch {}
   }

@@ -10,16 +10,22 @@ import { moderateText } from '@/app/actions/moderate';
 import { motion } from 'motion/react';
 import { Mail, Play, Sparkles, Smile, Gamepad2 } from 'lucide-react';
 
+function profileNeedsSetup(profile: any) {
+  if (!profile) return true;
+  return !String(profile.nickname || '').trim();
+}
+
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loginGuest, loading: authLoading, initialized: authInitialized } = useUserStore();
+  const { user, profile, loginGuest, loading: authLoading, initialized: authInitialized } = useUserStore();
   const [nickname, setNickname] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (authInitialized && !authLoading && user) router.push('/profile?next=/lobby');
-  }, [authInitialized, authLoading, router, user]);
+    if (!authInitialized || authLoading || !user) return;
+    router.push(profileNeedsSetup(profile) ? '/profile?next=/lobby' : '/lobby');
+  }, [authInitialized, authLoading, router, user, profile]);
 
   const handleGoogleLogin = async () => {
     await supabaseAuth.auth.signInWithOAuth({ 
@@ -57,8 +63,6 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen bg-[#f5f6ff] flex flex-col items-center justify-center overflow-hidden font-sans party-grid-bg p-4">
-      
-      {/* Playful Floating Cards */}
       <motion.div 
         animate={{ y: [0, -15, 0], rotate: [4, 8, 4] }} 
         transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
@@ -85,7 +89,6 @@ export default function LoginPage() {
         transition={{ duration: 0.6 }}
         className="relative z-10 w-full max-w-md bg-white border-4 border-indigo-100 rounded-3xl p-8 shadow-2xl flex flex-col items-center"
       >
-        {/* Playful Title Zone */}
         <div className="text-center mb-8 relative select-none flex flex-col items-center">
           <motion.div
             animate={{ scale: [1, 1.05, 1] }}
@@ -139,14 +142,12 @@ export default function LoginPage() {
                  </Button>
               </div>
 
-              {/* Divider */}
               <div className="flex items-center gap-3 py-4">
                  <div className="flex-1 h-0.5 bg-slate-200"></div>
                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">ou entre com</span>
                  <div className="flex-1 h-0.5 bg-slate-200"></div>
               </div>
 
-              {/* Google protocol button */}
               <Button 
                  onClick={handleGoogleLogin} 
                  variant="outline"
@@ -157,7 +158,6 @@ export default function LoginPage() {
               </Button>
            </div>
            
-           {/* Active network parameters footer */}
            <div className="flex justify-center gap-4 text-xs font-semibold text-indigo-600/60 font-mono">
              <span className="flex items-center gap-1">
                <Smile className="w-4 h-4 text-emerald-500" /> Multiplayer

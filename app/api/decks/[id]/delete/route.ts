@@ -16,14 +16,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   const { data: deck, error: deckError } = await supabaseGame
     .from('decks')
-    .select('id,name,creator_id')
+    .select('id,name,creator_id,is_official')
     .eq('id', deckId)
     .maybeSingle();
 
   if (deckError) return NextResponse.json({ error: deckError.message }, { status: 500 });
   if (!deck) return NextResponse.json({ error: 'Deck nao encontrado.' }, { status: 404 });
 
-  const isOfficial = deck.creator_id === null || isOfficialDeckId(deck.id);
+  const isOfficial = Boolean(deck.is_official) || deck.creator_id === null || isOfficialDeckId(deck.id);
   const canDelete = isProjectAdmin(userId) || (!isOfficial && deck.creator_id === userId);
 
   if (!canDelete) {

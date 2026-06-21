@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ExternalLink, ImageOff, ImagePlus, Plus, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, ImageOff, ImagePlus, Plus, Save, Trash2, Upload, FileText } from 'lucide-react';
 import LoadingArena from '@/components/LoadingArena';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabaseGame } from '@/lib/supabase';
 import { useUserStore } from '@/lib/store';
 import { MAX_CHARACTERS_PER_DECK } from '@/lib/deckRules';
-import { isOfficialDeckId, TEMP_OFFICIAL_DECK_EDITING_ENABLED } from '@/lib/officialDecks';
+import { isOfficialDeckId } from '@/lib/officialDecks';
+import { isProjectAdmin } from '@/lib/admin';
 
 export default function OfficialDeckManagerPage() {
   const router = useRouter();
@@ -22,14 +23,17 @@ export default function OfficialDeckManagerPage() {
   const [deckName, setDeckName] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [newCharacterName, setNewCharacterName] = useState('');
+  const [bulkLines, setBulkLines] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingDeck, setSavingDeck] = useState(false);
   const [addingCharacter, setAddingCharacter] = useState(false);
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [uploadingBulk, setUploadingBulk] = useState(false);
   const [deletingCharacterId, setDeletingCharacterId] = useState('');
   const [error, setError] = useState('');
 
   const isOfficial = isOfficialDeckId(deckId) || deck?.creator_id === null;
-  const canManageOfficialDeck = TEMP_OFFICIAL_DECK_EDITING_ENABLED && isOfficial;
+  const canManageOfficialDeck = isProjectAdmin(user?.id) && isOfficial;
 
   const fetchDeck = async () => {
     setLoading(true);
@@ -71,6 +75,18 @@ export default function OfficialDeckManagerPage() {
     void fetchDeck();
   }, [authInitialized, authLoading, user, deckId, router]);
 
+  const officialRequest = async (payload: Record<string, unknown>) => {
+    const response = await fetch('/api/official-decks/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, deckId, userId: user?.id }),
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'Nao foi possivel executar a acao oficial.');
+    return result;
+  };
+
   const handleSaveDeck = async () => {
     if (!canManageOfficialDeck || savingDeck) return;
 
@@ -91,25 +107,13 @@ export default function OfficialDeckManagerPage() {
     setSavingDeck(true);
 
     try {
-      const nameResponse = await fetch('/api/official-decks/edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update-deck-name', deckId, name: cleanName }),
-      });
-      const nameResult = await nameResponse.json().catch(() => ({}));
-      if (!nameResponse.ok) throw new Error(nameResult.error || 'Nao foi possivel salvar o nome.');
+      const nameResult = await officialRequest({ action: 'update-deck-name', name: cleanName });
+      const coverResult = await officialRequest({ action: 'update-cover', coverUrl: cleanCoverUrl });
+      const updatedDeck = coverResult.deck || nameResult.deck;
 
-      const coverResponse = await fetch('/api/official-decks/edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update-cover', deckId, coverUrl: cleanCoverUrl }),
-      });
-      const coverResult = await coverResponse.json().catch(() => ({}));
-      if (!coverResponse.ok) throw new Error(coverResult.error || 'Nao foi possivel salvar a imagem.');
-
-      setDeck(coverResult.deck || nameResult.deck);
-      setDeckName((coverResult.deck || nameResult.deck)?.name || cleanName);
-      setCoverUrl((coverResult.deck || nameResult.deck)?.cover_url || cleanCoverUrl);
+      setDeck(updatedDeck);
+      setDeckName(updatedDeck?.name || cleanName);
+      setCoverUrl(updatedDeck?.cover_url || cleanCoverUrl);
     } catch (saveError: any) {
       setError(saveError.message || 'Nao foi possivel salvar o deck oficial.');
     } finally {
@@ -136,26 +140,99 @@ export default function OfficialDeckManagerPage() {
     setAddingCharacter(true);
 
     try {
-      const response = await fetch('/api/official-decks/edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'add-character',
-          deckId,
-          name: cleanName,
-          imageUrl: '',
-        }),
-      });
-
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || 'Nao foi possivel inserir o personagem oficial.');
-
+      const result = await officialRequest({ action: 'add-character', name: cleanName, imageUrl: '' });
       setCharacters((current) => [...current, result.character]);
       setNewCharacterName('');
     } catch (addError: any) {
       setError(addError.message || 'Nao foi possivel inserir o personagem oficial.');
     } finally {
       setAddingCharacter(false);
+    }
+  };
+
+  const handleBulkImport = async () => {
+    if (!canManageOfficialDeck || bulkImporting) return;
+
+    const rows = bulkLines
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [name, imageUrl = ''] = line.split('|').map((part) => part.trim());
+        return { name, imageUrl };
+      })
+      .filter((row) => row.name);
+
+    if (!rows.length) {
+      setError('Cole pelo menos uma linha no formato Nome | URL da imagem.');
+      return;
+    }
+
+    setBulkImporting(true);
+    setError('');
+
+    try {
+      const availableSlots = MAX_CHARACTERS_PER_DECK - characters.length;
+      const selectedRows = rows.slice(0, Math.max(0, availableSlots));
+      const createdCharacters: any[] = [];
+
+      for (const row of selectedRows) {
+        const result = await officialRequest({ action: 'add-character', name: row.name, imageUrl: row.imageUrl });
+        if (result.character) createdCharacters.push(result.character);
+      }
+
+      if (createdCharacters.length) {
+        setCharacters((current) => [...current, ...createdCharacters]);
+        setBulkLines('');
+      }
+
+      if (rows.length > selectedRows.length) {
+        setError(`Importei ${selectedRows.length}. O restante passou do limite de ${MAX_CHARACTERS_PER_DECK} personagens.`);
+      }
+    } catch (bulkError: any) {
+      setError(bulkError.message || 'Nao foi possivel importar em massa.');
+    } finally {
+      setBulkImporting(false);
+    }
+  };
+
+  const handleBulkImageUpload = async (files?: FileList | null) => {
+    if (!canManageOfficialDeck || uploadingBulk || !files?.length) return;
+
+    const selectedFiles = Array.from(files).slice(0, Math.max(0, MAX_CHARACTERS_PER_DECK - characters.length));
+    if (!selectedFiles.length) {
+      setError(`O deck ja atingiu o limite de ${MAX_CHARACTERS_PER_DECK} personagens.`);
+      return;
+    }
+
+    setUploadingBulk(true);
+    setError('');
+
+    try {
+      const createdCharacters: any[] = [];
+
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('scope', 'characters');
+
+        const uploadResponse = await fetch('/api/upload-official-card-image', { method: 'POST', body: formData });
+        const uploadResult = await uploadResponse.json().catch(() => ({}));
+        if (!uploadResponse.ok) throw new Error(uploadResult.error || `Falha ao anexar ${file.name}.`);
+
+        const imageUrl = String(uploadResult.url || '').trim();
+        const name = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || 'Personagem oficial';
+        const result = await officialRequest({ action: 'add-character', name, imageUrl });
+        if (result.character) createdCharacters.push(result.character);
+      }
+
+      if (createdCharacters.length) {
+        setCharacters((current) => [...current, ...createdCharacters]);
+      }
+    } catch (uploadError: any) {
+      setError(uploadError.message || 'Nao foi possivel anexar imagens em massa.');
+    } finally {
+      setUploadingBulk(false);
     }
   };
 
@@ -169,15 +246,7 @@ export default function OfficialDeckManagerPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/official-decks/edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete-character', deckId, characterId }),
-      });
-
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || 'Nao foi possivel excluir o personagem.');
-
+      await officialRequest({ action: 'delete-character', characterId });
       setCharacters((current) => current.filter((character) => character.id !== characterId));
     } catch (deleteError: any) {
       setError(deleteError.message || 'Nao foi possivel excluir o personagem.');
@@ -197,7 +266,7 @@ export default function OfficialDeckManagerPage() {
           <div className="flex items-center gap-4 min-w-0">
             <Button
               variant="ghost"
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/lobby')}
               className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 w-12 h-12 rounded-2xl border-2 border-slate-200 transition-colors cursor-pointer flex items-center justify-center shrink-0"
             >
               <ArrowLeft className="w-5 h-5 stroke-[3px]" />
@@ -225,7 +294,7 @@ export default function OfficialDeckManagerPage() {
 
         {!canManageOfficialDeck ? (
           <div className="rounded-3xl border-4 border-rose-100 bg-white p-6 text-sm font-bold text-rose-600 shadow-md">
-            Este deck nao esta liberado como deck oficial editavel.
+            Este deck so pode ser editado pelo ADM autorizado do projeto.
           </div>
         ) : (
           <>
@@ -309,6 +378,51 @@ export default function OfficialDeckManagerPage() {
                   <Plus className="w-4 h-4" />
                   {addingCharacter ? 'Inserindo...' : 'Inserir personagem'}
                 </Button>
+              </div>
+            </div>
+
+            <div className="bg-white border-4 border-indigo-100 rounded-3xl shadow-md p-6 space-y-4">
+              <h2 className="text-xl font-black text-indigo-950 uppercase tracking-wide flex items-center gap-2">
+                <Upload className="w-5 h-5 text-indigo-500" /> Importacao em massa
+              </h2>
+              <p className="text-xs font-bold text-slate-500">
+                Cole uma linha por personagem no formato: Nome | URL da imagem. Tambem da para anexar varias imagens; o nome vem do arquivo.
+              </p>
+
+              <textarea
+                value={bulkLines}
+                onChange={(event) => setBulkLines(event.target.value)}
+                placeholder={'Heroi Azul | https://.../heroi.png\nVilao Roxo | https://.../vilao.png'}
+                className="min-h-32 w-full rounded-2xl border-2 border-slate-200 bg-slate-50 p-4 text-sm font-bold text-indigo-950 outline-none focus:border-indigo-300"
+              />
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  type="button"
+                  onClick={handleBulkImport}
+                  disabled={bulkImporting || !bulkLines.trim() || characters.length >= MAX_CHARACTERS_PER_DECK}
+                  className="h-11 px-5 btn-squishy-indigo text-white font-black text-xs uppercase cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  {bulkImporting ? 'Importando...' : 'Importar nomes e URLs'}
+                </Button>
+
+                <label className="h-11 px-5 rounded-xl bg-amber-50 border border-amber-100 text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black uppercase">
+                  <ImagePlus className="w-4 h-4" />
+                  {uploadingBulk ? 'Anexando...' : 'Anexar imagens em massa'}
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    disabled={uploadingBulk || characters.length >= MAX_CHARACTERS_PER_DECK}
+                    onChange={(event) => {
+                      const files = event.target.files;
+                      event.target.value = '';
+                      void handleBulkImageUpload(files);
+                    }}
+                  />
+                </label>
               </div>
             </div>
 

@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/lib/store';
 import { supabaseGame } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
-import { Users, LayoutGrid, Plus, LogOut, Search, ArrowRight, BookOpen, Star, StarOff, Globe, Lock, Eye, Pencil, Trophy, Gamepad2, Circle, Timer } from 'lucide-react';
+import { Users, LayoutGrid, Plus, LogOut, Search, ArrowRight, BookOpen, Star, StarOff, Globe, Lock, Eye, Pencil, Trophy, Gamepad2, Circle, Timer, Crown, UserRound, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingArena from '@/components/LoadingArena';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
+import { isProjectAdmin } from '@/lib/admin';
+import { isOfficialDeckId } from '@/lib/officialDecks';
 
 const OFFICIAL_DECK_ID = '__official__';
 
@@ -25,6 +27,9 @@ export default function HomeLobby() {
   const [deckSearch, setDeckSearch] = useState('');
   const [newDeckName, setNewDeckName] = useState('');
   const [creatingDeck, setCreatingDeck] = useState(false);
+  const [deletingRoomId, setDeletingRoomId] = useState('');
+
+  const isAdminUser = isProjectAdmin(user?.id);
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
@@ -107,11 +112,16 @@ export default function HomeLobby() {
           : { data: [] };
         const creatorMap = new Map((creatorProfiles || []).map((p: any) => [p.id, p.nickname]));
 
-        decksWithCreators = mergedDecks.map((deck: any) => ({
-          ...deck,
-          character_count: characterCounts.get(deck.id) || 0,
-          creator_nickname: creatorMap.get(deck.creator_id) || 'Oficial',
-        }));
+        decksWithCreators = mergedDecks.map((deck: any) => {
+          const isOfficial = deck.creator_id === null || isOfficialDeckId(deck.id);
+
+          return {
+            ...deck,
+            is_official: isOfficial,
+            character_count: characterCounts.get(deck.id) || 0,
+            creator_nickname: isOfficial ? 'Oficial' : creatorMap.get(deck.creator_id) || 'Criador',
+          };
+        });
       }
 
       setDecks(decksWithCreators);
@@ -152,6 +162,29 @@ export default function HomeLobby() {
 
     if (data) {
       router.push(`/room/${data.id}`);
+    }
+  };
+
+  const handleDeleteRoom = async (roomId: string) => {
+    if (!isAdminUser || deletingRoomId) return;
+    const confirmed = confirm('Deseja excluir esta sala e limpar seus dados relacionados?');
+    if (!confirmed) return;
+
+    setDeletingRoomId(roomId);
+
+    try {
+      const response = await fetch(`/api/rooms/${roomId}/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Nao foi possivel excluir a sala.');
+      setRooms((current) => current.filter((room) => room.id !== roomId));
+    } catch (error: any) {
+      alert(error.message || 'Nao foi possivel excluir a sala.');
+    } finally {
+      setDeletingRoomId('');
     }
   };
 
@@ -229,9 +262,11 @@ export default function HomeLobby() {
     .sort((a, b) => {
       const aOwn = a.creator_id === user.id ? 1 : 0;
       const bOwn = b.creator_id === user.id ? 1 : 0;
+      const aOfficial = a.is_official ? 1 : 0;
+      const bOfficial = b.is_official ? 1 : 0;
       const aFav = favoriteDeckIds.has(a.id) ? 1 : 0;
       const bFav = favoriteDeckIds.has(b.id) ? 1 : 0;
-      return (bOwn - aOwn) || (bFav - aFav) || (b.character_count - a.character_count);
+      return (bOwn - aOwn) || (bOfficial - aOfficial) || (bFav - aFav) || (b.character_count - a.character_count);
     });
 
   return (
@@ -252,7 +287,7 @@ export default function HomeLobby() {
                <h2 className="text-3xl font-black text-indigo-950 font-display">
                  {profile?.nickname || 'Jogador'}
                </h2>
-               <div className="flex items-center gap-3 mt-1 text-xs">
+               <div className="flex items-center gap-3 mt-1 text-xs flex-wrap">
                   <span className="flex items-center gap-1 font-bold text-indigo-600 uppercase bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
                     <Trophy className="w-3.5 h-3.5" /> Vitorias: <strong className="text-indigo-950">{profile?.wins || 0}</strong>
                   </span>
@@ -260,13 +295,30 @@ export default function HomeLobby() {
                   <span className="flex items-center gap-1 font-bold text-slate-550 uppercase bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">
                     <Gamepad2 className="w-3.5 h-3.5" /> Partidas: <strong>{profile?.played_matches || 0}</strong>
                   </span>
+                  {isAdminUser && (
+                    <span className="flex items-center gap-1 font-bold text-amber-700 uppercase bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">
+                      <Crown className="w-3.5 h-3.5" /> ADM
+                    </span>
+                  )}
                </div>
             </div>
           </div>
 
-          <Button variant="ghost" onClick={handleLogout} className="text-slate-500 hover:text-rose-600 hover:bg-rose-50 text-xs font-black uppercase rounded-2xl border-2 border-slate-200 px-5 h-12 transition-all cursor-pointer">
-             Sair da Conta <LogOut className="w-4 h-4 ml-2" />
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => router.push('/profile?next=/lobby')} className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 text-xs font-black uppercase rounded-2xl border-2 border-indigo-100 px-5 h-12 transition-all cursor-pointer">
+              Editar Perfil <UserRound className="w-4 h-4 ml-2" />
+            </Button>
+
+            {isAdminUser && (
+              <Button onClick={() => router.push('/decks/official/new')} className="text-amber-700 bg-amber-50 hover:bg-amber-100 text-xs font-black uppercase rounded-2xl border-2 border-amber-100 px-5 h-12 transition-all cursor-pointer">
+                Novo Oficial <Crown className="w-4 h-4 ml-2" />
+              </Button>
+            )}
+
+            <Button variant="ghost" onClick={handleLogout} className="text-slate-500 hover:text-rose-600 hover:bg-rose-50 text-xs font-black uppercase rounded-2xl border-2 border-slate-200 px-5 h-12 transition-all cursor-pointer">
+               Sair da Conta <LogOut className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
         </motion.header>
 
         <div className="grid lg:grid-cols-12 gap-6 mt-6">
@@ -339,7 +391,7 @@ export default function HomeLobby() {
                             className="bg-white border-2 border-indigo-100 p-5 rounded-2xl shadow-sm transition-all flex flex-col justify-between hover:bg-indigo-50/10 hover:border-indigo-400 cursor-pointer hover:shadow-md"
                             onClick={() => router.push(`/room/${room.id}`)}
                           >
-                             <div className="flex items-center justify-between mb-4">
+                             <div className="flex items-center justify-between mb-4 gap-3">
                                <div>
                                  <div className="flex items-center gap-1 mb-1">
                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -347,9 +399,25 @@ export default function HomeLobby() {
                                  </div>
                                  <p className="text-2xl font-black text-indigo-950 font-display">Sala #{room.code}</p>
                                </div>
-                               <div className="w-10 h-10 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-all">
-                                  <ArrowRight className="w-5 h-5" />
-                                </div>
+                               <div className="flex items-center gap-2">
+                                 {isAdminUser && (
+                                   <button
+                                     type="button"
+                                     disabled={deletingRoomId === room.id}
+                                     onClick={(event) => {
+                                       event.stopPropagation();
+                                       void handleDeleteRoom(room.id);
+                                     }}
+                                     className="w-10 h-10 rounded-xl border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 flex items-center justify-center transition-all disabled:opacity-50"
+                                     title="Excluir sala"
+                                   >
+                                     <Trash2 className="w-4 h-4" />
+                                   </button>
+                                 )}
+                                 <div className="w-10 h-10 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                                    <ArrowRight className="w-5 h-5" />
+                                  </div>
+                               </div>
                              </div>
 
                              <div className="flex items-center gap-3 border-t border-slate-100 pt-3 flex-wrap">
@@ -450,8 +518,9 @@ export default function HomeLobby() {
                  ) : (
                    filteredDecks.map((deck) => {
                      const isOwn = deck.creator_id === user.id;
+                     const canManageDeck = isOwn || (deck.is_official && isAdminUser);
                      const isFavorite = favoriteDeckIds.has(deck.id);
-                     const deckHref = deck.is_official ? '/decks' : `/decks/${deck.id}`;
+                     const deckHref = deck.is_official && isAdminUser ? `/decks/official/${deck.id}/edit` : `/decks/${deck.id}`;
 
                      return (
                        <motion.div
@@ -500,8 +569,8 @@ export default function HomeLobby() {
                                  </span>
                                )}
                                {deck.is_official && (
-                                 <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
-                                   Oficial
+                                 <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 flex items-center gap-1">
+                                   <Crown className="w-3 h-3" /> Oficial
                                  </span>
                                )}
                              </div>
@@ -514,8 +583,8 @@ export default function HomeLobby() {
                              variant="outline"
                              className="h-9 rounded-xl border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 text-[11px] font-black uppercase cursor-pointer"
                            >
-                             {isOwn ? <Pencil className="w-3.5 h-3.5 mr-1.5" /> : <Eye className="w-3.5 h-3.5 mr-1.5" />}
-                             {isOwn ? 'Editar' : 'Consultar'}
+                             {canManageDeck ? <Pencil className="w-3.5 h-3.5 mr-1.5" /> : <Eye className="w-3.5 h-3.5 mr-1.5" />}
+                             {canManageDeck ? 'Editar' : 'Consultar'}
                            </Button>
                            <Button
                              onClick={() => toggleFavoriteDeck(deck)}

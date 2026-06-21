@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { audioManager } from '@/lib/audioManager';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
+import AvatarAnimationShowcase from '@/components/avatar/AvatarAnimationShowcase';
 
 export default function RoomStarting({ room, players }: any) {
   const [timeLeft, setTimeLeft] = useState(() => Math.max(0, Math.ceil((new Date(room.turn_expires_at).getTime() - Date.now()) / 1000)));
@@ -12,6 +13,7 @@ export default function RoomStarting({ room, players }: any) {
   const activePlayers = players.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0);
   const visiblePlayers = activePlayers.length > 0 ? activePlayers : players.filter((p: any) => !p.is_eliminated);
   const orderedPlayers = [...visiblePlayers].sort((a, b) => (a.play_order || 0) - (b.play_order || 0));
+  const firstPlayer = orderedPlayers[0];
   const countdownNumber = timeLeft > 0 && timeLeft <= 3 ? timeLeft : null;
 
   useEffect(() => {
@@ -73,9 +75,20 @@ export default function RoomStarting({ room, players }: any) {
         <h1 className="text-4xl md:text-5xl font-black text-indigo-950 mb-2 font-display">
           A Partida vai Comecar!
         </h1>
-        <p className="text-sm text-indigo-600 font-bold uppercase tracking-wider mb-8 animate-pulse">
+        <p className="text-sm text-indigo-600 font-bold uppercase tracking-wider mb-6 animate-pulse">
           Definindo a ordem dos turnos... ({timeLeft}s)
         </p>
+
+        {firstPlayer && (
+          <AvatarAnimationShowcase
+            player={firstPlayer}
+            eventType="intro"
+            title="Entrada do personagem"
+            subtitle={`${firstPlayer.nickname} abre a partida`}
+            compact
+            className="mb-6 text-left"
+          />
+        )}
 
         <div className="flex flex-col gap-4 max-w-lg mx-auto">
           {orderedPlayers.map((p, index) => (

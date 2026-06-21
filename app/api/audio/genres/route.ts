@@ -1,25 +1,23 @@
 import { NextResponse } from 'next/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { listR2Objects } from '@/lib/r2Storage';
 
-const PREFIX = 'atuem/music/';
+const PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/'];
 const DEFAULT_GENRES = ['Disco', 'Kpop', 'Rock', 'Indie', 'Eletronica', 'Pop', 'Funk', 'Rap'];
-const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
 
 export async function GET() {
   try {
-    const env = await getRuntimeEnv();
-    const bucket = getR2Bucket(env);
+    const folders = new Set<string>();
 
-    if (!bucket) return NextResponse.json({ genres: DEFAULT_GENRES });
+    for (const prefix of PREFIXES) {
+      const listed = await listR2Objects(prefix, 1000);
+      for (const object of listed) {
+        const rest = object.key.startsWith(prefix) ? object.key.slice(prefix.length) : object.key;
+        const folder = rest.split('/')[0];
+        if (folder && folder !== rest) folders.add(folder);
+      }
+    }
 
-    const listed = await bucket.list({ prefix: PREFIX, delimiter: '/', limit: 100 });
-    const folders = (listed.delimitedPrefixes || [])
-      .map((prefix: string) => prefix.replace(PREFIX, '').replace(/\/+$/, '').trim())
-      .filter(Boolean);
-    const objectFolders = (listed.objects || [])
-      .map((object: any) => String(object.key || '').replace(PREFIX, '').split('/')[0])
-      .filter(Boolean);
-    const genres = Array.from(new Set([...folders, ...objectFolders]))
+    const genres = Array.from(folders)
       .map(humanizeGenre)
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -27,24 +25,8 @@ export async function GET() {
     return NextResponse.json({ genres: genres.length ? genres : DEFAULT_GENRES });
   } catch (error: any) {
     console.error('Audio genres error:', error);
-    return NextResponse.json({ genres: DEFAULT_GENRES });
+    return NextResponse.json({ genres: DEFAULT_GENRES, error: error.message || 'Nao foi possivel listar generos.' });
   }
-}
-
-async function getRuntimeEnv() {
-  try {
-    return (await getCloudflareContext({ async: true })).env as Record<string, any>;
-  } catch {
-    return process.env as Record<string, any>;
-  }
-}
-
-function getR2Bucket(env: Record<string, any>) {
-  for (const name of BINDING_NAMES) {
-    const bucket = env[name];
-    if (bucket && typeof bucket.list === 'function') return bucket;
-  }
-  return null;
 }
 
 function humanizeGenre(value: string) {

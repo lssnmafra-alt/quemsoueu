@@ -50,12 +50,15 @@ function persistAuth(user: any | null | undefined, profile: any | null | undefin
 function getStoredGuest() {
   if (typeof window === 'undefined') return { user: null, profile: null };
   const guestId = localStorage.getItem('guestId');
-  const nickname = localStorage.getItem('guestNickname') || readJson(APP_PROFILE_KEY)?.nickname;
+  const storedProfile = readJson(APP_PROFILE_KEY);
+  const nickname = localStorage.getItem('guestNickname') || storedProfile?.nickname;
   if (!guestId || !nickname) return { user: null, profile: null };
+
+  const baseProfile = { id: guestId, nickname, is_guest: true, played_matches: 0, wins: 0 };
 
   return {
     user: { id: guestId, email: `guest_${guestId}@guest.com` },
-    profile: { id: guestId, nickname, is_guest: true, played_matches: 0, wins: 0 }
+    profile: { ...baseProfile, ...(storedProfile || {}), id: guestId, nickname, is_guest: true }
   };
 }
 
@@ -97,7 +100,7 @@ export const useUserStore = create<UserState>((set) => ({
       const { data: { session } } = await supabaseAuth.auth.getSession();
       if (session?.user) {
         const { data } = await supabaseAuth.from('profiles').select('*').eq('id', session.user.id).single();
-        const profile = data || { id: session.user.id, nickname: session.user.email?.split('@')[0] || 'Jogador', played_matches: 0, wins: 0 };
+        const profile = data || storedAppAuth.profile || { id: session.user.id, nickname: session.user.email?.split('@')[0] || 'Jogador', played_matches: 0, wins: 0 };
         persistAuth(session.user, profile);
         set({ user: session.user, profile, loading: false, initialized: true });
         return;
@@ -118,13 +121,13 @@ export const useUserStore = create<UserState>((set) => ({
   fetchProfile: async (uid: string) => {
     const { data } = await supabaseAuth.from('profiles').select('*').eq('id', uid).single();
     const currentUser = useUserStore.getState().user;
-    const profile = data || (currentUser ? { id: uid, nickname: currentUser.email?.split('@')[0] || 'Jogador', played_matches: 0, wins: 0 } : null);
+    const profile = data || readJson(APP_PROFILE_KEY) || (currentUser ? { id: uid, nickname: currentUser.email?.split('@')[0] || 'Jogador', played_matches: 0, wins: 0 } : null);
     persistAuth(currentUser, profile);
     set({ profile, loading: false, initialized: true });
   },
   loginGuest: async (nickname: string) => {
-    // Reuse existing guestId from localStorage so creator_id stays consistent
     const stored = typeof window !== 'undefined' ? localStorage.getItem('guestId') : null;
+    const storedProfile = readJson(APP_PROFILE_KEY);
     const guestId = stored || crypto.randomUUID();
     if (!stored && typeof window !== 'undefined') {
       localStorage.setItem('guestId', guestId);
@@ -133,9 +136,9 @@ export const useUserStore = create<UserState>((set) => ({
       localStorage.setItem('guestNickname', nickname);
     }
     const guestUser = { id: guestId, email: `guest_${guestId}@guest.com` };
-    const guestProfile = { id: guestId, nickname, is_guest: true, played_matches: 0, wins: 0 };
-    persistAuth(guestUser, guestProfile);
-    set({ user: guestUser, profile: guestProfile, loading: false, initialized: true });
+    const guestProfile = { id: guestId, nickname, is_guest: true, played_matches: 0, wins: 0, ...(storedProfile || {}) };
+    persistAuth(guestUser, { ...guestProfile, id: guestId, nickname, is_guest: true });
+    set({ user: guestUser, profile: { ...guestProfile, id: guestId, nickname, is_guest: true }, loading: false, initialized: true });
   },
   logout: async () => {
     await supabaseAuth.auth.signOut();

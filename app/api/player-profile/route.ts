@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseGame } from '@/lib/supabase';
 
 const MAX_GENRES = 8;
+const MAX_BLOCKED_TRACKS = 300;
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseGame
       .from('profiles')
-      .select('id,nickname,avatar_url,music_genres,played_matches,wins,is_guest,updated_at')
+      .select('id,nickname,avatar_url,music_genres,music_blocked_tracks,played_matches,wins,is_guest,updated_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
     const nickname = String(body.nickname || '').trim().slice(0, 16);
     const avatarUrl = String(body.avatar_url || body.avatarUrl || '').trim();
     const musicGenres = normalizeGenres(body.music_genres || body.musicGenres);
+    const musicBlockedTracks = normalizeBlockedTracks(body.music_blocked_tracks || body.musicBlockedTracks);
     const isGuest = Boolean(body.is_guest ?? body.isGuest);
 
     if (!isUuid(id)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
@@ -41,10 +43,11 @@ export async function POST(req: NextRequest) {
         nickname,
         avatar_url: avatarUrl,
         music_genres: musicGenres,
+        music_blocked_tracks: musicBlockedTracks,
         is_guest: isGuest,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'id' })
-      .select('id,nickname,avatar_url,music_genres,played_matches,wins,is_guest,updated_at')
+      .select('id,nickname,avatar_url,music_genres,music_blocked_tracks,played_matches,wins,is_guest,updated_at')
       .single();
 
     if (error) throw error;
@@ -58,6 +61,14 @@ export async function POST(req: NextRequest) {
 function normalizeGenres(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.map((item) => String(item || '').trim()).filter(Boolean).slice(0, MAX_GENRES);
+}
+
+function normalizeBlockedTracks(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item || '').trim())
+    .filter((item) => item && !item.includes('..') && !item.startsWith('/') && !item.includes('\\'))
+    .slice(0, MAX_BLOCKED_TRACKS);
 }
 
 function isUuid(value: string) {

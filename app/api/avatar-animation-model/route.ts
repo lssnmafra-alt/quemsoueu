@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { listR2Objects } from '@/lib/r2Storage';
 
 const ANIMATION_PREFIXES = ['atuem/Animacao/', 'atuem/atuem/Animacao/'];
 const MODEL_FILENAMES = ['personagem.glb', 'character.glb', 'modelo.glb', 'model.glb'];
-const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
 
 const CLIP_CANDIDATES = {
   defeat: ['NlaTrack', 'perdeu', 'Perdeu', 'derrota', 'Derrota', 'defeat', 'Defeat', 'Animation 1', 'Animação 1', 'Animacao 1'],
@@ -21,15 +20,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ available: false, reason: 'avatar-sem-slug', clipCandidates: CLIP_CANDIDATES });
     }
 
-    const env = await getRuntimeEnv();
-    const bucket = getR2Bucket(env);
     const candidateKeys = buildCandidateKeys(slug);
+    const key = await findExistingKey(candidateKeys, slug);
 
-    if (!bucket) {
-      return NextResponse.json({ available: false, slug, expectedKeys: candidateKeys, clipCandidates: CLIP_CANDIDATES, reason: 'bucket-r2-nao-configurado' });
-    }
-
-    const key = await findExistingKey(bucket, candidateKeys, slug);
     if (!key) {
       return NextResponse.json({ available: false, slug, expectedKeys: candidateKeys, clipCandidates: CLIP_CANDIDATES, reason: 'glb-nao-encontrado' });
     }
@@ -94,30 +87,23 @@ function buildCandidateKeys(slug: string) {
   return [...folderKeys, ...flatKeys];
 }
 
-async function findExistingKey(bucket: any, keys: string[], slug: string) {
+async function findExistingKey(keys: string[], slug: string) {
   const lowerSlug = slug.toLowerCase();
 
-  for (const key of keys) {
-    try {
-      if (typeof bucket.head === 'function') {
-        const object = await bucket.head(key);
-        if (object) return key;
-      }
-    } catch {}
-  }
-
   for (const prefix of ANIMATION_PREFIXES) {
-    try {
-      const listed = await bucket.list({ prefix, limit: 200 });
-      const found = (listed.objects || [])
-        .map((object: any) => String(object.key || ''))
-        .find((objectKey: string) => {
-          const lower = objectKey.toLowerCase();
-          const filename = lower.split('/').pop() || '';
-          return lower.endsWith('.glb') && (filename === `${lowerSlug}.glb` || lower.includes(`/${lowerSlug}/`));
-        });
-      if (found) return found;
-    } catch {}
+    const listed = await listR2Objects(prefix, 1000);
+    const keySet = new Set(listed.map((object) => object.key));
+    const direct = keys.find((key) => keySet.has(key));
+    if (direct) return direct;
+
+    const found = listed
+      .map((object) => object.key)
+      .find((objectKey) => {
+        const lower = objectKey.toLowerCase();
+        const filename = lower.split('/').pop() || '';
+        return lower.endsWith('.glb') && (filename === `${lowerSlug}.glb` || lower.includes(`/${lowerSlug}/`));
+      });
+    if (found) return found;
   }
 
   return '';
@@ -126,20 +112,4 @@ async function findExistingKey(bucket: any, keys: string[], slug: string) {
 function modelUrlForKey(key: string, slug: string) {
   const filename = `${slug.split('/').pop() || 'modelo'}.glb`;
   return `/api/r2-model/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`;
-}
-
-async function getRuntimeEnv() {
-  try {
-    return (await getCloudflareContext({ async: true })).env as Record<string, any>;
-  } catch {
-    return process.env as Record<string, any>;
-  }
-}
-
-function getR2Bucket(env: Record<string, any>) {
-  for (const name of BINDING_NAMES) {
-    const bucket = env[name];
-    if (bucket && typeof bucket.list === 'function') return bucket;
-  }
-  return null;
 }

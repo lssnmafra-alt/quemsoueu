@@ -44,6 +44,7 @@ const STORAGE_KEY = 'mata-mata-audio-prefs';
 const PROFILE_STORAGE_KEY = 'quemSouEu:profile';
 const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
 const NOW_PLAYING_EVENT = 'quemSouEu:music-track';
+const DEFAULT_MUSIC_GENRES = ['Disco', 'Kpop', 'Rock'];
 
 export class AudioManager {
   private ctx: AudioContext | null = null;
@@ -101,17 +102,12 @@ export class AudioManager {
     if (typeof window === 'undefined') return;
 
     const previousTrack = this.activeMusicTrack;
-    const nextGenres = this.getMusicGenres();
+    const selectedGenres = this.getMusicGenres();
+    const nextGenres = selectedGenres.length > 0 ? selectedGenres : DEFAULT_MUSIC_GENRES;
     const nextGenreKey = nextGenres.join('|');
     this.activeMusicTrack = track;
 
     if (this.prefs.muted || !this.prefs.musicEnabled) return;
-    if (!this.hasUserGesture) return;
-    if (!nextGenres.length) {
-      this.stopMusic(false);
-      return;
-    }
-
     if (this.music && previousTrack === track && this.music.dataset.genreKey === nextGenreKey) return;
 
     const requestId = ++this.musicRequestId;
@@ -119,6 +115,10 @@ export class AudioManager {
 
     const trackInfo = await this.resolveLicensedTrack(track, nextGenres);
     if (requestId !== this.musicRequestId || !trackInfo?.url || this.prefs.muted || !this.prefs.musicEnabled) return;
+
+    this.emitMusicInfo({ ...trackInfo, mood: trackInfo.mood || String(track) });
+
+    if (!this.hasUserGesture) return;
 
     const audio = new Audio(trackInfo.url);
     audio.loop = true;
@@ -132,7 +132,6 @@ export class AudioManager {
 
     try {
       await audio.play();
-      this.emitMusicInfo({ ...trackInfo, mood: trackInfo.mood || String(track) });
     } catch {
       this.stopHtmlMusicOnly();
     }

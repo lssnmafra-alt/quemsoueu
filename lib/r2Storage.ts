@@ -6,6 +6,15 @@ export type R2ObjectInfo = {
   uploaded?: string;
 };
 
+type R2S3Config = {
+  accountId: string;
+  bucketName: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+  service: string;
+};
+
 const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
 const EMPTY_SHA256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
@@ -129,7 +138,7 @@ function getR2Binding(env: Record<string, any>) {
   return null;
 }
 
-function getS3Config(env: Record<string, any>) {
+function getS3Config(env: Record<string, any>): R2S3Config | null {
   const accountId = getStringEnv(env, 'R2_ACCOUNT_ID') || getStringEnv(env, 'CLOUDFLARE_ACCOUNT_ID');
   const bucketName = getStringEnv(env, 'R2_BUCKET_NAME') || getStringEnv(env, 'R2_BUCKET') || getStringEnv(env, 'BUCKET_NAME');
   const accessKeyId = getStringEnv(env, 'R2_ACCESS_KEY_ID') || getStringEnv(env, 'AWS_ACCESS_KEY_ID');
@@ -144,7 +153,7 @@ function getStringEnv(env: Record<string, any>, key: string) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-async function signedR2Fetch(config: ReturnType<typeof getS3Config> & Record<string, string>, key: string, query: Record<string, string>) {
+async function signedR2Fetch(config: R2S3Config, key: string, query: Record<string, string>) {
   const host = `${config.accountId}.r2.cloudflarestorage.com`;
   const method = 'GET';
   const now = new Date();

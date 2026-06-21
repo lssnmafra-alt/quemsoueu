@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { publicUrlForKey } from '@/lib/serverAvatars';
 
 const ANIMATION_PREFIXES = ['atuem/Animacao/', 'atuem/atuem/Animacao/'];
 const MODEL_FILENAMES = ['personagem.glb', 'character.glb', 'modelo.glb', 'model.glb'];
@@ -23,25 +22,25 @@ export async function GET(req: NextRequest) {
 
     const env = await getRuntimeEnv();
     const bucket = getR2Bucket(env);
-    const publicBaseUrl = getStringEnv(env, 'R2_PUBLIC_URL');
     const candidateKeys = buildCandidateKeys(slug);
 
-    if (!bucket || !publicBaseUrl) {
-      return NextResponse.json({ available: false, slug, expectedKeys: candidateKeys, clipCandidates: CLIP_CANDIDATES });
+    if (!bucket) {
+      return NextResponse.json({ available: false, slug, expectedKeys: candidateKeys, clipCandidates: CLIP_CANDIDATES, reason: 'bucket-r2-nao-configurado' });
     }
 
     const key = await findExistingKey(bucket, candidateKeys, slug);
     if (!key) {
-      return NextResponse.json({ available: false, slug, expectedKeys: candidateKeys, clipCandidates: CLIP_CANDIDATES });
+      return NextResponse.json({ available: false, slug, expectedKeys: candidateKeys, clipCandidates: CLIP_CANDIDATES, reason: 'glb-nao-encontrado' });
     }
 
     return NextResponse.json({
       available: true,
       slug,
       key,
-      url: publicUrlForKey(publicBaseUrl, key),
+      url: `/api/r2-file?key=${encodeURIComponent(key)}`,
       clipCandidates: CLIP_CANDIDATES,
       clipIndex: { defeat: 0, intro: 1, victory: 2 },
+      proxied: true,
     });
   } catch (error: any) {
     console.error('Avatar animation model error:', error);
@@ -137,9 +136,4 @@ function getR2Bucket(env: Record<string, any>) {
     if (bucket && typeof bucket.list === 'function') return bucket;
   }
   return null;
-}
-
-function getStringEnv(env: Record<string, any>, key: string) {
-  const value = env[key] ?? process.env[key];
-  return typeof value === 'string' ? value.trim() : '';
 }

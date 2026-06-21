@@ -59,6 +59,32 @@ export default function RoomStarting({ room, players }: any) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 md:p-6 bg-[#f5f6ff] font-sans text-indigo-950 party-grid-bg relative overflow-hidden">
+      <AnimatePresence>
+        {focusedPlayer && (
+          <motion.div
+            key={focusedPlayer.id}
+            drag
+            dragMomentum={false}
+            initial={{ opacity: 0, x: -20, y: 20, scale: 0.96 }}
+            animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -20, y: 20, scale: 0.96 }}
+            className="fixed bottom-4 left-4 z-[95] w-[330px] max-w-[calc(100vw-2rem)] cursor-grab active:cursor-grabbing"
+          >
+            <AvatarAnimationShowcase
+              player={focusedPlayer}
+              eventType="intro"
+              title="Entrada do personagem"
+              subtitle={`${focusedPlayer.nickname} em destaque`}
+              compact
+              className="text-left shadow-2xl"
+            />
+            <p className="mt-1 rounded-full bg-white/80 px-3 py-1 text-center text-[10px] font-black uppercase text-slate-400 shadow-sm backdrop-blur">
+              Arraste se atrapalhar
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-6xl w-full text-center relative z-10">
         <AnimatePresence mode="wait">
           {countdownNumber ? (
@@ -92,19 +118,6 @@ export default function RoomStarting({ room, players }: any) {
           Apresentacao dos jogadores... ({timeLeft}s)
         </p>
 
-        {focusedPlayer && (
-          <div className="mx-auto mb-5 max-w-xl md:hidden">
-            <AvatarAnimationShowcase
-              player={focusedPlayer}
-              eventType="intro"
-              title="Entrada do personagem"
-              subtitle={`${focusedPlayer.nickname} em destaque`}
-              compact
-              className="text-left"
-            />
-          </div>
-        )}
-
         <div className={cn('grid grid-cols-1 gap-4 md:gap-5', gridColumns)}>
           {orderedPlayers.map((p, index) => {
             const isFocused = index === focusIndex;
@@ -137,21 +150,8 @@ export default function RoomStarting({ room, players }: any) {
                   <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn('h-14 w-14 shrink-0 rounded-2xl border-2 shadow-sm', p.color?.border || 'border-indigo-200', p.color?.lightBgc || 'bg-slate-50')} />
                 </div>
 
-                <div className="hidden md:block">
-                  {isFocused ? (
-                    <AvatarAnimationShowcase
-                      player={p}
-                      eventType="intro"
-                      title="Entrada do personagem"
-                      subtitle={`${p.nickname} em destaque`}
-                      compact
-                      className="border-2 shadow-none"
-                    />
-                  ) : (
-                    <div className="flex h-[260px] items-center justify-center rounded-3xl border-2 border-dashed border-indigo-100 bg-indigo-50/40">
-                      <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className="h-32 w-32 rounded-[2rem] border-4 border-white bg-white shadow-lg" />
-                    </div>
-                  )}
+                <div className="flex h-[220px] md:h-[260px] items-center justify-center rounded-3xl border-2 border-dashed border-indigo-100 bg-indigo-50/40">
+                  <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className="h-32 w-32 rounded-[2rem] border-4 border-white bg-white shadow-lg" />
                 </div>
               </motion.div>
             );

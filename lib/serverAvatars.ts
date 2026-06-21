@@ -37,7 +37,7 @@ export async function listServerAvatars(limit = 100): Promise<ServerAvatarOption
     .map((key: string) => ({
       key,
       name: humanizeName(key.replace(R2_AVATAR_PREFIX, '')),
-      url: `${publicBaseUrl.replace(/\/+$/, '')}/${key}`,
+      url: publicUrlForKey(publicBaseUrl, key),
     }));
 }
 
@@ -65,6 +65,14 @@ export async function getBotAvatarPool() {
     console.warn('Bot avatar pool unavailable:', error);
     return [];
   }
+}
+
+export function publicUrlForKey(publicBaseUrl: string, key: string) {
+  const encodedKey = String(key || '')
+    .split('/')
+    .map((part) => encodeURIComponent(part))
+    .join('/');
+  return `${publicBaseUrl.replace(/\/+$/, '')}/${encodedKey}`;
 }
 
 async function getRuntimeEnv() {

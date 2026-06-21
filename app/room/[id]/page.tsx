@@ -74,9 +74,23 @@ export default function RoomPage() {
       const currentPlayers = pls || [];
       const myRows = currentPlayers.filter((p: any) => p.user_id === user.id);
       const alreadyInRoom = myRows[0];
-      const normalizedPlayers = currentPlayers.filter((p: any, index: number, list: any[]) => (
+      let normalizedPlayers = currentPlayers.filter((p: any, index: number, list: any[]) => (
         p.user_id !== user.id || list.findIndex((item: any) => item.user_id === user.id) === index
       ));
+
+      if (alreadyInRoom) {
+        const updates: Record<string, any> = {};
+        const nextNickname = profile?.nickname || user.email?.split('@')[0] || alreadyInRoom.nickname;
+        const nextAvatarUrl = profile?.avatar_url || '';
+
+        if (nextNickname && alreadyInRoom.nickname !== nextNickname) updates.nickname = nextNickname;
+        if (nextAvatarUrl && alreadyInRoom.avatar_url !== nextAvatarUrl) updates.avatar_url = nextAvatarUrl;
+
+        if (Object.keys(updates).length > 0) {
+          await supabaseGame.from('room_players').update(updates).eq('id', alreadyInRoom.id);
+          normalizedPlayers = normalizedPlayers.map((player: any) => player.id === alreadyInRoom.id ? { ...player, ...updates } : player);
+        }
+      }
 
       setRoom(rm);
       setPlayers(normalizedPlayers);

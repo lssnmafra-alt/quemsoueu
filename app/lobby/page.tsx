@@ -28,6 +28,7 @@ export default function HomeLobby() {
   const [newDeckName, setNewDeckName] = useState('');
   const [creatingDeck, setCreatingDeck] = useState(false);
   const [deletingRoomId, setDeletingRoomId] = useState('');
+  const [deletingDeckId, setDeletingDeckId] = useState('');
 
   const isAdminUser = isProjectAdmin(user?.id);
 
@@ -212,6 +213,37 @@ export default function HomeLobby() {
 
     setNewDeckName('');
     if (data) router.push(`/decks/${data.id}`);
+  };
+
+  const handleRemoveDeck = async (deck: any) => {
+    if (!user?.id || deletingDeckId) return;
+    const isOwn = deck.creator_id === user.id;
+    const canRemoveDeck = isAdminUser || (!deck.is_official && isOwn);
+    if (!canRemoveDeck) return;
+
+    const confirmed = confirm(`Remover o deck "${deck.name}"?`);
+    if (!confirmed) return;
+
+    setDeletingDeckId(deck.id);
+    try {
+      const response = await fetch(`/api/decks/${deck.id}/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Nao foi possivel remover o deck.');
+      setDecks((current) => current.filter((item) => item.id !== deck.id));
+      setFavoriteDeckIds((current) => {
+        const next = new Set(current);
+        next.delete(deck.id);
+        return next;
+      });
+    } catch (error: any) {
+      alert(error.message || 'Nao foi possivel remover o deck.');
+    } finally {
+      setDeletingDeckId('');
+    }
   };
 
   const toggleFavoriteDeck = async (deck: any) => {
@@ -519,6 +551,7 @@ export default function HomeLobby() {
                    filteredDecks.map((deck) => {
                      const isOwn = deck.creator_id === user.id;
                      const canManageDeck = isOwn || (deck.is_official && isAdminUser);
+                     const canRemoveDeck = isAdminUser || (!deck.is_official && isOwn);
                      const isFavorite = favoriteDeckIds.has(deck.id);
                      const deckHref = deck.is_official && isAdminUser ? `/decks/official/${deck.id}/edit` : `/decks/${deck.id}`;
 
@@ -546,13 +579,26 @@ export default function HomeLobby() {
                                >
                                  {deck.name}
                                </button>
-                               <button
-                                 onClick={() => toggleFavoriteDeck(deck)}
-                                 className="w-8 h-8 rounded-xl border-2 border-slate-100 bg-slate-50 hover:bg-amber-50 hover:border-amber-200 flex items-center justify-center shrink-0 cursor-pointer transition-all"
-                                 title={isFavorite ? 'Remover dos favoritos' : 'Favoritar deck'}
-                               >
-                                 {isFavorite ? <Star className="w-4 h-4 text-amber-500 fill-amber-500" /> : <StarOff className="w-4 h-4 text-slate-400" />}
-                               </button>
+                               <div className="flex items-center gap-1.5 shrink-0">
+                                 {canRemoveDeck && (
+                                   <button
+                                     type="button"
+                                     disabled={deletingDeckId === deck.id}
+                                     onClick={() => handleRemoveDeck(deck)}
+                                     className="w-8 h-8 rounded-xl border-2 border-rose-100 bg-rose-50 hover:bg-rose-100 flex items-center justify-center cursor-pointer transition-all disabled:opacity-50"
+                                     title="Remover deck"
+                                   >
+                                     <Trash2 className="w-4 h-4 text-rose-600" />
+                                   </button>
+                                 )}
+                                 <button
+                                   onClick={() => toggleFavoriteDeck(deck)}
+                                   className="w-8 h-8 rounded-xl border-2 border-slate-100 bg-slate-50 hover:bg-amber-50 hover:border-amber-200 flex items-center justify-center cursor-pointer transition-all"
+                                   title={isFavorite ? 'Remover dos favoritos' : 'Favoritar deck'}
+                                 >
+                                   {isFavorite ? <Star className="w-4 h-4 text-amber-500 fill-amber-500" /> : <StarOff className="w-4 h-4 text-slate-400" />}
+                                 </button>
+                               </div>
                              </div>
                              <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate uppercase tracking-widest flex items-center gap-1"><Users className="w-3 h-3"/> {deck.creator_nickname}</p>
                              <div className="flex flex-wrap gap-1.5 mt-2">

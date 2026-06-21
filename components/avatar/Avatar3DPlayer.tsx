@@ -1,7 +1,7 @@
 'use client';
 
 import { createElement, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Loader2 } from 'lucide-react';
+import { Box, Loader2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Avatar3DPlayerProps = {
@@ -20,6 +20,7 @@ export default function Avatar3DPlayer({ src, eventType, label, clipCandidates =
   const [scriptReady, setScriptReady] = useState(false);
   const [modelReady, setModelReady] = useState(false);
   const [activeClip, setActiveClip] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   const fallbackLabel = useMemo(() => {
     if (eventType === 'victory') return 'Animação de vitória';
@@ -29,11 +30,22 @@ export default function Avatar3DPlayer({ src, eventType, label, clipCandidates =
 
   useEffect(() => {
     let cancelled = false;
-    loadModelViewerScript().then(() => {
-      if (!cancelled) setScriptReady(true);
-    });
+    setLoadError('');
+    loadModelViewerScript()
+      .then(() => {
+        if (!cancelled) setScriptReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('Não foi possível carregar o leitor 3D.');
+      });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    setModelReady(false);
+    setActiveClip('');
+    setLoadError('');
+  }, [src]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -55,16 +67,24 @@ export default function Avatar3DPlayer({ src, eventType, label, clipCandidates =
       }
 
       setModelReady(true);
+      setLoadError('');
+    };
+
+    const onError = () => {
+      setLoadError('O GLB foi encontrado, mas o navegador não conseguiu renderizar.');
+      setModelReady(true);
     };
 
     viewer.addEventListener('load', applyAnimation);
     viewer.addEventListener('model-visibility', applyAnimation);
-    const timer = window.setTimeout(applyAnimation, 700);
+    viewer.addEventListener('error', onError);
+    const retryTimers = [900, 2400, 4800].map((delay) => window.setTimeout(applyAnimation, delay));
 
     return () => {
-      window.clearTimeout(timer);
+      retryTimers.forEach((timer) => window.clearTimeout(timer));
       viewer.removeEventListener('load', applyAnimation);
       viewer.removeEventListener('model-visibility', applyAnimation);
+      viewer.removeEventListener('error', onError);
     };
   }, [clipCandidates, clipIndex, scriptReady, src]);
 
@@ -72,10 +92,20 @@ export default function Avatar3DPlayer({ src, eventType, label, clipCandidates =
 
   return (
     <div className={cn('relative overflow-hidden rounded-3xl border-4 border-indigo-100 bg-slate-950 shadow-inner', className)}>
-      {(!scriptReady || !modelReady) && (
+      {(!scriptReady || !modelReady) && !loadError && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-slate-950 text-white">
           <Loader2 className="h-7 w-7 animate-spin text-indigo-300" />
           <p className="text-[10px] font-black uppercase tracking-wider text-indigo-100">Carregando 3D</p>
+        </div>
+      )}
+
+      {loadError && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-slate-950 p-5 text-center text-white">
+          <AlertTriangle className="h-8 w-8 text-amber-300" />
+          <p className="text-xs font-black uppercase tracking-wider text-amber-100">{loadError}</p>
+          <a href={src} target="_blank" rel="noreferrer" className="mt-2 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-[10px] font-black uppercase text-white hover:bg-white/20">
+            Abrir GLB
+          </a>
         </div>
       )}
 
@@ -89,6 +119,9 @@ export default function Avatar3DPlayer({ src, eventType, label, clipCandidates =
         'interaction-prompt': 'none',
         'shadow-intensity': '1',
         exposure: '1',
+        reveal: 'auto',
+        loading: 'eager',
+        crossorigin: 'anonymous',
         'environment-image': 'neutral',
         style: { width: '100%', height: '100%', minHeight: 260, background: 'linear-gradient(180deg, #eef2ff 0%, #dbeafe 100%)' },
       } as any) : (
@@ -110,24 +143,31 @@ function loadModelViewerScript() {
   if (customElements.get('model-viewer')) return Promise.resolve();
   if (modelViewerScriptPromise) return modelViewerScriptPromise;
 
-  modelViewerScriptPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>('script[data-model-viewer="true"]');
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error('model-viewer falhou')), { once: true });
-      return;
-    }
+  const sources = [
+    'https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js',
+    'https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js',
+    'https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js',
+  ];
 
+  modelViewerScriptPromise = loadScriptSource(sources, 0);
+  return modelViewerScriptPromise;
+}
+
+function loadScriptSource(sources: string[], index: number): Promise<void> {
+  if (index >= sources.length) return Promise.reject(new Error('model-viewer falhou'));
+
+  return new Promise<void>((resolve, reject) => {
     const script = document.createElement('script');
     script.type = 'module';
-    script.src = 'https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js';
+    script.src = sources[index];
     script.dataset.modelViewer = 'true';
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error('model-viewer falhou'));
+    script.onerror = () => {
+      script.remove();
+      loadScriptSource(sources, index + 1).then(resolve).catch(reject);
+    };
     document.head.appendChild(script);
   });
-
-  return modelViewerScriptPromise;
 }
 
 function normalizeClipName(value: string) {

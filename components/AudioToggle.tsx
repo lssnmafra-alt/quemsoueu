@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { audioManager, type CurrentMusicInfo } from '@/lib/audioManager';
-import { Music, Volume2, VolumeX, SlidersHorizontal, Disc3 } from 'lucide-react';
+import { Music, Volume2, VolumeX, SlidersHorizontal, Disc3, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +22,7 @@ export default function AudioToggle() {
       setCurrentTrack(detail);
       setToastTrack(detail);
       if (toastTimer) clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => setToastTrack(null), 5600);
+      toastTimer = setTimeout(() => setToastTrack(null), 7200);
     };
 
     const onTrack = (event: Event) => {
@@ -62,11 +62,21 @@ export default function AudioToggle() {
       <AnimatePresence>
         {toastTrack && !prefs.muted && (
           <motion.div
-            initial={{ opacity: 0, y: -18, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -18, scale: 0.96 }}
-            className="fixed left-1/2 top-5 z-[120] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-3xl border-4 border-indigo-100 bg-white/95 p-3 shadow-2xl backdrop-blur"
+            drag
+            dragMomentum={false}
+            initial={{ opacity: 0, x: -18, y: 16, scale: 0.96 }}
+            animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -18, y: 16, scale: 0.96 }}
+            className="fixed bottom-20 left-4 z-[120] w-[calc(100vw-2rem)] max-w-sm cursor-grab rounded-3xl border-4 border-indigo-100 bg-white/95 p-3 shadow-2xl backdrop-blur active:cursor-grabbing"
           >
+            <button
+              type="button"
+              onClick={() => setToastTrack(null)}
+              className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-indigo-100 bg-white text-slate-400 shadow-sm hover:text-rose-500"
+              aria-label="Ocultar musica"
+            >
+              <X className="h-4 w-4" />
+            </button>
             <div className="flex items-center gap-3">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-indigo-100 bg-gradient-to-br from-indigo-500 to-amber-300 text-white shadow-inner">
                 <Disc3 className="h-7 w-7 animate-spin" />
@@ -77,6 +87,7 @@ export default function AudioToggle() {
                 </p>
                 <p className="mt-0.5 truncate text-base font-black text-indigo-950">{toastTrack.title || 'Musica'}</p>
                 <p className="truncate text-xs font-bold text-slate-500">Categoria: {toastTrack.genre || 'Selecionada'}</p>
+                <p className="mt-1 text-[9px] font-black uppercase tracking-wide text-slate-350">Arraste para o lado se atrapalhar</p>
               </div>
             </div>
           </motion.div>

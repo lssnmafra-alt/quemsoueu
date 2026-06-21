@@ -18,14 +18,14 @@ export default function LoginPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (authInitialized && !authLoading && user) router.push('/lobby');
+    if (authInitialized && !authLoading && user) router.push('/profile?next=/lobby');
   }, [authInitialized, authLoading, router, user]);
 
   const handleGoogleLogin = async () => {
     await supabaseAuth.auth.signInWithOAuth({ 
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/lobby`
+        redirectTo: `${window.location.origin}/profile?next=/lobby`
       }
     });
   };
@@ -51,7 +51,7 @@ export default function LoginPage() {
     }
 
     await loginGuest(nickname);
-    router.push('/lobby');
+    router.push('/profile?next=/lobby');
     setLoading(false);
   };
 

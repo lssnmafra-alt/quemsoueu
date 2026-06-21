@@ -5,6 +5,10 @@ function shuffle<T>(items: T[]) {
   return [...items].sort(() => Math.random() - 0.5);
 }
 
+function openingDurationMs(playerCount: number) {
+  return Math.max(8000, Math.min(22000, (2 + Math.max(1, playerCount) * 2) * 1000));
+}
+
 async function isTiebreakPicking(room: any) {
   const { data } = await supabaseGame
     .from('match_events')
@@ -109,13 +113,13 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
   }
 
   const randomizedPlayers = shuffle(activePlayers);
-  const playOrderByPlayerId = new Map(randomizedPlayers.map((player: any, index: number) => [player.id, index]));
+  const playOrderByPlayerId = new Map(randomizedPlayers.map((player: any, index) => [player.id, index]));
 
   const transitionNow = new Date();
   const transitionRoom = () => supabaseGame.from('rooms').update({
     status: 'STARTING',
     current_turn_number: 0,
-    turn_expires_at: new Date(Date.now() + 5000).toISOString(),
+    turn_expires_at: new Date(Date.now() + openingDurationMs(activePlayers.length)).toISOString(),
     last_activity_at: transitionNow.toISOString(),
     expires_at: nextRoomExpiry(transitionNow),
   }).eq('id', room.id).eq('status', 'PICKING');

@@ -14,28 +14,9 @@ const BOT_ROOM_SHAPES = [
 ];
 
 const BOT_NAMES = [
-  'jugameplays',
-  'bruninho67',
-  'pedrinn',
-  'rafa_xt',
-  'gui_zika',
-  'luluzinha',
-  'anafps',
-  'joaovk',
-  'ninafps',
-  'dudazinha',
-  'vitin7',
-  'lele_gg',
-  'xandeplay',
-  'biazinha',
-  'thzinn',
-  'brunao77',
-  'jpzin',
-  'mariii',
-  'kauanzera',
-  'lelefps',
-  'gabsplay',
-  'nanagame',
+  'jugameplays', 'bruninho67', 'pedrinn', 'rafa_xt', 'gui_zika', 'luluzinha', 'anafps', 'joaovk',
+  'ninafps', 'dudazinha', 'vitin7', 'lele_gg', 'xandeplay', 'biazinha', 'thzinn', 'brunao77',
+  'jpzin', 'mariii', 'kauanzera', 'lelefps', 'gabsplay', 'nanagame',
 ];
 
 function randomCode() {
@@ -54,11 +35,7 @@ function shapeForIndex(index: number) {
 }
 
 async function getPlayableThemes(charsPerPlayer = 3) {
-  const [{ count: officialCount }, { data: publicDecks }] = await Promise.all([
-    supabaseGame.from('characters').select('id', { count: 'exact', head: true }).is('deck_id', null),
-    supabaseGame.from('decks').select('id,name').eq('is_public', true),
-  ]);
-
+  const { data: publicDecks } = await supabaseGame.from('decks').select('id,name').eq('is_public', true);
   const deckIds = (publicDecks || []).map((deck: any) => deck.id);
   const { data: deckCharacters } = deckIds.length > 0
     ? await supabaseGame.from('characters').select('deck_id').in('deck_id', deckIds)
@@ -67,15 +44,12 @@ async function getPlayableThemes(charsPerPlayer = 3) {
   const counts = new Map<string, number>();
   (deckCharacters || []).forEach((character: any) => counts.set(character.deck_id, (counts.get(character.deck_id) || 0) + 1));
 
-  return [
-    ...(publicDecks || [])
-      .filter((deck: any) => (counts.get(deck.id) || 0) >= charsPerPlayer)
-      .map((deck: any) => ({ id: deck.id, name: deck.name })),
-    ...((officialCount || 0) >= charsPerPlayer ? [{ id: null, name: 'Personagens Oficiais' }] : []),
-  ];
+  return (publicDecks || [])
+    .filter((deck: any) => (counts.get(deck.id) || 0) >= charsPerPlayer)
+    .map((deck: any) => ({ id: deck.id, name: deck.name }));
 }
 
-async function createBotRoom(theme: { id: string | null; name: string }, index: number) {
+async function createBotRoom(theme: { id: string; name: string }, index: number) {
   const now = new Date();
   const adminId = crypto.randomUUID();
   const code = randomCode();
@@ -139,13 +113,13 @@ function isExpectedBotRoomShape(room: any, players: any[]) {
 export async function runBotRoomCycle() {
   const { data: rooms } = await supabaseGame
     .from('rooms')
-    .select('id,code,status,created_at,expires_at,is_public,deck_id,current_turn_number,turn_expires_at,vote_time_seconds,max_players')
-    .eq('is_public', true)
-    .in('status', ['LOBBY', 'PICKING', 'STARTING', 'PLAYING', 'FINISHED']);
+    .select('id, code, status, created_at, last_activity_at, max_players, deck_id')
+    .eq('status', 'LOBBY')
+    .eq('is_public', true);
 
   const roomIds = (rooms || []).map((room: any) => room.id);
-  const { data: players } = roomIds.length > 0
-    ? await supabaseGame.from('room_players').select('id,room_id,is_bot,is_eliminated,lives,play_order,nickname,avatar_url').in('room_id', roomIds)
+  const { data: players } = roomIds.length
+    ? await supabaseGame.from('room_players').select('*').in('room_id', roomIds)
     : { data: [] };
 
   const playersByRoom = new Map<string, any[]>();
@@ -156,42 +130,30 @@ export async function runBotRoomCycle() {
   });
 
   const now = Date.now();
-  const botOnlyRooms = (rooms || []).filter((room: any) => isBotOnlyRoom(playersByRoom.get(room.id) || []));
-  const staleBotRooms = botOnlyRooms.filter((room: any) => {
+  const staleBotRooms = (rooms || []).filter((room: any) => {
     const roomPlayers = playersByRoom.get(room.id) || [];
-    const age = now - new Date(room.created_at).getTime();
-    const expired = room.expires_at && new Date(room.expires_at).getTime() < now;
-    const oldBotNicknames = roomPlayers.some((player: any) => /^bot\s/i.test(String(player.nickname || '')));
-    const missingAvatar = roomPlayers.some((player: any) => !String(player.avatar_url || '').trim());
-    const wrongShape = room.status === 'LOBBY' && !isExpectedBotRoomShape(room, roomPlayers);
-    return expired || room.status !== 'LOBBY' || room.status === 'FINISHED' || oldBotNicknames || missingAvatar || wrongShape || age > MAX_BOT_ONLY_ROOM_AGE_MS;
+    const lastActivity = new Date(room.last_activity_at || room.created_at || 0).getTime();
+    return isBotOnlyRoom(roomPlayers) && now - lastActivity > MAX_BOT_ONLY_ROOM_AGE_MS;
   });
 
-  await closeAndDeleteRooms(staleBotRooms.map((room: any) => room.id));
+  if (staleBotRooms.length > 0) await closeAndDeleteRooms(staleBotRooms.map((room: any) => room.id));
 
-  const activeBotRooms = botOnlyRooms.filter((room: any) => !staleBotRooms.some((stale: any) => stale.id === room.id));
-  const activeBotLobbyRooms = activeBotRooms
-    .filter((room: any) => room.status === 'LOBBY' && !staleBotRooms.some((stale: any) => stale.id === room.id))
-    .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const remainingRooms = (rooms || []).filter((room: any) => !staleBotRooms.some((stale: any) => stale.id === room.id));
+  const botRooms = remainingRooms.filter((room: any) => {
+    const roomPlayers = playersByRoom.get(room.id) || [];
+    return isBotOnlyRoom(roomPlayers) && isExpectedBotRoomShape(room, roomPlayers);
+  });
 
-  const keptBotLobbyRooms = activeBotLobbyRooms.slice(0, TARGET_BOT_LOBBY_ROOMS);
-  const keptBotLobbyIds = new Set(keptBotLobbyRooms.map((room: any) => room.id));
-  const excessRooms = activeBotRooms.filter((room: any) => !keptBotLobbyIds.has(room.id));
-  await closeAndDeleteRooms(excessRooms.map((room: any) => room.id));
+  if (botRooms.length >= TARGET_BOT_LOBBY_ROOMS) return { ok: true, created: 0, removed: staleBotRooms.length };
 
-  const remainingLobbyCount = keptBotLobbyRooms.length;
-  const neededRooms = Math.max(0, TARGET_BOT_LOBBY_ROOMS - remainingLobbyCount);
-  const themes = shuffle(await getPlayableThemes(3));
-  const createdRooms = [];
+  const themes = await getPlayableThemes(3);
+  if (!themes.length) return { ok: false, created: 0, removed: staleBotRooms.length, error: 'Nenhum deck publico jogavel encontrado.' };
 
-  for (let i = 0; i < neededRooms && themes.length > 0; i++) {
-    createdRooms.push(await createBotRoom(themes[i % themes.length], remainingLobbyCount + i));
+  const created = [];
+  for (let i = botRooms.length; i < TARGET_BOT_LOBBY_ROOMS; i++) {
+    const theme = themes[i % themes.length];
+    created.push(await createBotRoom(theme, i));
   }
 
-  return {
-    closedRooms: [...staleBotRooms, ...excessRooms].map((room: any) => ({ id: room.id, code: room.code })),
-    createdRooms,
-    keptBotLobbyRooms: keptBotLobbyRooms.map((room: any) => ({ id: room.id, code: room.code })),
-    activeBotRooms: remainingLobbyCount + createdRooms.length,
-  };
+  return { ok: true, created: created.length, rooms: created, removed: staleBotRooms.length };
 }

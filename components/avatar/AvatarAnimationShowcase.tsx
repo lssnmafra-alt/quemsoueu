@@ -28,9 +28,9 @@ type AnimationModel = {
 };
 
 const DEFAULT_CLIP_CANDIDATES: Record<AnimationEventType, string[]> = {
-  defeat: ['perdeu', 'Perdeu', 'derrota', 'Derrota', 'defeat', 'Defeat', 'Animation 1', 'Animação 1', 'Animacao 1'],
-  intro: ['entrada', 'Entrada', 'inicio', 'Inicio', 'intro', 'Intro', 'start', 'Start', 'Animation 2', 'Animação 2', 'Animacao 2'],
-  victory: ['venceu', 'Venceu', 'vitoria', 'Vitoria', 'victory', 'Victory', 'win', 'Win', 'Animation 3', 'Animação 3', 'Animacao 3'],
+  defeat: ['NlaTrack', 'perdeu', 'Perdeu', 'derrota', 'Derrota', 'defeat', 'Defeat', 'Animation 1', 'Animação 1', 'Animacao 1'],
+  intro: ['NlaTrack.001', 'entrada', 'Entrada', 'inicio', 'Inicio', 'intro', 'Intro', 'start', 'Start', 'Animation 2', 'Animação 2', 'Animacao 2'],
+  victory: ['NlaTrack.002', 'venceu', 'Venceu', 'vitoria', 'Vitoria', 'victory', 'Victory', 'win', 'Win', 'Animation 3', 'Animação 3', 'Animacao 3'],
 };
 
 const DEFAULT_CLIP_INDEX: Record<AnimationEventType, number> = { defeat: 0, intro: 1, victory: 2 };
@@ -59,13 +59,14 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
         setModel((current) => current?.available ? current : fallbackModel);
         setLoading(false);
       }
-    }, 1200);
+    }, 700);
 
     fetch(`/api/avatar-animation-model?slug=${encodeURIComponent(avatarSlug)}&avatarUrl=${encodeURIComponent(avatarUrl)}`, { cache: 'no-store', signal: controller.signal })
       .then((response) => response.json())
       .then((result) => {
         if (cancelled) return;
-        setModel(result?.available && result?.url ? result : fallbackModel);
+        const apiModel = result?.available && result?.url ? result : null;
+        setModel(apiModel ? normalizeModelUrl(apiModel, avatarSlug) : fallbackModel);
       })
       .catch(() => {
         if (!cancelled) setModel(fallbackModel);
@@ -134,6 +135,16 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
   );
 }
 
+function normalizeModelUrl(model: AnimationModel, slug: string): AnimationModel {
+  if (!model.key) return model;
+  return {
+    ...model,
+    url: modelUrlForKey(model.key, slug),
+    clipCandidates: model.clipCandidates || DEFAULT_CLIP_CANDIDATES,
+    clipIndex: model.clipIndex || DEFAULT_CLIP_INDEX,
+  };
+}
+
 function directModelFromSlug(slug: string): AnimationModel {
   const safeSlug = slug.split('/').filter(Boolean).join('/');
   const key = `atuem/Animacao/${safeSlug}.glb`;
@@ -141,10 +152,15 @@ function directModelFromSlug(slug: string): AnimationModel {
     available: true,
     slug: safeSlug,
     key,
-    url: `/api/r2-file?key=${encodeURIComponent(key)}`,
+    url: modelUrlForKey(key, safeSlug),
     clipCandidates: DEFAULT_CLIP_CANDIDATES,
     clipIndex: DEFAULT_CLIP_INDEX,
   };
+}
+
+function modelUrlForKey(key: string, slug: string) {
+  const filename = `${slug.split('/').pop() || 'modelo'}.glb`;
+  return `/api/r2-model/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`;
 }
 
 function slugFromAvatarUrl(avatarUrl: string) {

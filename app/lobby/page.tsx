@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/lib/store';
 import { supabaseGame } from '@/lib/supabase';
+import { audioManager } from '@/lib/audioManager';
 import { Button } from '@/components/ui/button';
 import { Users, LayoutGrid, Plus, LogOut, Search, ArrowRight, BookOpen, Star, StarOff, Globe, Lock, Eye, Pencil, Trophy, Gamepad2, Circle, Timer, Crown, UserRound, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,11 @@ export default function HomeLobby() {
   const [deletingDeckId, setDeletingDeckId] = useState('');
 
   const isAdminUser = isProjectAdmin(user?.id);
+
+  useEffect(() => {
+    if (!authInitialized || authLoading || !user) return;
+    void audioManager.playMusic('lobby-theme');
+  }, [authInitialized, authLoading, user?.id, profile?.music_genres]);
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;

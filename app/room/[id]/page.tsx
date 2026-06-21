@@ -107,6 +107,7 @@ export default function RoomPage() {
           room_id: roomId,
           user_id: user.id,
           nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante',
+          avatar_url: profile?.avatar_url || '',
           is_admin: rm.admin_id === user.id,
         }).select().single();
 
@@ -153,7 +154,7 @@ export default function RoomPage() {
       clearInterval(poll);
       subs1.unsubscribe();
     };
-  }, [authInitialized, authLoading, user, roomId, profile?.nickname, router]);
+  }, [authInitialized, authLoading, user, roomId, profile?.nickname, profile?.avatar_url, router]);
 
   useEffect(() => {
     if (!room?.status) return;

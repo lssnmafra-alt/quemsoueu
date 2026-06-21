@@ -14,6 +14,7 @@ import RoomFinished from '@/components/game/RoomFinished';
 import AudioToggle from '@/components/AudioToggle';
 import LoadingArena from '@/components/LoadingArena';
 import GameErrorBoundary from '@/components/GameErrorBoundary';
+import AvatarAnimationShowcase from '@/components/avatar/AvatarAnimationShowcase';
 import { AnimatePresence, motion } from 'motion/react';
 
 function wait(ms: number) {
@@ -183,6 +184,13 @@ export default function RoomPage() {
     return room.admin_id === user.id || Boolean(me.is_admin);
   }, [room, user, me]);
 
+  const winner = useMemo(() => (
+    enrichedPlayers.find((p: any) => !p.is_eliminated && (p.lives || 0) > 0)
+  ), [enrichedPlayers]);
+
+  const finalAnimationPlayer = room?.status === 'FINISHED' ? (winner?.id === me?.id ? winner : me || winner) : null;
+  const finalAnimationType = winner?.id === me?.id ? 'victory' : 'defeat';
+
   useEffect(() => {
     if (!me?.id || !room?.id || !user?.id) return;
     const heartbeat = () => {
@@ -218,6 +226,17 @@ export default function RoomPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans">
       <AudioToggle />
+      {room.status === 'FINISHED' && finalAnimationPlayer && (
+        <div className="fixed bottom-4 right-4 z-[95] hidden w-[360px] max-w-[calc(100vw-2rem)] md:block">
+          <AvatarAnimationShowcase
+            player={finalAnimationPlayer}
+            eventType={finalAnimationType}
+            title={finalAnimationType === 'victory' ? 'Animação de vitória' : 'Animação de derrota'}
+            subtitle={finalAnimationType === 'victory' ? `${finalAnimationPlayer.nickname} venceu` : `${finalAnimationPlayer.nickname} perdeu`}
+            compact
+          />
+        </div>
+      )}
       {room.status !== 'FINISHED' && (
         <button type="button" onClick={leaveRoom} className="fixed right-4 top-16 z-[90] rounded-2xl border-2 border-rose-200 bg-white/95 px-4 py-3 text-[10px] font-black uppercase tracking-wide text-rose-600 shadow-xl backdrop-blur transition hover:bg-rose-50">
           Abandonar

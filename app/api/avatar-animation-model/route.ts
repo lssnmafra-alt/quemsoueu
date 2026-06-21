@@ -6,9 +6,9 @@ const MODEL_FILENAMES = ['personagem.glb', 'character.glb', 'modelo.glb', 'model
 const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
 
 const CLIP_CANDIDATES = {
-  defeat: ['perdeu', 'Perdeu', 'derrota', 'Derrota', 'defeat', 'Defeat', 'Animation 1', 'Animação 1', 'Animacao 1'],
-  intro: ['entrada', 'Entrada', 'inicio', 'Inicio', 'intro', 'Intro', 'start', 'Start', 'Animation 2', 'Animação 2', 'Animacao 2'],
-  victory: ['venceu', 'Venceu', 'vitoria', 'Vitoria', 'victory', 'Victory', 'win', 'Win', 'Animation 3', 'Animação 3', 'Animacao 3'],
+  defeat: ['NlaTrack', 'perdeu', 'Perdeu', 'derrota', 'Derrota', 'defeat', 'Defeat', 'Animation 1', 'Animação 1', 'Animacao 1'],
+  intro: ['NlaTrack.001', 'entrada', 'Entrada', 'inicio', 'Inicio', 'intro', 'Intro', 'start', 'Start', 'Animation 2', 'Animação 2', 'Animacao 2'],
+  victory: ['NlaTrack.002', 'venceu', 'Venceu', 'vitoria', 'Vitoria', 'victory', 'Victory', 'win', 'Win', 'Animation 3', 'Animação 3', 'Animacao 3'],
 };
 
 export async function GET(req: NextRequest) {
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       available: true,
       slug,
       key,
-      url: `/api/r2-file?key=${encodeURIComponent(key)}`,
+      url: modelUrlForKey(key, slug),
       clipCandidates: CLIP_CANDIDATES,
       clipIndex: { defeat: 0, intro: 1, victory: 2 },
       proxied: true,
@@ -121,6 +121,11 @@ async function findExistingKey(bucket: any, keys: string[], slug: string) {
   }
 
   return '';
+}
+
+function modelUrlForKey(key: string, slug: string) {
+  const filename = `${slug.split('/').pop() || 'modelo'}.glb`;
+  return `/api/r2-model/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`;
 }
 
 async function getRuntimeEnv() {

@@ -111,7 +111,7 @@ export class AudioManager {
     if (this.music && previousTrack === track && this.music.dataset.genreKey === nextGenreKey) return;
 
     const requestId = ++this.musicRequestId;
-    this.stopMusic(false);
+    this.stopHtmlMusicOnly();
 
     const trackInfo = await this.resolveLicensedTrack(track, nextGenres);
     if (requestId !== this.musicRequestId || !trackInfo?.url || this.prefs.muted || !this.prefs.musicEnabled) return;

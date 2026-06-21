@@ -6,6 +6,8 @@ const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
 const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
 const DEFAULT_GENRES = ['Disco', 'Kpop', 'Rock'];
 
+type Track = { key: string; genre: string };
+
 export async function GET(req: NextRequest) {
   try {
     const env = await getRuntimeEnv();
@@ -13,17 +15,18 @@ export async function GET(req: NextRequest) {
     const mood = req.nextUrl.searchParams.get('mood') || 'lobby-theme';
     const genresFromQuery = req.nextUrl.searchParams.getAll('genre').map(cleanFolderName).filter(Boolean);
     const genres = genresFromQuery.length > 0 ? genresFromQuery : DEFAULT_GENRES;
+    const excludedKeys = new Set(req.nextUrl.searchParams.getAll('exclude').map((key) => decodeURIComponent(key)).filter(isSafeKey));
 
     if (!bucket) {
       return NextResponse.json({ url: '', reason: 'bucket-r2-nao-configurado' });
     }
 
-    const allTracks = await listAllTracks(bucket);
+    const allTracks = (await listAllTracks(bucket)).filter((track) => !excludedKeys.has(track.key));
     const matchedTracks = findTracksForGenres(allTracks, genres);
-    const tracks = matchedTracks.length > 0 ? matchedTracks : allTracks;
+    const tracks = genresFromQuery.length > 0 ? matchedTracks : (matchedTracks.length > 0 ? matchedTracks : allTracks);
 
     if (tracks.length > 0) {
-      const track = tracks[pickIndex(`${mood}:${genres.join('|')}`, tracks.length)];
+      const track = tracks[pickIndex(`${mood}:${genres.join('|')}:${excludedKeys.size}`, tracks.length)];
       return NextResponse.json({
         key: track.key,
         url: `/api/r2-file?key=${encodeURIComponent(track.key)}`,
@@ -34,33 +37,45 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ url: '', reason: 'nenhuma-musica-encontrada', searchedGenres: genres, searchedPrefixes: MUSIC_PREFIXES });
+    return NextResponse.json({
+      url: '',
+      reason: 'nenhuma-musica-encontrada-para-os-generos-selecionados',
+      searchedGenres: genres,
+      excluded: [...excludedKeys],
+      searchedPrefixes: MUSIC_PREFIXES,
+    });
   } catch (error: any) {
     console.error('Audio track error:', error);
     return NextResponse.json({ url: '', error: error.message || 'Nao foi possivel carregar musica.' });
   }
 }
 
-async function listAllTracks(bucket: any) {
-  const tracks: Array<{ key: string; genre: string }> = [];
+async function listAllTracks(bucket: any): Promise<Track[]> {
+  const tracks: Track[] = [];
 
   for (const prefix of MUSIC_PREFIXES) {
-    try {
-      const listed = await bucket.list({ prefix, limit: 300 });
-      for (const object of listed.objects || []) {
-        const key = String(object.key || '');
-        if (!isAudioKey(key)) continue;
-        tracks.push({ key, genre: genreFromKey(key, prefix) });
+    let cursor: string | undefined;
+    do {
+      try {
+        const listed = await bucket.list({ prefix, limit: 1000, cursor });
+        cursor = listed.cursor;
+        for (const object of listed.objects || []) {
+          const key = String(object.key || '');
+          if (!isAudioKey(key)) continue;
+          tracks.push({ key, genre: genreFromKey(key, prefix) });
+        }
+      } catch {
+        cursor = undefined;
       }
-    } catch {}
+    } while (cursor);
   }
 
-  const unique = new Map<string, { key: string; genre: string }>();
+  const unique = new Map<string, Track>();
   tracks.forEach((track) => unique.set(track.key, track));
   return [...unique.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
 
-function findTracksForGenres(tracks: Array<{ key: string; genre: string }>, genres: string[]) {
+function findTracksForGenres(tracks: Track[], genres: string[]) {
   const wanted = new Set(genres.flatMap((genre) => genreAliases(genre)));
   return tracks.filter((track) => wanted.has(normalizeComparable(track.genre)) || wanted.has(normalizeComparable(track.key)));
 }
@@ -109,11 +124,15 @@ function isAudioKey(key: string) {
   return AUDIO_TYPES.some((extension) => lower.endsWith(extension));
 }
 
+function isSafeKey(key: string) {
+  return Boolean(key && !key.includes('..') && !key.startsWith('/') && !key.includes('\\'));
+}
+
 function genreAliases(genre: string) {
   const clean = normalizeComparable(genre);
   const aliases = new Set([clean]);
-  if (clean === 'kpop' || clean === 'k pop') aliases.add('kpop').add('kpop');
-  if (clean === 'eletronica' || clean === 'eletrônica') aliases.add('eletronica');
+  if (clean === 'kpop' || clean === 'k pop') aliases.add('kpop');
+  if (clean === 'eletronica' || clean === 'eletrônica' || clean === 'electronic') aliases.add('eletronica').add('electronic');
   return [...aliases];
 }
 

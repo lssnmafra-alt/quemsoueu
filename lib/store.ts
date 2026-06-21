@@ -16,6 +16,7 @@ interface UserState {
 
 const APP_USER_KEY = 'quemSouEu:user';
 const APP_PROFILE_KEY = 'quemSouEu:profile';
+const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
 
 function readJson(key: string) {
   if (typeof window === 'undefined') return null;
@@ -31,19 +32,31 @@ function readJson(key: string) {
 function persistAuth(user: any | null | undefined, profile: any | null | undefined) {
   if (typeof window === 'undefined') return;
   if (user !== undefined) {
-    if (user) {
-      localStorage.setItem(APP_USER_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(APP_USER_KEY);
-    }
+    if (user) localStorage.setItem(APP_USER_KEY, JSON.stringify(user));
+    else localStorage.removeItem(APP_USER_KEY);
   }
 
   if (profile !== undefined) {
     if (profile) {
       localStorage.setItem(APP_PROFILE_KEY, JSON.stringify(profile));
+      if (Array.isArray(profile.music_genres)) {
+        localStorage.setItem(MUSIC_GENRES_KEY, JSON.stringify(profile.music_genres));
+      }
     } else {
       localStorage.removeItem(APP_PROFILE_KEY);
+      localStorage.removeItem(MUSIC_GENRES_KEY);
     }
+  }
+}
+
+async function loadServerProfile(userId: string) {
+  if (typeof window === 'undefined' || !userId) return null;
+  try {
+    const response = await fetch(`/api/player-profile?userId=${encodeURIComponent(userId)}`, { cache: 'no-store' });
+    const result = await response.json().catch(() => ({}));
+    return response.ok && result.profile ? result.profile : null;
+  } catch {
+    return null;
   }
 }
 
@@ -55,7 +68,6 @@ function getStoredGuest() {
   if (!guestId || !nickname) return { user: null, profile: null };
 
   const baseProfile = { id: guestId, nickname, is_guest: true, played_matches: 0, wins: 0 };
-
   return {
     user: { id: guestId, email: `guest_${guestId}@guest.com` },
     profile: { ...baseProfile, ...(storedProfile || {}), id: guestId, nickname, is_guest: true }
@@ -78,6 +90,16 @@ function getStoredAppAuth() {
   };
 }
 
+function fallbackProfileFor(user: any, storedProfile: any = null) {
+  if (!user?.id) return null;
+  return storedProfile || {
+    id: user.id,
+    nickname: user.email?.split('@')[0] || 'Jogador',
+    played_matches: 0,
+    wins: 0,
+  };
+}
+
 export const useUserStore = create<UserState>((set) => ({
   ...getStoredAppAuth(),
   loading: true,
@@ -94,13 +116,19 @@ export const useUserStore = create<UserState>((set) => ({
 
     if (storedAppAuth.user) {
       set({ ...storedAppAuth, loading: false, initialized: true });
+      const serverProfile = await loadServerProfile(storedAppAuth.user.id);
+      if (serverProfile) {
+        const mergedProfile = { ...(storedAppAuth.profile || {}), ...serverProfile };
+        persistAuth(storedAppAuth.user, mergedProfile);
+        set({ user: storedAppAuth.user, profile: mergedProfile, loading: false, initialized: true });
+      }
     }
 
     try {
       const { data: { session } } = await supabaseAuth.auth.getSession();
       if (session?.user) {
-        const { data } = await supabaseAuth.from('profiles').select('*').eq('id', session.user.id).single();
-        const profile = data || storedAppAuth.profile || { id: session.user.id, nickname: session.user.email?.split('@')[0] || 'Jogador', played_matches: 0, wins: 0 };
+        const serverProfile = await loadServerProfile(session.user.id);
+        const profile = serverProfile || fallbackProfileFor(session.user, storedAppAuth.profile);
         persistAuth(session.user, profile);
         set({ user: session.user, profile, loading: false, initialized: true });
         return;
@@ -119,9 +147,9 @@ export const useUserStore = create<UserState>((set) => ({
     set({ user: null, profile: null, loading: false, initialized: true });
   },
   fetchProfile: async (uid: string) => {
-    const { data } = await supabaseAuth.from('profiles').select('*').eq('id', uid).single();
     const currentUser = useUserStore.getState().user;
-    const profile = data || readJson(APP_PROFILE_KEY) || (currentUser ? { id: uid, nickname: currentUser.email?.split('@')[0] || 'Jogador', played_matches: 0, wins: 0 } : null);
+    const serverProfile = await loadServerProfile(uid);
+    const profile = serverProfile || readJson(APP_PROFILE_KEY) || fallbackProfileFor(currentUser);
     persistAuth(currentUser, profile);
     set({ profile, loading: false, initialized: true });
   },
@@ -129,16 +157,13 @@ export const useUserStore = create<UserState>((set) => ({
     const stored = typeof window !== 'undefined' ? localStorage.getItem('guestId') : null;
     const storedProfile = readJson(APP_PROFILE_KEY);
     const guestId = stored || crypto.randomUUID();
-    if (!stored && typeof window !== 'undefined') {
-      localStorage.setItem('guestId', guestId);
-    }
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('guestNickname', nickname);
-    }
+    if (!stored && typeof window !== 'undefined') localStorage.setItem('guestId', guestId);
+    if (typeof window !== 'undefined') localStorage.setItem('guestNickname', nickname);
+
     const guestUser = { id: guestId, email: `guest_${guestId}@guest.com` };
-    const guestProfile = { id: guestId, nickname, is_guest: true, played_matches: 0, wins: 0, ...(storedProfile || {}) };
-    persistAuth(guestUser, { ...guestProfile, id: guestId, nickname, is_guest: true });
-    set({ user: guestUser, profile: { ...guestProfile, id: guestId, nickname, is_guest: true }, loading: false, initialized: true });
+    const guestProfile = { id: guestId, nickname, is_guest: true, played_matches: 0, wins: 0, ...(storedProfile || {}), id: guestId, nickname, is_guest: true };
+    persistAuth(guestUser, guestProfile);
+    set({ user: guestUser, profile: guestProfile, loading: false, initialized: true });
   },
   logout: async () => {
     await supabaseAuth.auth.signOut();

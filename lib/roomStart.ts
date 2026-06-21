@@ -5,28 +5,9 @@ import { getBotAvatarPool, pickBotAvatarUrl } from './serverAvatars';
 const MIN_PLAYERS_TO_START = 4;
 
 const BOT_NICKNAMES = [
-  'jugameplays',
-  'bruninho67',
-  'pedrinn',
-  'rafa_xt',
-  'gui_zika',
-  'luluzinha',
-  'anafps',
-  'joaovk',
-  'ninafps',
-  'dudazinha',
-  'vitin7',
-  'lele_gg',
-  'xandeplay',
-  'biazinha',
-  'thzinn',
-  'brunao77',
-  'jpzin',
-  'mariii',
-  'kauanzera',
-  'lelefps',
-  'gabsplay',
-  'nanagame',
+  'jugameplays', 'bruninho67', 'pedrinn', 'rafa_xt', 'gui_zika', 'luluzinha', 'anafps', 'joaovk',
+  'ninafps', 'dudazinha', 'vitin7', 'lele_gg', 'xandeplay', 'biazinha', 'thzinn', 'brunao77',
+  'jpzin', 'mariii', 'kauanzera', 'lelefps', 'gabsplay', 'nanagame',
 ];
 
 function shouldRefreshBotNickname(nickname = '') {
@@ -59,36 +40,21 @@ function getBotNickname(index: number, usedNicknames = new Set<string>()) {
 }
 
 async function countPlayableCharacters() {
-  const { data: characters } = await supabaseGame
-    .from('characters')
-    .select('deck_id');
-
+  const { data: characters } = await supabaseGame.from('characters').select('deck_id');
   const counts = new Map<string, number>();
-  let officialCount = 0;
-
   for (const character of characters || []) {
-    if (character.deck_id) {
-      counts.set(character.deck_id, (counts.get(character.deck_id) || 0) + 1);
-    } else {
-      officialCount += 1;
-    }
+    if (character.deck_id) counts.set(character.deck_id, (counts.get(character.deck_id) || 0) + 1);
   }
-
-  return { counts, officialCount };
+  return counts;
 }
 
 async function resolveDeckId(requestedDeckId: string | null, room: any, participantCount: number) {
   const cardsPerPlayer = room.chars_per_player || 3;
   const needed = Math.max(cardsPerPlayer, cardsPerPlayer * Math.max(1, participantCount));
-  const { counts, officialCount } = await countPlayableCharacters();
+  const counts = await countPlayableCharacters();
 
-  if (requestedDeckId && (counts.get(requestedDeckId) || 0) >= needed) {
-    return { deckId: requestedDeckId, source: 'selected', needed };
-  }
-
-  if (room.deck_id && (counts.get(room.deck_id) || 0) >= needed) {
-    return { deckId: room.deck_id, source: 'room', needed };
-  }
+  if (requestedDeckId && (counts.get(requestedDeckId) || 0) >= needed) return { deckId: requestedDeckId, source: 'selected', needed };
+  if (room.deck_id && (counts.get(room.deck_id) || 0) >= needed) return { deckId: room.deck_id, source: 'room', needed };
 
   const { data: decks } = await supabaseGame
     .from('decks')
@@ -97,10 +63,6 @@ async function resolveDeckId(requestedDeckId: string | null, room: any, particip
 
   const publicDeck = (decks || []).find((deck: any) => deck.is_public && (counts.get(deck.id) || 0) >= needed);
   if (publicDeck) return { deckId: publicDeck.id, source: 'public', needed };
-
-  if (officialCount >= needed) {
-    return { deckId: null, source: 'official', needed };
-  }
 
   const anyDeck = (decks || []).find((deck: any) => (counts.get(deck.id) || 0) >= needed);
   if (anyDeck) return { deckId: anyDeck.id, source: 'any', needed };
@@ -133,9 +95,7 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
   let botsRenamed = 0;
   let botsAvatarUpdated = 0;
 
-  if (botsToRemove.length > 0) {
-    await supabaseGame.from('room_players').delete().in('id', botsToRemove.map((bot: any) => bot.id));
-  }
+  if (botsToRemove.length > 0) await supabaseGame.from('room_players').delete().in('id', botsToRemove.map((bot: any) => bot.id));
 
   for (let i = 0; i < botsToKeep.length; i++) {
     const bot = botsToKeep[i];
@@ -153,9 +113,7 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
       botsAvatarUpdated += 1;
     }
 
-    if (Object.keys(updates).length > 0) {
-      await supabaseGame.from('room_players').update(updates).eq('id', bot.id);
-    }
+    if (Object.keys(updates).length > 0) await supabaseGame.from('room_players').update(updates).eq('id', bot.id);
   }
 
   for (let i = 0; i < botsToCreate; i++) {
@@ -173,11 +131,7 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
     });
   }
 
-  const { data: syncedPlayers } = await supabaseGame
-    .from('room_players')
-    .select('*')
-    .eq('room_id', room.id);
-
+  const { data: syncedPlayers } = await supabaseGame.from('room_players').select('*').eq('room_id', room.id);
   return {
     players: syncedPlayers || [],
     targetBots,
@@ -189,10 +143,7 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
   };
 }
 
-export async function startRoom(
-  roomId: string,
-  options: { requestedDeckId?: string | null; desiredBots?: number; auto?: boolean } = {},
-) {
+export async function startRoom(roomId: string, options: { requestedDeckId?: string | null; desiredBots?: number; auto?: boolean } = {}) {
   const requestedDeckId = options.requestedDeckId || null;
   const desiredBots = Number.isInteger(options.desiredBots) ? options.desiredBots : undefined;
   const auto = Boolean(options.auto);
@@ -202,35 +153,20 @@ export async function startRoom(
     supabaseGame.from('room_players').select('*').eq('room_id', roomId),
   ]);
 
-  if (!room) {
-    return { ok: false, status: 404, error: 'Sala nao encontrada.' };
-  }
-
-  if (room.status !== 'LOBBY') {
-    return { ok: true, skipped: true, reason: 'room-not-in-lobby' };
-  }
+  if (!room) return { ok: false, status: 404, error: 'Sala nao encontrada.' };
+  if (room.status !== 'LOBBY') return { ok: true, skipped: true, reason: 'room-not-in-lobby' };
 
   const playablePlayers = players || [];
-  if (playablePlayers.length === 0) {
-    return { ok: false, status: 400, error: 'A sala precisa ter pelo menos um jogador.' };
-  }
+  if (playablePlayers.length === 0) return { ok: false, status: 400, error: 'A sala precisa ter pelo menos um jogador.' };
 
   const botSync = await syncBots(room, playablePlayers, desiredBots, auto);
   if (botSync.players.length < MIN_PLAYERS_TO_START) {
-    return {
-      ok: false,
-      status: 400,
-      error: 'A partida precisa de pelo menos 4 participantes. Convide alguem ou adicione bots.',
-    };
+    return { ok: false, status: 400, error: 'A partida precisa de pelo menos 4 participantes. Convide alguem ou adicione bots.' };
   }
 
   const resolved = await resolveDeckId(requestedDeckId, room, botSync.players.length);
   if (resolved.deckId === undefined) {
-    return {
-      ok: false,
-      status: 400,
-      error: `Nenhum deck tem pelo menos ${resolved.needed} personagens únicos para ${botSync.players.length} participantes.`,
-    };
+    return { ok: false, status: 400, error: `Nenhum deck tem pelo menos ${resolved.needed} personagens únicos para ${botSync.players.length} participantes.` };
   }
 
   await supabaseGame.from('rooms').update({

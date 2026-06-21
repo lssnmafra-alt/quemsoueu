@@ -161,7 +161,14 @@ export const useUserStore = create<UserState>((set) => ({
     if (typeof window !== 'undefined') localStorage.setItem('guestNickname', nickname);
 
     const guestUser = { id: guestId, email: `guest_${guestId}@guest.com` };
-    const guestProfile = { id: guestId, nickname, is_guest: true, played_matches: 0, wins: 0, ...(storedProfile || {}), id: guestId, nickname, is_guest: true };
+    const guestProfile = {
+      ...(storedProfile || {}),
+      id: guestId,
+      nickname,
+      is_guest: true,
+      played_matches: storedProfile?.played_matches || 0,
+      wins: storedProfile?.wins || 0,
+    };
     persistAuth(guestUser, guestProfile);
     set({ user: guestUser, profile: guestProfile, loading: false, initialized: true });
   },

@@ -46,19 +46,20 @@ export default function ProfilePage() {
     setNickname(profile?.nickname || user.email?.split('@')[0] || 'Jogador');
     setAvatarUrl(profile?.avatar_url || '');
     setSelectedGenres(Array.isArray(profile?.music_genres) ? profile.music_genres : []);
-  }, [authInitialized, authLoading, profile, router, user]);
+  }, [authInitialized, authLoading, router, user?.id]);
 
   useEffect(() => {
     if (!authInitialized || authLoading || !user?.id) return;
 
     let cancelled = false;
+    const currentUser = user;
 
     async function loadOptions() {
       setLoadingOptions(true);
       const [avatarResult, genreResult, profileResult] = await Promise.all([
         fetch('/api/avatar-options', { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ avatars: [] })),
         fetch('/api/audio/genres', { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ genres: [] })),
-        fetch(`/api/player-profile?userId=${encodeURIComponent(user.id)}`, { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ profile: null })),
+        fetch(`/api/player-profile?userId=${encodeURIComponent(currentUser.id)}`, { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ profile: null })),
       ]);
 
       if (cancelled) return;
@@ -71,7 +72,7 @@ export default function ProfilePage() {
         setNickname(savedProfile.nickname || 'Jogador');
         setAvatarUrl(savedProfile.avatar_url || '');
         setSelectedGenres(Array.isArray(savedProfile.music_genres) ? savedProfile.music_genres : []);
-        setSessionUser(user, savedProfile);
+        setSessionUser(currentUser, savedProfile);
       }
 
       setLoadingOptions(false);
@@ -79,7 +80,7 @@ export default function ProfilePage() {
 
     void loadOptions();
     return () => { cancelled = true; };
-  }, [authInitialized, authLoading, profile, setSessionUser, user]);
+  }, [authInitialized, authLoading, setSessionUser, user?.id]);
 
   const toggleGenre = (genre: string) => {
     setSelectedGenres((current) => current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre].slice(0, 8));

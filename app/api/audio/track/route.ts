@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { publicUrlForKey } from '@/lib/serverAvatars';
 
 const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/'];
 const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
 const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
+const DEFAULT_GENRES = ['Disco', 'Kpop', 'Rock'];
 
 export async function GET(req: NextRequest) {
   try {
     const env = await getRuntimeEnv();
     const bucket = getR2Bucket(env);
-    const publicBaseUrl = getStringEnv(env, 'R2_PUBLIC_URL');
     const mood = req.nextUrl.searchParams.get('mood') || 'lobby-theme';
-    const genres = req.nextUrl.searchParams.getAll('genre').map(cleanFolderName).filter(Boolean);
+    const genresFromQuery = req.nextUrl.searchParams.getAll('genre').map(cleanFolderName).filter(Boolean);
+    const genres = genresFromQuery.length > 0 ? genresFromQuery : DEFAULT_GENRES;
 
-    if (!bucket || !publicBaseUrl || genres.length === 0) {
-      return NextResponse.json({ url: '', reason: 'sem-bucket-ou-genero' });
+    if (!bucket) {
+      return NextResponse.json({ url: '', reason: 'bucket-r2-nao-configurado' });
     }
 
     const allTracks = await listAllTracks(bucket);
@@ -26,14 +26,15 @@ export async function GET(req: NextRequest) {
       const track = tracks[pickIndex(`${mood}:${genres.join('|')}`, tracks.length)];
       return NextResponse.json({
         key: track.key,
-        url: publicUrlForKey(publicBaseUrl, track.key),
+        url: `/api/r2-file?key=${encodeURIComponent(track.key)}`,
         genre: track.genre || genres[0],
         title: cleanTitle(track.key),
         mood,
+        proxied: true,
       });
     }
 
-    return NextResponse.json({ url: '', reason: 'nenhuma-musica-encontrada', searchedGenres: genres });
+    return NextResponse.json({ url: '', reason: 'nenhuma-musica-encontrada', searchedGenres: genres, searchedPrefixes: MUSIC_PREFIXES });
   } catch (error: any) {
     console.error('Audio track error:', error);
     return NextResponse.json({ url: '', error: error.message || 'Nao foi possivel carregar musica.' });
@@ -87,11 +88,6 @@ function getR2Bucket(env: Record<string, any>) {
   return null;
 }
 
-function getStringEnv(env: Record<string, any>, key: string) {
-  const value = env[key] ?? process.env[key];
-  return typeof value === 'string' ? value.trim() : '';
-}
-
 function cleanFolderName(value: string) {
   return value.split('/').join('').split('..').join('').trim();
 }
@@ -116,8 +112,8 @@ function isAudioKey(key: string) {
 function genreAliases(genre: string) {
   const clean = normalizeComparable(genre);
   const aliases = new Set([clean]);
-  if (clean === 'kpop' || clean === 'k pop') aliases.add('kpop').add('k pop');
-  if (clean === 'eletronica' || clean === 'eletrônica') aliases.add('eletronica').add('eletronica');
+  if (clean === 'kpop' || clean === 'k pop') aliases.add('kpop').add('kpop');
+  if (clean === 'eletronica' || clean === 'eletrônica') aliases.add('eletronica');
   return [...aliases];
 }
 

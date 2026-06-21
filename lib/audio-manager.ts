@@ -24,17 +24,6 @@ type AudioPrefs = {
   muted: boolean;
 };
 
-type TrackMood = 'space' | 'lobby-space' | 'suspense-space' | 'victory-space';
-
-type TrackPattern = {
-  tempo: number;
-  root: number;
-  bass: number[];
-  lead: number[];
-  pad: number[];
-  mood: TrackMood;
-};
-
 const DEFAULT_PREFS: AudioPrefs = {
   musicEnabled: true,
   sfxEnabled: true,
@@ -44,54 +33,17 @@ const DEFAULT_PREFS: AudioPrefs = {
 };
 
 const STORAGE_KEY = 'mata-mata-audio-prefs';
-
-const TRACKS: Record<string, TrackPattern> = {
-  'login-theme': {
-    tempo: 54,
-    root: 146.83,
-    bass: [0, -5, -7, -10, -5, -12, -10, -7],
-    lead: [12, 15, 19, 17, 15, 12, 10, 12],
-    pad: [0, 3, 7, 10],
-    mood: 'space',
-  },
-  'lobby-theme': {
-    tempo: 62,
-    root: 164.81,
-    bass: [0, 0, -7, -5, -3, -5, -7, -12],
-    lead: [12, 16, 19, 21, 19, 16, 14, 12],
-    pad: [0, 4, 7, 11],
-    mood: 'lobby-space',
-  },
-  'game-theme': {
-    tempo: 70,
-    root: 130.81,
-    bass: [0, -12, -5, -7, 0, -10, -7, -5],
-    lead: [12, 15, 17, 22, 20, 17, 15, 12],
-    pad: [0, 3, 7, 10],
-    mood: 'suspense-space',
-  },
-  'victory-theme': {
-    tempo: 72,
-    root: 196,
-    bass: [0, 4, 7, 12, 7, 4, 0, -5],
-    lead: [12, 16, 19, 24, 21, 19, 16, 12],
-    pad: [0, 4, 7, 12],
-    mood: 'victory-space',
-  },
-};
+const PROFILE_STORAGE_KEY = 'quemSouEu:profile';
+const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
 
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private music: HTMLAudioElement | null = null;
   private activeMusicTrack: MusicTrack | null = null;
+  private activeMusicUrl = '';
   private hasUserGesture = false;
-  private synthTimer: number | null = null;
-  private synthStep = 0;
-  private masterGain: GainNode | null = null;
-  private droneGain: GainNode | null = null;
-  private droneOscillators: OscillatorNode[] = [];
-  private airTimer: number | null = null;
   private musicRate = 1;
+  private musicRequestId = 0;
   public prefs: AudioPrefs = DEFAULT_PREFS;
 
   constructor() {
@@ -109,12 +61,10 @@ export class AudioManager {
   initFromUserGesture() {
     this.hasUserGesture = true;
     this.ensureContext();
-    if (this.ctx?.state === 'suspended') {
-      void this.ctx.resume();
-    }
+    if (this.ctx?.state === 'suspended') void this.ctx.resume();
 
-    if (this.activeMusicTrack && this.prefs.musicEnabled && !this.music && !this.synthTimer) {
-      this.startSynthMusic(this.activeMusicTrack);
+    if (this.activeMusicTrack && this.prefs.musicEnabled && !this.music) {
+      void this.playMusic(this.activeMusicTrack);
     }
   }
 
@@ -129,50 +79,53 @@ export class AudioManager {
     this.prefs.muted = false;
     this.savePrefs();
 
-    if (enabled) {
-      void this.playMusic(this.activeMusicTrack || 'lobby-theme');
-    } else {
-      this.stopMusic();
-    }
+    if (enabled) void this.playMusic(this.activeMusicTrack || 'lobby-theme');
+    else this.stopMusic();
   }
 
   async playMusic(track: MusicTrack) {
     if (typeof window === 'undefined') return;
 
     const previousTrack = this.activeMusicTrack;
+    const nextGenres = this.getMusicGenres();
+    const nextGenreKey = nextGenres.join('|');
     this.activeMusicTrack = track;
+
     if (this.prefs.muted || !this.prefs.musicEnabled) return;
     if (!this.hasUserGesture) return;
+    if (!nextGenres.length) {
+      this.stopMusic(false);
+      return;
+    }
 
-    if ((this.music || this.synthTimer) && previousTrack === track) return;
+    if (this.music && previousTrack === track && this.music.dataset.genreKey === nextGenreKey) return;
+
+    const requestId = ++this.musicRequestId;
     this.stopMusic(false);
 
-    const audio = new Audio(`/audio/music/${track}.mp3`);
+    const url = await this.resolveLicensedTrack(track, nextGenres);
+    if (requestId !== this.musicRequestId || !url || this.prefs.muted || !this.prefs.musicEnabled) return;
+
+    const audio = new Audio(url);
     audio.loop = true;
     audio.volume = this.prefs.musicVolume;
     audio.playbackRate = this.musicRate;
-    audio.addEventListener(
-      'error',
-      () => {
-        this.stopHtmlMusicOnly();
-        this.startSynthMusic(track);
-      },
-      { once: true },
-    );
+    audio.dataset.genreKey = nextGenreKey;
+    audio.addEventListener('error', () => this.stopHtmlMusicOnly(), { once: true });
 
     this.music = audio;
+    this.activeMusicUrl = url;
 
     try {
       await audio.play();
     } catch {
       this.stopHtmlMusicOnly();
-      this.startSynthMusic(track);
     }
   }
 
   stopMusic(clearTrack = true) {
+    this.musicRequestId += 1;
     this.stopHtmlMusicOnly();
-    this.stopSynthMusic();
     if (clearTrack) this.activeMusicTrack = null;
   }
 
@@ -198,17 +151,11 @@ export class AudioManager {
 
     this.musicRate = nextRate;
     if (this.music) this.music.playbackRate = nextRate;
-
-    if (this.synthTimer && this.activeMusicTrack) {
-      this.stopSynthMusic();
-      this.startSynthMusic(this.activeMusicTrack);
-    }
   }
 
   setMusicVolume(value: number) {
     this.prefs.musicVolume = this.clampVolume(value);
     if (this.music) this.music.volume = this.prefs.musicVolume;
-    if (this.masterGain && this.ctx) this.masterGain.gain.setTargetAtTime(this.prefs.musicVolume * 0.18, this.ctx.currentTime, 0.2);
     this.savePrefs();
   }
 
@@ -242,6 +189,35 @@ export class AudioManager {
     this.prefs.muted = false;
     this.savePrefs();
     if (this.activeMusicTrack) void this.playMusic(this.activeMusicTrack);
+  }
+
+  private async resolveLicensedTrack(track: MusicTrack, genres: string[]) {
+    const params = new URLSearchParams({ mood: String(track) });
+    genres.forEach((genre) => params.append('genre', genre));
+
+    try {
+      const response = await fetch(`/api/audio/track?${params.toString()}`, { cache: 'no-store' });
+      const result = await response.json().catch(() => ({}));
+      return response.ok && typeof result.url === 'string' ? result.url : '';
+    } catch {
+      return '';
+    }
+  }
+
+  private getMusicGenres() {
+    if (typeof window === 'undefined') return [];
+
+    try {
+      const direct = JSON.parse(window.localStorage.getItem(MUSIC_GENRES_KEY) || '[]');
+      if (Array.isArray(direct) && direct.length) return direct.map(String).filter(Boolean);
+    } catch {}
+
+    try {
+      const profile = JSON.parse(window.localStorage.getItem(PROFILE_STORAGE_KEY) || '{}');
+      return Array.isArray(profile.music_genres) ? profile.music_genres.map(String).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
   }
 
   private normalizeSfx(effect: SfxEffect) {
@@ -291,73 +267,9 @@ export class AudioManager {
     if (this.ctx || typeof window === 'undefined') return;
     try {
       this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = this.prefs.musicVolume * 0.18;
-      this.masterGain.connect(this.ctx.destination);
     } catch {
       this.ctx = null;
-      this.masterGain = null;
     }
-  }
-
-  private startSynthMusic(track: MusicTrack) {
-    this.ensureContext();
-    if (!this.ctx || !this.masterGain || this.synthTimer || this.prefs.muted || !this.prefs.musicEnabled) return;
-
-    const pattern = TRACKS[track] || TRACKS['lobby-theme'];
-    const stepMs = Math.round((60_000 / (pattern.tempo * this.musicRate)) / 2);
-    this.synthStep = 0;
-    this.masterGain.gain.setTargetAtTime(this.prefs.musicVolume * 0.18, this.ctx.currentTime, 0.25);
-    this.startDrone(pattern);
-
-    const tick = () => {
-      if (!this.ctx || !this.masterGain || this.prefs.muted || !this.prefs.musicEnabled) return;
-      const t = this.ctx.currentTime;
-      const step = this.synthStep++;
-      const root = pattern.root;
-      const bassSemi = pattern.bass[step % pattern.bass.length];
-      const leadSemi = pattern.lead[step % pattern.lead.length];
-
-      if (step % 4 === 0) this.deepPulse(root * this.semi(bassSemi - 12), t, pattern.mood, this.masterGain);
-      if (step % 8 === 0) this.spacePad(root, pattern.pad, t, 4.6, this.masterGain);
-      if (step % 6 === 3) this.softPing(root * this.semi(leadSemi + 12), t, pattern.mood, this.masterGain);
-      if (step % 12 === 6) this.softPing(root * this.semi(leadSemi + 19), t, pattern.mood, this.masterGain, 0.45);
-      if (pattern.mood === 'suspense-space' && step % 10 === 5) this.spaceAir(t, 0.55, 0.025, this.masterGain);
-      if (pattern.mood === 'lobby-space' && step % 16 === 10) this.softPing(root * this.semi(28), t, pattern.mood, this.masterGain, 0.35);
-    };
-
-    tick();
-    this.synthTimer = window.setInterval(tick, stepMs);
-    this.airTimer = window.setInterval(() => {
-      if (this.ctx && this.masterGain && !this.prefs.muted && this.prefs.musicEnabled) {
-        this.spaceAir(this.ctx.currentTime, 1.3, 0.012, this.masterGain);
-      }
-    }, 4800);
-  }
-
-  private startDrone(pattern: TrackPattern) {
-    if (!this.ctx || !this.masterGain) return;
-    this.stopDrone();
-
-    this.droneGain = this.ctx.createGain();
-    this.droneGain.gain.value = 0.0001;
-    this.droneGain.gain.exponentialRampToValueAtTime(0.055, this.ctx.currentTime + 1.2);
-    this.droneGain.connect(this.masterGain);
-
-    const freqs = [pattern.root / 2, pattern.root * this.semi(pattern.pad[1] - 12), pattern.root * this.semi(pattern.pad[2] - 12)];
-    this.droneOscillators = freqs.map((freq, index) => {
-      const osc = this.ctx!.createOscillator();
-      const filter = this.ctx!.createBiquadFilter();
-      osc.type = index === 0 ? 'sine' : 'triangle';
-      osc.frequency.value = freq;
-      filter.type = 'lowpass';
-      filter.frequency.value = pattern.mood === 'suspense-space' ? 520 : 760;
-      filter.Q.value = 0.4;
-      osc.connect(filter);
-      filter.connect(this.droneGain!);
-      osc.start();
-      return osc;
-    });
   }
 
   private stopHtmlMusicOnly() {
@@ -365,34 +277,8 @@ export class AudioManager {
       this.music.pause();
       this.music.src = '';
       this.music = null;
+      this.activeMusicUrl = '';
     }
-  }
-
-  private stopSynthMusic() {
-    if (this.synthTimer !== null && typeof window !== 'undefined') {
-      window.clearInterval(this.synthTimer);
-      this.synthTimer = null;
-    }
-    if (this.airTimer !== null && typeof window !== 'undefined') {
-      window.clearInterval(this.airTimer);
-      this.airTimer = null;
-    }
-    this.stopDrone();
-  }
-
-  private stopDrone() {
-    if (this.ctx && this.droneGain) {
-      try {
-        this.droneGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.12);
-      } catch {}
-    }
-    for (const osc of this.droneOscillators) {
-      try {
-        osc.stop(this.ctx ? this.ctx.currentTime + 0.18 : undefined);
-      } catch {}
-    }
-    this.droneOscillators = [];
-    this.droneGain = null;
   }
 
   private playToneFallback(effect: SfxEffect) {
@@ -450,24 +336,6 @@ export class AudioManager {
     this.note(760, t + 0.045, 0.08, 'sine', 0.1, output);
   }
 
-  private deepPulse(freq: number, start: number, mood: TrackMood, destination: AudioNode) {
-    const volume = mood === 'suspense-space' ? 0.13 : 0.09;
-    this.note(freq, start, 1.2, 'sine', volume, destination);
-    this.note(freq * 2.01, start + 0.02, 0.85, 'triangle', volume * 0.35, destination);
-  }
-
-  private softPing(freq: number, start: number, mood: TrackMood, destination: AudioNode, volumeScale = 1) {
-    const volume = (mood === 'victory-space' ? 0.055 : 0.038) * volumeScale;
-    this.note(freq, start, 0.75, 'sine', volume, destination);
-    this.note(freq * 2, start + 0.015, 0.38, 'triangle', volume * 0.35, destination);
-  }
-
-  private spacePad(root: number, semis: number[], start: number, duration: number, destination: AudioNode) {
-    semis.forEach((semi, index) => {
-      this.note(root * this.semi(semi), start + index * 0.04, duration, 'sine', 0.018, destination);
-    });
-  }
-
   private note(freq: number, start: number, duration: number, type: OscillatorType, volume: number, destination: AudioNode) {
     if (!this.ctx) return;
     const osc = this.ctx.createOscillator();
@@ -510,10 +378,6 @@ export class AudioManager {
     source.stop(start + duration);
   }
 
-  private semi(value: number) {
-    return Math.pow(2, value / 12);
-  }
-
   private clampVolume(value: number) {
     return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
   }
@@ -521,7 +385,7 @@ export class AudioManager {
   private loadPrefs(): AudioPrefs {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw), musicEnabled: true } : DEFAULT_PREFS;
+      return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
     } catch {
       return DEFAULT_PREFS;
     }

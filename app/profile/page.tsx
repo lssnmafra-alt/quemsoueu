@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, Image as ImageIcon, Music, Save, UserRound } from 'lucide-react';
+import { ArrowLeft, Check, Image as ImageIcon, Loader2, Music, Pause, Play, Save, UserRound, Volume2 } from 'lucide-react';
 import { moderateText } from '@/app/actions/moderate';
 import LoadingArena from '@/components/LoadingArena';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { useUserStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 
 type AvatarOption = { key: string; name: string; url: string };
+type PreviewTrack = { genre: string; title: string; url: string };
 
 const PROFILE_STORAGE_KEY = 'quemSouEu:profile';
 const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
@@ -18,6 +19,7 @@ const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
 export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, loading: authLoading, initialized: authInitialized, setSessionUser } = useUserStore();
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const [nextPath, setNextPath] = useState('/lobby');
   const [nickname, setNickname] = useState('');
@@ -28,6 +30,9 @@ export default function ProfilePage() {
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [playingGenre, setPlayingGenre] = useState('');
+  const [loadingGenre, setLoadingGenre] = useState('');
+  const [previewTrack, setPreviewTrack] = useState<PreviewTrack | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -82,8 +87,62 @@ export default function ProfilePage() {
     return () => { cancelled = true; };
   }, [authInitialized, authLoading, setSessionUser, user?.id]);
 
+  useEffect(() => {
+    return () => stopPreview();
+  }, []);
+
   const toggleGenre = (genre: string) => {
     setSelectedGenres((current) => current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre].slice(0, 8));
+  };
+
+  const stopPreview = () => {
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current.src = '';
+      previewAudioRef.current = null;
+    }
+    setPlayingGenre('');
+  };
+
+  const playGenrePreview = async (genre: string) => {
+    if (playingGenre === genre) {
+      stopPreview();
+      return;
+    }
+
+    stopPreview();
+    setError('');
+    setLoadingGenre(genre);
+
+    try {
+      const params = new URLSearchParams({ mood: 'profile-preview' });
+      params.append('genre', genre);
+      const response = await fetch(`/api/audio/track?${params.toString()}`, { cache: 'no-store' });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || result.reason || `Nenhuma musica encontrada para ${genre}.`);
+      }
+
+      const audio = new Audio(result.url);
+      audio.volume = 0.55;
+      audio.loop = false;
+      audio.onended = () => setPlayingGenre('');
+      audio.onerror = () => {
+        setPlayingGenre('');
+        setError(`Nao foi possivel tocar a previa de ${genre}.`);
+      };
+
+      previewAudioRef.current = audio;
+      setPreviewTrack({ genre: result.genre || genre, title: result.title || 'Musica', url: result.url });
+      setPlayingGenre(genre);
+      await audio.play();
+    } catch (previewError: any) {
+      setError(previewError.message || 'Nao foi possivel tocar a previa.');
+      setPlayingGenre('');
+    } finally {
+      setLoadingGenre('');
+    }
   };
 
   const handleSave = async () => {
@@ -129,6 +188,7 @@ export default function ProfilePage() {
       if (nextProfile.is_guest) localStorage.setItem('guestNickname', cleanNickname);
 
       setSessionUser(user, nextProfile);
+      stopPreview();
       router.push(nextPath);
     } catch (saveError: any) {
       setError(saveError.message || 'Nao foi possivel salvar o perfil.');
@@ -195,13 +255,58 @@ export default function ProfilePage() {
 
             <div className="space-y-3">
               <div className="flex items-center gap-2"><Music className="h-5 w-5 text-amber-500" /><h2 className="text-xl font-black uppercase tracking-wide text-indigo-950">Musicas que voce gosta</h2></div>
-              <p className="text-xs font-bold text-slate-500">Os efeitos sonoros continuam separados no controle de audio.</p>
-              <div className="flex flex-wrap gap-2">
+              <p className="text-xs font-bold text-slate-500">Escolha varios generos para tocar durante o jogo. Use o play para ouvir antes e desmarque o que nao quiser ouvir.</p>
+
+              {previewTrack && (
+                <div className="rounded-2xl border-2 border-amber-100 bg-amber-50 p-3 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-amber-500 border border-amber-100">
+                    <Volume2 className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-amber-600">Previa tocando</p>
+                    <p className="truncate text-sm font-black text-indigo-950">{previewTrack.title}</p>
+                    <p className="truncate text-xs font-bold text-slate-500">Categoria: {previewTrack.genre}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {genres.map((genre) => {
                   const active = selectedGenres.includes(genre);
-                  return <button key={genre} type="button" onClick={() => toggleGenre(genre)} className={cn('rounded-2xl border-2 px-4 py-2 text-xs font-black uppercase transition-all cursor-pointer flex items-center gap-2', active ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600')}>{active && <Check className="h-3.5 w-3.5" />}{genre}</button>;
+                  const playing = playingGenre === genre;
+                  const loadingPreview = loadingGenre === genre;
+
+                  return (
+                    <div key={genre} className={cn('rounded-2xl border-2 p-3 transition-all', active ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-200 bg-white')}>
+                      <div className="flex items-start justify-between gap-3">
+                        <button type="button" onClick={() => toggleGenre(genre)} className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer">
+                          <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2', active ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-300 bg-white text-transparent')}>
+                            <Check className="h-3.5 w-3.5" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-black uppercase text-indigo-950">{genre}</span>
+                            <span className={cn('block text-[10px] font-black uppercase', active ? 'text-indigo-500' : 'text-slate-400')}>{active ? 'Vai tocar no jogo' : 'Nao tocar'}</span>
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => playGenrePreview(genre)}
+                          disabled={Boolean(loadingGenre && loadingGenre !== genre)}
+                          className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 text-xs font-black transition-all cursor-pointer disabled:opacity-50', playing ? 'border-rose-100 bg-rose-50 text-rose-600' : 'border-amber-100 bg-amber-50 text-amber-600 hover:bg-amber-100')}
+                          title={playing ? 'Parar previa' : `Ouvir ${genre}`}
+                        >
+                          {loadingPreview ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+                        </button>
+                      </div>
+                    </div>
+                  );
                 })}
               </div>
+
+              <p className="text-[11px] font-bold text-slate-400">
+                Selecionados: {selectedGenres.length ? selectedGenres.join(', ') : 'nenhum genero. O jogo pode usar uma musica padrao.'}
+              </p>
             </div>
           </section>
         </div>

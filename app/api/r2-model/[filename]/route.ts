@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getR2Object } from '@/lib/r2Storage';
 
-const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
 const ALLOWED_PREFIXES = ['atuem/Animacao/', 'atuem/atuem/Animacao/'];
 
 export async function GET(req: NextRequest, context: { params: Promise<{ filename: string }> }) {
@@ -13,20 +12,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ filenam
       return NextResponse.json({ error: 'Modelo nao permitido.' }, { status: 400 });
     }
 
-    const env = await getRuntimeEnv();
-    const bucket = getR2Bucket(env);
-
-    if (!bucket) {
-      return NextResponse.json({ error: 'Bucket R2 nao configurado.' }, { status: 500 });
-    }
-
-    const object = await bucket.get(key);
+    const object = await getR2Object(key);
 
     if (!object?.body) {
       return NextResponse.json({ error: 'GLB nao encontrado no R2.', key }, { status: 404 });
     }
 
-    return new NextResponse(object.body, {
+    return new NextResponse(object.body as any, {
       headers: {
         'Content-Type': 'model/gltf-binary',
         'Content-Disposition': `inline; filename="${safeFilename(filename)}"`,
@@ -40,22 +32,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ filenam
     console.error('R2 model proxy error:', error);
     return NextResponse.json({ error: error.message || 'Nao foi possivel carregar o GLB.' }, { status: 500 });
   }
-}
-
-async function getRuntimeEnv() {
-  try {
-    return (await getCloudflareContext({ async: true })).env as Record<string, any>;
-  } catch {
-    return process.env as Record<string, any>;
-  }
-}
-
-function getR2Bucket(env: Record<string, any>) {
-  for (const name of BINDING_NAMES) {
-    const bucket = env[name];
-    if (bucket && typeof bucket.get === 'function') return bucket;
-  }
-  return null;
 }
 
 function isSafeModelKey(key: string) {

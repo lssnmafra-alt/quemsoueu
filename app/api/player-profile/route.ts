@@ -1,0 +1,65 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabaseGame } from '@/lib/supabase';
+
+const MAX_GENRES = 8;
+
+export async function GET(req: NextRequest) {
+  try {
+    const userId = req.nextUrl.searchParams.get('userId')?.trim() || '';
+    if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
+
+    const { data, error } = await supabaseGame
+      .from('profiles')
+      .select('id,nickname,avatar_url,music_genres,played_matches,wins,is_guest,updated_at')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return NextResponse.json({ profile: data || null });
+  } catch (error: any) {
+    console.error('Player profile read error:', error);
+    return NextResponse.json({ error: error.message || 'Nao foi possivel carregar o perfil.' }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const id = String(body.id || body.userId || '').trim();
+    const nickname = String(body.nickname || '').trim().slice(0, 16);
+    const avatarUrl = String(body.avatar_url || body.avatarUrl || '').trim();
+    const musicGenres = normalizeGenres(body.music_genres || body.musicGenres);
+    const isGuest = Boolean(body.is_guest ?? body.isGuest);
+
+    if (!isUuid(id)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
+    if (!nickname) return NextResponse.json({ error: 'Digite seu nickname.' }, { status: 400 });
+
+    const { data, error } = await supabaseGame
+      .from('profiles')
+      .upsert({
+        id,
+        nickname,
+        avatar_url: avatarUrl,
+        music_genres: musicGenres,
+        is_guest: isGuest,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' })
+      .select('id,nickname,avatar_url,music_genres,played_matches,wins,is_guest,updated_at')
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({ profile: data });
+  } catch (error: any) {
+    console.error('Player profile save error:', error);
+    return NextResponse.json({ error: error.message || 'Nao foi possivel salvar o perfil.' }, { status: 500 });
+  }
+}
+
+function normalizeGenres(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item || '').trim()).filter(Boolean).slice(0, MAX_GENRES);
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}

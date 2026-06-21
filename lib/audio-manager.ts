@@ -43,6 +43,7 @@ const DEFAULT_PREFS: AudioPrefs = {
 const STORAGE_KEY = 'mata-mata-audio-prefs';
 const PROFILE_STORAGE_KEY = 'quemSouEu:profile';
 const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
+const MUSIC_BLOCKED_TRACKS_KEY = 'quemSouEu:musicBlockedTracks';
 const NOW_PLAYING_EVENT = 'quemSouEu:music-track';
 const DEFAULT_MUSIC_GENRES = ['Disco', 'Kpop', 'Rock'];
 
@@ -103,8 +104,9 @@ export class AudioManager {
 
     const previousTrack = this.activeMusicTrack;
     const selectedGenres = this.getMusicGenres();
+    const blockedTracks = this.getMusicBlockedTracks();
     const nextGenres = selectedGenres.length > 0 ? selectedGenres : DEFAULT_MUSIC_GENRES;
-    const nextGenreKey = nextGenres.join('|');
+    const nextGenreKey = `${nextGenres.join('|')}::blocked:${blockedTracks.join('|')}`;
     this.activeMusicTrack = track;
 
     if (this.prefs.muted || !this.prefs.musicEnabled) return;
@@ -113,7 +115,7 @@ export class AudioManager {
     const requestId = ++this.musicRequestId;
     this.stopHtmlMusicOnly();
 
-    const trackInfo = await this.resolveLicensedTrack(track, nextGenres);
+    const trackInfo = await this.resolveLicensedTrack(track, nextGenres, blockedTracks);
     if (requestId !== this.musicRequestId || !trackInfo?.url || this.prefs.muted || !this.prefs.musicEnabled) return;
 
     this.emitMusicInfo({ ...trackInfo, mood: trackInfo.mood || String(track) });
@@ -205,9 +207,10 @@ export class AudioManager {
     if (this.activeMusicTrack) void this.playMusic(this.activeMusicTrack);
   }
 
-  private async resolveLicensedTrack(track: MusicTrack, genres: string[]): Promise<CurrentMusicInfo | null> {
+  private async resolveLicensedTrack(track: MusicTrack, genres: string[], blockedTracks: string[]): Promise<CurrentMusicInfo | null> {
     const params = new URLSearchParams({ mood: String(track) });
     genres.forEach((genre) => params.append('genre', genre));
+    blockedTracks.forEach((key) => params.append('exclude', key));
 
     try {
       const response = await fetch(`/api/audio/track?${params.toString()}`, { cache: 'no-store' });
@@ -237,6 +240,22 @@ export class AudioManager {
     try {
       const profile = JSON.parse(window.localStorage.getItem(PROFILE_STORAGE_KEY) || '{}');
       return Array.isArray(profile.music_genres) ? profile.music_genres.map(String).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private getMusicBlockedTracks() {
+    if (typeof window === 'undefined') return [];
+
+    try {
+      const direct = JSON.parse(window.localStorage.getItem(MUSIC_BLOCKED_TRACKS_KEY) || '[]');
+      if (Array.isArray(direct) && direct.length) return direct.map(String).filter(Boolean);
+    } catch {}
+
+    try {
+      const profile = JSON.parse(window.localStorage.getItem(PROFILE_STORAGE_KEY) || '{}');
+      return Array.isArray(profile.music_blocked_tracks) ? profile.music_blocked_tracks.map(String).filter(Boolean) : [];
     } catch {
       return [];
     }

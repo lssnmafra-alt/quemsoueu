@@ -36,7 +36,7 @@ export default function AvatarFigure({
     ...(primaryColor ? { primaryColor } : {}),
     ...(secondaryColor ? { secondaryColor } : {}),
   };
-  const source = avatarUrl && !avatarUrl.startsWith('avatar:') ? avatarUrl : avatarToDataUri(selected, state);
+  const source = avatarUrl && !avatarUrl.startsWith('avatar:') ? safePublicUrl(avatarUrl) : avatarToDataUri(selected, state);
 
   return (
     <div className={cn('relative overflow-hidden rounded-xl bg-slate-100 border border-slate-200', className)}>
@@ -48,4 +48,17 @@ export default function AvatarFigure({
       />
     </div>
   );
+}
+
+function safePublicUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    parsed.pathname = parsed.pathname
+      .split('/')
+      .map((part) => encodeURIComponent(decodeURIComponent(part)))
+      .join('/');
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }

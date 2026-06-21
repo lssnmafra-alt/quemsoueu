@@ -27,35 +27,62 @@ type AnimationModel = {
   expectedKeys?: string[];
 };
 
+const DEFAULT_CLIP_CANDIDATES: Record<AnimationEventType, string[]> = {
+  defeat: ['perdeu', 'Perdeu', 'derrota', 'Derrota', 'defeat', 'Defeat', 'Animation 1', 'Animação 1', 'Animacao 1'],
+  intro: ['entrada', 'Entrada', 'inicio', 'Inicio', 'intro', 'Intro', 'start', 'Start', 'Animation 2', 'Animação 2', 'Animacao 2'],
+  victory: ['venceu', 'Venceu', 'vitoria', 'Vitoria', 'victory', 'Victory', 'win', 'Win', 'Animation 3', 'Animação 3', 'Animacao 3'],
+};
+
+const DEFAULT_CLIP_INDEX: Record<AnimationEventType, number> = { defeat: 0, intro: 1, victory: 2 };
+
 export default function AvatarAnimationShowcase({ player, eventType, title, subtitle, className, compact = false }: AvatarAnimationShowcaseProps) {
   const [model, setModel] = useState<AnimationModel | null>(null);
   const [loading, setLoading] = useState(false);
 
   const avatarUrl = player?.avatar_url || '';
+  const avatarSlug = useMemo(() => slugFromAvatarUrl(avatarUrl), [avatarUrl]);
 
   useEffect(() => {
-    if (!avatarUrl) {
+    if (!avatarSlug) {
       setModel(null);
+      setLoading(false);
       return;
     }
 
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
 
-    fetch(`/api/avatar-animation-model?avatarUrl=${encodeURIComponent(avatarUrl)}`, { cache: 'no-store' })
+    const fallbackModel: AnimationModel = directModelFromSlug(avatarSlug);
+    const fallbackTimer = window.setTimeout(() => {
+      if (!cancelled) {
+        setModel((current) => current?.available ? current : fallbackModel);
+        setLoading(false);
+      }
+    }, 1200);
+
+    fetch(`/api/avatar-animation-model?slug=${encodeURIComponent(avatarSlug)}&avatarUrl=${encodeURIComponent(avatarUrl)}`, { cache: 'no-store', signal: controller.signal })
       .then((response) => response.json())
       .then((result) => {
-        if (!cancelled) setModel(result);
+        if (cancelled) return;
+        setModel(result?.available && result?.url ? result : fallbackModel);
       })
       .catch(() => {
-        if (!cancelled) setModel({ available: false });
+        if (!cancelled) setModel(fallbackModel);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          window.clearTimeout(fallbackTimer);
+          setLoading(false);
+        }
       });
 
-    return () => { cancelled = true; };
-  }, [avatarUrl]);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [avatarSlug, avatarUrl]);
 
   const resolvedTitle = useMemo(() => {
     if (title) return title;
@@ -65,8 +92,8 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
   }, [eventType, title]);
 
   const resolvedSubtitle = subtitle || player?.nickname || 'Personagem';
-  const candidates = model?.clipCandidates?.[eventType] || [];
-  const clipIndex = model?.clipIndex?.[eventType] ?? 0;
+  const candidates = model?.clipCandidates?.[eventType] || DEFAULT_CLIP_CANDIDATES[eventType];
+  const clipIndex = model?.clipIndex?.[eventType] ?? DEFAULT_CLIP_INDEX[eventType];
 
   return (
     <div className={cn('rounded-3xl border-4 border-indigo-100 bg-white p-4 shadow-xl', className)}>
@@ -81,7 +108,7 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
         {player?.avatar_url && <AvatarFigure avatarUrl={player.avatar_url} label={player.nickname} className="h-12 w-12 shrink-0 rounded-2xl border-2 border-indigo-100" />}
       </div>
 
-      {loading ? (
+      {loading && !model?.url ? (
         <div className="flex min-h-[220px] items-center justify-center rounded-3xl border-2 border-dashed border-indigo-100 bg-indigo-50/50 text-xs font-black uppercase text-indigo-400">
           Procurando GLB...
         </div>
@@ -99,10 +126,61 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
           <Box className="mb-3 h-10 w-10 text-slate-300" />
           <p className="text-sm font-black text-slate-600">GLB ainda não encontrado para este avatar.</p>
           <p className="mt-1 max-w-sm text-xs font-bold text-slate-400">
-            Salve o arquivo como personagem.glb na pasta do mesmo nome do avatar.
+            Use o mesmo nome do PNG em atuem/Animacao, por exemplo {avatarSlug || 'Avatar'}.glb.
           </p>
         </div>
       )}
     </div>
   );
+}
+
+function directModelFromSlug(slug: string): AnimationModel {
+  const safeSlug = slug.split('/').filter(Boolean).join('/');
+  const key = `atuem/Animacao/${safeSlug}.glb`;
+  return {
+    available: true,
+    slug: safeSlug,
+    key,
+    url: `/api/r2-file?key=${encodeURIComponent(key)}`,
+    clipCandidates: DEFAULT_CLIP_CANDIDATES,
+    clipIndex: DEFAULT_CLIP_INDEX,
+  };
+}
+
+function slugFromAvatarUrl(avatarUrl: string) {
+  const value = String(avatarUrl || '').trim();
+  if (!value) return '';
+
+  if (value.startsWith('avatar:')) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(value.slice(7)));
+      return cleanSlug(parsed.avatarId || '');
+    } catch {
+      return '';
+    }
+  }
+
+  const decoded = decodeURIComponent(value);
+  const marker = '/atuem/avatar/';
+  const directMarker = 'atuem/avatar/';
+  const index = decoded.indexOf(marker);
+  const directIndex = decoded.indexOf(directMarker);
+  const part = index >= 0
+    ? decoded.slice(index + marker.length)
+    : directIndex >= 0
+      ? decoded.slice(directIndex + directMarker.length)
+      : decoded.split('/').pop() || '';
+
+  return cleanSlug(part.replace(/\.[^.]+$/, ''));
+}
+
+function cleanSlug(value: string) {
+  return String(value || '')
+    .split('..').join('')
+    .split('\\').join('/')
+    .split('/')
+    .filter(Boolean)
+    .join('/')
+    .replace(/\.[^.]+$/, '')
+    .trim();
 }

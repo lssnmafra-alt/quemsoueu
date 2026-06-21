@@ -24,6 +24,14 @@ type AudioPrefs = {
   muted: boolean;
 };
 
+export type CurrentMusicInfo = {
+  url: string;
+  key?: string;
+  genre?: string;
+  title?: string;
+  mood?: string;
+};
+
 const DEFAULT_PREFS: AudioPrefs = {
   musicEnabled: true,
   sfxEnabled: true,
@@ -35,12 +43,14 @@ const DEFAULT_PREFS: AudioPrefs = {
 const STORAGE_KEY = 'mata-mata-audio-prefs';
 const PROFILE_STORAGE_KEY = 'quemSouEu:profile';
 const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
+const NOW_PLAYING_EVENT = 'quemSouEu:music-track';
 
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private music: HTMLAudioElement | null = null;
   private activeMusicTrack: MusicTrack | null = null;
   private activeMusicUrl = '';
+  private currentMusicInfo: CurrentMusicInfo | null = null;
   private hasUserGesture = false;
   private musicRate = 1;
   private musicRequestId = 0;
@@ -56,6 +66,10 @@ export class AudioManager {
 
   get enabled() {
     return !this.prefs.muted && (this.prefs.musicEnabled || this.prefs.sfxEnabled);
+  }
+
+  getCurrentMusicInfo() {
+    return this.currentMusicInfo;
   }
 
   initFromUserGesture() {
@@ -103,10 +117,10 @@ export class AudioManager {
     const requestId = ++this.musicRequestId;
     this.stopMusic(false);
 
-    const url = await this.resolveLicensedTrack(track, nextGenres);
-    if (requestId !== this.musicRequestId || !url || this.prefs.muted || !this.prefs.musicEnabled) return;
+    const trackInfo = await this.resolveLicensedTrack(track, nextGenres);
+    if (requestId !== this.musicRequestId || !trackInfo?.url || this.prefs.muted || !this.prefs.musicEnabled) return;
 
-    const audio = new Audio(url);
+    const audio = new Audio(trackInfo.url);
     audio.loop = true;
     audio.volume = this.prefs.musicVolume;
     audio.playbackRate = this.musicRate;
@@ -114,10 +128,11 @@ export class AudioManager {
     audio.addEventListener('error', () => this.stopHtmlMusicOnly(), { once: true });
 
     this.music = audio;
-    this.activeMusicUrl = url;
+    this.activeMusicUrl = trackInfo.url;
 
     try {
       await audio.play();
+      this.emitMusicInfo({ ...trackInfo, mood: trackInfo.mood || String(track) });
     } catch {
       this.stopHtmlMusicOnly();
     }
@@ -191,16 +206,24 @@ export class AudioManager {
     if (this.activeMusicTrack) void this.playMusic(this.activeMusicTrack);
   }
 
-  private async resolveLicensedTrack(track: MusicTrack, genres: string[]) {
+  private async resolveLicensedTrack(track: MusicTrack, genres: string[]): Promise<CurrentMusicInfo | null> {
     const params = new URLSearchParams({ mood: String(track) });
     genres.forEach((genre) => params.append('genre', genre));
 
     try {
       const response = await fetch(`/api/audio/track?${params.toString()}`, { cache: 'no-store' });
       const result = await response.json().catch(() => ({}));
-      return response.ok && typeof result.url === 'string' ? result.url : '';
+      if (!response.ok || typeof result.url !== 'string' || !result.url) return null;
+
+      return {
+        url: result.url,
+        key: typeof result.key === 'string' ? result.key : undefined,
+        genre: typeof result.genre === 'string' ? result.genre : undefined,
+        title: typeof result.title === 'string' ? result.title : undefined,
+        mood: typeof result.mood === 'string' ? result.mood : String(track),
+      };
     } catch {
-      return '';
+      return null;
     }
   }
 
@@ -218,6 +241,12 @@ export class AudioManager {
     } catch {
       return [];
     }
+  }
+
+  private emitMusicInfo(info: CurrentMusicInfo) {
+    this.currentMusicInfo = info;
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent(NOW_PLAYING_EVENT, { detail: info }));
   }
 
   private normalizeSfx(effect: SfxEffect) {

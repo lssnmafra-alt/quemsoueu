@@ -8,7 +8,7 @@ import LoadingArena from '@/components/LoadingArena';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUserStore } from '@/lib/store';
-import { TEMP_OFFICIAL_DECK_EDITING_ENABLED } from '@/lib/officialDecks';
+import { isProjectAdmin } from '@/lib/admin';
 
 export default function NewOfficialDeckPage() {
   const router = useRouter();
@@ -19,6 +19,8 @@ export default function NewOfficialDeckPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
+  const canManageOfficialDeck = isProjectAdmin(user?.id);
+
   useEffect(() => {
     if (!authInitialized || authLoading) return;
 
@@ -28,7 +30,7 @@ export default function NewOfficialDeckPage() {
   }, [authInitialized, authLoading, router, user]);
 
   const handleCreateOfficialDeck = async () => {
-    if (creating || !TEMP_OFFICIAL_DECK_EDITING_ENABLED) return;
+    if (creating || !canManageOfficialDeck) return;
 
     const cleanName = name.trim();
     const cleanCoverUrl = coverUrl.trim();
@@ -59,6 +61,7 @@ export default function NewOfficialDeckPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'create-official-deck',
+          userId: user?.id,
           name: cleanName,
           coverUrl: cleanCoverUrl,
         }),
@@ -92,7 +95,7 @@ export default function NewOfficialDeckPage() {
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/lobby')}
             className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 w-12 h-12 rounded-2xl border-2 border-slate-200 transition-colors cursor-pointer flex items-center justify-center"
           >
             <ArrowLeft className="w-5 h-5 stroke-[3px]" />
@@ -107,14 +110,14 @@ export default function NewOfficialDeckPage() {
               <h1 className="text-2xl md:text-3xl font-black text-indigo-950 font-display leading-tight truncate">
                 Criar deck oficial
               </h1>
-              <p className="text-xs text-slate-500 font-bold truncate">Novo baralho oficial editavel</p>
+              <p className="text-xs text-slate-500 font-bold truncate">Novo baralho oficial editavel pelo ADM do projeto</p>
             </div>
           </div>
         </div>
 
-        {!TEMP_OFFICIAL_DECK_EDITING_ENABLED ? (
+        {!canManageOfficialDeck ? (
           <div className="rounded-2xl border-2 border-rose-100 bg-rose-50 p-4 text-sm font-bold text-rose-600">
-            Criacao oficial desativada no momento.
+            Esta area esta liberada apenas para o ADM autorizado do projeto.
           </div>
         ) : (
           <div className="space-y-4">

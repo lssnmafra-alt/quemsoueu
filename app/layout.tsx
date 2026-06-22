@@ -3,6 +3,7 @@ import { Inter, Quicksand } from 'next/font/google';
 import './globals.css'; // Global styles
 import AudioToggle from '@/components/AudioToggle';
 import AuthBootstrap from '@/components/AuthBootstrap';
+import RoomInviteInbox from '@/components/RoomInviteInbox';
 import SocialQuickButton from '@/components/SocialQuickButton';
 import { getPublicRuntimeEnvScript } from '@/lib/publicEnv';
 
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthBootstrap />
         {children}
         <AudioToggle />
+        <RoomInviteInbox />
         <SocialQuickButton />
       </body>
     </html>

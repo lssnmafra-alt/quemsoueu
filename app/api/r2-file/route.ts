@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getR2Object } from '@/lib/r2Storage';
 
-const BLOCKED_PREFIXES = ['private/', 'secrets/'];
-const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.mp3', '.ogg', '.wav', '.m4a', '.glb'];
+const DENIED_PREFIXES = ['private/', 'secrets/'];
+const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.mp3', '.mpeg', '.mpga', '.ogg', '.oga', '.wav', '.wave', '.m4a', '.aac', '.flac', '.webm', '.mp4', '.glb'];
 
 export async function GET(req: NextRequest) {
   try {
@@ -33,9 +33,9 @@ export async function GET(req: NextRequest) {
 }
 
 function isSafeKey(key: string) {
-  if (!key || key.includes('..') || key.startsWith('/') || key.includes('\\')) return false;
-  const lower = key.toLowerCase();
-  if (BLOCKED_PREFIXES.some((prefix) => lower.startsWith(prefix))) return false;
+  if (!key || key.includes('..') || key.startsWith('/') || key.includes(String.fromCharCode(92))) return false;
+  const lower = key.toLowerCase().trim();
+  if (DENIED_PREFIXES.some((prefix) => lower.startsWith(prefix))) return false;
   return ALLOWED_EXTENSIONS.some((extension) => lower.endsWith(extension));
 }
 
@@ -45,10 +45,12 @@ function contentTypeForKey(key: string) {
   if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
   if (lower.endsWith('.webp')) return 'image/webp';
   if (lower.endsWith('.svg')) return 'image/svg+xml';
-  if (lower.endsWith('.mp3')) return 'audio/mpeg';
-  if (lower.endsWith('.ogg')) return 'audio/ogg';
-  if (lower.endsWith('.wav')) return 'audio/wav';
-  if (lower.endsWith('.m4a')) return 'audio/mp4';
+  if (lower.endsWith('.mp3') || lower.endsWith('.mpeg') || lower.endsWith('.mpga')) return 'audio/mpeg';
+  if (lower.endsWith('.ogg') || lower.endsWith('.oga')) return 'audio/ogg';
+  if (lower.endsWith('.wav') || lower.endsWith('.wave')) return 'audio/wav';
+  if (lower.endsWith('.m4a') || lower.endsWith('.aac') || lower.endsWith('.mp4')) return 'audio/mp4';
+  if (lower.endsWith('.flac')) return 'audio/flac';
+  if (lower.endsWith('.webm')) return 'audio/webm';
   if (lower.endsWith('.glb')) return 'model/gltf-binary';
   return 'application/octet-stream';
 }

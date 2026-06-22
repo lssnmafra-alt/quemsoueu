@@ -23,20 +23,116 @@ export async function GET(req: NextRequest, context: { params: Promise<{ filenam
       return NextResponse.json({ error: 'Animacao nao encontrada no R2.', key }, { status: 404 });
     }
 
-    return new NextResponse(object.body as any, {
+    const bytes = await bodyToUint8Array(object.body);
+    const size = bytes.byteLength;
+    const range = req.headers.get('range');
+    const commonHeaders = {
+      'Content-Type': CONTENT_TYPES[extension],
+      'Content-Disposition': `inline; filename="${safeFilename(filename)}"`,
+      'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+      'X-Content-Type-Options': 'nosniff',
+      'Accept-Ranges': 'bytes',
+    };
+
+    if (range) {
+      const parsed = parseRange(range, size);
+      if (!parsed) {
+        return new NextResponse(null, {
+          status: 416,
+          headers: {
+            ...commonHeaders,
+            'Content-Range': `bytes */${size}`,
+          },
+        });
+      }
+
+      const chunk = bytes.slice(parsed.start, parsed.end + 1);
+      return new NextResponse(chunk, {
+        status: 206,
+        headers: {
+          ...commonHeaders,
+          'Content-Length': String(chunk.byteLength),
+          'Content-Range': `bytes ${parsed.start}-${parsed.end}/${size}`,
+        },
+      });
+    }
+
+    return new NextResponse(bytes, {
+      status: 200,
       headers: {
-        'Content-Type': CONTENT_TYPES[extension],
-        'Content-Disposition': `inline; filename="${safeFilename(filename)}"`,
-        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
-        'Access-Control-Allow-Origin': '*',
-        'Cross-Origin-Resource-Policy': 'cross-origin',
-        'X-Content-Type-Options': 'nosniff',
+        ...commonHeaders,
+        'Content-Length': String(size),
       },
     });
   } catch (error: any) {
     console.error('R2 animation proxy error:', error);
     return NextResponse.json({ error: error.message || 'Nao foi possivel carregar a animacao.' }, { status: 500 });
   }
+}
+
+export async function HEAD(req: NextRequest, context: { params: Promise<{ filename: string }> }) {
+  const response = await GET(req, context);
+  return new NextResponse(null, { status: response.status, headers: response.headers });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': 'Range, Content-Type',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+}
+
+function parseRange(range: string, size: number) {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+  if (!match || size <= 0) return null;
+
+  let start = match[1] ? Number(match[1]) : 0;
+  let end = match[2] ? Number(match[2]) : size - 1;
+
+  if (!match[1] && match[2]) {
+    const suffixLength = Number(match[2]);
+    start = Math.max(0, size - suffixLength);
+    end = size - 1;
+  }
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= size) return null;
+  return { start, end: Math.min(end, size - 1) };
+}
+
+async function bodyToUint8Array(body: BodyInit) {
+  if (body instanceof Uint8Array) return body;
+  if (body instanceof ArrayBuffer) return new Uint8Array(body);
+  if (body instanceof Blob) return new Uint8Array(await body.arrayBuffer());
+  if (typeof body === 'string') return new TextEncoder().encode(body);
+
+  const stream = body as ReadableStream<Uint8Array>;
+  if (stream && typeof stream.getReader === 'function') {
+    const reader = stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value instanceof Uint8Array ? value : new Uint8Array(value));
+    }
+    const length = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
+    const bytes = new Uint8Array(length);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return bytes;
+  }
+
+  return new Uint8Array();
 }
 
 function isSafeVideoKey(key: string) {

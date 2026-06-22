@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Box, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
-import Avatar3DPlayer from './Avatar3DPlayer';
 import AvatarFigure from './AvatarFigure';
 import { cn } from '@/lib/utils';
 
@@ -18,34 +17,18 @@ type AvatarAnimationShowcaseProps = {
   compact?: boolean;
 };
 
-type AnimationModel = {
+type AnimationVideo = {
   available: boolean;
-  mediaType?: 'video' | 'glb';
+  mediaType?: 'video';
   url?: string;
   videoUrl?: string;
-  directUrl?: string;
-  proxyUrl?: string;
   key?: string;
   slug?: string;
-  cameraOrbit?: string;
-  cameraTarget?: string;
-  fieldOfView?: string;
-  orientation?: string;
-  clipCandidates?: Record<AnimationEventType, string[]>;
-  clipIndex?: Record<AnimationEventType, number>;
-  expectedKeys?: string[];
+  eventType?: AnimationEventType;
 };
-
-const DEFAULT_CLIP_CANDIDATES: Record<AnimationEventType, string[]> = {
-  defeat: ['NlaTrack', 'perdeu', 'Perdeu', 'derrota', 'Derrota', 'defeat', 'Defeat', 'Animation 1', 'Animação 1', 'Animacao 1'],
-  intro: ['NlaTrack.001', 'entrada', 'Entrada', 'inicio', 'Inicio', 'intro', 'Intro', 'start', 'Start', 'Animation 2', 'Animação 2', 'Animacao 2'],
-  victory: ['NlaTrack.002', 'venceu', 'Venceu', 'vitoria', 'Vitoria', 'victory', 'Victory', 'win', 'Win', 'Animation 3', 'Animação 3', 'Animacao 3'],
-};
-
-const DEFAULT_CLIP_INDEX: Record<AnimationEventType, number> = { defeat: 0, intro: 1, victory: 2 };
 
 export default function AvatarAnimationShowcase({ player, eventType, title, subtitle, className, compact = false }: AvatarAnimationShowcaseProps) {
-  const [model, setModel] = useState<AnimationModel | null>(null);
+  const [video, setVideo] = useState<AnimationVideo | null>(null);
   const [loading, setLoading] = useState(false);
   const [searchTimedOut, setSearchTimedOut] = useState(false);
 
@@ -54,7 +37,7 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
 
   useEffect(() => {
     if (!avatarSlug) {
-      setModel(null);
+      setVideo(null);
       setLoading(false);
       setSearchTimedOut(false);
       return;
@@ -64,29 +47,19 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
       if (!cancelled) setSearchTimedOut(true);
-    }, 3200);
+    }, 2500);
 
     const loadAnimation = async () => {
       setLoading(true);
       setSearchTimedOut(false);
-      setModel(null);
+      setVideo(null);
 
       try {
-        const videoResponse = await fetch(`/api/avatar-animation-video?slug=${encodeURIComponent(avatarSlug)}&avatarUrl=${encodeURIComponent(avatarUrl)}`, { cache: 'no-store', signal: controller.signal });
-        const videoResult = await videoResponse.json().catch(() => null);
-        if (!cancelled && videoResult?.available && (videoResult.videoUrl || videoResult.url)) {
-          setModel(normalizeModel({ ...videoResult, mediaType: 'video' }));
-          return;
-        }
-
-        const response = await fetch(`/api/avatar-animation-model?slug=${encodeURIComponent(avatarSlug)}&avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}`, { cache: 'no-store', signal: controller.signal });
+        const response = await fetch(`/api/avatar-animation-video?slug=${encodeURIComponent(avatarSlug)}&avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}`, { cache: 'no-store', signal: controller.signal });
         const result = await response.json().catch(() => null);
-        if (!cancelled) {
-          const apiModel = result?.available && result?.url ? result : null;
-          setModel(apiModel ? normalizeModel({ ...apiModel, mediaType: 'glb' }) : null);
-        }
+        if (!cancelled) setVideo(result?.available && (result.videoUrl || result.url) ? result : null);
       } catch {
-        if (!cancelled) setModel(null);
+        if (!cancelled) setVideo(null);
       } finally {
         window.clearTimeout(timeout);
         if (!cancelled) setLoading(false);
@@ -110,18 +83,14 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
   }, [eventType, title]);
 
   const resolvedSubtitle = subtitle || player?.nickname || 'Personagem';
-  const candidates = model?.clipCandidates?.[eventType] || DEFAULT_CLIP_CANDIDATES[eventType];
-  const clipIndex = model?.clipIndex?.[eventType] ?? DEFAULT_CLIP_INDEX[eventType];
-  const primarySrc = model?.url || model?.proxyUrl || '';
-  const videoSrc = model?.videoUrl || (model?.mediaType === 'video' ? primarySrc : '');
-  const fallbackSrc = model?.directUrl && model.directUrl !== primarySrc ? model.directUrl : undefined;
+  const videoSrc = video?.videoUrl || video?.url || '';
 
   return (
     <div className={cn('rounded-3xl border-4 border-indigo-100 bg-white p-4 shadow-xl', className)}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="min-w-0 text-left">
           <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-indigo-500">
-            <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Leitor 3D
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Animação
           </p>
           <h3 className="truncate text-lg font-black text-indigo-950 font-display">{resolvedTitle}</h3>
           <p className="truncate text-xs font-bold text-slate-500">{resolvedSubtitle}</p>
@@ -130,24 +99,9 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
       </div>
 
       {loading && !searchTimedOut ? (
-        <FallbackAvatarAnimation player={player} eventType={eventType} label="Procurando animação..." muted />
-      ) : model?.mediaType === 'video' && videoSrc ? (
+        <FallbackAvatarAnimation player={player} eventType={eventType} label="Procurando vídeo..." muted />
+      ) : videoSrc ? (
         <AvatarVideoPlayer src={videoSrc} player={player} eventType={eventType} className={compact ? 'h-[260px]' : 'h-[360px]'} />
-      ) : model?.available && primarySrc ? (
-        <Avatar3DPlayer
-          src={primarySrc}
-          fallbackSrc={fallbackSrc}
-          eventType={eventType}
-          label={resolvedTitle}
-          clipCandidates={candidates}
-          clipIndex={clipIndex}
-          cameraOrbit={model.cameraOrbit}
-          cameraTarget={model.cameraTarget}
-          fieldOfView={model.fieldOfView}
-          orientation={model.orientation}
-          autoRotate
-          className={compact ? 'h-[260px]' : 'h-[360px]'}
-        />
       ) : (
         <FallbackAvatarAnimation player={player} eventType={eventType} label="Animação 2D automática" />
       )}
@@ -208,18 +162,6 @@ function FallbackAvatarAnimation({ player, eventType, label, muted = false }: { 
       </div>
     </div>
   );
-}
-
-function normalizeModel(model: AnimationModel): AnimationModel {
-  return {
-    ...model,
-    cameraOrbit: model.cameraOrbit || '180deg 75deg 115%',
-    cameraTarget: model.cameraTarget || 'auto auto auto',
-    fieldOfView: model.fieldOfView || '30deg',
-    orientation: model.orientation || '0deg 0deg 0deg',
-    clipCandidates: model.clipCandidates || DEFAULT_CLIP_CANDIDATES,
-    clipIndex: model.clipIndex || DEFAULT_CLIP_INDEX,
-  };
 }
 
 function slugFromAvatarUrl(avatarUrl: string) {

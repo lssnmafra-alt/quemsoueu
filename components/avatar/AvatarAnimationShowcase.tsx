@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import AvatarFigure from './AvatarFigure';
@@ -110,25 +110,54 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
 }
 
 function AvatarVideoPlayer({ src, player, eventType, className }: { src: string; player?: any; eventType: AnimationEventType; className?: string }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [ready, setReady] = useState(false);
   const label = eventType === 'victory' ? 'Vídeo de vitória' : eventType === 'defeat' ? 'Vídeo de derrota' : 'Vídeo de entrada';
 
+  const forceMuted = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.volume = 0;
+  };
+
+  const markReady = () => {
+    forceMuted();
+    setReady(true);
+    videoRef.current?.play?.().catch(() => null);
+  };
+
+  useEffect(() => {
+    forceMuted();
+    const timer = window.setTimeout(() => setReady(true), 500);
+    return () => window.clearTimeout(timer);
+  }, [src]);
+
   return (
-    <div className={cn('relative overflow-hidden rounded-3xl border-4 border-indigo-100 bg-slate-950 shadow-inner', className)}>
+    <div className={cn('relative flex items-center justify-center overflow-hidden rounded-3xl border-4 border-indigo-100 bg-white shadow-inner', className)}>
+      <div className="relative flex h-full max-h-full aspect-[2/3] items-center justify-center overflow-hidden rounded-2xl bg-white">
+        <video
+          ref={videoRef}
+          src={src}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          controls={false}
+          disablePictureInPicture
+          onLoadedMetadata={markReady}
+          onVolumeChange={forceMuted}
+          onPlay={forceMuted}
+          onLoadedData={markReady}
+          onCanPlay={markReady}
+          className="h-full w-full bg-white object-contain"
+        />
+      </div>
       {!ready && <FallbackAvatarAnimation player={player} eventType={eventType} label="Carregando vídeo..." muted />}
-      <video
-        src={src}
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-        onLoadedData={() => setReady(true)}
-        onCanPlay={() => setReady(true)}
-        className={cn('h-full min-h-[260px] w-full object-contain bg-gradient-to-b from-indigo-50 to-blue-100', !ready && 'absolute inset-0 opacity-0')}
-      />
       {ready && (
-        <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-2xl border border-white/30 bg-white/70 px-3 py-2 text-left shadow-sm backdrop-blur">
+        <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-2xl border border-white/70 bg-white/85 px-3 py-2 text-left shadow-sm backdrop-blur">
           <p className="truncate text-[10px] font-black uppercase tracking-wider text-indigo-500">{label}</p>
           <p className="truncate text-xs font-black text-indigo-950">{player?.nickname || 'Avatar do jogador'}</p>
         </div>
@@ -142,8 +171,7 @@ function FallbackAvatarAnimation({ player, eventType, label, muted = false }: { 
   const rotateMovement = eventType === 'defeat' ? [0, -6, 4, 0] : [-3, 3, -3];
 
   return (
-    <div className="relative flex h-[260px] min-h-[220px] items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-indigo-100 bg-gradient-to-b from-indigo-50 to-white">
-      <div className="absolute inset-0 opacity-60 [background:radial-gradient(circle_at_center,rgba(99,102,241,.20),transparent_55%)]" />
+    <div className="relative flex h-[260px] min-h-[220px] items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-indigo-100 bg-white">
       <motion.div
         initial={{ opacity: 0, scale: 0.75, y: 18 }}
         animate={{ opacity: 1, scale: [0.92, 1.08, 1], y: yMovement, rotate: rotateMovement }}
@@ -156,7 +184,7 @@ function FallbackAvatarAnimation({ player, eventType, label, muted = false }: { 
           <Box className="h-20 w-20 text-indigo-200" />
         )}
       </motion.div>
-      <div className="absolute bottom-3 left-3 right-3 rounded-2xl border border-white/70 bg-white/80 px-3 py-2 text-left shadow-sm backdrop-blur">
+      <div className="absolute bottom-3 left-3 right-3 rounded-2xl border border-white/70 bg-white/85 px-3 py-2 text-left shadow-sm backdrop-blur">
         <p className="truncate text-[10px] font-black uppercase tracking-wider text-indigo-500">{label}</p>
         <p className="truncate text-xs font-black text-indigo-950">{player?.nickname || 'Avatar do jogador'}</p>
       </div>

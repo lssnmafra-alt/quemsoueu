@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Box, Sparkles } from 'lucide-react';
+import { motion } from 'motion/react';
 import Avatar3DPlayer from './Avatar3DPlayer';
 import AvatarFigure from './AvatarFigure';
 import { cn } from '@/lib/utils';
@@ -44,6 +45,7 @@ const DEFAULT_CLIP_INDEX: Record<AnimationEventType, number> = { defeat: 0, intr
 export default function AvatarAnimationShowcase({ player, eventType, title, subtitle, className, compact = false }: AvatarAnimationShowcaseProps) {
   const [model, setModel] = useState<AnimationModel | null>(null);
   const [loading, setLoading] = useState(false);
+  const [searchTimedOut, setSearchTimedOut] = useState(false);
 
   const avatarUrl = player?.avatar_url || '';
   const avatarSlug = useMemo(() => slugFromAvatarUrl(avatarUrl), [avatarUrl]);
@@ -52,12 +54,18 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
     if (!avatarSlug) {
       setModel(null);
       setLoading(false);
+      setSearchTimedOut(false);
       return;
     }
 
     let cancelled = false;
     const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      if (!cancelled) setSearchTimedOut(true);
+    }, 3200);
+
     setLoading(true);
+    setSearchTimedOut(false);
 
     fetch(`/api/avatar-animation-model?slug=${encodeURIComponent(avatarSlug)}&avatarUrl=${encodeURIComponent(avatarUrl)}`, { cache: 'no-store', signal: controller.signal })
       .then((response) => response.json())
@@ -70,11 +78,13 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
         if (!cancelled) setModel(null);
       })
       .finally(() => {
+        window.clearTimeout(timeout);
         if (!cancelled) setLoading(false);
       });
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
       controller.abort();
     };
   }, [avatarSlug, avatarUrl]);
@@ -105,10 +115,8 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
         {player?.avatar_url && <AvatarFigure avatarUrl={player.avatar_url} label={player.nickname} className="h-12 w-12 shrink-0 rounded-2xl border-2 border-indigo-100" />}
       </div>
 
-      {loading ? (
-        <div className="flex min-h-[220px] items-center justify-center rounded-3xl border-2 border-dashed border-indigo-100 bg-indigo-50/50 text-xs font-black uppercase text-indigo-400">
-          Procurando GLB...
-        </div>
+      {loading && !searchTimedOut ? (
+        <FallbackAvatarAnimation player={player} eventType={eventType} label="Procurando GLB..." muted />
       ) : model?.available && primarySrc ? (
         <Avatar3DPlayer
           src={primarySrc}
@@ -121,17 +129,39 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
           cameraTarget={model.cameraTarget}
           fieldOfView={model.fieldOfView}
           orientation={model.orientation}
+          autoRotate
           className={compact ? 'h-[260px]' : 'h-[360px]'}
         />
       ) : (
-        <div className="flex min-h-[220px] flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 p-5 text-center">
-          <Box className="mb-3 h-10 w-10 text-slate-300" />
-          <p className="text-sm font-black text-slate-600">GLB ainda não encontrado para este avatar.</p>
-          <p className="mt-1 max-w-sm text-xs font-bold text-slate-400">
-            Use o mesmo nome do PNG em atuem/Animacao, por exemplo {avatarSlug || 'Avatar'}.glb.
-          </p>
-        </div>
+        <FallbackAvatarAnimation player={player} eventType={eventType} label="Animação 2D automática" />
       )}
+    </div>
+  );
+}
+
+function FallbackAvatarAnimation({ player, eventType, label, muted = false }: { player?: any; eventType: AnimationEventType; label: string; muted?: boolean }) {
+  const yMovement = eventType === 'victory' ? [-4, -18, -4] : eventType === 'defeat' ? [0, 14, 0] : [0, -8, 0];
+  const rotateMovement = eventType === 'defeat' ? [0, -6, 4, 0] : [-3, 3, -3];
+
+  return (
+    <div className="relative flex h-[260px] min-h-[220px] items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-indigo-100 bg-gradient-to-b from-indigo-50 to-white">
+      <div className="absolute inset-0 opacity-60 [background:radial-gradient(circle_at_center,rgba(99,102,241,.20),transparent_55%)]" />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.75, y: 18 }}
+        animate={{ opacity: 1, scale: [0.92, 1.08, 1], y: yMovement, rotate: rotateMovement }}
+        transition={{ duration: muted ? 1.2 : 2, repeat: muted ? Infinity : 0, repeatType: 'mirror', ease: 'easeInOut' }}
+        className="relative z-10"
+      >
+        {player?.avatar_url ? (
+          <AvatarFigure avatarUrl={player.avatar_url} label={player.nickname} className="h-36 w-36 rounded-[2rem] border-4 border-white bg-white shadow-2xl" />
+        ) : (
+          <Box className="h-20 w-20 text-indigo-200" />
+        )}
+      </motion.div>
+      <div className="absolute bottom-3 left-3 right-3 rounded-2xl border border-white/70 bg-white/80 px-3 py-2 text-left shadow-sm backdrop-blur">
+        <p className="truncate text-[10px] font-black uppercase tracking-wider text-indigo-500">{label}</p>
+        <p className="truncate text-xs font-black text-indigo-950">{player?.nickname || 'Avatar do jogador'}</p>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listR2Objects } from '@/lib/r2Storage';
 
-const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/'];
+const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/', 'music/', 'Music/'];
+const MUSIC_SCAN_PREFIXES = ['atuem/', 'music/', 'Music/'];
 const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
 const DEFAULT_GENRES = ['Disco', 'K-pop', 'Rock'];
 
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
       availableGenres: [...new Set(allTracks.map((track) => track.genre))],
       excluded: [...excludedKeys],
       searchedPrefixes: MUSIC_PREFIXES,
+      scanPrefixes: MUSIC_SCAN_PREFIXES,
     });
   } catch (error: any) {
     console.error('Audio track error:', error);
@@ -48,19 +50,26 @@ export async function GET(req: NextRequest) {
 
 async function listAllTracks(): Promise<Track[]> {
   const tracks: Track[] = [];
+  const seenKeys = new Set<string>();
 
   for (const prefix of MUSIC_PREFIXES) {
     const listed = await listR2Objects(prefix, 5000);
-    for (const object of listed || []) {
-      const key = String(object.key || '');
-      if (!isAudioKey(key)) continue;
-      tracks.push({ key, genre: genreFromKey(key, prefix) });
-    }
+    for (const object of listed || []) addTrack(object.key, tracks, seenKeys);
   }
 
-  const unique = new Map<string, Track>();
-  tracks.forEach((track) => unique.set(track.key, track));
-  return [...unique.values()].sort((a, b) => a.key.localeCompare(b.key));
+  for (const prefix of MUSIC_SCAN_PREFIXES) {
+    const listed = await listR2Objects(prefix, 5000);
+    for (const object of listed || []) addTrack(object.key, tracks, seenKeys);
+  }
+
+  return tracks.sort((a, b) => a.key.localeCompare(b.key));
+}
+
+function addTrack(rawKey: unknown, tracks: Track[], seenKeys: Set<string>) {
+  const key = String(rawKey || '');
+  if (!isAudioKey(key) || seenKeys.has(key) || !isMusicKey(key)) return;
+  seenKeys.add(key);
+  tracks.push({ key, genre: genreFromKey(key) });
 }
 
 function findTracksForGenres(tracks: Track[], genres: string[]) {
@@ -72,11 +81,16 @@ function findTracksForGenres(tracks: Track[], genres: string[]) {
   });
 }
 
-function genreFromKey(key: string, prefix: string) {
-  const rest = key.startsWith(prefix) ? key.slice(prefix.length) : key;
-  const firstFolder = rest.split('/')[0];
-  if (firstFolder && firstFolder !== rest) return humanize(firstFolder);
-  return 'Musicas';
+function isMusicKey(key: string) {
+  const lower = key.toLowerCase();
+  return lower.startsWith('music/') || lower.includes('/music/') || lower.includes('/musica/') || lower.includes('/música/');
+}
+
+function genreFromKey(key: string) {
+  const parts = key.split('/').filter(Boolean);
+  const musicIndex = parts.findIndex((part) => ['music', 'musica', 'música'].includes(part.toLowerCase()));
+  const folder = musicIndex >= 0 && parts[musicIndex + 1] ? parts[musicIndex + 1] : parts.length > 1 ? parts[parts.length - 2] : 'Musicas';
+  return humanize(folder) || 'Musicas';
 }
 
 function cleanFolderName(value: string) {

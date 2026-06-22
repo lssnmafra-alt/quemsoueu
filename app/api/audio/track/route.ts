@@ -1,48 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listR2Objects } from '@/lib/r2Storage';
 
-const MUSIC_PREFIXES = [
-  'atuem/music/',
-  'atuem/atuem/music/',
-  'atuem/Music/',
-  'atuem/musica/',
-  'atuem/atuem/musica/',
-  'atuem/Musica/',
-  'atuem/Música/',
-  'atuem/musicas/',
-  'atuem/atuem/musicas/',
-  'atuem/Musicas/',
-  'atuem/Músicas/',
-  'atuem/audio/',
-  'atuem/atuem/audio/',
-  'atuem/audios/',
-  'music/',
-  'Music/',
-  'musica/',
-  'Musica/',
-  'música/',
-  'musicas/',
-  'Musicas/',
-  'Músicas/',
-  'audio/',
-  'audios/',
-];
-const MUSIC_SCAN_PREFIXES = ['atuem/', 'music/', 'Music/', 'musica/', 'musicas/', 'audio/', 'audios/'];
-const MUSIC_FOLDER_NAMES = ['music', 'musica', 'música', 'musicas', 'músicas', 'audio', 'audios', 'áudio', 'áudios'];
+const MUSIC_ROOT_PREFIXES = ['', 'atuem/', 'atuem/atuem/', 'music/', 'Music/', 'musica/', 'Musica/', 'Música/'];
+const KNOWN_MUSIC_ROOTS = ['music', 'musica', 'música', 'musicas', 'músicas', 'audio', 'audios', 'áudio', 'áudios'];
 const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
-const DEFAULT_GENRES = ['Disco', 'K-pop', 'Rock'];
 
-type Track = { key: string; genre: string };
+type Track = { key: string; genre: string; title: string };
 
 export async function GET(req: NextRequest) {
   try {
     const mood = req.nextUrl.searchParams.get('mood') || 'lobby-theme';
-    const genresFromQuery = req.nextUrl.searchParams.getAll('genre').map(cleanFolderName).filter(Boolean);
-    const genres = genresFromQuery.length > 0 ? genresFromQuery : DEFAULT_GENRES;
+    const genres = req.nextUrl.searchParams.getAll('genre').map(cleanFolderName).filter(Boolean);
     const excludedKeys = new Set(req.nextUrl.searchParams.getAll('exclude').map((key) => decodeURIComponent(key)).filter(isSafeKey));
 
     const allTracks = (await listAllTracks()).filter((track) => !excludedKeys.has(track.key));
-    const matchedTracks = findTracksForGenres(allTracks, genres);
+    const matchedTracks = genres.length ? findTracksForGenres(allTracks, genres) : allTracks;
     const tracks = matchedTracks.length > 0 ? matchedTracks : allTracks;
 
     if (tracks.length > 0) {
@@ -50,13 +22,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         key: track.key,
         url: `/api/r2-file?key=${encodeURIComponent(track.key)}`,
-        genre: track.genre || genres[0],
-        title: cleanTitle(track.key),
+        genre: track.genre,
+        title: track.title,
         mood,
         proxied: true,
         selectedGenres: genres,
         matchedCount: matchedTracks.length,
-        fallbackToAnyGenre: matchedTracks.length === 0,
+        fallbackToAnyGenre: matchedTracks.length === 0 && genres.length > 0,
       });
     }
 
@@ -66,8 +38,7 @@ export async function GET(req: NextRequest) {
       searchedGenres: genres,
       availableGenres: [...new Set(allTracks.map((track) => track.genre))],
       excluded: [...excludedKeys],
-      searchedPrefixes: MUSIC_PREFIXES,
-      scanPrefixes: MUSIC_SCAN_PREFIXES,
+      scannedPrefixes: MUSIC_ROOT_PREFIXES,
     });
   } catch (error: any) {
     console.error('Audio track error:', error);
@@ -79,13 +50,8 @@ async function listAllTracks(): Promise<Track[]> {
   const tracks: Track[] = [];
   const seenKeys = new Set<string>();
 
-  for (const prefix of MUSIC_PREFIXES) {
-    const listed = await listR2Objects(prefix, 5000);
-    for (const object of listed || []) addTrack(object.key, tracks, seenKeys);
-  }
-
-  for (const prefix of MUSIC_SCAN_PREFIXES) {
-    const listed = await listR2Objects(prefix, 5000);
+  for (const prefix of MUSIC_ROOT_PREFIXES) {
+    const listed = await listR2Objects(prefix, 10000);
     for (const object of listed || []) addTrack(object.key, tracks, seenKeys);
   }
 
@@ -94,30 +60,35 @@ async function listAllTracks(): Promise<Track[]> {
 
 function addTrack(rawKey: unknown, tracks: Track[], seenKeys: Set<string>) {
   const key = String(rawKey || '');
-  if (!isAudioKey(key) || seenKeys.has(key) || !isMusicKey(key)) return;
+  if (!isAudioKey(key) || seenKeys.has(key)) return;
+
+  const parsed = parseTrackPath(key);
+  if (!parsed.genre) return;
+
   seenKeys.add(key);
-  tracks.push({ key, genre: genreFromKey(key) });
+  tracks.push({ key, genre: parsed.genre, title: cleanTitle(key) });
+}
+
+function parseTrackPath(key: string) {
+  const parts = key.split('/').filter(Boolean);
+  const fileName = parts[parts.length - 1] || '';
+  if (!isAudioKey(fileName)) return { genre: '', folder: '' };
+
+  const normalizedRoots = KNOWN_MUSIC_ROOTS.map(normalizeComparable);
+  const rootIndex = parts.map(normalizeComparable).findIndex((part) => normalizedRoots.includes(part));
+  const genreFolder = rootIndex >= 0 && parts[rootIndex + 1]
+    ? parts[rootIndex + 1]
+    : parts.length >= 2
+      ? parts[parts.length - 2]
+      : '';
+
+  if (!genreFolder || normalizedRoots.includes(normalizeComparable(genreFolder))) return { genre: '', folder: '' };
+  return { genre: humanize(genreFolder), folder: genreFolder };
 }
 
 function findTracksForGenres(tracks: Track[], genres: string[]) {
   const wanted = new Set(genres.flatMap((genre) => genreAliases(genre)));
-  return tracks.filter((track) => {
-    const genreKey = normalizeComparable(track.genre);
-    const folderKey = normalizeComparable(track.key.split('/').slice(-2, -1)[0] || track.genre);
-    return wanted.has(genreKey) || wanted.has(folderKey) || wanted.has(normalizeComparable(track.key));
-  });
-}
-
-function isMusicKey(key: string) {
-  const parts = key.split('/').filter(Boolean).map((part) => normalizeComparable(part));
-  return parts.some((part) => MUSIC_FOLDER_NAMES.map(normalizeComparable).includes(part));
-}
-
-function genreFromKey(key: string) {
-  const parts = key.split('/').filter(Boolean);
-  const musicIndex = parts.findIndex((part) => MUSIC_FOLDER_NAMES.map(normalizeComparable).includes(normalizeComparable(part)));
-  const folder = musicIndex >= 0 && parts[musicIndex + 1] ? parts[musicIndex + 1] : parts.length > 1 ? parts[parts.length - 2] : 'Musicas';
-  return humanize(folder) || 'Musicas';
+  return tracks.filter((track) => wanted.has(normalizeComparable(track.genre)) || wanted.has(normalizeComparable(track.key)));
 }
 
 function cleanFolderName(value: string) {
@@ -149,13 +120,7 @@ function genreAliases(genre: string) {
   const clean = normalizeComparable(genre);
   const aliases = new Set([clean]);
   if (clean === 'kpop' || clean === 'k pop') aliases.add('kpop').add('kpop').add('kpop');
-  if (clean === 'eletronic' || clean === 'electronic' || clean === 'eletronica' || clean === 'eletronico') aliases.add('eletronic').add('electronic').add('eletronica');
-  if (clean === 'rock') aliases.add('rock');
-  if (clean === 'disco') aliases.add('disco');
-  if (clean === 'indie') aliases.add('indie');
-  if (clean === 'pop') aliases.add('pop');
-  if (clean === 'funk') aliases.add('funk');
-  if (clean === 'rap') aliases.add('rap');
+  if (clean === 'eletronic' || clean === 'electronic' || clean === 'eletronica' || clean === 'eletronico') aliases.add('eletronic').add('electronic').add('eletronica').add('eletronico');
   return [...aliases];
 }
 

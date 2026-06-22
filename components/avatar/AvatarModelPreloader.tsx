@@ -5,13 +5,14 @@ import { useEffect } from 'react';
 type AvatarModelPreloaderProps = {
   players: any[];
   max?: number;
+  eventType?: 'intro' | 'victory' | 'defeat';
   onProgress?: (progress: { total: number; done: number; loaded: number; unavailable: number; failed: number }) => void;
   onDone?: () => void;
 };
 
 const loadedUrls = new Set<string>();
 
-export default function AvatarModelPreloader({ players, max = 12, onProgress, onDone }: AvatarModelPreloaderProps) {
+export default function AvatarModelPreloader({ players, max = 12, eventType = 'intro', onProgress, onDone }: AvatarModelPreloaderProps) {
   useEffect(() => {
     let cancelled = false;
     const controllers: AbortController[] = [];
@@ -36,20 +37,12 @@ export default function AvatarModelPreloader({ players, max = 12, onProgress, on
     emit();
 
     const resolveAnimationUrl = async (avatarUrl: string, controller: AbortController) => {
-      const videoResponse = await fetch(`/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}`, {
+      const videoResponse = await fetch(`/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}`, {
         cache: 'no-store',
         signal: controller.signal,
       });
       const video = await videoResponse.json().catch(() => null);
       if (video?.available && (video.videoUrl || video.url)) return String(video.videoUrl || video.url);
-
-      const modelResponse = await fetch(`/api/avatar-animation-model?avatarUrl=${encodeURIComponent(avatarUrl)}`, {
-        cache: 'no-store',
-        signal: controller.signal,
-      });
-      const model = await modelResponse.json().catch(() => null);
-      if (model?.available && (model.url || model.proxyUrl)) return String(model.url || model.proxyUrl);
-
       return '';
     };
 
@@ -85,7 +78,7 @@ export default function AvatarModelPreloader({ players, max = 12, onProgress, on
 
     const run = async () => {
       const queue = [...avatarUrls];
-      const workers = Array.from({ length: Math.min(2, queue.length) }, async () => {
+      const workers = Array.from({ length: Math.min(3, queue.length) }, async () => {
         while (queue.length > 0 && !cancelled) {
           const next = queue.shift();
           if (next) await loadOne(next);
@@ -102,7 +95,7 @@ export default function AvatarModelPreloader({ players, max = 12, onProgress, on
       cancelled = true;
       controllers.forEach((controller) => controller.abort());
     };
-  }, [players, max, onProgress, onDone]);
+  }, [players, max, eventType, onProgress, onDone]);
 
   return null;
 }

@@ -96,7 +96,7 @@ export default function Avatar3DPlayer({
       if (autoRotate) {
         viewer.setAttribute('auto-rotate', '');
         viewer.setAttribute('auto-rotate-delay', '0');
-        viewer.setAttribute('rotation-per-second', '28deg');
+        viewer.setAttribute('rotation-per-second', '45deg');
       } else {
         viewer.removeAttribute('auto-rotate');
       }
@@ -142,7 +142,6 @@ export default function Avatar3DPlayer({
     applyView();
     viewer.addEventListener('load', applyAnimation);
     viewer.addEventListener('model-visibility', applyAnimation);
-    viewer.addEventListener('camera-change', applyView);
     viewer.addEventListener('error', onError);
     const retryTimers = [900, 2400, 4800].map((delay) => window.setTimeout(applyAnimation, delay));
     const failTimer = window.setTimeout(() => {
@@ -157,7 +156,6 @@ export default function Avatar3DPlayer({
       window.clearTimeout(failTimer);
       viewer.removeEventListener('load', applyAnimation);
       viewer.removeEventListener('model-visibility', applyAnimation);
-      viewer.removeEventListener('camera-change', applyView);
       viewer.removeEventListener('error', onError);
     };
   }, [autoRotate, cameraOrbit, cameraTarget, clipCandidates, clipIndex, currentSrc, fieldOfView, modelReady, orientation, scriptReady, sourceIndex, sources]);
@@ -202,7 +200,7 @@ export default function Avatar3DPlayer({
         'camera-target': cameraTarget,
         'field-of-view': fieldOfView,
         orientation,
-        ...(autoRotate ? { 'auto-rotate': true, 'auto-rotate-delay': '0', 'rotation-per-second': '28deg' } : {}),
+        ...(autoRotate ? { 'auto-rotate': true, 'auto-rotate-delay': '0', 'rotation-per-second': '45deg' } : {}),
         style: { width: '100%', height: '100%', minHeight: 260, background: 'linear-gradient(180deg, #eef2ff 0%, #dbeafe 100%)' },
       } as any) : (
         <div className="flex h-full min-h-[260px] items-center justify-center bg-indigo-50 text-indigo-300">

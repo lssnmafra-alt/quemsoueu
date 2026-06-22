@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ChatMenu from './ChatMenu';
 import { motion } from 'motion/react';
-import { Check, Copy, Cpu, LogOut, MessageCircle, Palette, Play, Search, Settings, Shield, Sparkles, Timer, Users } from 'lucide-react';
+import { Check, Copy, Cpu, LogOut, MessageCircle, Palette, Play, Search, Settings, Shield, Sparkles, Timer, UserPlus, Users } from 'lucide-react';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import AvatarPickerModal from '@/components/avatar/AvatarPickerModal';
 import { avatarSelectionToUrl, selectionFromAvatarUrl, type AvatarSelection } from '@/lib/avatars';
@@ -33,6 +33,9 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [settingsNotice, setSettingsNotice] = useState('');
   const [shareNotice, setShareNotice] = useState('');
+  const [acceptedFriends, setAcceptedFriends] = useState<any[]>([]);
+  const [friendInviteNotice, setFriendInviteNotice] = useState('');
+  const [busyFriendId, setBusyFriendId] = useState('');
   const startNudgeRef = useRef<string | null>(null);
   const repairNudgeRef = useRef<string | null>(null);
 
@@ -72,6 +75,19 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   useEffect(() => {
     setBotsCount((current) => Math.min(current, maxBots));
   }, [maxBots, botRowsCount]);
+
+  useEffect(() => {
+    if (!isAdmin || !me?.user_id) return;
+    let cancelled = false;
+    async function loadFriends() {
+      const response = await fetch(`/api/social/friends?userId=${encodeURIComponent(me.user_id)}`, { cache: 'no-store' }).catch(() => null);
+      const result = response ? await response.json().catch(() => ({})) : {};
+      if (cancelled) return;
+      setAcceptedFriends(Array.isArray(result.friends) ? result.friends : []);
+    }
+    void loadFriends();
+    return () => { cancelled = true; };
+  }, [isAdmin, me?.user_id]);
 
   useEffect(() => {
     if (room.status !== 'LOBBY' || !room.turn_expires_at) {
@@ -140,6 +156,27 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const shareOnWhatsApp = () => {
     if (!roomInviteLink) return;
     window.open(`https://wa.me/?text=${encodeURIComponent(inviteText)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const inviteFriendToRoom = async (friendProfileId: string) => {
+    if (!isAdmin || !me?.user_id || !friendProfileId || busyFriendId) return;
+    setBusyFriendId(friendProfileId);
+    setFriendInviteNotice('');
+    try {
+      const response = await fetch('/api/social/room-invites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: me.user_id, targetId: friendProfileId, roomId: room.id, message: inviteText }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Nao foi possivel convidar.');
+      setFriendInviteNotice('Convite enviado.');
+    } catch (error: any) {
+      setFriendInviteNotice(error.message || 'Nao foi possivel convidar. Copie o link.');
+    } finally {
+      setBusyFriendId('');
+      setTimeout(() => setFriendInviteNotice(''), 2800);
+    }
   };
 
   const saveAvatar = async (selection: AvatarSelection) => {
@@ -224,8 +261,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {p.is_admin && <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2.5 py-0.5 border border-amber-200 rounded-full flex items-center gap-1"><Shield className="w-3 h-3" /> Dono da Sala</span>}
                         {!p.is_admin && <span className="text-[10px] bg-slate-50 text-slate-600 px-2.5 py-0.5 border border-slate-200 rounded-full">Jogador</span>}
-                        {p.is_bot && <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-0.5 border border-indigo-200 rounded-full font-bold">Bot Convidado</span>}
-                        {isMe && <span className="text-[10px] bg-indigo-600 text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm">Você</span>}
+                        {p.is_bot && <span className="text-[10px] bg-violet-50 text-violet-700 px-2.5 py-0.5 border border-violet-200 rounded-full flex items-center gap-1"><Cpu className="w-3 h-3" /> Bot</span>}
                       </div>
                     </div>
                   </motion.div>
@@ -233,13 +269,36 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
               })}
             </div>
 
-            <div className="bg-white border-4 border-emerald-100 rounded-3xl p-4 shadow-md">
-              <p className="text-xs font-black uppercase tracking-wider text-emerald-600">Convidar amigos</p>
-              <p className="mt-1 text-xs font-bold text-slate-500 break-all">{roomInviteLink}</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+            <div className="bg-white border-4 border-emerald-100 rounded-3xl p-4 shadow-md space-y-3">
+              <p className="text-xs font-black uppercase tracking-wider text-emerald-600">Convidar para sala</p>
+              <p className="text-xs font-bold text-slate-500 break-all">{roomInviteLink}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Button type="button" onClick={shareOnWhatsApp} className="h-11 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2"><MessageCircle className="h-4 w-4" /> WhatsApp</Button>
                 <Button type="button" variant="ghost" onClick={copyInviteLink} className="h-11 rounded-2xl border-2 border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2">{shareNotice ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {shareNotice || 'Copiar link'}</Button>
               </div>
+              {isAdmin && (
+                <div className="rounded-2xl border-2 border-emerald-50 bg-emerald-50/50 p-3">
+                  <p className="mb-2 flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-700"><UserPlus className="h-3.5 w-3.5" /> Amigos adicionados</p>
+                  {acceptedFriends.length === 0 ? (
+                    <p className="text-xs font-bold text-slate-500">Nenhum amigo aceito ainda. Use a tela Amigos para adicionar.</p>
+                  ) : (
+                    <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
+                      {acceptedFriends.map((row: any) => {
+                        const friend = row.other_profile;
+                        if (!friend?.id) return null;
+                        return (
+                          <div key={friend.id} className="flex items-center gap-2 rounded-xl border border-emerald-100 bg-white p-2">
+                            <AvatarFigure avatarUrl={friend.avatar_url} label={friend.nickname} className="h-9 w-9 rounded-xl border border-emerald-100 bg-white" />
+                            <p className="min-w-0 flex-1 truncate text-xs font-black text-indigo-950">{friend.nickname || 'Jogador'}</p>
+                            <Button type="button" size="sm" onClick={() => inviteFriendToRoom(friend.id)} disabled={busyFriendId === friend.id} className="h-8 rounded-xl bg-emerald-500 px-3 text-[10px] font-black uppercase text-white hover:bg-emerald-600">{busyFriendId === friend.id ? 'Enviando' : 'Convidar'}</Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {friendInviteNotice && <p className="mt-2 text-[11px] font-black uppercase text-emerald-700">{friendInviteNotice}</p>}
+                </div>
+              )}
             </div>
           </motion.div>
 

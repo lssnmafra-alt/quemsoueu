@@ -7,7 +7,7 @@ import { touchRoomActivity } from './roomLifecycle';
 import { applyVoteDamage } from './voteDamage';
 
 const LOBBY_COUNTDOWN_MS = 5_000;
-const BOT_THINK_MS = 4_500;
+const BOT_THINK_MS = 9_000;
 const ADMIN_STALE_MS = 10_000;
 
 type TickOptions = {
@@ -65,6 +65,17 @@ function isBotHostedAutoLobby(room: any, players: any[]) {
 function getHitPlayerIdsFromEvent(event: any) {
   const ids = event?.metadata?.hit_player_ids;
   return Array.isArray(ids) ? ids.filter((id: unknown) => typeof id === 'string') : [];
+}
+
+async function hasLiveCards(roomId: string) {
+  const { data } = await supabaseGame
+    .from('player_cards')
+    .select('id')
+    .eq('room_id', roomId)
+    .eq('is_dead', false)
+    .limit(1);
+
+  return Boolean(data?.length);
 }
 
 async function getResolvedVoteEvent(room: any) {
@@ -268,6 +279,30 @@ async function resolvePlayingTick(room: any, players: any[]): Promise<TickResult
   return { ok: true, roomId: room.id, action: 'human-timeout-applied', result: timeout };
 }
 
+async function resolveStartingTick(room: any): Promise<TickResult> {
+  const expiresMs = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
+  if (expiresMs && expiresMs > Date.now()) return { ok: true, roomId: room.id, action: 'starting-countdown-running' };
+
+  const liveCardsExist = await hasLiveCards(room.id);
+
+  if (!liveCardsExist) {
+    await supabaseGame
+      .from('rooms')
+      .update({
+        status: 'PICKING',
+        turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
+      })
+      .eq('id', room.id)
+      .eq('status', 'STARTING');
+    await touchRoomActivity(room.id);
+    return { ok: true, roomId: room.id, action: 'starting-to-picking-after-preload' };
+  }
+
+  await supabaseGame.from('rooms').update({ status: 'PLAYING', turn_expires_at: new Date(Date.now() + ((room.vote_time_seconds || 30) * 1000)).toISOString() }).eq('id', room.id).eq('status', 'STARTING');
+  await touchRoomActivity(room.id);
+  return { ok: true, roomId: room.id, action: 'starting-to-playing' };
+}
+
 export async function resolveRoomTick(roomId: string, options: TickOptions = {}): Promise<TickResult> {
   const [{ data: room }, { data: players }] = await Promise.all([
     supabaseGame.from('rooms').select('*').eq('id', roomId).maybeSingle(),
@@ -285,14 +320,7 @@ export async function resolveRoomTick(roomId: string, options: TickOptions = {})
     return { ok: Boolean(result.ok), roomId: room.id, action: result.skipped ? 'picking-waiting' : 'picking-finalized', result };
   }
 
-  if (room.status === 'STARTING') {
-    const expiresMs = room.turn_expires_at ? new Date(room.turn_expires_at).getTime() : 0;
-    if (expiresMs && expiresMs > Date.now()) return { ok: true, roomId: room.id, action: 'starting-countdown-running' };
-
-    await supabaseGame.from('rooms').update({ status: 'PLAYING', turn_expires_at: new Date(Date.now() + ((room.vote_time_seconds || 30) * 1000)).toISOString() }).eq('id', room.id).eq('status', 'STARTING');
-    await touchRoomActivity(room.id);
-    return { ok: true, roomId: room.id, action: 'starting-to-playing' };
-  }
+  if (room.status === 'STARTING') return resolveStartingTick(room);
 
   if (room.status === 'PLAYING') return resolvePlayingTick(room, players || []);
   return { ok: true, roomId: room.id, action: `ignored-${room.status}` };

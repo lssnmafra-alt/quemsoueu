@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Quicksand } from 'next/font/google';
 import './globals.css'; // Global styles
+import AdSenseGate from '@/components/AdSenseGate';
 import AudioToggle from '@/components/AudioToggle';
 import AuthBootstrap from '@/components/AuthBootstrap';
 import RoomInviteInbox from '@/components/RoomInviteInbox';
@@ -31,9 +32,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           id="quem-sou-eu-runtime-env"
           dangerouslySetInnerHTML={{ __html: getPublicRuntimeEnvScript() }}
         />
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4115543805172090"
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="font-sans bg-[#f5f6ff] text-indigo-950" suppressHydrationWarning>
         <AuthBootstrap />
+        <AdSenseGate />
         {children}
         <AudioToggle />
         <RoomInviteInbox />

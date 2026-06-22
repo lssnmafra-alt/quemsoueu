@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { audioManager } from '@/lib/audioManager';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import AvatarAnimationShowcase from '@/components/avatar/AvatarAnimationShowcase';
+import AvatarModelPreloader from '@/components/avatar/AvatarModelPreloader';
 
 const STATIC_INTRO_SECONDS = 2;
 
@@ -62,6 +63,7 @@ export default function RoomStarting({ room, players }: any) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 md:p-6 bg-[#f5f6ff] font-sans text-indigo-950 party-grid-bg relative overflow-hidden">
+      <AvatarModelPreloader players={orderedPlayers} />
       <div className="max-w-6xl w-full text-center relative z-10">
         <AnimatePresence mode="wait">
           {countdownNumber ? (

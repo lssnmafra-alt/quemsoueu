@@ -6,8 +6,11 @@ import { audioManager } from '@/lib/audioManager';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import AvatarAnimationShowcase from '@/components/avatar/AvatarAnimationShowcase';
 
+const STATIC_INTRO_SECONDS = 3;
+const FOCUS_SECONDS = 6;
+
 function openingDurationSeconds(playerCount: number) {
-  return Math.max(8, Math.min(22, 2 + Math.max(1, playerCount) * 2));
+  return Math.max(14, Math.min(75, STATIC_INTRO_SECONDS + Math.max(1, playerCount) * FOCUS_SECONDS));
 }
 
 export default function RoomStarting({ room, players }: any) {
@@ -20,7 +23,7 @@ export default function RoomStarting({ room, players }: any) {
   const orderedPlayers = [...visiblePlayers].sort((a, b) => (a.play_order || 0) - (b.play_order || 0));
   const totalSeconds = Math.max(totalSecondsRef.current, openingDurationSeconds(orderedPlayers.length || 1));
   const elapsedSeconds = Math.max(0, totalSeconds - timeLeft);
-  const focusIndex = elapsedSeconds < 2 ? -1 : Math.min(orderedPlayers.length - 1, Math.floor((elapsedSeconds - 2) / 2));
+  const focusIndex = elapsedSeconds < STATIC_INTRO_SECONDS ? -1 : Math.min(orderedPlayers.length - 1, Math.floor((elapsedSeconds - STATIC_INTRO_SECONDS) / FOCUS_SECONDS));
   const focusedPlayer = focusIndex >= 0 ? orderedPlayers[focusIndex] : null;
   const countdownNumber = timeLeft > 0 && timeLeft <= 3 ? timeLeft : null;
 

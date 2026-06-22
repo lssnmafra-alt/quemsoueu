@@ -4,6 +4,7 @@ import { supabaseGame } from '@/lib/supabase';
 import { Trophy, Medal, Crown, Skull, Target, XCircle, Clock, ScrollText, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
+import AvatarAnimationShowcase from '@/components/avatar/AvatarAnimationShowcase';
 
 export default function RoomFinished({ room, players, me, isAdmin, leaveRoom }: any) {
   const [events, setEvents] = useState<any[]>([]);
@@ -116,6 +117,8 @@ export default function RoomFinished({ room, players, me, isAdmin, leaveRoom }: 
   }, [eliminationOrder, players]);
 
   const winner = ranking.find((p: any) => !p.is_eliminated && (p.lives || 0) > 0);
+  const meFinishedPlayer = me?.id ? players.find((player: any) => player.id === me.id) : null;
+  const showMyDefeat = Boolean(meFinishedPlayer && winner && winner.id !== meFinishedPlayer.id);
   const hasEventHistory = events.length > 0;
 
   const resetGame = async () => {
@@ -203,6 +206,30 @@ export default function RoomFinished({ room, players, me, isAdmin, leaveRoom }: 
             <h3 className="text-2xl font-black text-rose-950 font-display">
               Todos foram eliminados!
             </h3>
+          </div>
+        )}
+
+        {winner && (
+          <div className="mb-6">
+            <AvatarAnimationShowcase
+              player={winner}
+              eventType="victory"
+              title="Animação de vitória"
+              subtitle={`${winner.nickname} venceu a partida`}
+              compact
+            />
+          </div>
+        )}
+
+        {showMyDefeat && meFinishedPlayer && (
+          <div className="mb-6">
+            <AvatarAnimationShowcase
+              player={meFinishedPlayer}
+              eventType="defeat"
+              title="Animação de derrota"
+              subtitle={`${meFinishedPlayer.nickname} foi eliminado`}
+              compact
+            />
           </div>
         )}
 

@@ -1,0 +1,33 @@
+@keyframes qse-toast-autohide {
+  0%, 78% { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0; transform: translateX(1rem) scale(0.96); visibility: hidden; }
+}
+
+/* Gameplay action log: keep notices off the board and fade them after 4 seconds. */
+.fixed.right-4.top-20 {
+  top: auto !important;
+  right: 0.75rem !important;
+  bottom: 5.75rem !important;
+  align-items: flex-end !important;
+  max-width: min(22rem, calc(100vw - 1.5rem)) !important;
+}
+
+.fixed.right-4.top-20 > * {
+  max-width: min(22rem, calc(100vw - 1.5rem)) !important;
+  animation: qse-toast-autohide 4s ease-out forwards !important;
+}
+
+@media (max-width: 640px) {
+  .fixed.right-4.top-20 {
+    right: 0.7rem !important;
+    bottom: 5.4rem !important;
+  }
+
+  .fixed.right-4.top-20 > * {
+    max-width: 78vw !important;
+    padding: 0.65rem 0.8rem !important;
+    border-radius: 1rem !important;
+    font-size: 0.68rem !important;
+    line-height: 1.15 !important;
+  }
+}

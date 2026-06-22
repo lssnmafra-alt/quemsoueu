@@ -6,7 +6,7 @@ import { ShieldCheck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const ADSENSE_CLIENT = 'ca-pub-2251564645159029';
-const ADSENSE_GATE_SLOT = '7846590607';
+const ADSENSE_GATE_SLOT = '5229834429';
 const ADSENSE_GATE_ENABLED = process.env.NEXT_PUBLIC_ADSENSE_GATE_ENABLED === 'true';
 const LAST_ACTIVITY_KEY = 'quemSouEu:lastPlayerActivityAt';
 const HAS_SEEN_AD_KEY = 'quemSouEu:hasSeenAdsenseGate';

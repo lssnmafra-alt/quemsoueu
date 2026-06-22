@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/'];
+const DEFAULT_MUSIC_FOLDERS = ['Disco', 'Eletronic', 'Indie', 'K-pop', 'Rock'];
 const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
 
 type AudioTrack = {
@@ -20,6 +21,11 @@ export async function GET() {
     const tracks = await listAllTracks();
     const grouped = new Map<string, { id: string; name: string; folder: string; tracks: AudioTrack[] }>();
 
+    for (const folder of DEFAULT_MUSIC_FOLDERS) {
+      const id = normalizeComparable(folder);
+      grouped.set(id, { id, name: humanize(folder), folder, tracks: [] });
+    }
+
     for (const track of tracks) {
       const id = normalizeComparable(track.genre || track.folder || 'Musicas');
       const current = grouped.get(id) || { id, name: track.genre || 'Musicas', folder: track.folder || '', tracks: [] };
@@ -31,10 +37,10 @@ export async function GET() {
       .map((genre) => ({ ...genre, tracks: genre.tracks.sort((a, b) => a.title.localeCompare(b.title, 'pt-BR')) }))
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
-    return NextResponse.json({ genres, tracks, prefixes: MUSIC_PREFIXES }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ genres, tracks, prefixes: MUSIC_PREFIXES, defaultFolders: DEFAULT_MUSIC_FOLDERS }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
     console.error('Audio library error:', error);
-    return NextResponse.json({ genres: [], tracks: [], prefixes: MUSIC_PREFIXES, error: error.message || 'Nao foi possivel listar as musicas.' }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ genres: [], tracks: [], prefixes: MUSIC_PREFIXES, defaultFolders: DEFAULT_MUSIC_FOLDERS, error: error.message || 'Nao foi possivel listar as musicas.' }, { headers: { 'Cache-Control': 'no-store' } });
   }
 }
 

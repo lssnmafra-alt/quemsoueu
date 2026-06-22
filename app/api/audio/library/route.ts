@@ -4,9 +4,35 @@ import { listR2Objects } from '@/lib/r2Storage';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/', 'music/', 'Music/'];
-const MUSIC_SCAN_PREFIXES = ['atuem/', 'music/', 'Music/'];
-const DEFAULT_MUSIC_FOLDERS = ['Disco', 'Eletronic', 'Indie', 'K-pop', 'Rock'];
+const MUSIC_PREFIXES = [
+  'atuem/music/',
+  'atuem/atuem/music/',
+  'atuem/Music/',
+  'atuem/musica/',
+  'atuem/atuem/musica/',
+  'atuem/Musica/',
+  'atuem/Música/',
+  'atuem/musicas/',
+  'atuem/atuem/musicas/',
+  'atuem/Musicas/',
+  'atuem/Músicas/',
+  'atuem/audio/',
+  'atuem/atuem/audio/',
+  'atuem/audios/',
+  'music/',
+  'Music/',
+  'musica/',
+  'Musica/',
+  'música/',
+  'musicas/',
+  'Musicas/',
+  'Músicas/',
+  'audio/',
+  'audios/',
+];
+const MUSIC_SCAN_PREFIXES = ['atuem/', 'music/', 'Music/', 'musica/', 'musicas/', 'audio/', 'audios/'];
+const MUSIC_FOLDER_NAMES = ['music', 'musica', 'música', 'musicas', 'músicas', 'audio', 'audios', 'áudio', 'áudios'];
+const DEFAULT_MUSIC_FOLDERS = ['Disco', 'Eletrônica', 'Indie', 'K-pop', 'Rock'];
 const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
 
 type AudioTrack = {
@@ -71,13 +97,13 @@ function addTrack(rawKey: unknown, tracks: AudioTrack[], seenKeys: Set<string>) 
 }
 
 function isMusicKey(key: string) {
-  const lower = key.toLowerCase();
-  return lower.startsWith('music/') || lower.includes('/music/') || lower.includes('/musica/') || lower.includes('/música/');
+  const parts = key.split('/').filter(Boolean).map((part) => normalizeComparable(part));
+  return parts.some((part) => MUSIC_FOLDER_NAMES.map(normalizeComparable).includes(part));
 }
 
 function genreFromKey(key: string) {
   const parts = key.split('/').filter(Boolean);
-  const musicIndex = parts.findIndex((part) => ['music', 'musica', 'música'].includes(part.toLowerCase()));
+  const musicIndex = parts.findIndex((part) => MUSIC_FOLDER_NAMES.map(normalizeComparable).includes(normalizeComparable(part)));
   const folder = musicIndex >= 0 && parts[musicIndex + 1] ? parts[musicIndex + 1] : parts.length > 1 ? parts[parts.length - 2] : 'Musicas';
   return { folder, genre: humanize(folder) || 'Musicas' };
 }

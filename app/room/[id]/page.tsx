@@ -40,8 +40,6 @@ export default function RoomPage() {
   const [loading, setLoading] = useState(true);
   const [roomNotices, setRoomNotices] = useState<{ id: string; text: string }[]>([]);
   const pickingFinalizeAttemptAtRef = useRef(0);
-  const initialRoomPreloadRef = useRef<Promise<void> | null>(null);
-  const initialRoomPreloadDoneRef = useRef(false);
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
@@ -80,7 +78,6 @@ export default function RoomPage() {
       let normalizedPlayers = currentPlayers.filter((p: any, index: number, list: any[]) => (
         p.user_id !== user.id || list.findIndex((item: any) => item.user_id === user.id) === index
       ));
-      let playersForPreload = normalizedPlayers;
 
       if (alreadyInRoom) {
         const updates: Record<string, any> = {};
@@ -93,7 +90,6 @@ export default function RoomPage() {
         if (Object.keys(updates).length > 0) {
           await supabaseGame.from('room_players').update(updates).eq('id', alreadyInRoom.id);
           normalizedPlayers = normalizedPlayers.map((player: any) => player.id === alreadyInRoom.id ? { ...player, ...updates } : player);
-          playersForPreload = normalizedPlayers;
         }
       }
 
@@ -132,28 +128,12 @@ export default function RoomPage() {
         }).select().single();
 
         if (newP) {
-          playersForPreload = [...normalizedPlayers, newP];
-          setPlayers(playersForPreload);
+          setPlayers([...normalizedPlayers, newP]);
           setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${newP.nickname} entrou na sala` }]);
           requestAdvance(true);
           setTimeout(() => requestAdvance(false), 1200);
           setTimeout(() => requestAdvance(false), 5200);
         }
-      }
-
-      if (!initialRoomPreloadDoneRef.current) {
-        if (!initialRoomPreloadRef.current) {
-          initialRoomPreloadRef.current = preloadRoomAssets({
-            room: rm,
-            players: playersForPreload,
-            profile,
-            userId: user.id,
-            minMs: 4300,
-          }).catch(() => {});
-        }
-
-        await initialRoomPreloadRef.current;
-        initialRoomPreloadDoneRef.current = true;
       }
 
       setLoading(false);
@@ -190,7 +170,7 @@ export default function RoomPage() {
       clearInterval(poll);
       subs1.unsubscribe();
     };
-  }, [authInitialized, authLoading, user, roomId, profile, profile?.nickname, profile?.avatar_url, router]);
+  }, [authInitialized, authLoading, user, roomId, profile?.nickname, profile?.avatar_url, router]);
 
   useEffect(() => {
     if (!room?.status) return;
@@ -218,6 +198,13 @@ export default function RoomPage() {
     if (!room || !user || !me) return false;
     return room.admin_id === user.id || Boolean(me.is_admin);
   }, [room, user, me]);
+
+  const isPrePickLoading = room?.status === 'STARTING' && enrichedPlayers.some((player: any) => player.play_order === null || player.play_order === undefined);
+
+  useEffect(() => {
+    if (!isPrePickLoading || !room?.id || !user?.id) return;
+    void preloadRoomAssets({ room, players: enrichedPlayers, profile, userId: user.id, minMs: 0 });
+  }, [isPrePickLoading, room?.id, room?.status, enrichedPlayers, profile, user?.id]);
 
   const winner = useMemo(() => (
     enrichedPlayers.find((p: any) => !p.is_eliminated && (p.lives || 0) > 0)
@@ -257,6 +244,7 @@ export default function RoomPage() {
   if (!authInitialized || authLoading || loading || !room) return <LoadingArena label="Carregando sala..." />;
   if (!user) return null;
   if (!me) return <LoadingArena label="Entrando na sala..." />;
+  if (isPrePickLoading) return <LoadingArena label="Preparando partida..." />;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans">

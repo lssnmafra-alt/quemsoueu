@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/lib/store';
-import { supabaseAuth } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import GoogleLoginButton from '@/components/auth/GoogleLoginButton';
 import { moderateText } from '@/app/actions/moderate';
 import { motion } from 'motion/react';
-import { Mail, Play, Sparkles, Smile, Gamepad2 } from 'lucide-react';
+import { Play, Sparkles, Smile, Gamepad2 } from 'lucide-react';
 
 function profileNeedsSetup(profile: any) {
   if (!profile) return true;
@@ -26,15 +26,6 @@ export default function LoginPage() {
     if (!authInitialized || authLoading || !user) return;
     router.push(profileNeedsSetup(profile) ? '/profile?next=/lobby' : '/lobby');
   }, [authInitialized, authLoading, router, user, profile]);
-
-  const handleGoogleLogin = async () => {
-    await supabaseAuth.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/profile?next=/lobby`,
-      },
-    });
-  };
 
   const handleGuestLogin = async () => {
     if (!nickname.trim()) {
@@ -148,14 +139,7 @@ export default function LoginPage() {
               <div className="flex-1 h-0.5 bg-slate-200"></div>
             </div>
 
-            <Button
-              onClick={handleGoogleLogin}
-              variant="outline"
-              className="w-full h-12 bg-white border-2 border-slate-200 hover:border-indigo-400 text-slate-700 font-bold tracking-wide rounded-xl transition-all flex items-center justify-center gap-2 hover:bg-indigo-50 cursor-pointer"
-            >
-              <Mail className="w-4 h-4 text-indigo-500" />
-              <span>Entrar com Google</span>
-            </Button>
+            <GoogleLoginButton redirectTo="/profile?next=/lobby" />
           </div>
 
           <div className="flex justify-center gap-4 text-xs font-semibold text-white/85 font-mono drop-shadow">

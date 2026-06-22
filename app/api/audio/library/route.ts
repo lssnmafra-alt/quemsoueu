@@ -4,7 +4,8 @@ import { listR2Objects } from '@/lib/r2Storage';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/'];
+const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/', 'music/', 'Music/'];
+const MUSIC_SCAN_PREFIXES = ['atuem/', 'music/', 'Music/'];
 const DEFAULT_MUSIC_FOLDERS = ['Disco', 'Eletronic', 'Indie', 'K-pop', 'Rock'];
 const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
 
@@ -37,34 +38,47 @@ export async function GET() {
       .map((genre) => ({ ...genre, tracks: genre.tracks.sort((a, b) => a.title.localeCompare(b.title, 'pt-BR')) }))
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
-    return NextResponse.json({ genres, tracks, prefixes: MUSIC_PREFIXES, defaultFolders: DEFAULT_MUSIC_FOLDERS }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ genres, tracks, prefixes: MUSIC_PREFIXES, scanPrefixes: MUSIC_SCAN_PREFIXES, defaultFolders: DEFAULT_MUSIC_FOLDERS }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
     console.error('Audio library error:', error);
-    return NextResponse.json({ genres: [], tracks: [], prefixes: MUSIC_PREFIXES, defaultFolders: DEFAULT_MUSIC_FOLDERS, error: error.message || 'Nao foi possivel listar as musicas.' }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ genres: [], tracks: [], prefixes: MUSIC_PREFIXES, scanPrefixes: MUSIC_SCAN_PREFIXES, defaultFolders: DEFAULT_MUSIC_FOLDERS, error: error.message || 'Nao foi possivel listar as musicas.' }, { headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
 async function listAllTracks(): Promise<AudioTrack[]> {
   const tracks: AudioTrack[] = [];
+  const seenKeys = new Set<string>();
 
   for (const prefix of MUSIC_PREFIXES) {
     const listed = await listR2Objects(prefix, 5000);
-    for (const object of listed || []) {
-      const key = String(object.key || '');
-      if (!isAudioKey(key)) continue;
-      const { folder, genre } = genreFromKey(key, prefix);
-      tracks.push({ key, title: cleanTitle(key), genre, folder, url: `/api/r2-file?key=${encodeURIComponent(key)}` });
-    }
+    for (const object of listed || []) addTrack(object.key, tracks, seenKeys);
   }
 
-  const unique = new Map<string, AudioTrack>();
-  tracks.forEach((track) => unique.set(track.key, track));
-  return [...unique.values()].sort((a, b) => a.key.localeCompare(b.key));
+  for (const prefix of MUSIC_SCAN_PREFIXES) {
+    const listed = await listR2Objects(prefix, 5000);
+    for (const object of listed || []) addTrack(object.key, tracks, seenKeys);
+  }
+
+  return tracks.sort((a, b) => a.key.localeCompare(b.key));
 }
 
-function genreFromKey(key: string, prefix: string) {
-  const rest = key.startsWith(prefix) ? key.slice(prefix.length) : key;
-  const folder = rest.split('/')[0] || 'Musicas';
+function addTrack(rawKey: unknown, tracks: AudioTrack[], seenKeys: Set<string>) {
+  const key = String(rawKey || '');
+  if (!isAudioKey(key) || seenKeys.has(key) || !isMusicKey(key)) return;
+  seenKeys.add(key);
+  const { folder, genre } = genreFromKey(key);
+  tracks.push({ key, title: cleanTitle(key), genre, folder, url: `/api/r2-file?key=${encodeURIComponent(key)}` });
+}
+
+function isMusicKey(key: string) {
+  const lower = key.toLowerCase();
+  return lower.startsWith('music/') || lower.includes('/music/') || lower.includes('/musica/') || lower.includes('/música/');
+}
+
+function genreFromKey(key: string) {
+  const parts = key.split('/').filter(Boolean);
+  const musicIndex = parts.findIndex((part) => ['music', 'musica', 'música'].includes(part.toLowerCase()));
+  const folder = musicIndex >= 0 && parts[musicIndex + 1] ? parts[musicIndex + 1] : parts.length > 1 ? parts[parts.length - 2] : 'Musicas';
   return { folder, genre: humanize(folder) || 'Musicas' };
 }
 

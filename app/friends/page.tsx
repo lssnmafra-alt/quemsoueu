@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Ban, Check, Search, Shield, UserPlus, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -99,7 +99,7 @@ export default function FriendsPage() {
               <ArrowLeft className="h-4 w-4" /> Voltar ao lobby
             </button>
             <h1 className="text-3xl md:text-5xl font-black font-display">Amigos</h1>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Envie pedidos, aceite convites e bloqueie usuários.</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Busque jogadores, envie pedidos e gerencie bloqueios.</p>
           </div>
           <AvatarFigure avatarUrl={profile?.avatar_url} label={profile?.nickname || 'Jogador'} className="h-16 w-16 rounded-2xl border-4 border-indigo-200 bg-white" />
         </header>
@@ -109,12 +109,14 @@ export default function FriendsPage() {
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Digite o nickname..." className="h-12 rounded-2xl border-2 border-indigo-100 font-bold" />
           {search.trim().length >= 2 && (
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {searchResults.length === 0 ? <EmptyCard text="Nenhum jogador encontrado." /> : searchResults.map((item) => {
+              {loadingList ? <EmptyCard text="Buscando jogadores..." /> : searchResults.length === 0 ? <EmptyCard text="Nenhum jogador encontrado." /> : searchResults.map((item) => {
                 const existing = existingByProfileId.get(item.id);
                 return (
                   <ProfileCard key={item.id} profile={item} subtext={relationLabel(existing)}>
                     <Button size="sm" variant="outline" onClick={() => router.push(`/profile/${item.id}`)} className="rounded-xl text-[10px] font-black uppercase">Perfil</Button>
                     {!existing && <Button size="sm" onClick={() => action(item.id, 'request')} disabled={busy === `request:${item.id}`} className="rounded-xl text-[10px] font-black uppercase"><UserPlus className="mr-1 h-3.5 w-3.5" />Adicionar</Button>}
+                    {existing?.status === 'pending' && existing.direction === 'incoming' && <Button size="sm" onClick={() => action(item.id, 'accept')} disabled={busy === `accept:${item.id}`} className="rounded-xl text-[10px] font-black uppercase"><Check className="mr-1 h-3.5 w-3.5" />Aceitar</Button>}
+                    {existing?.status === 'pending' && <Button size="sm" variant="outline" onClick={() => action(item.id, existing.direction === 'incoming' ? 'decline' : 'cancel')} disabled={busy.includes(`:${item.id}`)} className="rounded-xl text-[10px] font-black uppercase">{existing.direction === 'incoming' ? 'Recusar' : 'Cancelar'}</Button>}
                     {existing?.status !== 'blocked' && <Button size="sm" variant="outline" onClick={() => action(item.id, 'block')} className="rounded-xl text-[10px] font-black uppercase text-rose-600"><Ban className="mr-1 h-3.5 w-3.5" />Bloquear</Button>}
                   </ProfileCard>
                 );
@@ -132,7 +134,7 @@ export default function FriendsPage() {
           </SocialSection>
 
           <SocialSection title="Pedidos enviados" icon={<Users className="h-5 w-5 text-indigo-500" />} rows={outgoing} empty="Nenhum pedido enviado.">
-            {(row) => <Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'remove')} className="rounded-xl text-[10px] font-black uppercase">Cancelar</Button>}
+            {(row) => <Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'cancel')} className="rounded-xl text-[10px] font-black uppercase">Cancelar</Button>}
           </SocialSection>
 
           <SocialSection title="Meus amigos" icon={<Users className="h-5 w-5 text-emerald-500" />} rows={friends} empty="Você ainda não tem amigos adicionados.">
@@ -152,7 +154,7 @@ export default function FriendsPage() {
   );
 }
 
-function SocialSection({ title, icon, rows, empty, children }: { title: string; icon: React.ReactNode; rows: SocialRow[]; empty: string; children: (row: SocialRow) => React.ReactNode }) {
+function SocialSection({ title, icon, rows, empty, children }: { title: string; icon: ReactNode; rows: SocialRow[]; empty: string; children: (row: SocialRow) => ReactNode }) {
   return (
     <section className="rounded-3xl border-4 border-indigo-100 bg-white p-5 shadow-xl">
       <h2 className="mb-4 flex items-center gap-2 text-lg font-black uppercase">{icon}{title}</h2>
@@ -163,16 +165,18 @@ function SocialSection({ title, icon, rows, empty, children }: { title: string; 
   );
 }
 
-function ProfileCard({ profile, subtext, children }: { profile: any; subtext?: string; children?: React.ReactNode }) {
+function ProfileCard({ profile, subtext, children }: { profile: any; subtext?: string; children?: ReactNode }) {
   if (!profile) return <EmptyCard text="Perfil indisponível." />;
   return (
-    <div className="flex items-center gap-3 rounded-2xl border-2 border-indigo-50 bg-indigo-50/30 p-3">
-      <AvatarFigure avatarUrl={profile.avatar_url} label={profile.nickname} className="h-12 w-12 rounded-xl border-2 border-white bg-white" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black text-indigo-950">{profile.nickname || 'Jogador'}</p>
-        <p className="truncate text-[10px] font-black uppercase text-slate-500">{subtext || `${profile.wins || 0} vitórias · ${profile.played_matches || 0} partidas`}</p>
+    <div className="rounded-2xl border-2 border-indigo-50 bg-indigo-50/30 p-3">
+      <div className="flex items-center gap-3">
+        <AvatarFigure avatarUrl={profile.avatar_url} label={profile.nickname} className="h-14 w-14 shrink-0 rounded-2xl border-2 border-white bg-white" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-black leading-tight text-indigo-950">{profile.nickname || 'Jogador'}</p>
+          <p className="truncate text-[11px] font-black uppercase text-slate-500">{subtext || `${profile.wins || 0} vitórias · ${profile.played_matches || 0} partidas`}</p>
+        </div>
       </div>
-      <div className="flex flex-wrap justify-end gap-2">{children}</div>
+      <div className={cn('mt-3 flex flex-wrap gap-2', 'justify-start sm:justify-end')}>{children}</div>
     </div>
   );
 }

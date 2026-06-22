@@ -35,10 +35,12 @@ const MUSIC_SCAN_PREFIXES = [
   'Músicas/',
   'audio/',
   'audios/',
+  '',
 ];
 
-const MUSIC_ROOT_NAMES = ['music', 'musica', 'música', 'musicas', 'músicas', 'audio', 'audios', 'áudio', 'áudios'];
-const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
+const MUSIC_ROOT_NAMES = ['music', 'musica', 'música', 'musicas', 'músicas', 'audio', 'audios', 'áudio', 'áudios', 'sound', 'sounds', 'song', 'songs'];
+const IGNORED_PARENT_FOLDERS = ['avatar', 'avatares', 'animacao', 'animação', 'animacoes', 'animações', 'loading', 'logo', 'branding', 'cover', 'capa'];
+const AUDIO_TYPES = ['.mp3', '.mpeg', '.mpga', '.ogg', '.oga', '.wav', '.wave', '.m4a', '.aac', '.flac', '.webm', '.mp4'];
 
 type AudioTrack = {
   key: string;
@@ -54,7 +56,7 @@ export async function GET() {
   const scanErrors: string[] = [];
 
   try {
-    const { tracks, folders } = await scanMusicLibrary(scanErrors);
+    const { tracks, folders, scannedObjectCount } = await scanMusicLibrary(scanErrors);
     const grouped = new Map<string, GenreGroup>();
 
     for (const folder of folders) {
@@ -72,16 +74,17 @@ export async function GET() {
 
     const genres = [...grouped.values()]
       .map((genre) => ({ ...genre, tracks: genre.tracks.sort((a, b) => a.title.localeCompare(b.title, 'pt-BR')) }))
+      .filter((genre) => genre.tracks.length > 0)
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
     return NextResponse.json(
-      { genres, tracks, scannedPrefixes: MUSIC_SCAN_PREFIXES, scanErrors, automatic: true },
+      { genres, tracks, totalTracks: tracks.length, scannedObjectCount, scannedPrefixes: MUSIC_SCAN_PREFIXES, scanErrors, automatic: true },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error: any) {
     console.error('Audio library error:', error);
     return NextResponse.json(
-      { genres: [], tracks: [], scannedPrefixes: MUSIC_SCAN_PREFIXES, scanErrors, automatic: true, error: error.message || 'Nao foi possivel listar as musicas.' },
+      { genres: [], tracks: [], totalTracks: 0, scannedObjectCount: 0, scannedPrefixes: MUSIC_SCAN_PREFIXES, scanErrors, automatic: true, error: error.message || 'Nao foi possivel listar as musicas.' },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   }
@@ -92,28 +95,31 @@ async function scanMusicLibrary(scanErrors: string[]) {
   const folders: { genre: string; folder: string }[] = [];
   const seenKeys = new Set<string>();
   const seenFolders = new Set<string>();
+  const seenObjects = new Set<string>();
 
   for (const prefix of MUSIC_SCAN_PREFIXES) {
     let listed: Awaited<ReturnType<typeof listR2Objects>> = [];
     try {
       listed = await listR2Objects(prefix, 10000);
     } catch (error: any) {
-      scanErrors.push(`${prefix}: ${error?.message || 'falhou'}`);
+      scanErrors.push(`${prefix || '(raiz)'}: ${error?.message || 'falhou'}`);
       continue;
     }
 
     for (const object of listed || []) {
-      addFolder(object.key, folders, seenFolders);
-      addTrack(object.key, tracks, seenKeys, folders, seenFolders);
+      const key = String(object.key || '');
+      if (key) seenObjects.add(key);
+      addFolder(key, folders, seenFolders);
+      addTrack(key, tracks, seenKeys, folders, seenFolders);
     }
   }
 
-  return { tracks: tracks.sort((a, b) => a.key.localeCompare(b.key)), folders };
+  return { tracks: tracks.sort((a, b) => a.key.localeCompare(b.key)), folders, scannedObjectCount: seenObjects.size };
 }
 
 function addTrack(rawKey: unknown, tracks: AudioTrack[], seenKeys: Set<string>, folders: { genre: string; folder: string }[], seenFolders: Set<string>) {
   const key = String(rawKey || '');
-  if (!isAudioKey(key) || seenKeys.has(key)) return;
+  if (!isAudioKey(key) || seenKeys.has(key) || isIgnoredAudioKey(key)) return;
 
   const parsed = parseTrackPath(key);
   if (!parsed.genre) return;
@@ -152,14 +158,21 @@ function parseTrackPath(key: string) {
   const normalizedParts = parts.map(normalizeComparable);
   const normalizedRoots = MUSIC_ROOT_NAMES.map(normalizeComparable);
   const rootIndex = normalizedParts.findIndex((part) => normalizedRoots.includes(part));
-  const genreFolder = rootIndex >= 0 && parts[rootIndex + 1]
-    ? parts[rootIndex + 1]
-    : parts.length >= 2
-      ? parts[parts.length - 2]
-      : '';
+  const directGenreFolder = rootIndex >= 0 && parts[rootIndex + 1] ? parts[rootIndex + 1] : '';
+  const parentFolder = parts.length >= 2 ? parts[parts.length - 2] : '';
+  const genreFolder = directGenreFolder || parentFolder;
 
-  if (!genreFolder || normalizedRoots.includes(normalizeComparable(genreFolder))) return { genre: '', folder: '' };
+  if (!genreFolder) return { genre: '', folder: '' };
+  if (normalizedRoots.includes(normalizeComparable(genreFolder))) return { genre: '', folder: '' };
+  if (IGNORED_PARENT_FOLDERS.map(normalizeComparable).includes(normalizeComparable(genreFolder))) return { genre: '', folder: '' };
+
   return { genre: humanize(genreFolder), folder: genreFolder };
+}
+
+function isIgnoredAudioKey(key: string) {
+  const ignored = IGNORED_PARENT_FOLDERS.map(normalizeComparable);
+  const normalizedParts = key.split('/').filter(Boolean).map(normalizeComparable);
+  return normalizedParts.some((part) => ignored.includes(part));
 }
 
 function cleanTitle(key: string) {
@@ -171,7 +184,7 @@ function humanize(value: string) {
 }
 
 function isAudioKey(key: string) {
-  const lower = key.toLowerCase();
+  const lower = key.toLowerCase().trim();
   return AUDIO_TYPES.some((extension) => lower.endsWith(extension));
 }
 

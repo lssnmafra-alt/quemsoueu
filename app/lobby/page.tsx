@@ -370,6 +370,9 @@ export default function HomeLobby() {
             <Button variant="outline" onClick={() => router.push('/profile?next=/lobby')} className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 text-xs font-black uppercase rounded-2xl border-2 border-indigo-100 px-5 h-12 cursor-pointer">
               Editar Perfil <UserRound className="w-4 h-4 ml-2" />
             </Button>
+            <Button variant="outline" onClick={() => router.push('/friends')} className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 text-xs font-black uppercase rounded-2xl border-2 border-indigo-100 px-5 h-12 cursor-pointer">
+              Amigos <Users className="w-4 h-4 ml-2" />
+            </Button>
             {isAdminUser && (
               <Button onClick={() => router.push('/decks/official/new')} className="text-amber-700 bg-amber-50 hover:bg-amber-100 text-xs font-black uppercase rounded-2xl border-2 border-amber-100 px-5 h-12 cursor-pointer">
                 Novo Oficial <Crown className="w-4 h-4 ml-2" />

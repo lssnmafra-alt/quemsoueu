@@ -4,6 +4,7 @@ import './globals.css'; // Global styles
 import AdSenseGate from '@/components/AdSenseGate';
 import AudioToggle from '@/components/AudioToggle';
 import AuthBootstrap from '@/components/AuthBootstrap';
+import GameplayNoticePositioner from '@/components/game/GameplayNoticePositioner';
 import RoomInviteInbox from '@/components/RoomInviteInbox';
 import SocialQuickButton from '@/components/SocialQuickButton';
 import { getPublicRuntimeEnvScript } from '@/lib/publicEnv';
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans bg-[#f5f6ff] text-indigo-950" suppressHydrationWarning>
         <AuthBootstrap />
         <AdSenseGate />
+        <GameplayNoticePositioner />
         {children}
         <AudioToggle />
         <RoomInviteInbox />

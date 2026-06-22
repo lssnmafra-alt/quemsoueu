@@ -32,10 +32,12 @@ const MUSIC_SCAN_PREFIXES = [
   'Músicas/',
   'audio/',
   'audios/',
+  '',
 ];
 
-const MUSIC_ROOT_NAMES = ['music', 'musica', 'música', 'musicas', 'músicas', 'audio', 'audios', 'áudio', 'áudios'];
-const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
+const MUSIC_ROOT_NAMES = ['music', 'musica', 'música', 'musicas', 'músicas', 'audio', 'audios', 'áudio', 'áudios', 'sound', 'sounds', 'song', 'songs'];
+const IGNORED_PARENT_FOLDERS = ['avatar', 'avatares', 'animacao', 'animação', 'animacoes', 'animações', 'loading', 'logo', 'branding', 'cover', 'capa'];
+const AUDIO_TYPES = ['.mp3', '.mpeg', '.mpga', '.ogg', '.oga', '.wav', '.wave', '.m4a', '.aac', '.flac', '.webm', '.mp4'];
 
 type Track = { key: string; genre: string; title: string };
 
@@ -62,6 +64,7 @@ export async function GET(req: NextRequest) {
         proxied: true,
         selectedGenres: genres,
         matchedCount: matchedTracks.length,
+        totalTracks: allTracks.length,
         fallbackToAnyGenre: matchedTracks.length === 0 && genres.length > 0,
         scanErrors,
       });
@@ -73,6 +76,7 @@ export async function GET(req: NextRequest) {
       searchedGenres: genres,
       availableGenres: [...new Set(allTracks.map((track) => track.genre))],
       excluded: [...excludedKeys],
+      totalTracks: allTracks.length,
       scannedPrefixes: MUSIC_SCAN_PREFIXES,
       scanErrors,
     });
@@ -91,7 +95,7 @@ async function listAllTracks(scanErrors: string[]): Promise<Track[]> {
     try {
       listed = await listR2Objects(prefix, 10000);
     } catch (error: any) {
-      scanErrors.push(`${prefix}: ${error?.message || 'falhou'}`);
+      scanErrors.push(`${prefix || '(raiz)'}: ${error?.message || 'falhou'}`);
       continue;
     }
 
@@ -103,7 +107,7 @@ async function listAllTracks(scanErrors: string[]): Promise<Track[]> {
 
 function addTrack(rawKey: unknown, tracks: Track[], seenKeys: Set<string>) {
   const key = String(rawKey || '');
-  if (!isAudioKey(key) || seenKeys.has(key)) return;
+  if (!isAudioKey(key) || seenKeys.has(key) || isIgnoredAudioKey(key)) return;
 
   const parsed = parseTrackPath(key);
   if (!parsed.genre) return;
@@ -117,15 +121,17 @@ function parseTrackPath(key: string) {
   const fileName = parts[parts.length - 1] || '';
   if (!isAudioKey(fileName)) return { genre: '', folder: '' };
 
+  const normalizedParts = parts.map(normalizeComparable);
   const normalizedRoots = MUSIC_ROOT_NAMES.map(normalizeComparable);
-  const rootIndex = parts.map(normalizeComparable).findIndex((part) => normalizedRoots.includes(part));
-  const genreFolder = rootIndex >= 0 && parts[rootIndex + 1]
-    ? parts[rootIndex + 1]
-    : parts.length >= 2
-      ? parts[parts.length - 2]
-      : '';
+  const rootIndex = normalizedParts.findIndex((part) => normalizedRoots.includes(part));
+  const directGenreFolder = rootIndex >= 0 && parts[rootIndex + 1] ? parts[rootIndex + 1] : '';
+  const parentFolder = parts.length >= 2 ? parts[parts.length - 2] : '';
+  const genreFolder = directGenreFolder || parentFolder;
 
-  if (!genreFolder || normalizedRoots.includes(normalizeComparable(genreFolder))) return { genre: '', folder: '' };
+  if (!genreFolder) return { genre: '', folder: '' };
+  if (normalizedRoots.includes(normalizeComparable(genreFolder))) return { genre: '', folder: '' };
+  if (IGNORED_PARENT_FOLDERS.map(normalizeComparable).includes(normalizeComparable(genreFolder))) return { genre: '', folder: '' };
+
   return { genre: humanize(genreFolder), folder: genreFolder };
 }
 
@@ -151,8 +157,14 @@ function humanize(value: string) {
 }
 
 function isAudioKey(key: string) {
-  const lower = key.toLowerCase();
+  const lower = key.toLowerCase().trim();
   return AUDIO_TYPES.some((extension) => lower.endsWith(extension));
+}
+
+function isIgnoredAudioKey(key: string) {
+  const ignored = IGNORED_PARENT_FOLDERS.map(normalizeComparable);
+  const normalizedParts = key.split('/').filter(Boolean).map(normalizeComparable);
+  return normalizedParts.some((part) => ignored.includes(part));
 }
 
 function isSafeKey(key: string) {
@@ -162,7 +174,7 @@ function isSafeKey(key: string) {
 function genreAliases(genre: string) {
   const clean = normalizeComparable(genre);
   const aliases = new Set([clean]);
-  if (clean === 'kpop' || clean === 'k pop') aliases.add('kpop').add('kpop').add('kpop');
+  if (clean === 'kpop' || clean === 'k pop') aliases.add('kpop');
   if (clean === 'eletronic' || clean === 'electronic' || clean === 'eletronica' || clean === 'eletronico') aliases.add('eletronic').add('electronic').add('eletronica').add('eletronico');
   return [...aliases];
 }

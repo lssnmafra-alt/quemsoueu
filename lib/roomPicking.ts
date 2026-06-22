@@ -66,7 +66,10 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
 
   const liveCardsByPlayer = new Map<string, any[]>();
   const allCardsByPlayer = new Map<string, any[]>();
+  const usedCharacterIdsInRoom = new Set<string>();
   for (const card of cards) {
+    if (card.character_id) usedCharacterIdsInRoom.add(card.character_id);
+
     const allList = allCardsByPlayer.get(card.player_id) || [];
     allList.push(card);
     allCardsByPlayer.set(card.player_id, allList);
@@ -141,8 +144,9 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
     if (missing > 0) {
       const allPlayerCards = allCardsByPlayer.get(player.id) || [];
       const liveCharacterIdsForPlayer = new Set(keptLiveCards.map((card: any) => card.character_id).filter(Boolean));
+      const freshPreferred = characters.filter((character: any) => !usedCharacterIdsInRoom.has(character.id) && !liveCharacterIdsForPlayer.has(character.id));
       const preferred = characters.filter((character: any) => !liveCharacterIdsForPlayer.has(character.id));
-      const pool = preferred.length >= missing ? preferred : characters;
+      const pool = freshPreferred.length >= missing ? freshPreferred : preferred.length >= missing ? preferred : characters;
       const selected = shuffle(pool).slice(0, missing);
 
       if (selected.length < missing) {
@@ -182,6 +186,7 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
     randomizedMissingCards: expired && !allReady,
     autoSelectedBotCards: realPlayers.length === 0,
     repeatedCardsAllowed: true,
+    avoidsReusingEliminatedCharacters: true,
     players: activePlayers.length,
     locked: true,
     startingDurationMs: openingDurationMs(activePlayers.length),

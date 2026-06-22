@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ExternalLink, ImageOff, ImagePlus, Plus, Save, Trash2, Upload, FileText } from 'lucide-react';
+import { ArrowLeft, ExternalLink, FileText, ImageOff, ImagePlus, Plus, Save, Trash2, Upload } from 'lucide-react';
 import LoadingArena from '@/components/LoadingArena';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,14 @@ import { useUserStore } from '@/lib/store';
 import { MAX_CHARACTERS_PER_DECK } from '@/lib/deckRules';
 import { isOfficialDeckId } from '@/lib/officialDecks';
 import { isProjectAdmin } from '@/lib/admin';
+
+function fileNameToCharacterName(fileName: string) {
+  return fileName.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Personagem oficial';
+}
+
+function hasImage(character: any) {
+  return Boolean(String(character?.image_url || character?.imageUrl || '').trim());
+}
 
 export default function OfficialDeckManagerPage() {
   const router = useRouter();
@@ -25,11 +33,13 @@ export default function OfficialDeckManagerPage() {
   const [newCharacterName, setNewCharacterName] = useState('');
   const [bulkLines, setBulkLines] = useState('');
   const [bulkImageFiles, setBulkImageFiles] = useState<File[]>([]);
+  const [missingImageFiles, setMissingImageFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingDeck, setSavingDeck] = useState(false);
   const [addingCharacter, setAddingCharacter] = useState(false);
   const [bulkImporting, setBulkImporting] = useState(false);
   const [uploadingBulk, setUploadingBulk] = useState(false);
+  const [fillingMissing, setFillingMissing] = useState(false);
   const [deletingCharacterId, setDeletingCharacterId] = useState('');
   const [error, setError] = useState('');
 
@@ -37,6 +47,7 @@ export default function OfficialDeckManagerPage() {
   const canManageOfficialDeck = isProjectAdmin(user?.id) && isOfficial;
   const availableSlots = Math.max(0, MAX_CHARACTERS_PER_DECK - characters.length);
   const lineNames = bulkLines.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => line.split('|')[0].trim()).filter(Boolean);
+  const missingImageCharacters = characters.filter((character) => !hasImage(character));
 
   const fetchDeck = async () => {
     setLoading(true);
@@ -95,6 +106,10 @@ export default function OfficialDeckManagerPage() {
     return String(uploadResult.url || '').trim();
   };
 
+  const updateCharacterLocally = (updatedCharacter: any) => {
+    setCharacters((current) => current.map((character) => (character.id === updatedCharacter.id ? updatedCharacter : character)));
+  };
+
   const handleSaveDeck = async () => {
     if (!canManageOfficialDeck || savingDeck) return;
     const cleanName = deckName.trim();
@@ -150,7 +165,6 @@ export default function OfficialDeckManagerPage() {
 
   const handleBulkImport = async () => {
     if (!canManageOfficialDeck || bulkImporting) return;
-
     const rows = bulkLines
       .split('\n')
       .map((line) => line.trim())
@@ -188,7 +202,6 @@ export default function OfficialDeckManagerPage() {
 
   const handleBulkImageUpload = async (files?: FileList | null) => {
     if (!canManageOfficialDeck || uploadingBulk || !files?.length) return;
-
     const selectedFiles = Array.from(files).slice(0, availableSlots);
     if (!selectedFiles.length) {
       setError(`O deck ja atingiu o limite de ${MAX_CHARACTERS_PER_DECK} personagens.`);
@@ -201,8 +214,7 @@ export default function OfficialDeckManagerPage() {
       const createdCharacters: any[] = [];
       for (const file of selectedFiles) {
         const imageUrl = await uploadOfficialImage(file);
-        const name = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || 'Personagem oficial';
-        const result = await officialRequest({ action: 'add-character', name, imageUrl });
+        const result = await officialRequest({ action: 'add-character', name: fileNameToCharacterName(file.name), imageUrl });
         if (result.character) createdCharacters.push(result.character);
       }
       if (createdCharacters.length) setCharacters((current) => [...current, ...createdCharacters]);
@@ -233,10 +245,6 @@ export default function OfficialDeckManagerPage() {
     }
 
     const total = Math.min(lineNames.length, bulkImageFiles.length, availableSlots);
-    if (lineNames.length !== bulkImageFiles.length) {
-      setError(`Vou importar ${total}. A quantidade de nomes e imagens precisa bater para importar todos.`);
-    }
-
     setUploadingBulk(true);
     try {
       const createdCharacters: any[] = [];
@@ -251,10 +259,68 @@ export default function OfficialDeckManagerPage() {
         setBulkLines('');
         setBulkImageFiles([]);
       }
+      if (lineNames.length !== bulkImageFiles.length) {
+        setError(`Importei ${createdCharacters.length}. A quantidade de nomes e fotos nao estava igual.`);
+      }
     } catch (uploadError: any) {
       setError(uploadError.message || 'Nao foi possivel importar nomes e imagens.');
     } finally {
       setUploadingBulk(false);
+    }
+  };
+
+  const handleSingleImageUpdate = async (character: any, file?: File | null) => {
+    if (!canManageOfficialDeck || fillingMissing || !file) return;
+    setFillingMissing(true);
+    setError('');
+    try {
+      const imageUrl = await uploadOfficialImage(file);
+      const result = await officialRequest({ action: 'update-character', characterId: character.id, imageUrl });
+      if (result.character) updateCharacterLocally(result.character);
+    } catch (uploadError: any) {
+      setError(uploadError.message || 'Nao foi possivel anexar a imagem.');
+    } finally {
+      setFillingMissing(false);
+    }
+  };
+
+  const handleFillMissingImages = async () => {
+    if (!canManageOfficialDeck || fillingMissing) return;
+    setError('');
+
+    if (!missingImageCharacters.length) {
+      setError('Nao ha personagens sem imagem neste deck.');
+      return;
+    }
+
+    if (!missingImageFiles.length) {
+      setError('Selecione as imagens para preencher os personagens sem foto.');
+      return;
+    }
+
+    const total = Math.min(missingImageCharacters.length, missingImageFiles.length);
+    setFillingMissing(true);
+    try {
+      const updatedCharacters: any[] = [];
+      for (let index = 0; index < total; index += 1) {
+        const character = missingImageCharacters[index];
+        const file = missingImageFiles[index];
+        const imageUrl = await uploadOfficialImage(file);
+        const result = await officialRequest({ action: 'update-character', characterId: character.id, imageUrl });
+        if (result.character) updatedCharacters.push(result.character);
+      }
+
+      if (updatedCharacters.length) {
+        setCharacters((current) => current.map((character) => updatedCharacters.find((updated) => updated.id === character.id) || character));
+        setMissingImageFiles([]);
+      }
+      if (missingImageFiles.length !== missingImageCharacters.length) {
+        setError(`Preenchi ${updatedCharacters.length}. As imagens sao aplicadas na ordem dos personagens sem foto.`);
+      }
+    } catch (uploadError: any) {
+      setError(uploadError.message || 'Nao foi possivel preencher as imagens.');
+    } finally {
+      setFillingMissing(false);
     }
   };
 
@@ -321,20 +387,13 @@ export default function OfficialDeckManagerPage() {
 
             <div className="bg-white border-4 border-indigo-100 rounded-3xl shadow-md p-6 space-y-4">
               <h2 className="text-xl font-black text-indigo-950 uppercase tracking-wide flex items-center gap-2"><Upload className="w-5 h-5 text-indigo-500" /> Importacao em massa</h2>
-              <p className="text-xs font-bold text-slate-500">Para automatizar sem link: escreva um nome por linha, selecione as imagens na mesma ordem e clique em Criar nomes + fotos.</p>
-
+              <p className="text-xs font-bold text-slate-500">Para criar novos personagens: escreva um nome por linha, selecione as imagens na mesma ordem e clique em Criar nomes + fotos.</p>
               <textarea value={bulkLines} onChange={(event) => setBulkLines(event.target.value)} placeholder={'Bruninho67\nJugaMePlays\nRayan\nSelene'} className="min-h-32 w-full rounded-2xl border-2 border-slate-200 bg-slate-50 p-4 text-sm font-bold text-indigo-950 outline-none focus:border-indigo-300" />
 
               <div className="rounded-2xl border-2 border-amber-100 bg-amber-50 p-4 space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-left">
-                    <p className="text-xs font-black uppercase text-amber-700">Nome + foto por linha</p>
-                    <p className="text-[11px] font-bold text-amber-700/80">Nomes: {lineNames.length} • Imagens selecionadas: {bulkImageFiles.length} • Vagas: {availableSlots}</p>
-                  </div>
-                  <label className="h-11 px-5 rounded-xl bg-white border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black uppercase">
-                    <ImagePlus className="w-4 h-4" />Selecionar fotos
-                    <input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" disabled={uploadingBulk || characters.length >= MAX_CHARACTERS_PER_DECK} onChange={(event) => { setBulkImageFiles(Array.from(event.target.files || [])); event.target.value = ''; }} />
-                  </label>
+                  <div className="text-left"><p className="text-xs font-black uppercase text-amber-700">Criar novos: nome + foto por linha</p><p className="text-[11px] font-bold text-amber-700/80">Nomes: {lineNames.length} • Imagens: {bulkImageFiles.length} • Vagas: {availableSlots}</p></div>
+                  <label className="h-11 px-5 rounded-xl bg-white border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black uppercase"><ImagePlus className="w-4 h-4" />Selecionar fotos<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" disabled={uploadingBulk || characters.length >= MAX_CHARACTERS_PER_DECK} onChange={(event) => { setBulkImageFiles(Array.from(event.target.files || [])); event.target.value = ''; }} /></label>
                 </div>
                 {bulkImageFiles.length > 0 && <div className="max-h-24 overflow-y-auto rounded-xl bg-white/70 p-2 text-left text-[11px] font-bold text-amber-800">{bulkImageFiles.map((file, index) => <p key={`${file.name}-${index}`} className="truncate">{index + 1}. {lineNames[index] || 'sem nome'} → {file.name}</p>)}</div>}
                 <Button type="button" onClick={handleNameImageLineImport} disabled={uploadingBulk || !bulkLines.trim() || bulkImageFiles.length === 0 || characters.length >= MAX_CHARACTERS_PER_DECK} className="h-12 w-full btn-squishy-yellow text-amber-950 font-black text-xs uppercase cursor-pointer flex items-center justify-center gap-2"><Upload className="w-4 h-4" />{uploadingBulk ? 'Criando...' : 'Criar nomes + fotos'}</Button>
@@ -342,10 +401,20 @@ export default function OfficialDeckManagerPage() {
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button type="button" onClick={handleBulkImport} disabled={bulkImporting || !bulkLines.trim() || characters.length >= MAX_CHARACTERS_PER_DECK} className="h-11 px-5 btn-squishy-indigo text-white font-black text-xs uppercase cursor-pointer flex items-center justify-center gap-2"><FileText className="w-4 h-4" />{bulkImporting ? 'Importando...' : 'Importar texto/URLs'}</Button>
-                <label className="h-11 px-5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black uppercase">
-                  <ImagePlus className="w-4 h-4" />{uploadingBulk ? 'Anexando...' : 'Só imagens / nome do arquivo'}
-                  <input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" disabled={uploadingBulk || characters.length >= MAX_CHARACTERS_PER_DECK} onChange={(event) => { const files = event.target.files; event.target.value = ''; void handleBulkImageUpload(files); }} />
-                </label>
+                <label className="h-11 px-5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black uppercase"><ImagePlus className="w-4 h-4" />{uploadingBulk ? 'Anexando...' : 'So imagens / nome do arquivo'}<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" disabled={uploadingBulk || characters.length >= MAX_CHARACTERS_PER_DECK} onChange={(event) => { const files = event.target.files; event.target.value = ''; void handleBulkImageUpload(files); }} /></label>
+              </div>
+            </div>
+
+            <div className="bg-white border-4 border-emerald-100 rounded-3xl shadow-md p-6 space-y-4">
+              <h2 className="text-xl font-black text-emerald-900 uppercase tracking-wide flex items-center gap-2"><ImagePlus className="w-5 h-5 text-emerald-500" /> Preencher personagens sem foto</h2>
+              <p className="text-xs font-bold text-slate-500">Selecione imagens em massa para aplicar nos personagens que ja existem e estao sem imagem. A ordem sera: primeira foto no primeiro sem imagem, segunda foto no segundo, e assim por diante.</p>
+              <div className="rounded-2xl border-2 border-emerald-100 bg-emerald-50 p-4 space-y-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-left"><p className="text-xs font-black uppercase text-emerald-700">Sem imagem: {missingImageCharacters.length}</p><p className="text-[11px] font-bold text-emerald-700/80">Fotos selecionadas: {missingImageFiles.length}</p></div>
+                  <label className="h-11 px-5 rounded-xl bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black uppercase"><ImagePlus className="w-4 h-4" />Selecionar fotos<input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" disabled={fillingMissing || missingImageCharacters.length === 0} onChange={(event) => { setMissingImageFiles(Array.from(event.target.files || [])); event.target.value = ''; }} /></label>
+                </div>
+                {missingImageFiles.length > 0 && <div className="max-h-28 overflow-y-auto rounded-xl bg-white/70 p-2 text-left text-[11px] font-bold text-emerald-800">{missingImageFiles.map((file, index) => <p key={`${file.name}-${index}`} className="truncate">{index + 1}. {missingImageCharacters[index]?.name || 'sem personagem'} → {file.name}</p>)}</div>}
+                <Button type="button" onClick={handleFillMissingImages} disabled={fillingMissing || missingImageFiles.length === 0 || missingImageCharacters.length === 0} className="h-12 w-full btn-squishy-green text-white font-black text-xs uppercase cursor-pointer flex items-center justify-center gap-2"><Upload className="w-4 h-4" />{fillingMissing ? 'Anexando...' : 'Anexar nos sem foto'}</Button>
               </div>
             </div>
 
@@ -359,8 +428,8 @@ export default function OfficialDeckManagerPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   {characters.map((character) => (
                     <div key={character.id} className="rounded-2xl border-2 border-indigo-50 bg-white p-3 shadow-sm flex items-center gap-3">
-                      <div className="h-16 w-16 rounded-xl border-2 border-indigo-50 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">{character.image_url ? <img src={character.image_url} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : <ImageOff className="w-6 h-6 text-indigo-200" />}</div>
-                      <div className="min-w-0 flex-1 text-left"><p className="font-black text-indigo-950 truncate">{character.name}</p><p className="text-[10px] font-bold uppercase text-slate-400 truncate">{character.image_url || 'sem imagem'}</p></div>
+                      <div className="h-16 w-16 rounded-xl border-2 border-indigo-50 bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">{hasImage(character) ? <img src={character.image_url} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : <ImageOff className="w-6 h-6 text-indigo-200" />}</div>
+                      <div className="min-w-0 flex-1 text-left"><p className="font-black text-indigo-950 truncate">{character.name}</p><p className="text-[10px] font-bold uppercase text-slate-400 truncate">{character.image_url || 'sem imagem'}</p>{!hasImage(character) && <label className="mt-2 inline-flex h-8 px-3 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer items-center justify-center gap-1.5 text-[10px] font-black uppercase"><ImagePlus className="w-3.5 h-3.5" />Anexar foto<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={fillingMissing} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void handleSingleImageUpdate(character, file); }} /></label>}</div>
                       <button type="button" disabled={deletingCharacterId === character.id} onClick={() => void handleDeleteCharacter(character.id)} className="h-10 w-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 flex items-center justify-center disabled:opacity-50"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   ))}

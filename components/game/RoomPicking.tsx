@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { differenceInSeconds } from 'date-fns';
 import { motion } from 'motion/react';
-import { Check, Layers, Lightbulb } from 'lucide-react';
+import { Check, Layers, Lightbulb, Loader2, RefreshCw } from 'lucide-react';
 import CharacterImage from '@/components/CharacterImage';
 import { isOfficialDeckId } from '@/lib/officialDecks';
 
@@ -34,6 +34,8 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const [timeLeft, setTimeLeft] = useState(safePickSeconds);
   const [confirmed, setConfirmed] = useState(false);
   const [pickingNotice, setPickingNotice] = useState('');
+  const [isDeckLoading, setIsDeckLoading] = useState(true);
+  const [deckLoadError, setDeckLoadError] = useState('');
   const finalizingRef = useRef(false);
   const timerRepairRef = useRef('');
 
@@ -70,16 +72,29 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
       : `Escolha ${pickCount} ${pickCount === 1 ? 'personagem' : 'personagens'}.${pendingText}`);
 
   const loadPickingState = useCallback(async () => {
-    const query = supabaseGame.from('characters').select('*');
-    const [{ data: chars }, { data: cards }] = await Promise.all([
-      room.deck_id ? query.eq('deck_id', room.deck_id) : query.is('deck_id', null),
-      supabaseGame.from('player_cards').select('*').eq('room_id', room.id),
-    ]);
-    setDeckChars(chars || []);
-    setCurrentCards(cards || []);
+    try {
+      setDeckLoadError('');
+      const query = supabaseGame.from('characters').select('*');
+      const [{ data: chars, error: charsError }, { data: cards }] = await Promise.all([
+        room.deck_id ? query.eq('deck_id', room.deck_id) : query.is('deck_id', null),
+        supabaseGame.from('player_cards').select('*').eq('room_id', room.id),
+      ]);
+
+      if (charsError) {
+        setDeckLoadError(charsError.message || 'Nao foi possivel carregar personagens.');
+      }
+
+      setDeckChars(chars || []);
+      setCurrentCards(cards || []);
+    } catch (error: any) {
+      setDeckLoadError(error?.message || 'Nao foi possivel carregar personagens.');
+    } finally {
+      setIsDeckLoading(false);
+    }
   }, [room.deck_id, room.id]);
 
   useEffect(() => {
+    setIsDeckLoading(true);
     loadPickingState();
   }, [loadPickingState]);
 
@@ -103,6 +118,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
     if (finalizingRef.current) return;
     finalizingRef.current = true;
     setTimeLeft(0);
+    setPickingNotice('Tempo encerrado. Sorteando automaticamente e preparando a partida...');
 
     try {
       const response = await fetch(`/api/rooms/${room.id}/finalize-picking`, {
@@ -111,7 +127,10 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
         finalizingRef.current = false;
-        if (result.error) console.warn(result.error);
+        if (result.error) {
+          console.warn(result.error);
+          setPickingNotice(result.error);
+        }
       } else if (result.skipped) {
         finalizingRef.current = false;
         if (result.duplicatePick) {
@@ -121,6 +140,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
       }
     } catch {
       finalizingRef.current = false;
+      setPickingNotice('Falha ao finalizar. Tentando novamente...');
     }
   }, [loadPickingState, room.id]);
 
@@ -228,6 +248,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const totalTime = safePickSeconds;
   const progressPercent = allRealPlayersReady ? 0 : Math.max(0, (timeLeft / totalTime) * 100);
   const usesOfficialImages = !room.deck_id || isOfficialDeckId(room.deck_id);
+  const showEmptyDeckState = !isDeckLoading && deckChars.length === 0;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 md:p-8 bg-[#f5f6ff] font-sans text-indigo-950 relative overflow-hidden party-grid-bg">
@@ -257,7 +278,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
         {!confirmed && isMeEligible && (
           <div className="mb-4 flex items-center justify-center">
             <p className="text-sm bg-indigo-50 border-2 border-indigo-100 px-6 py-3 text-indigo-950 font-bold tracking-wide inline-flex items-center gap-2 rounded-2xl">
-              <Lightbulb className="h-4 w-4 text-indigo-500" /> Toque nos cards e confirme sua escolha.
+              <Lightbulb className="h-4 w-4 text-indigo-500" /> Toque nos cards e confirme. Se nao escolher, o jogo sorteia automaticamente.
             </p>
           </div>
         )}
@@ -269,6 +290,25 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
         ) : null}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 mb-8 overflow-y-auto max-h-[50vh] p-4">
+          {isDeckLoading && deckChars.length === 0 && (
+            <div className="col-span-full flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-indigo-100 bg-indigo-50/40 p-8 text-indigo-500">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <p className="text-sm font-black uppercase tracking-wider">Carregando personagens do deck...</p>
+            </div>
+          )}
+
+          {showEmptyDeckState && (
+            <div className="col-span-full flex min-h-[220px] flex-col items-center justify-center gap-4 rounded-3xl border-2 border-dashed border-amber-200 bg-amber-50/60 p-8 text-amber-700">
+              <p className="max-w-lg text-sm font-black uppercase tracking-wider">
+                Os cards ainda nao carregaram nesta tela. Aguarde o timer: o servidor sorteia automaticamente e segue a partida.
+              </p>
+              {deckLoadError && <p className="max-w-lg text-xs font-bold text-amber-600">{deckLoadError}</p>}
+              <Button type="button" onClick={loadPickingState} className="rounded-2xl border-2 border-amber-200 bg-white px-5 py-3 text-xs font-black uppercase text-amber-700 hover:bg-amber-50">
+                <RefreshCw className="mr-2 h-4 w-4" /> Recarregar cards
+              </Button>
+            </div>
+          )}
+
           {deckChars.map((c, i) => {
             const isSelected = selectedChars.includes(c.id);
             return (

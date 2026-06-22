@@ -15,6 +15,7 @@ type Avatar3DPlayerProps = {
   cameraTarget?: string;
   fieldOfView?: string;
   orientation?: string;
+  autoRotate?: boolean;
   className?: string;
 };
 
@@ -31,6 +32,7 @@ export default function Avatar3DPlayer({
   cameraTarget = 'auto auto auto',
   fieldOfView = '30deg',
   orientation = '0deg 0deg 0deg',
+  autoRotate = true,
   className,
 }: Avatar3DPlayerProps) {
   const viewerRef = useRef<any>(null);
@@ -91,6 +93,13 @@ export default function Avatar3DPlayer({
       viewer.setAttribute('camera-target', cameraTarget);
       viewer.setAttribute('field-of-view', fieldOfView);
       viewer.setAttribute('orientation', orientation);
+      if (autoRotate) {
+        viewer.setAttribute('auto-rotate', '');
+        viewer.setAttribute('auto-rotate-delay', '0');
+        viewer.setAttribute('rotation-per-second', '28deg');
+      } else {
+        viewer.removeAttribute('auto-rotate');
+      }
       viewer.jumpCameraToGoal?.();
     };
 
@@ -151,7 +160,7 @@ export default function Avatar3DPlayer({
       viewer.removeEventListener('camera-change', applyView);
       viewer.removeEventListener('error', onError);
     };
-  }, [cameraOrbit, cameraTarget, clipCandidates, clipIndex, currentSrc, fieldOfView, modelReady, orientation, scriptReady, sourceIndex, sources]);
+  }, [autoRotate, cameraOrbit, cameraTarget, clipCandidates, clipIndex, currentSrc, fieldOfView, modelReady, orientation, scriptReady, sourceIndex, sources]);
 
   if (!currentSrc) return null;
 
@@ -193,6 +202,7 @@ export default function Avatar3DPlayer({
         'camera-target': cameraTarget,
         'field-of-view': fieldOfView,
         orientation,
+        ...(autoRotate ? { 'auto-rotate': true, 'auto-rotate-delay': '0', 'rotation-per-second': '28deg' } : {}),
         style: { width: '100%', height: '100%', minHeight: 260, background: 'linear-gradient(180deg, #eef2ff 0%, #dbeafe 100%)' },
       } as any) : (
         <div className="flex h-full min-h-[260px] items-center justify-center bg-indigo-50 text-indigo-300">

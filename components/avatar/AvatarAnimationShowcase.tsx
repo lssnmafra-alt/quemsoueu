@@ -24,6 +24,10 @@ type AnimationModel = {
   proxyUrl?: string;
   key?: string;
   slug?: string;
+  cameraOrbit?: string;
+  cameraTarget?: string;
+  fieldOfView?: string;
+  orientation?: string;
   clipCandidates?: Record<AnimationEventType, string[]>;
   clipIndex?: Record<AnimationEventType, number>;
   expectedKeys?: string[];
@@ -113,6 +117,10 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
           label={resolvedTitle}
           clipCandidates={candidates}
           clipIndex={clipIndex}
+          cameraOrbit={model.cameraOrbit}
+          cameraTarget={model.cameraTarget}
+          fieldOfView={model.fieldOfView}
+          orientation={model.orientation}
           className={compact ? 'h-[260px]' : 'h-[360px]'}
         />
       ) : (
@@ -131,6 +139,10 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
 function normalizeModel(model: AnimationModel): AnimationModel {
   return {
     ...model,
+    cameraOrbit: model.cameraOrbit || '180deg 75deg 115%',
+    cameraTarget: model.cameraTarget || 'auto auto auto',
+    fieldOfView: model.fieldOfView || '30deg',
+    orientation: model.orientation || '0deg 0deg 0deg',
     clipCandidates: model.clipCandidates || DEFAULT_CLIP_CANDIDATES,
     clipIndex: model.clipIndex || DEFAULT_CLIP_INDEX,
   };

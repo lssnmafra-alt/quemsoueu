@@ -11,7 +11,7 @@ export default function LoadingArena({ label = 'Carregando Quem Sou Eu...' }: Lo
         className="absolute inset-0 bg-cover bg-center"
         style={{
           backgroundImage:
-            "linear-gradient(180deg, rgba(18,8,36,0.68) 0%, rgba(32,10,58,0.82) 55%, rgba(9,6,22,0.94) 100%), url('/branding/cover.svg')",
+            "linear-gradient(180deg, rgba(18,8,36,0.68) 0%, rgba(32,10,58,0.82) 55%, rgba(9,6,22,0.94) 100%), url('/api/branding/loading')",
         }}
       />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(168,85,247,0.24),_transparent_42%),radial-gradient(circle_at_bottom,_rgba(34,211,238,0.16),_transparent_38%)]" />
@@ -19,7 +19,7 @@ export default function LoadingArena({ label = 'Carregando Quem Sou Eu...' }: Lo
       <div className="relative z-10 flex min-h-screen items-center justify-center px-6 py-10">
         <div className="w-full max-w-xl rounded-[32px] border border-white/10 bg-black/25 p-6 text-center shadow-2xl backdrop-blur-md md:p-8">
           <img
-            src="/branding/logo.svg"
+            src="/api/branding/logo"
             alt="Quem Sou Eu?"
             className="mx-auto mb-6 h-auto w-full max-w-[340px] object-contain drop-shadow-[0_10px_34px_rgba(0,0,0,0.55)]"
           />

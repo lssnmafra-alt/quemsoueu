@@ -3,6 +3,7 @@ import { Inter, Quicksand } from 'next/font/google';
 import './globals.css'; // Global styles
 import AudioToggle from '@/components/AudioToggle';
 import AuthBootstrap from '@/components/AuthBootstrap';
+import SocialQuickButton from '@/components/SocialQuickButton';
 import { getPublicRuntimeEnvScript } from '@/lib/publicEnv';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
@@ -28,6 +29,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
         <AuthBootstrap />
         {children}
         <AudioToggle />
+        <SocialQuickButton />
       </body>
     </html>
   );

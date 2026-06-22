@@ -131,6 +131,43 @@ export async function getR2Object(key: string): Promise<R2GetResult | null> {
   throw new Error(errors.join(' | ') || 'R2 get falhou.');
 }
 
+export async function putR2Object(key: string, bytes: ArrayBuffer | Uint8Array, contentType: string) {
+  const env = await getRuntimeEnv();
+  const binding = getR2PutBinding(env);
+
+  if (binding) {
+    await binding.put(key, bytes, {
+      httpMetadata: { contentType },
+    });
+    return { key };
+  }
+
+  const s3Configs = getS3Configs(env);
+  if (!s3Configs.length) {
+    throw new Error('Bucket R2 nao configurado para anexar imagens.');
+  }
+
+  const body = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const errors: string[] = [];
+
+  for (const config of s3Configs) {
+    try {
+      const { client, PutObjectCommand } = await getS3Client(config);
+      await client.send(new PutObjectCommand({
+        Bucket: config.bucketName,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      }));
+      return { key };
+    } catch (error: any) {
+      errors.push(`${config.accountId}: ${error?.name || 'R2Error'} ${error?.message || String(error)}`);
+    }
+  }
+
+  throw new Error(errors.join(' | ') || 'R2 upload falhou.');
+}
+
 export async function hasR2Object(key: string) {
   const objects = await listR2Objects(key, 1);
   return objects.some((object) => object.key === key);
@@ -168,6 +205,14 @@ function getR2Binding(env: Record<string, any>) {
   return null;
 }
 
+function getR2PutBinding(env: Record<string, any>) {
+  for (const name of BINDING_NAMES) {
+    const bucket = env[name];
+    if (bucket && typeof bucket.put === 'function') return bucket;
+  }
+  return null;
+}
+
 function getS3Configs(env: Record<string, any>): R2S3Config[] {
   const accountIds = [
     getStringEnv(env, 'CLOUDFLARE_ACCOUNT_ID'),
@@ -190,7 +235,7 @@ function getS3Configs(env: Record<string, any>): R2S3Config[] {
 
 async function getS3Client(config: R2S3Config) {
   awsClientModulePromise ||= import('@aws-sdk/client-s3');
-  const { S3Client, ListObjectsV2Command, GetObjectCommand } = await awsClientModulePromise;
+  const { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } = await awsClientModulePromise;
   const client = new S3Client({
     region: 'auto',
     endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
@@ -201,7 +246,7 @@ async function getS3Client(config: R2S3Config) {
     forcePathStyle: true,
   });
 
-  return { client, ListObjectsV2Command, GetObjectCommand };
+  return { client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand };
 }
 
 function getStringEnv(env: Record<string, any>, key: string) {

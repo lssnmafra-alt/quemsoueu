@@ -48,32 +48,37 @@ async function countPlayableCharacters() {
   return counts;
 }
 
-async function resolveDeckId(requestedDeckId: string | null, room: any, participantCount: number) {
-  const cardsPerPlayer = room.chars_per_player || 3;
-  const needed = Math.max(cardsPerPlayer, cardsPerPlayer * Math.max(1, participantCount));
+async function resolveDeckForMinimum(requestedDeckId: string | null, room: any, minParticipants: number) {
   const counts = await countPlayableCharacters();
+  const minimumCards = Math.max(1, minParticipants);
 
-  if (requestedDeckId && (counts.get(requestedDeckId) || 0) >= needed) return { deckId: requestedDeckId, source: 'selected', needed };
-  if (room.deck_id && (counts.get(room.deck_id) || 0) >= needed) return { deckId: room.deck_id, source: 'room', needed };
+  if (requestedDeckId && (counts.get(requestedDeckId) || 0) >= minimumCards) {
+    return { deckId: requestedDeckId, source: 'selected', count: counts.get(requestedDeckId) || 0, minimumCards };
+  }
+
+  if (room.deck_id && (counts.get(room.deck_id) || 0) >= minimumCards) {
+    return { deckId: room.deck_id, source: 'room', count: counts.get(room.deck_id) || 0, minimumCards };
+  }
 
   const { data: decks } = await supabaseGame
     .from('decks')
     .select('id,is_public,created_at')
     .order('created_at', { ascending: false });
 
-  const publicDeck = (decks || []).find((deck: any) => deck.is_public && (counts.get(deck.id) || 0) >= needed);
-  if (publicDeck) return { deckId: publicDeck.id, source: 'public', needed };
+  const publicDeck = (decks || []).find((deck: any) => deck.is_public && (counts.get(deck.id) || 0) >= minimumCards);
+  if (publicDeck) return { deckId: publicDeck.id, source: 'public', count: counts.get(publicDeck.id) || 0, minimumCards };
 
-  const anyDeck = (decks || []).find((deck: any) => (counts.get(deck.id) || 0) >= needed);
-  if (anyDeck) return { deckId: anyDeck.id, source: 'any', needed };
+  const anyDeck = (decks || []).find((deck: any) => (counts.get(deck.id) || 0) >= minimumCards);
+  if (anyDeck) return { deckId: anyDeck.id, source: 'any', count: counts.get(anyDeck.id) || 0, minimumCards };
 
-  return { deckId: undefined, source: 'none', needed };
+  return { deckId: undefined, source: 'none', count: 0, minimumCards };
 }
 
-async function syncBots(room: any, players: any[], desiredBots?: number, auto = false) {
+function baseTargetBots(room: any, players: any[], desiredBots?: number, auto = false) {
   const realPlayers = players.filter((player: any) => !player.is_bot);
   const existingBots = players.filter((player: any) => player.is_bot);
   const botSlots = Math.max(0, (room.max_players || 6) - realPlayers.length);
+
   let targetBots = typeof desiredBots === 'number'
     ? Math.min(Math.max(0, desiredBots), botSlots)
     : auto
@@ -83,6 +88,45 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
   if (realPlayers.length + targetBots < MIN_PLAYERS_TO_START && botSlots > targetBots) {
     targetBots = Math.min(botSlots, MIN_PLAYERS_TO_START - realPlayers.length);
   }
+
+  return targetBots;
+}
+
+function fitStartShape(room: any, players: any[], deckCharacterCount: number, desiredBots?: number, auto = false) {
+  const realPlayers = players.filter((player: any) => !player.is_bot);
+  const minParticipants = Math.max(MIN_PLAYERS_TO_START, realPlayers.length);
+
+  if (deckCharacterCount < minParticipants) {
+    return {
+      ok: false,
+      error: `O deck precisa ter pelo menos ${minParticipants} personagens para iniciar com ${realPlayers.length} jogador(es) real(is).`,
+    };
+  }
+
+  const originalCardsPerPlayer = Math.max(1, Number(room.chars_per_player || 3));
+  const cardsPerPlayer = Math.max(1, Math.min(originalCardsPerPlayer, Math.floor(deckCharacterCount / minParticipants)));
+  const maxParticipantsByDeck = Math.max(1, Math.floor(deckCharacterCount / cardsPerPlayer));
+  const maxBotsByDeck = Math.max(0, maxParticipantsByDeck - realPlayers.length);
+  const targetBots = Math.min(baseTargetBots(room, players, desiredBots, auto), maxBotsByDeck);
+  const participants = realPlayers.length + targetBots;
+
+  if (participants < MIN_PLAYERS_TO_START) {
+    return {
+      ok: false,
+      error: `O deck tem ${deckCharacterCount} personagens. Para iniciar são necessários pelo menos ${MIN_PLAYERS_TO_START} participantes com ${cardsPerPlayer} vida(s).`,
+    };
+  }
+
+  return { ok: true, cardsPerPlayer, targetBots, participants, maxParticipantsByDeck };
+}
+
+async function syncBots(room: any, players: any[], desiredBots?: number, auto = false) {
+  const realPlayers = players.filter((player: any) => !player.is_bot);
+  const existingBots = players.filter((player: any) => player.is_bot);
+  const botSlots = Math.max(0, (room.max_players || 6) - realPlayers.length);
+  const targetBots = typeof desiredBots === 'number'
+    ? Math.min(Math.max(0, desiredBots), botSlots)
+    : baseTargetBots(room, players, desiredBots, auto);
 
   const botsToKeep = existingBots.slice(0, targetBots);
   const botsToRemove = existingBots.slice(targetBots);
@@ -159,19 +203,34 @@ export async function startRoom(roomId: string, options: { requestedDeckId?: str
   const playablePlayers = players || [];
   if (playablePlayers.length === 0) return { ok: false, status: 400, error: 'A sala precisa ter pelo menos um jogador.' };
 
-  const botSync = await syncBots(room, playablePlayers, desiredBots, auto);
+  const realPlayers = playablePlayers.filter((player: any) => !player.is_bot);
+  const minimumParticipants = Math.max(MIN_PLAYERS_TO_START, realPlayers.length);
+  const resolved = await resolveDeckForMinimum(requestedDeckId, room, minimumParticipants);
+
+  if (resolved.deckId === undefined) {
+    return { ok: false, status: 400, error: `Nenhum deck tem pelo menos ${resolved.minimumCards} personagens para iniciar.` };
+  }
+
+  const fitted: any = fitStartShape(room, playablePlayers, resolved.count, desiredBots, auto);
+  if (!fitted.ok) return { ok: false, status: 400, error: fitted.error };
+
+  const roomForStart = { ...room, chars_per_player: fitted.cardsPerPlayer };
+  const botSync = await syncBots(roomForStart, playablePlayers, fitted.targetBots, false);
+
   if (botSync.players.length < MIN_PLAYERS_TO_START) {
     return { ok: false, status: 400, error: 'A partida precisa de pelo menos 4 participantes. Convide alguem ou adicione bots.' };
   }
 
-  const resolved = await resolveDeckId(requestedDeckId, room, botSync.players.length);
-  if (resolved.deckId === undefined) {
-    return { ok: false, status: 400, error: `Nenhum deck tem pelo menos ${resolved.needed} personagens únicos para ${botSync.players.length} participantes.` };
+  const finalNeeded = fitted.cardsPerPlayer * botSync.players.length;
+  if (resolved.count < finalNeeded) {
+    return { ok: false, status: 400, error: `O deck tem ${resolved.count} personagens, mas a partida precisa de ${finalNeeded}.` };
   }
 
   await supabaseGame.from('rooms').update({
     status: 'PICKING',
     deck_id: resolved.deckId,
+    chars_per_player: fitted.cardsPerPlayer,
+    max_players: Math.max(room.max_players || 6, botSync.players.length),
     turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
   }).eq('id', room.id);
 
@@ -186,6 +245,9 @@ export async function startRoom(roomId: string, options: { requestedDeckId?: str
     botsRemoved: botSync.botsRemoved,
     botsRenamed: botSync.botsRenamed,
     botsAvatarUpdated: botSync.botsAvatarUpdated,
+    cardsPerPlayer: fitted.cardsPerPlayer,
+    deckCharacters: resolved.count,
+    adjustedToFitDeck: fitted.cardsPerPlayer !== (room.chars_per_player || 3) || botSync.botsRemoved > 0,
     enforcedMinimumBot: botSync.enforcedMinimumBot,
   };
 }

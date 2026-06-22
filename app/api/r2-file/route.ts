@@ -30,8 +30,10 @@ const ALLOWED_PREFIXES = [
   'audios/',
   'atuem/Animacao/',
   'atuem/atuem/Animacao/',
+  'atuem/atuem/Loading/',
+  'atuem/atuem/Logo/',
 ];
-const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.mp3', '.ogg', '.wav', '.m4a', '.glb'];
+const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.mp3', '.ogg', '.wav', '.m4a', '.glb'];
 
 export async function GET(req: NextRequest) {
   try {
@@ -72,6 +74,7 @@ function contentTypeForKey(key: string) {
   if (lower.endsWith('.png')) return 'image/png';
   if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
   if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.svg')) return 'image/svg+xml';
   if (lower.endsWith('.mp3')) return 'audio/mpeg';
   if (lower.endsWith('.ogg')) return 'audio/ogg';
   if (lower.endsWith('.wav')) return 'audio/wav';

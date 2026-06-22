@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { listR2Objects } from '@/lib/r2Storage';
 
-const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/'];
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/'];
 const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
 
 type AudioTrack = {
@@ -25,16 +28,13 @@ export async function GET() {
     }
 
     const genres = [...grouped.values()]
-      .map((genre) => ({
-        ...genre,
-        tracks: genre.tracks.sort((a, b) => a.title.localeCompare(b.title, 'pt-BR')),
-      }))
+      .map((genre) => ({ ...genre, tracks: genre.tracks.sort((a, b) => a.title.localeCompare(b.title, 'pt-BR')) }))
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
-    return NextResponse.json({ genres, tracks });
+    return NextResponse.json({ genres, tracks, prefixes: MUSIC_PREFIXES }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
     console.error('Audio library error:', error);
-    return NextResponse.json({ genres: [], tracks: [], error: error.message || 'Nao foi possivel listar as musicas.' });
+    return NextResponse.json({ genres: [], tracks: [], prefixes: MUSIC_PREFIXES, error: error.message || 'Nao foi possivel listar as musicas.' }, { headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
@@ -42,18 +42,12 @@ async function listAllTracks(): Promise<AudioTrack[]> {
   const tracks: AudioTrack[] = [];
 
   for (const prefix of MUSIC_PREFIXES) {
-    const listed = await listR2Objects(prefix, 1000);
+    const listed = await listR2Objects(prefix, 5000);
     for (const object of listed || []) {
       const key = String(object.key || '');
       if (!isAudioKey(key)) continue;
       const { folder, genre } = genreFromKey(key, prefix);
-      tracks.push({
-        key,
-        title: cleanTitle(key),
-        genre,
-        folder,
-        url: `/api/r2-file?key=${encodeURIComponent(key)}`,
-      });
+      tracks.push({ key, title: cleanTitle(key), genre, folder, url: `/api/r2-file?key=${encodeURIComponent(key)}` });
     }
   }
 
@@ -73,11 +67,7 @@ function cleanTitle(key: string) {
 }
 
 function humanize(value: string) {
-  return String(value || '')
-    .replace(/\.[^.]+$/, '')
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return String(value || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function isAudioKey(key: string) {
@@ -86,9 +76,5 @@ function isAudioKey(key: string) {
 }
 
 function normalizeComparable(value: string) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '')
-    .toLowerCase();
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '').toLowerCase();
 }

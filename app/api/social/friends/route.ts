@@ -16,7 +16,7 @@ type Friendship = {
 export async function GET(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get('userId')?.trim() || '';
-    const search = req.nextUrl.searchParams.get('search')?.trim() || '';
+    const search = (req.nextUrl.searchParams.get('search') || req.nextUrl.searchParams.get('q') || '').trim();
     if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
 
     const { data: rows, error } = await supabaseGame
@@ -29,9 +29,10 @@ export async function GET(req: NextRequest) {
 
     const friendships = (rows || []) as Friendship[];
     const relatedIds = [...new Set(friendships.flatMap((row) => [row.requester_profile_id, row.receiver_profile_id]).filter((id) => id && id !== userId))];
-    const { data: relatedProfiles } = relatedIds.length
+    const { data: relatedProfiles, error: relatedError } = relatedIds.length
       ? await supabaseGame.from('profiles').select(PROFILE_SELECT).in('id', relatedIds)
-      : { data: [] };
+      : { data: [], error: null };
+    if (relatedError) throw relatedError;
 
     const profileMap = new Map((relatedProfiles || []).map((profile: any) => [profile.id, profile]));
     const decorate = (row: Friendship) => {
@@ -46,12 +47,13 @@ export async function GET(req: NextRequest) {
 
     let searchResults: any[] = [];
     if (search.length >= 2) {
-      const { data: profiles } = await supabaseGame
+      const { data: profiles, error: searchError } = await supabaseGame
         .from('profiles')
         .select(PROFILE_SELECT)
         .ilike('nickname', `%${escapeLike(search)}%`)
         .neq('id', userId)
         .limit(20);
+      if (searchError) throw searchError;
 
       const blockedIds = new Set(friendships.filter((row) => row.status === 'blocked').flatMap((row) => [row.requester_profile_id, row.receiver_profile_id]));
       searchResults = (profiles || []).filter((profile: any) => !blockedIds.has(profile.id));
@@ -65,6 +67,9 @@ export async function GET(req: NextRequest) {
       blocked: decorated.filter((row: any) => row.status === 'blocked'),
       all: decorated,
       searchResults,
+      received: decorated.filter((row: any) => row.status === 'pending' && row.receiver_profile_id === userId),
+      sent: decorated.filter((row: any) => row.status === 'pending' && row.requester_profile_id === userId),
+      results: searchResults,
     });
   } catch (error: any) {
     console.error('Friends read error:', error);
@@ -100,22 +105,30 @@ export async function POST(req: NextRequest) {
 
     if (action === 'accept') {
       if (!existing || existing.status !== 'pending' || existing.receiver_profile_id !== userId) return NextResponse.json({ error: 'Pedido nao encontrado.' }, { status: 404 });
-      const { data, error } = await supabaseGame.from('friendships').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', existing.id).select('*').single();
+      const { data, error } = await supabaseGame
+        .from('friendships')
+        .update({ status: 'accepted', blocked_by_profile_id: null, updated_at: new Date().toISOString() })
+        .eq('id', existing.id)
+        .select('*')
+        .single();
       if (error) throw error;
       await unlockSocialTrophy(userId);
       await unlockSocialTrophy(targetId);
       return NextResponse.json({ friendship: data, status: 'accepted' });
     }
 
-    if (action === 'decline') {
-      if (!existing || existing.status !== 'pending') return NextResponse.json({ error: 'Pedido nao encontrado.' }, { status: 404 });
-      const { data, error } = await supabaseGame.from('friendships').update({ status: 'declined', updated_at: new Date().toISOString() }).eq('id', existing.id).select('*').single();
+    if (action === 'decline' || action === 'cancel') {
+      if (!existing || existing.status !== 'pending') return NextResponse.json({ ok: true, status: 'removed' });
+      const { error } = await supabaseGame.from('friendships').delete().eq('id', existing.id);
       if (error) throw error;
-      return NextResponse.json({ friendship: data, status: 'declined' });
+      return NextResponse.json({ ok: true, status: 'removed' });
     }
 
     if (action === 'remove' || action === 'unblock') {
-      if (existing) await supabaseGame.from('friendships').delete().eq('id', existing.id);
+      if (existing) {
+        const { error } = await supabaseGame.from('friendships').delete().eq('id', existing.id);
+        if (error) throw error;
+      }
       return NextResponse.json({ ok: true, status: 'removed' });
     }
 
@@ -163,5 +176,5 @@ function escapeLike(value: string) {
 }
 
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
 }

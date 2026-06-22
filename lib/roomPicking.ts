@@ -86,15 +86,30 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
 
   const randomizedPlayers = shuffle(activePlayers);
   const playOrderByPlayerId = new Map(randomizedPlayers.map((player: any, index) => [player.id, index]));
-
   const transitionNow = new Date();
-  const transitionRoom = () => supabaseGame.from('rooms').update({
-    status: 'STARTING',
-    current_turn_number: 0,
-    turn_expires_at: new Date(Date.now() + openingDurationMs(activePlayers.length)).toISOString(),
-    last_activity_at: transitionNow.toISOString(),
-    expires_at: nextRoomExpiry(transitionNow),
-  }).eq('id', room.id).eq('status', 'PICKING');
+  const startingUntil = new Date(Date.now() + openingDurationMs(activePlayers.length)).toISOString();
+
+  const { data: lockedRoom, error: lockError } = await supabaseGame
+    .from('rooms')
+    .update({
+      status: 'STARTING',
+      current_turn_number: 0,
+      turn_expires_at: startingUntil,
+      last_activity_at: transitionNow.toISOString(),
+      expires_at: nextRoomExpiry(transitionNow),
+    })
+    .eq('id', room.id)
+    .eq('status', 'PICKING')
+    .select('id')
+    .maybeSingle();
+
+  if (lockError) {
+    return { ok: false, status: 500, error: lockError.message || 'Nao foi possivel finalizar a escolha.' };
+  }
+
+  if (!lockedRoom) {
+    return { ok: true, skipped: true, reason: 'picking-already-finalized' };
+  }
 
   for (const player of activePlayers) {
     const existingLiveCards = liveCardsByPlayer.get(player.id) || [];
@@ -124,7 +139,7 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
       const selected = shuffle(pool).slice(0, missing);
 
       if (selected.length < missing) {
-        return { ok: false, status: 400, error: 'Nao ha personagens suficientes para completar a escolha.' };
+        continue;
       }
 
       selected.forEach((character: any) => liveCharacterIdsForPlayer.add(character.id));
@@ -152,7 +167,6 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
     }
   }
 
-  await transitionRoom();
   await touchRoomActivity(room.id);
 
   return {
@@ -162,5 +176,6 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
     autoSelectedBotCards: realPlayers.length === 0,
     repeatedCardsAllowed: true,
     players: activePlayers.length,
+    locked: true,
   };
 }

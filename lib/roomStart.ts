@@ -18,10 +18,31 @@ function shouldRefreshBotNickname(nickname = '') {
   return false;
 }
 
-function shouldRefreshBotAvatar(avatarUrl = '') {
+function shouldRefreshBotAvatar(avatarUrl = '', avatarPool: any[] = []) {
   const value = String(avatarUrl || '').trim();
   if (!value) return true;
-  return value.startsWith('avatar:');
+  if (value.startsWith('avatar:')) return true;
+  if (avatarPool.length > 0 && !botAvatarMatchesPool(value, avatarPool)) return true;
+  return false;
+}
+
+function botAvatarMatchesPool(avatarUrl: string, avatarPool: any[]) {
+  const normalizedUrl = normalizeComparable(avatarUrl);
+  const normalizedFile = normalizeComparable(decodeURIComponent(avatarUrl).split('/').pop() || avatarUrl);
+  return avatarPool.some((avatar) => {
+    const normalizedAvatarUrl = normalizeComparable(avatar.url || '');
+    const normalizedKey = normalizeComparable((avatar.key || '').split('/').pop() || avatar.name || '');
+    return normalizedUrl === normalizedAvatarUrl || normalizedFile === normalizedKey || normalizedUrl.includes(normalizedKey);
+  });
+}
+
+function normalizeComparable(value: string) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-zA-Z0-9]+/g, '')
+    .toLowerCase();
 }
 
 function getBotNickname(index: number, usedNicknames = new Set<string>()) {
@@ -108,7 +129,7 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
       usedNicknames.add(String(bot.nickname || '').toLowerCase());
     }
 
-    if (shouldRefreshBotAvatar(bot.avatar_url || '')) {
+    if (shouldRefreshBotAvatar(bot.avatar_url || '', avatarPool)) {
       updates.avatar_url = pickBotAvatarUrl(avatarPool, `${room.id}:${bot.id || bot.user_id || bot.nickname}`, i);
       botsAvatarUpdated += 1;
     }

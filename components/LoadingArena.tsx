@@ -19,11 +19,11 @@ const GAMEPLAY_TIPS = [
 
 const LOADING_STEPS = [
   'Salvando preferências locais...',
-  'Preparando sua mesa...',
+  'Baixando logo e tela de entrada...',
+  'Lendo músicas do R2...',
+  'Preparando prévia de áudio...',
   'Carregando imagens do jogo...',
-  'Ajustando áudio e perfil...',
   'Sincronizando sala...',
-  'Entrando no Quem Sou Eu...',
 ];
 
 export default function LoadingArena({ label = 'Carregando Quem Sou Eu...' }: LoadingArenaProps) {
@@ -35,12 +35,33 @@ export default function LoadingArena({ label = 'Carregando Quem Sou Eu...' }: Lo
   const currentStep = useMemo(() => LOADING_STEPS[stepIndex % LOADING_STEPS.length], [stepIndex]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('quemSouEu:lastLoadingAt', new Date().toISOString());
-      localStorage.setItem('quemSouEu:loadingBranding', JSON.stringify({ logo: '/api/branding/logo', loading: '/api/branding/loading' }));
-    } catch {
-      // Mantem a tela fluida mesmo se o navegador bloquear localStorage.
-    }
+    const preloadImage = (src: string) => new Promise<void>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+      img.src = src;
+    });
+
+    const preload = async () => {
+      try {
+        const branding = { logo: '/api/branding/logo', loading: '/api/branding/loading' };
+        localStorage.setItem('quemSouEu:lastLoadingAt', new Date().toISOString());
+        localStorage.setItem('quemSouEu:loadingBranding', JSON.stringify(branding));
+
+        await Promise.all([preloadImage(branding.logo), preloadImage(branding.loading)]);
+
+        const libraryResponse = await fetch('/api/audio/library', { cache: 'no-store' });
+        const library = await libraryResponse.json().catch(() => ({ genres: [], tracks: [] }));
+        localStorage.setItem('quemSouEu:musicLibrary', JSON.stringify(library));
+
+        const tracks = Array.isArray(library.tracks) ? library.tracks.slice(0, 6) : [];
+        await Promise.all(tracks.map((track: any) => fetch(track.url, { cache: 'force-cache' }).catch(() => null)));
+      } catch {
+        // Mantem a tela fluida mesmo se o navegador bloquear cache/localStorage.
+      }
+    };
+
+    void preload();
 
     const tipTimer = window.setInterval(() => {
       setTipIndex((current) => (current + 1) % GAMEPLAY_TIPS.length);

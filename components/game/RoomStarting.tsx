@@ -251,7 +251,6 @@ function IntroVideoPlayer({ src, player }: { src: string; player: any }) {
         src={src}
         autoPlay
         muted
-        defaultMuted
         loop
         playsInline
         preload="auto"

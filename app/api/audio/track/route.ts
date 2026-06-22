@@ -3,7 +3,7 @@ import { listR2Objects } from '@/lib/r2Storage';
 
 const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/'];
 const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
-const DEFAULT_GENRES = ['Disco', 'Kpop', 'Rock'];
+const DEFAULT_GENRES = ['Disco', 'K-pop', 'Rock'];
 
 type Track = { key: string; genre: string };
 
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const tracks = genresFromQuery.length > 0 ? matchedTracks : (matchedTracks.length > 0 ? matchedTracks : allTracks);
 
     if (tracks.length > 0) {
-      const track = tracks[pickIndex(`${mood}:${genres.join('|')}:${excludedKeys.size}`, tracks.length)];
+      const track = tracks[pickIndex(`${mood}:${genres.join('|')}:${excludedKeys.size}:${Date.now()}`, tracks.length)];
       return NextResponse.json({
         key: track.key,
         url: `/api/r2-file?key=${encodeURIComponent(track.key)}`,
@@ -27,6 +27,8 @@ export async function GET(req: NextRequest) {
         title: cleanTitle(track.key),
         mood,
         proxied: true,
+        selectedGenres: genres,
+        matchedCount: tracks.length,
       });
     }
 
@@ -34,6 +36,7 @@ export async function GET(req: NextRequest) {
       url: '',
       reason: 'nenhuma-musica-encontrada-para-os-generos-selecionados',
       searchedGenres: genres,
+      availableGenres: [...new Set(allTracks.map((track) => track.genre))],
       excluded: [...excludedKeys],
       searchedPrefixes: MUSIC_PREFIXES,
     });
@@ -47,7 +50,7 @@ async function listAllTracks(): Promise<Track[]> {
   const tracks: Track[] = [];
 
   for (const prefix of MUSIC_PREFIXES) {
-    const listed = await listR2Objects(prefix, 1000);
+    const listed = await listR2Objects(prefix, 5000);
     for (const object of listed || []) {
       const key = String(object.key || '');
       if (!isAudioKey(key)) continue;
@@ -62,7 +65,11 @@ async function listAllTracks(): Promise<Track[]> {
 
 function findTracksForGenres(tracks: Track[], genres: string[]) {
   const wanted = new Set(genres.flatMap((genre) => genreAliases(genre)));
-  return tracks.filter((track) => wanted.has(normalizeComparable(track.genre)) || wanted.has(normalizeComparable(track.key)));
+  return tracks.filter((track) => {
+    const genreKey = normalizeComparable(track.genre);
+    const folderKey = normalizeComparable(track.key.split('/').slice(-2, -1)[0] || track.genre);
+    return wanted.has(genreKey) || wanted.has(folderKey) || wanted.has(normalizeComparable(track.key));
+  });
 }
 
 function genreFromKey(key: string, prefix: string) {
@@ -100,8 +107,11 @@ function isSafeKey(key: string) {
 function genreAliases(genre: string) {
   const clean = normalizeComparable(genre);
   const aliases = new Set([clean]);
-  if (clean === 'kpop' || clean === 'k pop') aliases.add('kpop');
-  if (clean === 'eletronica' || clean === 'eletrônica' || clean === 'electronic') aliases.add('eletronica').add('electronic');
+  if (clean === 'kpop' || clean === 'k pop') aliases.add('kpop').add('kpop').add('kpop');
+  if (clean === 'eletronic' || clean === 'electronic' || clean === 'eletronica' || clean === 'eletronico') aliases.add('eletronic').add('electronic').add('eletronica');
+  if (clean === 'rock') aliases.add('rock');
+  if (clean === 'disco') aliases.add('disco');
+  if (clean === 'indie') aliases.add('indie');
   return [...aliases];
 }
 

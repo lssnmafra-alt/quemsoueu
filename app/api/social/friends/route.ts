@@ -47,16 +47,24 @@ export async function GET(req: NextRequest) {
 
     let searchResults: any[] = [];
     if (search.length >= 2) {
+      const terms = buildSearchTerms(search);
+      const orFilter = terms
+        .flatMap((term) => {
+          const escaped = escapeLike(term);
+          return [`nickname.ilike.%${escaped}%`, `email.ilike.%${escaped}%`];
+        })
+        .join(',');
+
       const { data: profiles, error: searchError } = await supabaseGame
         .from('profiles')
         .select(PROFILE_SELECT)
-        .ilike('nickname', `%${escapeLike(search)}%`)
+        .or(orFilter)
         .neq('id', userId)
-        .limit(20);
+        .limit(30);
       if (searchError) throw searchError;
 
       const blockedIds = new Set(friendships.filter((row) => row.status === 'blocked').flatMap((row) => [row.requester_profile_id, row.receiver_profile_id]));
-      searchResults = (profiles || []).filter((profile: any) => !blockedIds.has(profile.id));
+      searchResults = dedupeProfiles(profiles || []).filter((profile: any) => !blockedIds.has(profile.id));
     }
 
     const decorated = friendships.map(decorate);
@@ -169,6 +177,20 @@ async function unlockSocialTrophy(profileId: string) {
   const { data: trophy } = await supabaseGame.from('trophies').select('id').eq('code', 'social_player').maybeSingle();
   if (!trophy?.id) return;
   await supabaseGame.from('profile_trophies').upsert({ profile_id: profileId, trophy_id: trophy.id }, { onConflict: 'profile_id,trophy_id' });
+}
+
+function buildSearchTerms(value: string) {
+  const full = value.trim();
+  const parts = full.split(/\s+/).map((part) => part.trim()).filter((part) => part.length >= 2);
+  return [...new Set([full, ...parts])].slice(0, 5);
+}
+
+function dedupeProfiles(profiles: any[]) {
+  const map = new Map<string, any>();
+  profiles.forEach((profile) => {
+    if (profile?.id && !map.has(profile.id)) map.set(profile.id, profile);
+  });
+  return [...map.values()];
 }
 
 function escapeLike(value: string) {

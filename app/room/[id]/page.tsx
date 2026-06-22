@@ -6,6 +6,7 @@ import { useUserStore } from '@/lib/store';
 import { supabaseGame } from '@/lib/supabase';
 import { getPlayerColors } from '@/lib/colors';
 import { audioManager } from '@/lib/audioManager';
+import { preloadRoomAssets } from '@/lib/preloadGameAssets';
 import RoomLobby from '@/components/game/RoomLobby';
 import RoomPicking from '@/components/game/RoomPicking';
 import RoomStarting from '@/components/game/RoomStarting';
@@ -39,6 +40,8 @@ export default function RoomPage() {
   const [loading, setLoading] = useState(true);
   const [roomNotices, setRoomNotices] = useState<{ id: string; text: string }[]>([]);
   const pickingFinalizeAttemptAtRef = useRef(0);
+  const initialRoomPreloadRef = useRef<Promise<void> | null>(null);
+  const initialRoomPreloadDoneRef = useRef(false);
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
@@ -77,6 +80,7 @@ export default function RoomPage() {
       let normalizedPlayers = currentPlayers.filter((p: any, index: number, list: any[]) => (
         p.user_id !== user.id || list.findIndex((item: any) => item.user_id === user.id) === index
       ));
+      let playersForPreload = normalizedPlayers;
 
       if (alreadyInRoom) {
         const updates: Record<string, any> = {};
@@ -89,6 +93,7 @@ export default function RoomPage() {
         if (Object.keys(updates).length > 0) {
           await supabaseGame.from('room_players').update(updates).eq('id', alreadyInRoom.id);
           normalizedPlayers = normalizedPlayers.map((player: any) => player.id === alreadyInRoom.id ? { ...player, ...updates } : player);
+          playersForPreload = normalizedPlayers;
         }
       }
 
@@ -127,12 +132,28 @@ export default function RoomPage() {
         }).select().single();
 
         if (newP) {
-          setPlayers([...normalizedPlayers, newP]);
+          playersForPreload = [...normalizedPlayers, newP];
+          setPlayers(playersForPreload);
           setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${newP.nickname} entrou na sala` }]);
           requestAdvance(true);
           setTimeout(() => requestAdvance(false), 1200);
           setTimeout(() => requestAdvance(false), 5200);
         }
+      }
+
+      if (!initialRoomPreloadDoneRef.current) {
+        if (!initialRoomPreloadRef.current) {
+          initialRoomPreloadRef.current = preloadRoomAssets({
+            room: rm,
+            players: playersForPreload,
+            profile,
+            userId: user.id,
+            minMs: 4300,
+          }).catch(() => {});
+        }
+
+        await initialRoomPreloadRef.current;
+        initialRoomPreloadDoneRef.current = true;
       }
 
       setLoading(false);
@@ -169,7 +190,7 @@ export default function RoomPage() {
       clearInterval(poll);
       subs1.unsubscribe();
     };
-  }, [authInitialized, authLoading, user, roomId, profile?.nickname, profile?.avatar_url, router]);
+  }, [authInitialized, authLoading, user, roomId, profile, profile?.nickname, profile?.avatar_url, router]);
 
   useEffect(() => {
     if (!room?.status) return;

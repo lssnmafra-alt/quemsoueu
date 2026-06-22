@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getPublicR2Url, putR2Object } from '@/lib/r2Storage';
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
-const BINDING_NAMES = ['atuem', 'ATUEM', 'CHARACTER_IMAGES', 'R2_BUCKET', 'IMAGES_BUCKET', 'BUCKET'];
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,59 +21,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'A imagem deve ter no maximo 5MB.' }, { status: 400 });
     }
 
-    const env = await getRuntimeEnv();
-    const bucket = getR2Bucket(env);
-    const publicBaseUrl = getStringEnv(env, 'R2_PUBLIC_URL');
-
-    if (!bucket) {
-      return NextResponse.json({ error: 'Bucket R2 nao configurado para anexar imagens.' }, { status: 500 });
-    }
-
-    if (!publicBaseUrl) {
-      return NextResponse.json({ error: 'R2_PUBLIC_URL nao configurado.' }, { status: 500 });
-    }
-
     const scope = formData.get('scope') === 'decks' ? 'decks' : 'characters';
     const extension = extensionFromMime(file.type);
     const key = `${scope}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
     const bytes = await file.arrayBuffer();
 
-    await bucket.put(key, bytes, {
-      httpMetadata: {
-        contentType: file.type,
-      },
-    });
+    await putR2Object(key, bytes, file.type);
 
     return NextResponse.json({
       key,
-      url: `${publicBaseUrl.replace(/\/+$/, '')}/${key}`,
+      url: await getPublicR2Url(key),
     });
   } catch (error: any) {
     console.error('Card image upload error:', error);
     return NextResponse.json({ error: error.message || 'Nao foi possivel anexar a imagem.' }, { status: 500 });
   }
-}
-
-async function getRuntimeEnv() {
-  try {
-    return (await getCloudflareContext({ async: true })).env as Record<string, any>;
-  } catch {
-    return process.env as Record<string, any>;
-  }
-}
-
-function getR2Bucket(env: Record<string, any>) {
-  for (const name of BINDING_NAMES) {
-    const bucket = env[name];
-    if (bucket && typeof bucket.put === 'function') return bucket;
-  }
-
-  return null;
-}
-
-function getStringEnv(env: Record<string, any>, key: string) {
-  const value = env[key] ?? process.env[key];
-  return typeof value === 'string' ? value.trim() : '';
 }
 
 function extensionFromMime(type: string) {

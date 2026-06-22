@@ -11,12 +11,28 @@ type Avatar3DPlayerProps = {
   label?: string;
   clipCandidates?: string[];
   clipIndex?: number;
+  cameraOrbit?: string;
+  cameraTarget?: string;
+  fieldOfView?: string;
+  orientation?: string;
   className?: string;
 };
 
 let modelViewerScriptPromise: Promise<void> | null = null;
 
-export default function Avatar3DPlayer({ src, fallbackSrc, eventType, label, clipCandidates = [], clipIndex = 0, className }: Avatar3DPlayerProps) {
+export default function Avatar3DPlayer({
+  src,
+  fallbackSrc,
+  eventType,
+  label,
+  clipCandidates = [],
+  clipIndex = 0,
+  cameraOrbit = '180deg 75deg 115%',
+  cameraTarget = 'auto auto auto',
+  fieldOfView = '30deg',
+  orientation = '0deg 0deg 0deg',
+  className,
+}: Avatar3DPlayerProps) {
   const viewerRef = useRef<any>(null);
   const [scriptReady, setScriptReady] = useState(false);
   const [modelReady, setModelReady] = useState(false);
@@ -54,7 +70,7 @@ export default function Avatar3DPlayer({ src, fallbackSrc, eventType, label, cli
     setModelReady(false);
     setActiveClip('');
     setLoadError('');
-  }, [src, fallbackSrc]);
+  }, [src, fallbackSrc, cameraOrbit, cameraTarget, fieldOfView, orientation]);
 
   useEffect(() => {
     setModelReady(false);
@@ -66,7 +82,20 @@ export default function Avatar3DPlayer({ src, fallbackSrc, eventType, label, cli
     const viewer = viewerRef.current;
     if (!viewer || !scriptReady || !currentSrc) return;
 
+    const applyView = () => {
+      viewer.cameraOrbit = cameraOrbit;
+      viewer.cameraTarget = cameraTarget;
+      viewer.fieldOfView = fieldOfView;
+      viewer.orientation = orientation;
+      viewer.setAttribute('camera-orbit', cameraOrbit);
+      viewer.setAttribute('camera-target', cameraTarget);
+      viewer.setAttribute('field-of-view', fieldOfView);
+      viewer.setAttribute('orientation', orientation);
+      viewer.jumpCameraToGoal?.();
+    };
+
     const applyAnimation = () => {
+      applyView();
       const available = Array.isArray(viewer.availableAnimations) ? viewer.availableAnimations : [];
       const normalized = available.map((name: string) => ({ raw: name, clean: normalizeClipName(name) }));
       const candidates = clipCandidates.map(normalizeClipName);
@@ -101,8 +130,10 @@ export default function Avatar3DPlayer({ src, fallbackSrc, eventType, label, cli
       setModelReady(true);
     };
 
+    applyView();
     viewer.addEventListener('load', applyAnimation);
     viewer.addEventListener('model-visibility', applyAnimation);
+    viewer.addEventListener('camera-change', applyView);
     viewer.addEventListener('error', onError);
     const retryTimers = [900, 2400, 4800].map((delay) => window.setTimeout(applyAnimation, delay));
     const failTimer = window.setTimeout(() => {
@@ -117,9 +148,10 @@ export default function Avatar3DPlayer({ src, fallbackSrc, eventType, label, cli
       window.clearTimeout(failTimer);
       viewer.removeEventListener('load', applyAnimation);
       viewer.removeEventListener('model-visibility', applyAnimation);
+      viewer.removeEventListener('camera-change', applyView);
       viewer.removeEventListener('error', onError);
     };
-  }, [clipCandidates, clipIndex, currentSrc, modelReady, scriptReady, sourceIndex, sources]);
+  }, [cameraOrbit, cameraTarget, clipCandidates, clipIndex, currentSrc, fieldOfView, modelReady, orientation, scriptReady, sourceIndex, sources]);
 
   if (!currentSrc) return null;
 
@@ -144,7 +176,7 @@ export default function Avatar3DPlayer({ src, fallbackSrc, eventType, label, cli
       )}
 
       {scriptReady ? createElement('model-viewer', {
-        key: currentSrc,
+        key: `${currentSrc}:${cameraOrbit}:${orientation}`,
         ref: viewerRef,
         src: currentSrc,
         alt: label || fallbackLabel,
@@ -157,6 +189,10 @@ export default function Avatar3DPlayer({ src, fallbackSrc, eventType, label, cli
         reveal: 'auto',
         loading: 'eager',
         'environment-image': 'neutral',
+        'camera-orbit': cameraOrbit,
+        'camera-target': cameraTarget,
+        'field-of-view': fieldOfView,
+        orientation,
         style: { width: '100%', height: '100%', minHeight: 260, background: 'linear-gradient(180deg, #eef2ff 0%, #dbeafe 100%)' },
       } as any) : (
         <div className="flex h-full min-h-[260px] items-center justify-center bg-indigo-50 text-indigo-300">

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { listR2Objects } from '@/lib/r2Storage';
+import { getPublicR2Url, listR2Objects } from '@/lib/r2Storage';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const ANIMATION_PREFIXES = ['atuem/Animacao/', 'atuem/atuem/Animacao/'];
 const MODEL_FILENAMES = ['personagem.glb', 'character.glb', 'modelo.glb', 'model.glb'];
@@ -17,28 +20,33 @@ export async function GET(req: NextRequest) {
     const slug = cleanSlug(explicitSlug) || slugFromAvatarUrl(avatarUrl);
 
     if (!slug) {
-      return NextResponse.json({ available: false, reason: 'avatar-sem-slug', clipCandidates: CLIP_CANDIDATES });
+      return NextResponse.json({ available: false, reason: 'avatar-sem-slug', clipCandidates: CLIP_CANDIDATES }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     const candidateKeys = buildCandidateKeys(slug);
     const key = await findExistingKey(candidateKeys, slug);
 
     if (!key) {
-      return NextResponse.json({ available: false, slug, expectedKeys: candidateKeys, clipCandidates: CLIP_CANDIDATES, reason: 'glb-nao-encontrado' });
+      return NextResponse.json({ available: false, slug, expectedKeys: candidateKeys, clipCandidates: CLIP_CANDIDATES, reason: 'glb-nao-encontrado' }, { headers: { 'Cache-Control': 'no-store' } });
     }
+
+    const directUrl = await getPublicR2Url(key);
+    const proxyUrl = modelProxyUrlForKey(key, slug);
 
     return NextResponse.json({
       available: true,
       slug,
       key,
-      url: modelUrlForKey(key, slug),
+      url: directUrl,
+      directUrl,
+      proxyUrl,
       clipCandidates: CLIP_CANDIDATES,
       clipIndex: { defeat: 0, intro: 1, victory: 2 },
-      proxied: true,
-    });
+      proxied: directUrl.startsWith('/api/'),
+    }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
     console.error('Avatar animation model error:', error);
-    return NextResponse.json({ available: false, error: error.message || 'Nao foi possivel resolver a animacao 3D.' }, { status: 200 });
+    return NextResponse.json({ available: false, error: error.message || 'Nao foi possivel resolver a animacao 3D.' }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
@@ -91,7 +99,7 @@ async function findExistingKey(keys: string[], slug: string) {
   const lowerSlug = slug.toLowerCase();
 
   for (const prefix of ANIMATION_PREFIXES) {
-    const listed = await listR2Objects(prefix, 1000);
+    const listed = await listR2Objects(prefix, 5000);
     const keySet = new Set(listed.map((object) => object.key));
     const direct = keys.find((key) => keySet.has(key));
     if (direct) return direct;
@@ -109,7 +117,7 @@ async function findExistingKey(keys: string[], slug: string) {
   return '';
 }
 
-function modelUrlForKey(key: string, slug: string) {
+function modelProxyUrlForKey(key: string, slug: string) {
   const filename = `${slug.split('/').pop() || 'modelo'}.glb`;
   return `/api/r2-model/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`;
 }

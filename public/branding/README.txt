@@ -1,0 +1,1 @@
+Branding assets folder. Use logo.png and cover.jpg.

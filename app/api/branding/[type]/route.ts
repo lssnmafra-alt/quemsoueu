@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getR2Object, listR2Objects } from '@/lib/r2Storage';
 
 const BRANDING_PREFIXES: Record<string, string[]> = {
-  logo: ['atuem/atuem/Logo/'],
-  loading: ['atuem/atuem/Loading/'],
+  logo: ['atuem/atuem/Logo/', 'atuem/atuem/logo/', 'atuem/Logo/', 'atuem/logo/', 'Logo/', 'logo/'],
+  loading: ['atuem/atuem/Loading/', 'atuem/atuem/loading/', 'atuem/Loading/', 'atuem/loading/', 'Loading/', 'loading/'],
 };
 
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg'];
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ type: s
       : await findBrandingAsset(prefixes);
 
     if (!key) {
-      return NextResponse.json({ error: 'Arquivo de branding nao encontrado no R2.', prefixes }, { status: 404 });
+      return NextResponse.json({ error: 'Arquivo de branding nao encontrado no R2.', type: normalizedType, prefixes }, { status: 404 });
     }
 
     const object = await getR2Object(key);
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ type: s
     return new NextResponse(object.body as any, {
       headers: {
         'Content-Type': object.httpMetadata?.contentType || contentTypeForKey(key),
-        'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=3600',
         'Access-Control-Allow-Origin': '*',
         'Cross-Origin-Resource-Policy': 'cross-origin',
         'X-R2-Branding-Key': key,
@@ -54,7 +54,7 @@ async function findBrandingAsset(prefixes: string[]) {
   const candidates = [];
 
   for (const prefix of prefixes) {
-    const listed = await listR2Objects(prefix, 200);
+    const listed = await listR2Objects(prefix, 500);
     for (const object of listed || []) {
       if (isImageKey(object.key)) candidates.push(object);
     }

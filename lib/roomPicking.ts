@@ -1,12 +1,19 @@
 import { supabaseGame } from './supabase';
 import { nextRoomExpiry, touchRoomActivity } from './roomLifecycle';
 
+const INTRO_STATIC_BEFORE_SECONDS = 1;
+const INTRO_VIDEO_SECONDS = 6;
+const INTRO_STATIC_AFTER_SECONDS = 1;
+const INTRO_LOAD_GRACE_SECONDS = 12;
+
 function shuffle<T>(items: T[]) {
   return [...items].sort(() => Math.random() - 0.5);
 }
 
 function openingDurationMs(playerCount: number) {
-  return Math.max(8000, Math.min(22000, (2 + Math.max(1, playerCount) * 2) * 1000));
+  const perPlayerSeconds = INTRO_STATIC_BEFORE_SECONDS + INTRO_VIDEO_SECONDS + INTRO_STATIC_AFTER_SECONDS + INTRO_LOAD_GRACE_SECONDS;
+  const safeSeconds = 8 + Math.max(1, playerCount) * perPlayerSeconds;
+  return Math.max(60_000, Math.min(300_000, safeSeconds * 1000));
 }
 
 async function isTiebreakPicking(room: any) {
@@ -177,5 +184,6 @@ export async function finalizeRoomPicking(roomId: string, _options: { serverTick
     repeatedCardsAllowed: true,
     players: activePlayers.length,
     locked: true,
+    startingDurationMs: openingDurationMs(activePlayers.length),
   };
 }

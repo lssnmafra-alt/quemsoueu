@@ -6,12 +6,16 @@ import { cn } from '@/lib/utils';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import AvatarAnimationShowcase from '@/components/avatar/AvatarAnimationShowcase';
 
+const FINAL_SPOTLIGHT_SECONDS = 8;
+
 export default function RoomFinished({ room, players, me, isAdmin, leaveRoom }: any) {
   const [events, setEvents] = useState<any[]>([]);
   const [eventsLoaded, setEventsLoaded] = useState(false);
   const [handoffSeconds, setHandoffSeconds] = useState(10);
   const [claimingLeadership, setClaimingLeadership] = useState(false);
   const [localLeadership, setLocalLeadership] = useState(false);
+  const [spotlightIndex, setSpotlightIndex] = useState(0);
+  const [spotlightSeconds, setSpotlightSeconds] = useState(FINAL_SPOTLIGHT_SECONDS);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,8 +95,26 @@ export default function RoomFinished({ room, players, me, isAdmin, leaveRoom }: 
   }, [eliminationOrder, players]);
 
   const winner = ranking.find((p: any) => !p.is_eliminated && (p.lives || 0) > 0);
-  const defeatedPlayers = useMemo(() => ranking.filter((p: any) => !winner || p.id !== winner.id).filter((p: any) => p.is_eliminated || (p.lives || 0) <= 0), [ranking, winner?.id]);
   const hasEventHistory = events.length > 0;
+  const spotlightPlayers = ranking.length ? ranking : players;
+  const spotlightPlayer = spotlightPlayers.length ? spotlightPlayers[spotlightIndex % spotlightPlayers.length] : null;
+  const spotlightEventType = spotlightPlayer && winner?.id === spotlightPlayer.id ? 'victory' : 'defeat';
+  const spotlightPosition = spotlightPlayers.findIndex((player: any) => player.id === spotlightPlayer?.id);
+
+  useEffect(() => {
+    if (spotlightPlayers.length <= 1) return;
+    setSpotlightSeconds(FINAL_SPOTLIGHT_SECONDS);
+    const timer = window.setInterval(() => {
+      setSpotlightIndex((current) => (current + 1) % spotlightPlayers.length);
+      setSpotlightSeconds(FINAL_SPOTLIGHT_SECONDS);
+    }, FINAL_SPOTLIGHT_SECONDS * 1000);
+    return () => window.clearInterval(timer);
+  }, [spotlightPlayers.length, room.id]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setSpotlightSeconds((current) => Math.max(0, current - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [room.id, spotlightIndex]);
 
   const resetGame = async () => {
     await supabaseGame.from('rooms').update({ status: 'LOBBY', current_turn_number: 0 }).eq('id', room.id);
@@ -136,50 +158,62 @@ export default function RoomFinished({ room, players, me, isAdmin, leaveRoom }: 
   const playerName = (playerId?: string | null) => playerId ? (playersById.get(playerId) as any)?.nickname || 'Jogador' : 'Timeout';
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#f5f6ff] p-6 text-center font-sans party-grid-bg relative overflow-hidden">
-      <div className="max-w-3xl w-full p-6 md:p-10 bg-white border-4 border-indigo-100 shadow-xl relative z-10 rounded-3xl">
-        <div className="w-20 h-20 mx-auto bg-amber-400 border-4 border-amber-300 flex items-center justify-center shadow-md mb-6 rounded-2xl animate-bounce">
-          <Trophy className="w-10 h-10 text-amber-950" fill="currentColor" />
+    <div className="flex min-h-screen flex-col items-center justify-start bg-[#f5f6ff] p-4 text-center font-sans party-grid-bg relative overflow-x-hidden md:justify-center md:p-6">
+      <div className="max-w-3xl w-full p-4 md:p-10 bg-white border-4 border-indigo-100 shadow-xl relative z-10 rounded-3xl">
+        <div className="w-16 h-16 md:w-20 md:h-20 mx-auto bg-amber-400 border-4 border-amber-300 flex items-center justify-center shadow-md mb-5 rounded-2xl animate-bounce">
+          <Trophy className="w-8 h-8 md:w-10 md:h-10 text-amber-950" fill="currentColor" />
         </div>
 
-        <h2 className="text-3xl md:text-4xl font-black text-indigo-950 mb-2 font-display">Partida Concluida!</h2>
+        <h2 className="text-2xl md:text-4xl font-black text-indigo-950 mb-2 font-display">Partida Concluida!</h2>
 
         {winner ? (
-          <div className={cn('mb-6 mt-6 border-4 rounded-3xl p-6 relative overflow-hidden', winner.color?.bg || 'bg-amber-500', winner.color?.border || 'border-amber-300')}>
+          <div className={cn('mb-5 mt-5 border-4 rounded-3xl p-5 md:p-6 relative overflow-hidden', winner.color?.bg || 'bg-amber-500', winner.color?.border || 'border-amber-300')}>
             <div className="absolute inset-0 bg-white/10" />
             <div className="relative z-10 flex flex-col items-center gap-3">
               <div className="rounded-full border-2 border-white/40 bg-white/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">Grande Campeao</div>
-              <Crown className="w-10 h-10 text-white drop-shadow" fill="currentColor" />
-              <h3 className="text-3xl md:text-4xl font-black text-white font-display drop-shadow">{winner.nickname}</h3>
+              <Crown className="w-9 h-9 md:w-10 md:h-10 text-white drop-shadow" fill="currentColor" />
+              <h3 className="text-2xl md:text-4xl font-black text-white font-display drop-shadow">{winner.nickname}</h3>
             </div>
           </div>
         ) : (
-          <div className="mb-6 mt-6 bg-rose-50 border-4 border-rose-200 rounded-3xl p-6">
+          <div className="mb-5 mt-5 bg-rose-50 border-4 border-rose-200 rounded-3xl p-6">
             <p className="text-rose-700 text-xs uppercase tracking-wider font-extrabold mb-1">Empate</p>
             <h3 className="text-2xl font-black text-rose-950 font-display">Todos foram eliminados!</h3>
           </div>
         )}
 
-        {(winner || defeatedPlayers.length > 0) && (
+        {spotlightPlayer && (
           <div className="mb-6 rounded-3xl border-4 border-indigo-50 bg-indigo-50/30 p-3 md:p-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              {winner && (
-                <AvatarAnimationShowcase
-                  player={winner}
-                  eventType="victory"
-                  title="Dança da vitória"
-                  subtitle={`${winner.nickname} venceu a partida`}
-                  compact
-                />
-              )}
-              {defeatedPlayers.slice(0, 6).map((player: any) => (
-                <AvatarAnimationShowcase
+            <div className="mb-3 flex items-center justify-between gap-3 px-1 text-left">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Destaque final</p>
+                <h3 className="truncate text-lg font-black text-indigo-950 font-display">{positionLabel(Math.max(0, spotlightPosition))} {spotlightPlayer.nickname}</h3>
+              </div>
+              <div className="rounded-2xl border-2 border-white bg-white px-3 py-2 text-center shadow-sm">
+                <p className="text-[10px] font-black uppercase text-slate-400">Próximo</p>
+                <p className="text-lg font-black text-indigo-700 font-mono">{spotlightSeconds}s</p>
+              </div>
+            </div>
+
+            <div className="mx-auto max-w-md">
+              <AvatarAnimationShowcase
+                key={`${spotlightPlayer.id}-${spotlightIndex}`}
+                player={spotlightPlayer}
+                eventType={spotlightEventType}
+                title={spotlightEventType === 'victory' ? 'Vídeo de vitória' : 'Vídeo de derrota'}
+                subtitle={`${spotlightPlayer.nickname} em destaque`}
+                compact
+              />
+            </div>
+
+            <div className="mt-3 flex items-center justify-center gap-1.5">
+              {spotlightPlayers.map((player: any, index: number) => (
+                <button
                   key={player.id}
-                  player={player}
-                  eventType="defeat"
-                  title="Dança da derrota"
-                  subtitle={`${player.nickname} foi eliminado`}
-                  compact
+                  type="button"
+                  onClick={() => { setSpotlightIndex(index); setSpotlightSeconds(FINAL_SPOTLIGHT_SECONDS); }}
+                  className={cn('h-2.5 rounded-full transition-all', index === spotlightIndex % spotlightPlayers.length ? 'w-8 bg-indigo-500' : 'w-2.5 bg-indigo-100')}
+                  aria-label={`Ver ${player.nickname}`}
                 />
               ))}
             </div>

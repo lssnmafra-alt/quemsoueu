@@ -1,38 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getR2Object } from '@/lib/r2Storage';
 
-const ALLOWED_PREFIXES = [
-  'atuem/avatar/',
-  'atuem/atuem/avatar/',
-  'atuem/music/',
-  'atuem/atuem/music/',
-  'atuem/Music/',
-  'atuem/musica/',
-  'atuem/atuem/musica/',
-  'atuem/Musica/',
-  'atuem/Música/',
-  'atuem/musicas/',
-  'atuem/atuem/musicas/',
-  'atuem/Musicas/',
-  'atuem/Músicas/',
-  'atuem/audio/',
-  'atuem/atuem/audio/',
-  'atuem/audios/',
-  'music/',
-  'Music/',
-  'musica/',
-  'Musica/',
-  'música/',
-  'musicas/',
-  'Musicas/',
-  'Músicas/',
-  'audio/',
-  'audios/',
-  'atuem/Animacao/',
-  'atuem/atuem/Animacao/',
-  'atuem/atuem/Loading/',
-  'atuem/atuem/Logo/',
-];
+const BLOCKED_PREFIXES = ['private/', 'secrets/'];
 const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.mp3', '.ogg', '.wav', '.m4a', '.glb'];
 
 export async function GET(req: NextRequest) {
@@ -66,7 +35,8 @@ export async function GET(req: NextRequest) {
 function isSafeKey(key: string) {
   if (!key || key.includes('..') || key.startsWith('/') || key.includes('\\')) return false;
   const lower = key.toLowerCase();
-  return ALLOWED_PREFIXES.some((prefix) => key.startsWith(prefix)) && ALLOWED_EXTENSIONS.some((extension) => lower.endsWith(extension));
+  if (BLOCKED_PREFIXES.some((prefix) => lower.startsWith(prefix))) return false;
+  return ALLOWED_EXTENSIONS.some((extension) => lower.endsWith(extension));
 }
 
 function contentTypeForKey(key: string) {

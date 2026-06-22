@@ -19,7 +19,7 @@ const GAMEPLAY_TIPS = [
 
 const LOADING_STEPS = [
   'Salvando preferências locais...',
-  'Baixando logo e tela de entrada...',
+  'Baixando imagem da tela de carregamento...',
   'Lendo músicas do R2...',
   'Preparando prévia de áudio...',
   'Carregando imagens do jogo...',
@@ -44,11 +44,11 @@ export default function LoadingArena({ label = 'Carregando Quem Sou Eu...' }: Lo
 
     const preload = async () => {
       try {
-        const branding = { logo: '/api/branding/logo', loading: '/api/branding/loading' };
+        const branding = { logo: '/api/branding/logo', loadingImage: '/api/branding/loading?kind=image' };
         localStorage.setItem('quemSouEu:lastLoadingAt', new Date().toISOString());
         localStorage.setItem('quemSouEu:loadingBranding', JSON.stringify(branding));
 
-        await Promise.all([preloadImage(branding.logo), preloadImage(branding.loading)]);
+        await Promise.all([preloadImage(branding.logo), preloadImage(branding.loadingImage)]);
 
         const libraryResponse = await fetch('/api/audio/library', { cache: 'no-store' });
         const library = await libraryResponse.json().catch(() => ({ genres: [], tracks: [] }));
@@ -88,9 +88,10 @@ export default function LoadingArena({ label = 'Carregando Quem Sou Eu...' }: Lo
         className="absolute inset-0 scale-[1.03] bg-cover bg-center"
         style={{
           backgroundImage:
-            "linear-gradient(180deg, rgba(18,8,36,0.60) 0%, rgba(32,10,58,0.76) 50%, rgba(9,6,22,0.94) 100%), url('/api/branding/loading')",
+            "linear-gradient(180deg, rgba(18,8,36,0.60) 0%, rgba(32,10,58,0.76) 50%, rgba(9,6,22,0.94) 100%), url('/api/branding/loading?kind=image')",
         }}
       />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#120824]/25 via-[#1d0b36]/45 to-[#090616]/95" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(168,85,247,0.24),_transparent_42%),radial-gradient(circle_at_bottom,_rgba(34,211,238,0.16),_transparent_38%)]" />
       <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px]" />
 
@@ -140,26 +141,14 @@ export default function LoadingArena({ label = 'Carregando Quem Sou Eu...' }: Lo
         }
 
         @keyframes loading-shine {
-          0% {
-            transform: translateX(-120%);
-          }
-          50% {
-            transform: translateX(110%);
-          }
-          100% {
-            transform: translateX(310%);
-          }
+          0% { transform: translateX(-120%); }
+          50% { transform: translateX(110%); }
+          100% { transform: translateX(310%); }
         }
 
         @keyframes loading-tip {
-          0% {
-            opacity: 0;
-            transform: translateY(10px) scale(0.98);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          0% { opacity: 0; transform: translateY(10px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
     </div>

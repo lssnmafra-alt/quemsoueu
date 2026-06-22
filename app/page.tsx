@@ -63,7 +63,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen bg-[#090a1d] flex flex-col items-center justify-center overflow-hidden font-sans p-4">
-      <div className="absolute inset-0 bg-[url('/branding/cover.svg')] bg-cover bg-center opacity-95" />
+      <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-95" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-indigo-950/20 to-black/70" />
       <div className="absolute inset-0 party-grid-bg opacity-30" />
 
@@ -95,7 +95,7 @@ export default function LoginPage() {
       >
         <div className="text-center mb-6 relative select-none flex flex-col items-center">
           <motion.img
-            src="/branding/logo.svg"
+            src="/api/branding/logo"
             alt="Quem Sou Eu?"
             animate={{ scale: [1, 1.04, 1] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}

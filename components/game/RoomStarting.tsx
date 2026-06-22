@@ -8,7 +8,7 @@ import AvatarModelPreloader from '@/components/avatar/AvatarModelPreloader';
 const STATIC_BEFORE_MS = 900;
 const VIDEO_MS = 6000;
 const STATIC_AFTER_MS = 900;
-const VIDEO_LOAD_TIMEOUT_MS = 15000;
+const VIDEO_LOAD_TIMEOUT_MS = 12000;
 
 type SequencePhase = 'before' | 'loading' | 'video' | 'after';
 
@@ -55,9 +55,7 @@ export default function RoomStarting({ room, players }: any) {
     }
 
     const safeIndex = Math.min(sequenceIndex, orderedPlayers.length - 1);
-    if (safeIndex !== sequenceIndex) {
-      setSequenceIndex(safeIndex);
-    }
+    if (safeIndex !== sequenceIndex) setSequenceIndex(safeIndex);
   }, [advanceToPlaying, orderedPlayers.length, sequenceIndex]);
 
   useEffect(() => {
@@ -81,7 +79,7 @@ export default function RoomStarting({ room, players }: any) {
 
     if (sequencePhase === 'before') {
       setCurrentVideoSrc('');
-      setVideoStatus(`${focusedPlayer.nickname} se preparando...`);
+      setVideoStatus(`${focusedPlayer.nickname} na imagem estática`);
       timer = window.setTimeout(() => {
         if (!cancelled) setSequencePhase('loading');
       }, STATIC_BEFORE_MS);
@@ -94,7 +92,7 @@ export default function RoomStarting({ room, players }: any) {
         .then((url) => {
           if (cancelled) return;
           setCurrentVideoSrc(url || '');
-          setVideoStatus(url ? `${focusedPlayer.nickname} em movimento` : `${focusedPlayer.nickname} sem vídeo, usando imagem`);
+          setVideoStatus(url ? `${focusedPlayer.nickname} em vídeo` : `${focusedPlayer.nickname} sem vídeo, usando imagem`);
           setSequencePhase('video');
         })
         .catch(() => {
@@ -112,7 +110,7 @@ export default function RoomStarting({ room, players }: any) {
     }
 
     if (sequencePhase === 'after') {
-      setVideoStatus(`${focusedPlayer.nickname} finalizou a entrada`);
+      setVideoStatus(`${focusedPlayer.nickname} voltou para imagem estática`);
       timer = window.setTimeout(moveNext, STATIC_AFTER_MS);
     }
 
@@ -148,7 +146,7 @@ export default function RoomStarting({ room, players }: any) {
         </AnimatePresence>
 
         <h1 className="text-3xl md:text-5xl font-black text-indigo-950 mb-2 font-display">
-          A Partida vai Comecar!
+          A Partida vai Começar!
         </h1>
         <p className="text-xs md:text-sm text-indigo-600 font-bold uppercase tracking-wider mb-5 animate-pulse">
           Imagem estática → vídeo de 6s → imagem estática. Passando jogador por jogador.
@@ -206,11 +204,11 @@ function StaticIntroPanel({ player, isFocused, phase }: { player: any; isFocused
     : phase === 'loading'
       ? 'Carregando vídeo...'
       : phase === 'after'
-        ? 'Entrada finalizada'
+        ? 'Imagem estática final'
         : 'Imagem estática';
 
   return (
-    <div className="relative flex h-[220px] md:h-[260px] items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-indigo-100 bg-indigo-50/40">
+    <div className="relative flex h-[220px] md:h-[260px] items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-indigo-100 bg-white">
       <motion.div
         animate={isFocused ? { scale: [1, 1.04, 1], y: [0, -4, 0] } : { scale: 1, y: 0 }}
         transition={{ duration: 1.1, repeat: isFocused && phase === 'loading' ? Infinity : 0, ease: 'easeInOut' }}
@@ -218,7 +216,7 @@ function StaticIntroPanel({ player, isFocused, phase }: { player: any; isFocused
         <AvatarFigure avatarUrl={player.avatar_url} label={player.nickname} primaryColor={player.color?.hex} className="h-32 w-32 rounded-[2rem] border-4 border-white bg-white shadow-lg" />
       </motion.div>
       {isFocused && (
-        <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-2xl border border-white/70 bg-white/80 px-3 py-2 text-left shadow-sm backdrop-blur">
+        <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-2xl border border-white/70 bg-white/85 px-3 py-2 text-left shadow-sm backdrop-blur">
           <p className="truncate text-[10px] font-black uppercase tracking-wider text-indigo-500">{label}</p>
           <p className="truncate text-xs font-black text-indigo-950">{player.nickname}</p>
         </div>
@@ -239,42 +237,52 @@ function IntroVideoPlayer({ src, player }: { src: string; player: any }) {
     video.volume = 0;
   };
 
+  const markReady = () => {
+    forceMuted();
+    setReady(true);
+    videoRef.current?.play?.().catch(() => null);
+  };
+
   useEffect(() => {
     forceMuted();
+    const timer = window.setTimeout(() => setReady(true), 500);
+    return () => window.clearTimeout(timer);
   }, [src]);
 
   return (
-    <div className="relative h-[220px] md:h-[260px] overflow-hidden rounded-3xl border-2 border-indigo-100 bg-slate-950 shadow-inner">
-      {!ready && <StaticIntroPanel player={player} isFocused phase="loading" />}
-      <video
-        ref={videoRef}
-        src={src}
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-        controls={false}
-        disablePictureInPicture
-        onLoadedMetadata={forceMuted}
-        onVolumeChange={forceMuted}
-        onPlay={forceMuted}
-        onLoadedData={() => {
-          forceMuted();
-          setReady(true);
-        }}
-        onCanPlay={() => {
-          forceMuted();
-          setReady(true);
-        }}
-        className={cn('h-full w-full object-contain bg-gradient-to-b from-indigo-50 to-blue-100', !ready && 'absolute inset-0 opacity-0')}
-      />
-      {ready && (
-        <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-2xl border border-white/30 bg-white/70 px-3 py-2 text-left shadow-sm backdrop-blur">
-          <p className="truncate text-[10px] font-black uppercase tracking-wider text-indigo-500">Vídeo de entrada</p>
-          <p className="truncate text-xs font-black text-indigo-950">{player.nickname}</p>
+    <div className="relative flex h-[220px] md:h-[260px] items-center justify-center overflow-hidden rounded-3xl border-2 border-indigo-100 bg-white shadow-inner">
+      <div className="relative flex h-full max-h-[260px] aspect-[2/3] items-center justify-center overflow-hidden rounded-2xl bg-white">
+        <video
+          ref={videoRef}
+          src={src}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          controls={false}
+          disablePictureInPicture
+          onLoadedMetadata={markReady}
+          onVolumeChange={forceMuted}
+          onPlay={forceMuted}
+          onLoadedData={markReady}
+          onCanPlay={markReady}
+          className="h-full w-full bg-white object-contain"
+        />
+      </div>
+
+      {!ready && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70">
+          <div className="rounded-2xl border border-indigo-100 bg-white/90 px-4 py-3 text-xs font-black uppercase text-indigo-500 shadow-sm">
+            Carregando vídeo...
+          </div>
         </div>
       )}
+
+      <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-2xl border border-white/70 bg-white/85 px-3 py-2 text-left shadow-sm backdrop-blur">
+        <p className="truncate text-[10px] font-black uppercase tracking-wider text-indigo-500">Vídeo de entrada</p>
+        <p className="truncate text-xs font-black text-indigo-950">{player.nickname}</p>
+      </div>
     </div>
   );
 }
@@ -296,49 +304,27 @@ async function resolveAndPreloadIntroVideo(player: any, cache: Map<string, strin
     return '';
   }
 
-  await preloadVideo(url, VIDEO_LOAD_TIMEOUT_MS);
+  await preloadVideoFile(url, VIDEO_LOAD_TIMEOUT_MS);
   cache.set(cacheKey, url);
   return url;
 }
 
-function preloadVideo(src: string, timeoutMs: number) {
-  return new Promise<void>((resolve) => {
-    const video = document.createElement('video');
-    let settled = false;
-
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve();
-    };
-
-    const cleanup = () => {
-      window.clearTimeout(timeout);
-      video.removeEventListener('loadeddata', finish);
-      video.removeEventListener('canplay', finish);
-      video.removeEventListener('error', finish);
-      video.src = '';
-      video.load();
-    };
-
-    const timeout = window.setTimeout(finish, timeoutMs);
-    video.muted = true;
-    video.defaultMuted = true;
-    video.volume = 0;
-    video.preload = 'auto';
-    video.playsInline = true;
-    video.addEventListener('loadeddata', finish);
-    video.addEventListener('canplay', finish);
-    video.addEventListener('error', finish);
-    video.src = src;
-    video.load();
-  });
+async function preloadVideoFile(src: string, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(src, { cache: 'force-cache', signal: controller.signal });
+    if (response.ok) await response.arrayBuffer();
+  } catch {
+    // Se o navegador nao conseguir pré-carregar, ainda tentamos tocar o vídeo no elemento <video>.
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 function phaseLabel(phase: SequencePhase, currentVideoSrc: string) {
   if (phase === 'before') return 'Imagem estática';
   if (phase === 'loading') return 'Carregando vídeo';
-  if (phase === 'video') return currentVideoSrc ? 'Vídeo de 6 segundos' : 'Imagem animada';
-  return 'Finalizando entrada';
+  if (phase === 'video') return currentVideoSrc ? 'Vídeo de 6 segundos' : 'Imagem estática';
+  return 'Imagem estática final';
 }

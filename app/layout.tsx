@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Quem Sou Eu?',
     description: 'Jogo multiplayer de cartas, personagens e adivinhação social.',
-    images: ['/branding/cover.svg'],
+    images: ['/api/branding/loading'],
   },
 };
 

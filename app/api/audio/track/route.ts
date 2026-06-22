@@ -1,19 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listR2Objects } from '@/lib/r2Storage';
 
-const MUSIC_ROOT_PREFIXES = ['', 'atuem/', 'atuem/atuem/', 'music/', 'Music/', 'musica/', 'Musica/', 'Música/'];
-const KNOWN_MUSIC_ROOTS = ['music', 'musica', 'música', 'musicas', 'músicas', 'audio', 'audios', 'áudio', 'áudios'];
+const MUSIC_SCAN_PREFIXES = [
+  'atuem/music/',
+  'atuem/Music/',
+  'atuem/musica/',
+  'atuem/Musica/',
+  'atuem/Música/',
+  'atuem/musicas/',
+  'atuem/Musicas/',
+  'atuem/Músicas/',
+  'atuem/audio/',
+  'atuem/audios/',
+  'atuem/atuem/music/',
+  'atuem/atuem/Music/',
+  'atuem/atuem/musica/',
+  'atuem/atuem/Musica/',
+  'atuem/atuem/Música/',
+  'atuem/atuem/musicas/',
+  'atuem/atuem/Musicas/',
+  'atuem/atuem/Músicas/',
+  'atuem/atuem/audio/',
+  'atuem/atuem/audios/',
+  'music/',
+  'Music/',
+  'musica/',
+  'Musica/',
+  'Música/',
+  'musicas/',
+  'Musicas/',
+  'Músicas/',
+  'audio/',
+  'audios/',
+];
+
+const MUSIC_ROOT_NAMES = ['music', 'musica', 'música', 'musicas', 'músicas', 'audio', 'audios', 'áudio', 'áudios'];
 const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
 
 type Track = { key: string; genre: string; title: string };
 
 export async function GET(req: NextRequest) {
+  const scanErrors: string[] = [];
+
   try {
     const mood = req.nextUrl.searchParams.get('mood') || 'lobby-theme';
     const genres = req.nextUrl.searchParams.getAll('genre').map(cleanFolderName).filter(Boolean);
     const excludedKeys = new Set(req.nextUrl.searchParams.getAll('exclude').map((key) => decodeURIComponent(key)).filter(isSafeKey));
 
-    const allTracks = (await listAllTracks()).filter((track) => !excludedKeys.has(track.key));
+    const allTracks = (await listAllTracks(scanErrors)).filter((track) => !excludedKeys.has(track.key));
     const matchedTracks = genres.length ? findTracksForGenres(allTracks, genres) : allTracks;
     const tracks = matchedTracks.length > 0 ? matchedTracks : allTracks;
 
@@ -29,6 +63,7 @@ export async function GET(req: NextRequest) {
         selectedGenres: genres,
         matchedCount: matchedTracks.length,
         fallbackToAnyGenre: matchedTracks.length === 0 && genres.length > 0,
+        scanErrors,
       });
     }
 
@@ -38,20 +73,28 @@ export async function GET(req: NextRequest) {
       searchedGenres: genres,
       availableGenres: [...new Set(allTracks.map((track) => track.genre))],
       excluded: [...excludedKeys],
-      scannedPrefixes: MUSIC_ROOT_PREFIXES,
+      scannedPrefixes: MUSIC_SCAN_PREFIXES,
+      scanErrors,
     });
   } catch (error: any) {
     console.error('Audio track error:', error);
-    return NextResponse.json({ url: '', error: error.message || 'Nao foi possivel carregar musica.' });
+    return NextResponse.json({ url: '', error: error.message || 'Nao foi possivel carregar musica.', scanErrors });
   }
 }
 
-async function listAllTracks(): Promise<Track[]> {
+async function listAllTracks(scanErrors: string[]): Promise<Track[]> {
   const tracks: Track[] = [];
   const seenKeys = new Set<string>();
 
-  for (const prefix of MUSIC_ROOT_PREFIXES) {
-    const listed = await listR2Objects(prefix, 10000);
+  for (const prefix of MUSIC_SCAN_PREFIXES) {
+    let listed: Awaited<ReturnType<typeof listR2Objects>> = [];
+    try {
+      listed = await listR2Objects(prefix, 10000);
+    } catch (error: any) {
+      scanErrors.push(`${prefix}: ${error?.message || 'falhou'}`);
+      continue;
+    }
+
     for (const object of listed || []) addTrack(object.key, tracks, seenKeys);
   }
 
@@ -74,7 +117,7 @@ function parseTrackPath(key: string) {
   const fileName = parts[parts.length - 1] || '';
   if (!isAudioKey(fileName)) return { genre: '', folder: '' };
 
-  const normalizedRoots = KNOWN_MUSIC_ROOTS.map(normalizeComparable);
+  const normalizedRoots = MUSIC_ROOT_NAMES.map(normalizeComparable);
   const rootIndex = parts.map(normalizeComparable).findIndex((part) => normalizedRoots.includes(part));
   const genreFolder = rootIndex >= 0 && parts[rootIndex + 1]
     ? parts[rootIndex + 1]

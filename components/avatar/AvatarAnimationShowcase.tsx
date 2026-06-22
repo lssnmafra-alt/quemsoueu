@@ -85,6 +85,8 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
   const resolvedSubtitle = subtitle || player?.nickname || 'Personagem';
   const candidates = model?.clipCandidates?.[eventType] || DEFAULT_CLIP_CANDIDATES[eventType];
   const clipIndex = model?.clipIndex?.[eventType] ?? DEFAULT_CLIP_INDEX[eventType];
+  const primarySrc = model?.url || model?.proxyUrl || '';
+  const fallbackSrc = model?.directUrl && model.directUrl !== primarySrc ? model.directUrl : undefined;
 
   return (
     <div className={cn('rounded-3xl border-4 border-indigo-100 bg-white p-4 shadow-xl', className)}>
@@ -103,10 +105,10 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
         <div className="flex min-h-[220px] items-center justify-center rounded-3xl border-2 border-dashed border-indigo-100 bg-indigo-50/50 text-xs font-black uppercase text-indigo-400">
           Procurando GLB...
         </div>
-      ) : model?.available && model.url ? (
+      ) : model?.available && primarySrc ? (
         <Avatar3DPlayer
-          src={model.directUrl || model.url}
-          fallbackSrc={model.proxyUrl && model.proxyUrl !== model.url ? model.proxyUrl : undefined}
+          src={primarySrc}
+          fallbackSrc={fallbackSrc}
           eventType={eventType}
           label={resolvedTitle}
           clipCandidates={candidates}

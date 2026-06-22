@@ -20,6 +20,8 @@ type AvatarAnimationShowcaseProps = {
 type AnimationModel = {
   available: boolean;
   url?: string;
+  directUrl?: string;
+  proxyUrl?: string;
   key?: string;
   slug?: string;
   clipCandidates?: Record<AnimationEventType, string[]>;
@@ -103,7 +105,8 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
         </div>
       ) : model?.available && model.url ? (
         <Avatar3DPlayer
-          src={model.url}
+          src={model.directUrl || model.url}
+          fallbackSrc={model.proxyUrl && model.proxyUrl !== model.url ? model.proxyUrl : undefined}
           eventType={eventType}
           label={resolvedTitle}
           clipCandidates={candidates}

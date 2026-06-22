@@ -1,4 +1,4 @@
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
 import { Inter, Quicksand } from 'next/font/google';
 import './globals.css'; // Global styles
 import AudioToggle from '@/components/AudioToggle';
@@ -10,15 +10,21 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const quicksand = Quicksand({ subsets: ['latin'], variable: '--font-quicksand' });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://quemsoueu-ten.vercel.app'),
   title: 'Quem Sou Eu? Jogo de Cartas',
-  description: 'Um divertido jogo social de cartas e adivinhação multiplayer!',
+  description: 'Jogo multiplayer de cartas, personagens e adivinhação social.',
+  openGraph: {
+    title: 'Quem Sou Eu?',
+    description: 'Jogo multiplayer de cartas, personagens e adivinhação social.',
+    images: ['/branding/cover.svg'],
+  },
 };
 
 export const dynamic = 'force-dynamic';
 
-export default function RootLayout({children}: {children: React.ReactNode}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${quicksand.variable}`} suppressHydrationWarning>
+    <html lang="pt-BR" className={`${inter.variable} ${quicksand.variable}`} suppressHydrationWarning>
       <head>
         <script
           id="quem-sou-eu-runtime-env"

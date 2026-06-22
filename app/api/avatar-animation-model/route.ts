@@ -37,12 +37,13 @@ export async function GET(req: NextRequest) {
       available: true,
       slug,
       key,
-      url: directUrl,
-      directUrl,
+      url: proxyUrl,
       proxyUrl,
+      directUrl,
       clipCandidates: CLIP_CANDIDATES,
       clipIndex: { defeat: 0, intro: 1, victory: 2 },
-      proxied: directUrl.startsWith('/api/'),
+      proxied: true,
+      reason: 'usando-proxy-para-evitar-cors-do-r2-publico',
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
     console.error('Avatar animation model error:', error);

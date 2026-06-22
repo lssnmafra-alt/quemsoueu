@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 
 const ADSENSE_CLIENT = 'ca-pub-4115543805172090';
 const ADSENSE_GATE_SLOT = '7846590607';
+const ADSENSE_GATE_ENABLED = process.env.NEXT_PUBLIC_ADSENSE_GATE_ENABLED === 'true';
 const LAST_ACTIVITY_KEY = 'quemSouEu:lastPlayerActivityAt';
 const HAS_SEEN_AD_KEY = 'quemSouEu:hasSeenAdsenseGate';
 const CACHE_CONSENT_KEY = 'quemSouEu:cacheCookiesConsent';
@@ -37,7 +38,10 @@ export default function AdSenseGate() {
   }, []);
 
   useEffect(() => {
-    if (shouldAvoidPage) return;
+    if (shouldAvoidPage || !ADSENSE_GATE_ENABLED) {
+      writeActivity(Date.now());
+      return;
+    }
 
     const now = Date.now();
     const state = readAdState();
@@ -61,12 +65,14 @@ export default function AdSenseGate() {
       const now = Date.now();
       if (now - lastWriteRef.current < ACTIVITY_THROTTLE_MS) return;
 
-      const state = readAdState();
-      const returnedAfterInactivity = state.hasSeen && state.lastActivity > 0 && now - state.lastActivity >= INACTIVE_MS;
+      if (ADSENSE_GATE_ENABLED) {
+        const state = readAdState();
+        const returnedAfterInactivity = state.hasSeen && state.lastActivity > 0 && now - state.lastActivity >= INACTIVE_MS;
 
-      if (returnedAfterInactivity) {
-        setVisible(true);
-        return;
+        if (returnedAfterInactivity) {
+          setVisible(true);
+          return;
+        }
       }
 
       writeActivity(now);
@@ -101,7 +107,7 @@ export default function AdSenseGate() {
   }, [visible]);
 
   useEffect(() => {
-    if (!visible || !adSlot || adPushed) return;
+    if (!ADSENSE_GATE_ENABLED || !visible || !adSlot || adPushed) return;
     const timer = window.setTimeout(() => {
       try {
         const win = window as any;
@@ -136,7 +142,7 @@ export default function AdSenseGate() {
 
   return (
     <>
-      {visible && !shouldAvoidPage && (
+      {ADSENSE_GATE_ENABLED && visible && !shouldAvoidPage && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#07051a]/92 px-4 py-6 text-white backdrop-blur-md">
           <div className="relative w-full max-w-lg overflow-hidden rounded-[34px] border border-white/10 bg-white p-4 text-indigo-950 shadow-2xl md:p-5">
             <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-cyan-300 via-fuchsia-300 to-amber-300" />

@@ -1,0 +1,167 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabaseGame } from '@/lib/supabase';
+
+const PROFILE_SELECT = 'id,nickname,avatar_url,played_matches,wins,is_guest,updated_at';
+
+type Friendship = {
+  id: string;
+  requester_profile_id: string;
+  receiver_profile_id: string;
+  status: 'pending' | 'accepted' | 'declined' | 'blocked';
+  blocked_by_profile_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export async function GET(req: NextRequest) {
+  try {
+    const userId = req.nextUrl.searchParams.get('userId')?.trim() || '';
+    const search = req.nextUrl.searchParams.get('search')?.trim() || '';
+    if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
+
+    const { data: rows, error } = await supabaseGame
+      .from('friendships')
+      .select('*')
+      .or(`requester_profile_id.eq.${userId},receiver_profile_id.eq.${userId}`)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+
+    const friendships = (rows || []) as Friendship[];
+    const relatedIds = [...new Set(friendships.flatMap((row) => [row.requester_profile_id, row.receiver_profile_id]).filter((id) => id && id !== userId))];
+    const { data: relatedProfiles } = relatedIds.length
+      ? await supabaseGame.from('profiles').select(PROFILE_SELECT).in('id', relatedIds)
+      : { data: [] };
+
+    const profileMap = new Map((relatedProfiles || []).map((profile: any) => [profile.id, profile]));
+    const decorate = (row: Friendship) => {
+      const otherId = row.requester_profile_id === userId ? row.receiver_profile_id : row.requester_profile_id;
+      return {
+        ...row,
+        direction: row.requester_profile_id === userId ? 'outgoing' : 'incoming',
+        other_profile_id: otherId,
+        other_profile: profileMap.get(otherId) || null,
+      };
+    };
+
+    let searchResults: any[] = [];
+    if (search.length >= 2) {
+      const { data: profiles } = await supabaseGame
+        .from('profiles')
+        .select(PROFILE_SELECT)
+        .ilike('nickname', `%${escapeLike(search)}%`)
+        .neq('id', userId)
+        .limit(20);
+
+      const blockedIds = new Set(friendships.filter((row) => row.status === 'blocked').flatMap((row) => [row.requester_profile_id, row.receiver_profile_id]));
+      searchResults = (profiles || []).filter((profile: any) => !blockedIds.has(profile.id));
+    }
+
+    const decorated = friendships.map(decorate);
+    return NextResponse.json({
+      friends: decorated.filter((row: any) => row.status === 'accepted'),
+      incoming: decorated.filter((row: any) => row.status === 'pending' && row.receiver_profile_id === userId),
+      outgoing: decorated.filter((row: any) => row.status === 'pending' && row.requester_profile_id === userId),
+      blocked: decorated.filter((row: any) => row.status === 'blocked'),
+      all: decorated,
+      searchResults,
+    });
+  } catch (error: any) {
+    console.error('Friends read error:', error);
+    return NextResponse.json({ error: error.message || 'Nao foi possivel carregar amigos.' }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const userId = String(body.userId || body.profileId || '').trim();
+    const targetId = String(body.targetId || body.targetProfileId || '').trim();
+    const action = String(body.action || '').trim();
+
+    if (!isUuid(userId) || !isUuid(targetId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
+    if (userId === targetId) return NextResponse.json({ error: 'Voce nao pode fazer isso com seu proprio perfil.' }, { status: 400 });
+
+    const existing = await findFriendship(userId, targetId);
+
+    if (action === 'request') {
+      if (existing?.status === 'blocked') return NextResponse.json({ error: 'Perfil bloqueado.' }, { status: 400 });
+      if (existing?.status === 'accepted') return NextResponse.json({ friendship: existing, status: 'accepted' });
+      if (existing?.status === 'pending') return NextResponse.json({ friendship: existing, status: 'pending' });
+
+      const { data, error } = await supabaseGame
+        .from('friendships')
+        .insert({ requester_profile_id: userId, receiver_profile_id: targetId, status: 'pending' })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return NextResponse.json({ friendship: data, status: 'pending' });
+    }
+
+    if (action === 'accept') {
+      if (!existing || existing.status !== 'pending' || existing.receiver_profile_id !== userId) return NextResponse.json({ error: 'Pedido nao encontrado.' }, { status: 404 });
+      const { data, error } = await supabaseGame.from('friendships').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', existing.id).select('*').single();
+      if (error) throw error;
+      await unlockSocialTrophy(userId);
+      await unlockSocialTrophy(targetId);
+      return NextResponse.json({ friendship: data, status: 'accepted' });
+    }
+
+    if (action === 'decline') {
+      if (!existing || existing.status !== 'pending') return NextResponse.json({ error: 'Pedido nao encontrado.' }, { status: 404 });
+      const { data, error } = await supabaseGame.from('friendships').update({ status: 'declined', updated_at: new Date().toISOString() }).eq('id', existing.id).select('*').single();
+      if (error) throw error;
+      return NextResponse.json({ friendship: data, status: 'declined' });
+    }
+
+    if (action === 'remove' || action === 'unblock') {
+      if (existing) await supabaseGame.from('friendships').delete().eq('id', existing.id);
+      return NextResponse.json({ ok: true, status: 'removed' });
+    }
+
+    if (action === 'block') {
+      if (existing) {
+        const { data, error } = await supabaseGame.from('friendships').update({ status: 'blocked', blocked_by_profile_id: userId, updated_at: new Date().toISOString() }).eq('id', existing.id).select('*').single();
+        if (error) throw error;
+        return NextResponse.json({ friendship: data, status: 'blocked' });
+      }
+
+      const { data, error } = await supabaseGame
+        .from('friendships')
+        .insert({ requester_profile_id: userId, receiver_profile_id: targetId, status: 'blocked', blocked_by_profile_id: userId })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return NextResponse.json({ friendship: data, status: 'blocked' });
+    }
+
+    return NextResponse.json({ error: 'Acao invalida.' }, { status: 400 });
+  } catch (error: any) {
+    console.error('Friends action error:', error);
+    return NextResponse.json({ error: error.message || 'Nao foi possivel atualizar amizade.' }, { status: 500 });
+  }
+}
+
+async function findFriendship(userId: string, targetId: string) {
+  const { data, error } = await supabaseGame
+    .from('friendships')
+    .select('*')
+    .or(`and(requester_profile_id.eq.${userId},receiver_profile_id.eq.${targetId}),and(requester_profile_id.eq.${targetId},receiver_profile_id.eq.${userId})`)
+    .maybeSingle();
+  if (error) throw error;
+  return data as Friendship | null;
+}
+
+async function unlockSocialTrophy(profileId: string) {
+  const { data: trophy } = await supabaseGame.from('trophies').select('id').eq('code', 'social_player').maybeSingle();
+  if (!trophy?.id) return;
+  await supabaseGame.from('profile_trophies').upsert({ profile_id: profileId, trophy_id: trophy.id }, { onConflict: 'profile_id,trophy_id' });
+}
+
+function escapeLike(value: string) {
+  return value.replace(/[\\%_]/g, (match) => `\\${match}`);
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}

@@ -4,6 +4,7 @@ import { playBotTurn } from './botTurn';
 import { finalizeRoomPicking } from './roomPicking';
 import { startRoom } from './roomStart';
 import { touchRoomActivity } from './roomLifecycle';
+import { applyVoteDamage } from './voteDamage';
 
 const LOBBY_COUNTDOWN_MS = 5_000;
 const BOT_THINK_MS = 4_500;
@@ -181,8 +182,9 @@ async function finishResolvedVoteIfReady(room: any, voteEvent: any, now = Date.n
   }
 
   const hitPlayerIds = getHitPlayerIdsFromEvent(voteEvent);
+  const damage = await applyVoteDamage(room);
   const progress = await finishOrAdvance(room, hitPlayerIds);
-  return { ok: true, roomId: room.id, action: 'turn-result-finalized-after-reveal', result: progress };
+  return { ok: true, roomId: room.id, action: 'turn-result-finalized-after-reveal', damage, result: progress };
 }
 
 async function applyHumanTimeout(room: any, activePlayer: any) {

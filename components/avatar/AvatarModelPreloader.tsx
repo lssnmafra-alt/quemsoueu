@@ -35,30 +35,42 @@ export default function AvatarModelPreloader({ players, max = 12, onProgress, on
 
     emit();
 
+    const resolveAnimationUrl = async (avatarUrl: string, controller: AbortController) => {
+      const videoResponse = await fetch(`/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      const video = await videoResponse.json().catch(() => null);
+      if (video?.available && (video.videoUrl || video.url)) return String(video.videoUrl || video.url);
+
+      const modelResponse = await fetch(`/api/avatar-animation-model?avatarUrl=${encodeURIComponent(avatarUrl)}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      const model = await modelResponse.json().catch(() => null);
+      if (model?.available && (model.url || model.proxyUrl)) return String(model.url || model.proxyUrl);
+
+      return '';
+    };
+
     const loadOne = async (avatarUrl: string) => {
       const controller = new AbortController();
       controllers.push(controller);
 
       try {
-        const response = await fetch(`/api/avatar-animation-model?avatarUrl=${encodeURIComponent(avatarUrl)}`, {
-          cache: 'no-store',
-          signal: controller.signal,
-        });
-        const model = await response.json().catch(() => null);
-        const url = String(model?.url || model?.proxyUrl || '');
-
-        if (!url || !model?.available) {
+        const url = await resolveAnimationUrl(avatarUrl, controller);
+        if (!url || cancelled) {
           progress.unavailable += 1;
           return;
         }
 
         if (!loadedUrls.has(url)) {
-          const modelResponse = await fetch(url, {
+          const mediaResponse = await fetch(url, {
             cache: 'force-cache',
             signal: controller.signal,
           });
-          if (!modelResponse.ok) throw new Error(`GLB ${modelResponse.status}`);
-          await modelResponse.arrayBuffer();
+          if (!mediaResponse.ok) throw new Error(`Animacao ${mediaResponse.status}`);
+          await mediaResponse.arrayBuffer();
           loadedUrls.add(url);
         }
 

@@ -8,8 +8,10 @@ export type ServerAvatarOption = {
 };
 
 export const R2_AVATAR_PREFIX = 'atuem/avatar/';
+const R2_ANIMATION_PREFIXES = ['atuem/Animacao/', 'atuem/atuem/Animacao/'];
 
 const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
+const ALLOWED_MODEL_EXTENSIONS = ['.glb'];
 const BOT_PALETTES = [
   ['#EF4444', '#111827'],
   ['#2563EB', '#F59E0B'],
@@ -32,6 +34,34 @@ export async function listServerAvatars(limit = 100): Promise<ServerAvatarOption
   })));
 }
 
+export async function listAnimatedServerAvatars(limit = 100): Promise<ServerAvatarOption[]> {
+  const avatars = await listServerAvatars(limit);
+  if (avatars.length === 0) return [];
+
+  const animationSlugs = new Set<string>();
+
+  for (const prefix of R2_ANIMATION_PREFIXES) {
+    try {
+      const models = await listR2Objects(prefix, 1000);
+      for (const model of models) {
+        if (!isModelKey(model.key)) continue;
+        animationSlugs.add(normalizeComparable(model.key.split('/').pop() || ''));
+        const parts = model.key.slice(prefix.length).split('/').filter(Boolean);
+        if (parts.length > 1) animationSlugs.add(normalizeComparable(parts[0]));
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  if (animationSlugs.size === 0) return [];
+
+  return avatars.filter((avatar) => {
+    const filename = avatar.key.split('/').pop() || avatar.name;
+    return animationSlugs.has(normalizeComparable(filename)) || animationSlugs.has(normalizeComparable(avatar.name));
+  });
+}
+
 export function pickBotAvatarUrl(pool: ServerAvatarOption[], seed: string, index: number) {
   if (pool.length > 0) {
     const picked = pool[(stableIndex(`${seed}:${index}`, pool.length) + index) % pool.length];
@@ -51,6 +81,8 @@ export function pickBotAvatarUrl(pool: ServerAvatarOption[], seed: string, index
 
 export async function getBotAvatarPool() {
   try {
+    const animatedAvatars = await listAnimatedServerAvatars(200);
+    if (animatedAvatars.length > 0) return animatedAvatars;
     return await listServerAvatars(200);
   } catch (error) {
     console.warn('Bot avatar pool unavailable:', error);
@@ -63,6 +95,11 @@ function isImageKey(key: string) {
   return ALLOWED_IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension));
 }
 
+function isModelKey(key: string) {
+  const lower = key.toLowerCase();
+  return ALLOWED_MODEL_EXTENSIONS.some((extension) => lower.endsWith(extension));
+}
+
 function humanizeName(name: string) {
   return name
     .split('/')
@@ -71,6 +108,15 @@ function humanizeName(name: string) {
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim() || 'Avatar';
+}
+
+function normalizeComparable(value: string) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-zA-Z0-9]+/g, '')
+    .toLowerCase();
 }
 
 function stableIndex(seed: string, length: number) {

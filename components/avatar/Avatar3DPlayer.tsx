@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 
 type Avatar3DPlayerProps = {
   src?: string;
+  fallbackSrc?: string;
   eventType: 'defeat' | 'intro' | 'victory';
   label?: string;
   clipCandidates?: string[];
@@ -15,12 +16,19 @@ type Avatar3DPlayerProps = {
 
 let modelViewerScriptPromise: Promise<void> | null = null;
 
-export default function Avatar3DPlayer({ src, eventType, label, clipCandidates = [], clipIndex = 0, className }: Avatar3DPlayerProps) {
+export default function Avatar3DPlayer({ src, fallbackSrc, eventType, label, clipCandidates = [], clipIndex = 0, className }: Avatar3DPlayerProps) {
   const viewerRef = useRef<any>(null);
   const [scriptReady, setScriptReady] = useState(false);
   const [modelReady, setModelReady] = useState(false);
   const [activeClip, setActiveClip] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [sourceIndex, setSourceIndex] = useState(0);
+
+  const sources = useMemo(() => {
+    const unique = [src, fallbackSrc].filter(Boolean) as string[];
+    return [...new Set(unique)];
+  }, [src, fallbackSrc]);
+  const currentSrc = sources[sourceIndex] || sources[0] || '';
 
   const fallbackLabel = useMemo(() => {
     if (eventType === 'victory') return 'Animação de vitória';
@@ -42,14 +50,21 @@ export default function Avatar3DPlayer({ src, eventType, label, clipCandidates =
   }, []);
 
   useEffect(() => {
+    setSourceIndex(0);
     setModelReady(false);
     setActiveClip('');
     setLoadError('');
-  }, [src]);
+  }, [src, fallbackSrc]);
+
+  useEffect(() => {
+    setModelReady(false);
+    setActiveClip('');
+    setLoadError('');
+  }, [currentSrc]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
-    if (!viewer || !scriptReady || !src) return;
+    if (!viewer || !scriptReady || !currentSrc) return;
 
     const applyAnimation = () => {
       const available = Array.isArray(viewer.availableAnimations) ? viewer.availableAnimations : [];
@@ -64,13 +79,24 @@ export default function Avatar3DPlayer({ src, eventType, label, clipCandidates =
         viewer.setAttribute('animation-name', nextClip);
         setActiveClip(nextClip);
         viewer.play?.();
+      } else {
+        setActiveClip('modelo estático');
       }
 
       setModelReady(true);
       setLoadError('');
     };
 
+    const tryNextSource = () => {
+      if (sourceIndex + 1 < sources.length) {
+        setSourceIndex((current) => current + 1);
+        return true;
+      }
+      return false;
+    };
+
     const onError = () => {
+      if (tryNextSource()) return;
       setLoadError('O GLB foi encontrado, mas o navegador não conseguiu renderizar.');
       setModelReady(true);
     };
@@ -79,16 +105,23 @@ export default function Avatar3DPlayer({ src, eventType, label, clipCandidates =
     viewer.addEventListener('model-visibility', applyAnimation);
     viewer.addEventListener('error', onError);
     const retryTimers = [900, 2400, 4800].map((delay) => window.setTimeout(applyAnimation, delay));
+    const failTimer = window.setTimeout(() => {
+      if (!viewerRef.current || modelReady) return;
+      if (tryNextSource()) return;
+      setLoadError('O GLB demorou demais para carregar no navegador.');
+      setModelReady(true);
+    }, 15000);
 
     return () => {
       retryTimers.forEach((timer) => window.clearTimeout(timer));
+      window.clearTimeout(failTimer);
       viewer.removeEventListener('load', applyAnimation);
       viewer.removeEventListener('model-visibility', applyAnimation);
       viewer.removeEventListener('error', onError);
     };
-  }, [clipCandidates, clipIndex, scriptReady, src]);
+  }, [clipCandidates, clipIndex, currentSrc, modelReady, scriptReady, sourceIndex, sources]);
 
-  if (!src) return null;
+  if (!currentSrc) return null;
 
   return (
     <div className={cn('relative overflow-hidden rounded-3xl border-4 border-indigo-100 bg-slate-950 shadow-inner', className)}>
@@ -96,6 +129,7 @@ export default function Avatar3DPlayer({ src, eventType, label, clipCandidates =
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-slate-950 text-white">
           <Loader2 className="h-7 w-7 animate-spin text-indigo-300" />
           <p className="text-[10px] font-black uppercase tracking-wider text-indigo-100">Carregando 3D</p>
+          {sources.length > 1 && <p className="text-[9px] font-black uppercase tracking-wider text-indigo-200">Fonte {sourceIndex + 1}/{sources.length}</p>}
         </div>
       )}
 
@@ -103,15 +137,16 @@ export default function Avatar3DPlayer({ src, eventType, label, clipCandidates =
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-slate-950 p-5 text-center text-white">
           <AlertTriangle className="h-8 w-8 text-amber-300" />
           <p className="text-xs font-black uppercase tracking-wider text-amber-100">{loadError}</p>
-          <a href={src} target="_blank" rel="noreferrer" className="mt-2 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-[10px] font-black uppercase text-white hover:bg-white/20">
+          <a href={currentSrc} target="_blank" rel="noreferrer" className="mt-2 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-[10px] font-black uppercase text-white hover:bg-white/20">
             Abrir GLB
           </a>
         </div>
       )}
 
       {scriptReady ? createElement('model-viewer', {
+        key: currentSrc,
         ref: viewerRef,
-        src,
+        src: currentSrc,
         alt: label || fallbackLabel,
         autoplay: true,
         'camera-controls': true,
@@ -121,7 +156,6 @@ export default function Avatar3DPlayer({ src, eventType, label, clipCandidates =
         exposure: '1',
         reveal: 'auto',
         loading: 'eager',
-        crossorigin: 'anonymous',
         'environment-image': 'neutral',
         style: { width: '100%', height: '100%', minHeight: 260, background: 'linear-gradient(180deg, #eef2ff 0%, #dbeafe 100%)' },
       } as any) : (

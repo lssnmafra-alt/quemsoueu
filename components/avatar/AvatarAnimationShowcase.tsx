@@ -53,35 +53,23 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
     const controller = new AbortController();
     setLoading(true);
 
-    const fallbackModel: AnimationModel = directModelFromSlug(avatarSlug);
-    const fallbackTimer = window.setTimeout(() => {
-      if (!cancelled) {
-        setModel((current) => current?.available ? current : fallbackModel);
-        setLoading(false);
-      }
-    }, 700);
-
     fetch(`/api/avatar-animation-model?slug=${encodeURIComponent(avatarSlug)}&avatarUrl=${encodeURIComponent(avatarUrl)}`, { cache: 'no-store', signal: controller.signal })
       .then((response) => response.json())
       .then((result) => {
         if (cancelled) return;
         const apiModel = result?.available && result?.url ? result : null;
-        setModel(apiModel ? normalizeModelUrl(apiModel, avatarSlug) : fallbackModel);
+        setModel(apiModel ? normalizeModel(apiModel) : null);
       })
       .catch(() => {
-        if (!cancelled) setModel(fallbackModel);
+        if (!cancelled) setModel(null);
       })
       .finally(() => {
-        if (!cancelled) {
-          window.clearTimeout(fallbackTimer);
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       });
 
     return () => {
       cancelled = true;
       controller.abort();
-      window.clearTimeout(fallbackTimer);
     };
   }, [avatarSlug, avatarUrl]);
 
@@ -109,7 +97,7 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
         {player?.avatar_url && <AvatarFigure avatarUrl={player.avatar_url} label={player.nickname} className="h-12 w-12 shrink-0 rounded-2xl border-2 border-indigo-100" />}
       </div>
 
-      {loading && !model?.url ? (
+      {loading ? (
         <div className="flex min-h-[220px] items-center justify-center rounded-3xl border-2 border-dashed border-indigo-100 bg-indigo-50/50 text-xs font-black uppercase text-indigo-400">
           Procurando GLB...
         </div>
@@ -135,32 +123,12 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
   );
 }
 
-function normalizeModelUrl(model: AnimationModel, slug: string): AnimationModel {
-  if (!model.key) return model;
+function normalizeModel(model: AnimationModel): AnimationModel {
   return {
     ...model,
-    url: modelUrlForKey(model.key, slug),
     clipCandidates: model.clipCandidates || DEFAULT_CLIP_CANDIDATES,
     clipIndex: model.clipIndex || DEFAULT_CLIP_INDEX,
   };
-}
-
-function directModelFromSlug(slug: string): AnimationModel {
-  const safeSlug = slug.split('/').filter(Boolean).join('/');
-  const key = `atuem/Animacao/${safeSlug}.glb`;
-  return {
-    available: true,
-    slug: safeSlug,
-    key,
-    url: modelUrlForKey(key, safeSlug),
-    clipCandidates: DEFAULT_CLIP_CANDIDATES,
-    clipIndex: DEFAULT_CLIP_INDEX,
-  };
-}
-
-function modelUrlForKey(key: string, slug: string) {
-  const filename = `${slug.split('/').pop() || 'modelo'}.glb`;
-  return `/api/r2-model/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`;
 }
 
 function slugFromAvatarUrl(avatarUrl: string) {

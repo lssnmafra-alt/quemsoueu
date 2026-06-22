@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { X } from 'lucide-react';
 
 const ADSENSE_CLIENT = 'ca-pub-4115543805172090';
+const ADSENSE_GATE_SLOT = '7846590607';
 const LAST_AD_KEY = 'quemSouEu:lastAdsenseGateAt';
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const CLOSE_DELAY_SECONDS = 8;
@@ -15,7 +16,7 @@ export default function AdSenseGate() {
   const [secondsLeft, setSecondsLeft] = useState(CLOSE_DELAY_SECONDS);
   const [adPushed, setAdPushed] = useState(false);
 
-  const adSlot = process.env.NEXT_PUBLIC_ADSENSE_GATE_SLOT || '';
+  const adSlot = process.env.NEXT_PUBLIC_ADSENSE_GATE_SLOT || ADSENSE_GATE_SLOT;
   const shouldAvoidPage = useMemo(() => {
     const path = pathname || '';
     return path.startsWith('/room/') || path.startsWith('/api/') || path.startsWith('/decks/');
@@ -92,23 +93,14 @@ export default function AdSenseGate() {
         </div>
 
         <div className="flex min-h-[280px] items-center justify-center overflow-hidden rounded-[26px] border-2 border-indigo-50 bg-slate-50 p-3 text-center">
-          {adSlot ? (
-            <ins
-              className="adsbygoogle"
-              style={{ display: 'block', width: '100%', minHeight: 250 }}
-              data-ad-client={ADSENSE_CLIENT}
-              data-ad-slot={adSlot}
-              data-ad-format="auto"
-              data-full-width-responsive="true"
-            />
-          ) : (
-            <div className="max-w-sm px-3">
-              <p className="text-sm font-black uppercase tracking-wide text-indigo-500">AdSense ativo</p>
-              <p className="mt-2 text-xs font-bold leading-relaxed text-slate-500">
-                O script do Google AdSense já está carregado. Para exibir anúncio fixo neste bloco, crie um bloco de anúncio no AdSense e configure o slot em NEXT_PUBLIC_ADSENSE_GATE_SLOT.
-              </p>
-            </div>
-          )}
+          <ins
+            className="adsbygoogle"
+            style={{ display: 'block', width: '100%', minHeight: 250 }}
+            data-ad-client={ADSENSE_CLIENT}
+            data-ad-slot={adSlot}
+            data-ad-format="auto"
+            data-full-width-responsive="true"
+          />
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3 text-[11px] font-black uppercase tracking-wide text-slate-400">

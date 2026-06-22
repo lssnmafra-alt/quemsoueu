@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabaseGame } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,14 @@ import AvatarModelPreloader from '@/components/avatar/AvatarModelPreloader';
 
 const STATIC_INTRO_SECONDS = 2;
 
+type ModelProgress = {
+  total: number;
+  done: number;
+  loaded: number;
+  unavailable: number;
+  failed: number;
+};
+
 function openingDurationSeconds(playerCount: number) {
   return Math.max(8, Math.min(22, 2 + Math.max(1, playerCount) * 2));
 }
@@ -16,28 +24,54 @@ function openingDurationSeconds(playerCount: number) {
 export default function RoomStarting({ room, players }: any) {
   const totalSecondsRef = useRef(openingDurationSeconds(players.length || 1));
   const [timeLeft, setTimeLeft] = useState(() => Math.max(0, Math.ceil((new Date(room.turn_expires_at).getTime() - Date.now()) / 1000)));
+  const [modelsReady, setModelsReady] = useState(false);
+  const [modelProgress, setModelProgress] = useState<ModelProgress>({ total: 0, done: 0, loaded: 0, unavailable: 0, failed: 0 });
   const advancingRef = useRef(false);
 
-  const activePlayers = players.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0);
-  const visiblePlayers = activePlayers.length > 0 ? activePlayers : players.filter((p: any) => !p.is_eliminated);
-  const orderedPlayers = [...visiblePlayers].sort((a, b) => (a.play_order || 0) - (b.play_order || 0));
+  const orderedPlayers = useMemo(() => {
+    const activePlayers = players.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0);
+    const visiblePlayers = activePlayers.length > 0 ? activePlayers : players.filter((p: any) => !p.is_eliminated);
+    return [...visiblePlayers].sort((a, b) => (a.play_order || 0) - (b.play_order || 0));
+  }, [players]);
+
   const totalSeconds = Math.max(1, totalSecondsRef.current);
   const focusSeconds = Math.max(2, Math.floor((totalSeconds - STATIC_INTRO_SECONDS) / Math.max(1, orderedPlayers.length || 1)));
   const elapsedSeconds = Math.max(0, totalSeconds - timeLeft);
   const focusIndex = elapsedSeconds < STATIC_INTRO_SECONDS ? -1 : Math.min(orderedPlayers.length - 1, Math.floor((elapsedSeconds - STATIC_INTRO_SECONDS) / focusSeconds));
   const focusedPlayer = focusIndex >= 0 ? orderedPlayers[focusIndex] : null;
-  const countdownNumber = timeLeft > 0 && timeLeft <= 3 ? timeLeft : null;
+  const waitingModels = !modelsReady && modelProgress.total > 0;
+  const countdownNumber = modelsReady && timeLeft > 0 && timeLeft <= 3 ? timeLeft : null;
+
+  const handleModelProgress = useCallback((progress: ModelProgress) => {
+    setModelProgress(progress);
+    if (progress.total === 0 || progress.done >= progress.total) setModelsReady(true);
+  }, []);
+
+  const handleModelsDone = useCallback(() => {
+    setModelsReady(true);
+  }, []);
 
   useEffect(() => {
-    if (timeLeft <= 3 && timeLeft > 0) {
+    setModelsReady(false);
+    setModelProgress({ total: 0, done: 0, loaded: 0, unavailable: 0, failed: 0 });
+    advancingRef.current = false;
+  }, [room.id]);
+
+  useEffect(() => {
+    if (modelsReady && timeLeft <= 3 && timeLeft > 0) {
       audioManager.playSFX('countdown');
     }
-  }, [timeLeft]);
+  }, [modelsReady, timeLeft]);
 
   useEffect(() => {
     const tick = async () => {
       const diff = Math.max(0, Math.ceil((new Date(room.turn_expires_at).getTime() - Date.now()) / 1000));
       if (diff <= 0) {
+        if (!modelsReady) {
+          setTimeLeft(1);
+          return;
+        }
+
         setTimeLeft(0);
         if (advancingRef.current) return;
         advancingRef.current = true;
@@ -54,7 +88,7 @@ export default function RoomStarting({ room, players }: any) {
     const i = setInterval(tick, 250);
 
     return () => clearInterval(i);
-  }, [room.turn_expires_at, room.vote_time_seconds, room.id]);
+  }, [modelsReady, room.turn_expires_at, room.vote_time_seconds, room.id]);
 
   const gridColumns = useMemo(() => {
     if (orderedPlayers.length <= 4) return 'md:grid-cols-2';
@@ -63,7 +97,7 @@ export default function RoomStarting({ room, players }: any) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 md:p-6 bg-[#f5f6ff] font-sans text-indigo-950 party-grid-bg relative overflow-hidden">
-      <AvatarModelPreloader players={orderedPlayers} />
+      <AvatarModelPreloader players={orderedPlayers} onProgress={handleModelProgress} onDone={handleModelsDone} />
       <div className="max-w-6xl w-full text-center relative z-10">
         <AnimatePresence mode="wait">
           {countdownNumber ? (
@@ -85,7 +119,7 @@ export default function RoomStarting({ room, players }: any) {
               exit={{ opacity: 0, y: -12 }}
               className="mx-auto mb-4 inline-flex rounded-full border-2 border-indigo-100 bg-white px-5 py-2 text-xs font-black uppercase tracking-widest text-indigo-500 shadow-sm"
             >
-              {focusedPlayer ? `Apresentando ${focusedPlayer.nickname}` : 'Todos os jogadores na mesa'}
+              {waitingModels ? `Carregando GLBs ${modelProgress.done}/${modelProgress.total}` : focusedPlayer ? `Apresentando ${focusedPlayer.nickname}` : 'Todos os jogadores na mesa'}
             </motion.div>
           )}
         </AnimatePresence>
@@ -94,13 +128,15 @@ export default function RoomStarting({ room, players }: any) {
           A Partida vai Comecar!
         </h1>
         <p className="text-xs md:text-sm text-indigo-600 font-bold uppercase tracking-wider mb-5 animate-pulse">
-          Apresentacao dos jogadores... ({timeLeft}s)
+          {waitingModels
+            ? `Aguardando modelos 3D antes de iniciar... ${modelProgress.loaded} carregados, ${modelProgress.unavailable} sem GLB, ${modelProgress.failed} falharam.`
+            : `Apresentacao dos jogadores... (${timeLeft}s)`}
         </p>
 
         <div className={cn('grid grid-cols-1 gap-4 md:gap-5', gridColumns)}>
           {orderedPlayers.map((p, index) => {
-            const isFocused = index === focusIndex;
-            const waitingFocus = focusIndex < 0;
+            const isFocused = index === focusIndex && !waitingModels;
+            const waitingFocus = focusIndex < 0 || waitingModels;
             return (
               <motion.div
                 key={p.id}
@@ -122,7 +158,7 @@ export default function RoomStarting({ room, players }: any) {
                     <div className="min-w-0">
                       <p className={cn('truncate text-lg font-black font-display', p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
                       <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                        {isFocused ? 'Em movimento' : index === 0 ? 'Comeca palpitando' : 'Aguardando destaque'}
+                        {isFocused ? 'Em movimento' : 'Aguardando destaque'}
                       </p>
                     </div>
                   </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Music, Pause, Play, Save, UserRound, Volume2, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Music, Pause, Play, Save, SlidersHorizontal, UserRound, Volume2, X } from 'lucide-react';
 import { moderateText } from '@/app/actions/moderate';
 import LoadingArena from '@/components/LoadingArena';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,7 @@ export default function ProfilePage() {
   const [expandedGenreIds, setExpandedGenreIds] = useState<string[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [autoSavingMusic, setAutoSavingMusic] = useState(false);
   const [error, setError] = useState('');
   const [playingTrackKey, setPlayingTrackKey] = useState('');
   const [loadingTrackKey, setLoadingTrackKey] = useState('');
@@ -57,7 +58,7 @@ export default function ProfilePage() {
     setAvatarUrl(profile?.avatar_url || '');
     setSelectedGenres(Array.isArray(profile?.music_genres) ? profile.music_genres : []);
     setBlockedTrackKeys(Array.isArray(profile?.music_blocked_tracks) ? profile.music_blocked_tracks : []);
-  }, [authInitialized, authLoading, router, user?.id]);
+  }, [authInitialized, authLoading, router, user, profile]);
 
   useEffect(() => {
     if (!authInitialized || authLoading || !user?.id) return;
@@ -78,7 +79,7 @@ export default function ProfilePage() {
       const nextMusicGroups = Array.isArray(libraryResult.genres) ? libraryResult.genres : [];
       setAvatars(Array.isArray(avatarResult.avatars) ? avatarResult.avatars : []);
       setMusicGroups(nextMusicGroups);
-      setExpandedGenreIds((current) => current.length ? current : nextMusicGroups.slice(0, 2).map((group: MusicGenreGroup) => group.id));
+      setExpandedGenreIds((current) => current.length ? current : nextMusicGroups.filter((group: MusicGenreGroup) => group.tracks.length > 0).slice(0, 2).map((group: MusicGenreGroup) => group.id));
 
       if (profileResult.profile) {
         const savedProfile = { ...profile, ...profileResult.profile };
@@ -103,11 +104,48 @@ export default function ProfilePage() {
   const isGenreSelected = (genre: string) => selectedGenres.some((item) => normalizeId(item) === normalizeId(genre));
   const isTrackBlocked = (key: string) => blockedTrackKeys.includes(key);
 
+  const persistMusicPreferences = async (nextGenres: string[], nextBlockedTracks: string[]) => {
+    if (!user?.id) return;
+
+    const cleanNickname = nickname.trim() || profile?.nickname || user.email?.split('@')[0] || 'Jogador';
+    const nextProfile = {
+      ...profile,
+      id: user.id,
+      nickname: cleanNickname,
+      avatar_url: avatarUrl,
+      music_genres: nextGenres,
+      music_blocked_tracks: nextBlockedTracks,
+      profile_completed: true,
+      is_guest: Boolean(profile?.is_guest || user.email?.includes('@guest.com')),
+    };
+
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
+    localStorage.setItem(MUSIC_GENRES_KEY, JSON.stringify(nextGenres));
+    localStorage.setItem(MUSIC_BLOCKED_TRACKS_KEY, JSON.stringify(nextBlockedTracks));
+    setSessionUser(user, nextProfile);
+
+    setAutoSavingMusic(true);
+    try {
+      const response = await fetch('/api/player-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextProfile),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Nao foi possivel salvar suas musicas.');
+    } catch (saveError: any) {
+      setError(saveError.message || 'Nao foi possivel salvar suas musicas.');
+    } finally {
+      setAutoSavingMusic(false);
+    }
+  };
+
   const toggleGenre = (genre: string) => {
     setSelectedGenres((current) => {
       const exists = current.some((item) => normalizeId(item) === normalizeId(genre));
-      if (exists) return current.filter((item) => normalizeId(item) !== normalizeId(genre));
-      return [...current, genre].slice(0, 8);
+      const next = exists ? current.filter((item) => normalizeId(item) !== normalizeId(genre)) : [...current, genre].slice(0, 8);
+      void persistMusicPreferences(next, blockedTrackKeys);
+      return next;
     });
   };
 
@@ -116,7 +154,11 @@ export default function ProfilePage() {
   };
 
   const toggleBlockedTrack = (track: MusicTrackOption) => {
-    setBlockedTrackKeys((current) => current.includes(track.key) ? current.filter((key) => key !== track.key) : [...current, track.key]);
+    setBlockedTrackKeys((current) => {
+      const next = current.includes(track.key) ? current.filter((key) => key !== track.key) : [...current, track.key];
+      void persistMusicPreferences(selectedGenres, next);
+      return next;
+    });
   };
 
   const stopPreview = () => {
@@ -195,6 +237,7 @@ export default function ProfilePage() {
         avatar_url: avatarUrl,
         music_genres: selectedGenres,
         music_blocked_tracks: blockedTrackKeys,
+        profile_completed: true,
         is_guest: Boolean(profile?.is_guest || user.email?.includes('@guest.com')),
       };
 
@@ -213,6 +256,7 @@ export default function ProfilePage() {
         avatar_url: avatarUrl,
         music_genres: selectedGenres,
         music_blocked_tracks: blockedTrackKeys,
+        profile_completed: true,
       };
 
       localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextProfile));
@@ -316,7 +360,7 @@ export default function ProfilePage() {
               {loadingOptions ? (
                 <div className="rounded-2xl border-2 border-dashed border-indigo-100 bg-indigo-50/40 p-8 text-center text-xs font-black uppercase text-indigo-400">Carregando biblioteca de musicas...</div>
               ) : musicGroups.length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-amber-100 bg-amber-50 p-5 text-sm font-bold text-amber-700">Nenhuma musica encontrada em atuem/music/.</div>
+                <div className="rounded-2xl border-2 border-dashed border-amber-100 bg-amber-50 p-5 text-sm font-bold text-amber-700">Nenhuma musica encontrada no R2.</div>
               ) : (
                 <div className="space-y-3">
                   {musicGroups.map((group) => {
@@ -350,7 +394,9 @@ export default function ProfilePage() {
 
                         {expanded && (
                           <div className="mt-3 space-y-2 border-t border-indigo-100 pt-3">
-                            {group.tracks.map((track) => {
+                            {group.tracks.length === 0 ? (
+                              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-center text-[10px] font-black uppercase text-slate-400">Pasta vazia no R2</div>
+                            ) : group.tracks.map((track) => {
                               const blocked = isTrackBlocked(track.key);
                               const playing = playingTrackKey === track.key;
                               const loadingTrack = loadingTrackKey === track.key;
@@ -380,8 +426,8 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              <p className="text-[11px] font-bold text-slate-400">
-                Gêneros selecionados: {selectedGenres.length ? selectedGenres.join(', ') : 'nenhum genero.'} • Músicas bloqueadas: {blockedTrackKeys.length}
+              <p className="flex items-center gap-2 text-[11px] font-bold text-slate-400">
+                <SlidersHorizontal className="h-3.5 w-3.5" /> Gêneros selecionados: {selectedGenres.length ? selectedGenres.join(', ') : 'nenhum genero.'} • Músicas bloqueadas: {blockedTrackKeys.length} {autoSavingMusic ? '• salvando...' : ''}
               </p>
             </div>
           </section>

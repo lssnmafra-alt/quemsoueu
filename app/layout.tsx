@@ -13,7 +13,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const quicksand = Quicksand({ subsets: ['latin'], variable: '--font-quicksand' });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://quemsoueu-ten.vercel.app'),
+  metadataBase: new URL('https://www.quemsoueu.cards'),
   title: 'Quem Sou Eu? Jogo de Cartas',
   description: 'Jogo multiplayer de cartas, personagens e adivinhação social.',
   openGraph: {

@@ -3,6 +3,7 @@ import { touchRoomActivity } from './roomLifecycle';
 import { getBotAvatarPool, pickBotAvatarUrl } from './serverAvatars';
 
 const MIN_PLAYERS_TO_START = 4;
+const PRE_PICK_LOADING_MS = 8_000;
 
 const BOT_NICKNAMES = [
   'jugameplays', 'bruninho67', 'pedrinn', 'rafa_xt', 'gui_zika', 'luluzinha', 'anafps', 'joaovk',
@@ -146,7 +147,7 @@ async function syncBots(room: any, players: any[], desiredBots?: number, auto = 
       nickname,
       avatar_url: pickBotAvatarUrl(avatarPool, `${room.id}:new:${nickname}`, botIndex),
       is_bot: true,
-      lives: room.chars_per_player || 3,
+      lives: 0,
       last_seen_at: new Date().toISOString(),
       connection_status: 'online',
     });
@@ -190,11 +191,17 @@ export async function startRoom(roomId: string, options: { requestedDeckId?: str
     return { ok: false, status: 400, error: `O deck precisa ter pelo menos ${resolved.needed} personagens para ${room.chars_per_player || 3} vida(s) por jogador.` };
   }
 
+  await supabaseGame
+    .from('room_players')
+    .update({ lives: 0, is_eliminated: false, missed_turns: 0, play_order: null })
+    .eq('room_id', room.id);
+
   await supabaseGame.from('rooms').update({
-    status: 'PICKING',
+    status: 'STARTING',
     deck_id: resolved.deckId,
-    turn_expires_at: new Date(Date.now() + ((room.pick_time_seconds || 30) * 1000)).toISOString(),
-  }).eq('id', room.id);
+    current_turn_number: 0,
+    turn_expires_at: new Date(Date.now() + PRE_PICK_LOADING_MS).toISOString(),
+  }).eq('id', room.id).eq('status', 'LOBBY');
 
   await touchRoomActivity(room.id);
   return {
@@ -208,7 +215,8 @@ export async function startRoom(roomId: string, options: { requestedDeckId?: str
     botsRenamed: botSync.botsRenamed,
     botsAvatarUpdated: botSync.botsAvatarUpdated,
     deckCharacters: resolved.deckCharacters,
-    repeatedCharactersAcrossPlayersAllowed: true,
+    prePickLoadingMs: PRE_PICK_LOADING_MS,
+    repeatedCharactersAcrossPlayersAllowed: false,
     enforcedMinimumBot: botSync.enforcedMinimumBot,
   };
 }

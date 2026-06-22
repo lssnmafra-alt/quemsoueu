@@ -1,8 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listR2Objects } from '@/lib/r2Storage';
 
-const MUSIC_PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/', 'music/', 'Music/'];
-const MUSIC_SCAN_PREFIXES = ['atuem/', 'music/', 'Music/'];
+const MUSIC_PREFIXES = [
+  'atuem/music/',
+  'atuem/atuem/music/',
+  'atuem/Music/',
+  'atuem/musica/',
+  'atuem/atuem/musica/',
+  'atuem/Musica/',
+  'atuem/Música/',
+  'atuem/musicas/',
+  'atuem/atuem/musicas/',
+  'atuem/Musicas/',
+  'atuem/Músicas/',
+  'atuem/audio/',
+  'atuem/atuem/audio/',
+  'atuem/audios/',
+  'music/',
+  'Music/',
+  'musica/',
+  'Musica/',
+  'música/',
+  'musicas/',
+  'Musicas/',
+  'Músicas/',
+  'audio/',
+  'audios/',
+];
+const MUSIC_SCAN_PREFIXES = ['atuem/', 'music/', 'Music/', 'musica/', 'musicas/', 'audio/', 'audios/'];
+const MUSIC_FOLDER_NAMES = ['music', 'musica', 'música', 'musicas', 'músicas', 'audio', 'audios', 'áudio', 'áudios'];
 const AUDIO_TYPES = ['.mp3', '.ogg', '.wav', '.m4a'];
 const DEFAULT_GENRES = ['Disco', 'K-pop', 'Rock'];
 
@@ -17,7 +43,7 @@ export async function GET(req: NextRequest) {
 
     const allTracks = (await listAllTracks()).filter((track) => !excludedKeys.has(track.key));
     const matchedTracks = findTracksForGenres(allTracks, genres);
-    const tracks = genresFromQuery.length > 0 ? matchedTracks : (matchedTracks.length > 0 ? matchedTracks : allTracks);
+    const tracks = matchedTracks.length > 0 ? matchedTracks : allTracks;
 
     if (tracks.length > 0) {
       const track = tracks[pickIndex(`${mood}:${genres.join('|')}:${excludedKeys.size}:${Date.now()}`, tracks.length)];
@@ -29,13 +55,14 @@ export async function GET(req: NextRequest) {
         mood,
         proxied: true,
         selectedGenres: genres,
-        matchedCount: tracks.length,
+        matchedCount: matchedTracks.length,
+        fallbackToAnyGenre: matchedTracks.length === 0,
       });
     }
 
     return NextResponse.json({
       url: '',
-      reason: 'nenhuma-musica-encontrada-para-os-generos-selecionados',
+      reason: 'nenhuma-musica-encontrada-no-r2',
       searchedGenres: genres,
       availableGenres: [...new Set(allTracks.map((track) => track.genre))],
       excluded: [...excludedKeys],
@@ -82,13 +109,13 @@ function findTracksForGenres(tracks: Track[], genres: string[]) {
 }
 
 function isMusicKey(key: string) {
-  const lower = key.toLowerCase();
-  return lower.startsWith('music/') || lower.includes('/music/') || lower.includes('/musica/') || lower.includes('/música/');
+  const parts = key.split('/').filter(Boolean).map((part) => normalizeComparable(part));
+  return parts.some((part) => MUSIC_FOLDER_NAMES.map(normalizeComparable).includes(part));
 }
 
 function genreFromKey(key: string) {
   const parts = key.split('/').filter(Boolean);
-  const musicIndex = parts.findIndex((part) => ['music', 'musica', 'música'].includes(part.toLowerCase()));
+  const musicIndex = parts.findIndex((part) => MUSIC_FOLDER_NAMES.map(normalizeComparable).includes(normalizeComparable(part)));
   const folder = musicIndex >= 0 && parts[musicIndex + 1] ? parts[musicIndex + 1] : parts.length > 1 ? parts[parts.length - 2] : 'Musicas';
   return humanize(folder) || 'Musicas';
 }
@@ -126,6 +153,9 @@ function genreAliases(genre: string) {
   if (clean === 'rock') aliases.add('rock');
   if (clean === 'disco') aliases.add('disco');
   if (clean === 'indie') aliases.add('indie');
+  if (clean === 'pop') aliases.add('pop');
+  if (clean === 'funk') aliases.add('funk');
+  if (clean === 'rap') aliases.add('rap');
   return [...aliases];
 }
 

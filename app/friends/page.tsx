@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Ban, Check, Search, Shield, UserPlus, Users, X } from 'lucide-react';
+import { ArrowLeft, Ban, Check, Gamepad2, Search, Shield, UserPlus, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
@@ -19,6 +19,14 @@ type SocialRow = {
   blocked_by_profile_id?: string | null;
 };
 
+type RoomInvite = {
+  id: string;
+  room_id: string;
+  sender_profile_id: string;
+  sender?: any;
+  room?: any;
+};
+
 export default function FriendsPage() {
   const router = useRouter();
   const { user, profile, loading, initialized } = useUserStore();
@@ -26,6 +34,7 @@ export default function FriendsPage() {
   const [incoming, setIncoming] = useState<SocialRow[]>([]);
   const [outgoing, setOutgoing] = useState<SocialRow[]>([]);
   const [blocked, setBlocked] = useState<SocialRow[]>([]);
+  const [roomInvites, setRoomInvites] = useState<RoomInvite[]>([]);
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [busy, setBusy] = useState('');
@@ -48,6 +57,13 @@ export default function FriendsPage() {
     setLoadingList(false);
   };
 
+  const loadRoomInvites = async () => {
+    if (!userId) return;
+    const response = await fetch(`/api/social/room-invites?userId=${encodeURIComponent(userId)}`, { cache: 'no-store' }).catch(() => null);
+    const data = response ? await response.json().catch(() => ({})) : {};
+    setRoomInvites(Array.isArray(data.invites) ? data.invites : []);
+  };
+
   useEffect(() => {
     if (!initialized || loading) return;
     if (!userId) {
@@ -55,6 +71,7 @@ export default function FriendsPage() {
       return;
     }
     void loadFriends('');
+    void loadRoomInvites();
   }, [initialized, loading, userId]);
 
   useEffect(() => {
@@ -88,6 +105,26 @@ export default function FriendsPage() {
     }
   };
 
+  const roomInviteAction = async (invite: RoomInvite, actionName: 'decline' | 'enter') => {
+    if (!userId || busy) return;
+    if (actionName === 'enter') {
+      router.push(`/room/${invite.room_id}`);
+      return;
+    }
+
+    setBusy(`${actionName}:${invite.id}`);
+    try {
+      await fetch('/api/social/room-invites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, targetId: invite.sender_profile_id, roomId: invite.room_id, action: 'decline' }),
+      });
+      await loadRoomInvites();
+    } finally {
+      setBusy('');
+    }
+  };
+
   if (!initialized || loading || !userId) return <LoadingArena label="Carregando amigos..." />;
 
   return (
@@ -99,10 +136,26 @@ export default function FriendsPage() {
               <ArrowLeft className="h-4 w-4" /> Voltar ao lobby
             </button>
             <h1 className="text-3xl md:text-5xl font-black font-display">Amigos</h1>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Busque jogadores, envie pedidos e gerencie bloqueios.</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Busque jogadores, aceite amigos e veja convites de sala.</p>
           </div>
           <AvatarFigure avatarUrl={profile?.avatar_url} label={profile?.nickname || 'Jogador'} className="h-16 w-16 rounded-2xl border-4 border-indigo-200 bg-white" />
         </header>
+
+        <section className="rounded-3xl border-4 border-amber-100 bg-white p-5 shadow-xl">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-black uppercase"><Gamepad2 className="h-5 w-5 text-amber-500" /> Convites para sala</h2>
+          {roomInvites.length === 0 ? (
+            <EmptyCard text="Nenhum amigo chamou você para uma sala agora." />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {roomInvites.map((invite) => (
+                <ProfileCard key={invite.id} profile={invite.sender} subtext={`Chamou para a sala #${invite.room?.code || 'jogo'}`}>
+                  <Button size="sm" onClick={() => roomInviteAction(invite, 'enter')} className="rounded-xl text-[10px] font-black uppercase"><Gamepad2 className="mr-1 h-3.5 w-3.5" />Entrar</Button>
+                  <Button size="sm" variant="outline" onClick={() => roomInviteAction(invite, 'decline')} className="rounded-xl text-[10px] font-black uppercase"><X className="mr-1 h-3.5 w-3.5" />Recusar</Button>
+                </ProfileCard>
+              ))}
+            </div>
+          )}
+        </section>
 
         <section className="rounded-3xl border-4 border-indigo-100 bg-white p-5 shadow-xl">
           <h2 className="mb-3 flex items-center gap-2 text-lg font-black uppercase"><Search className="h-5 w-5 text-indigo-500" /> Procurar jogador</h2>

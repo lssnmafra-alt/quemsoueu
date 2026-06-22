@@ -23,8 +23,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ filenam
       return NextResponse.json({ error: 'Animacao nao encontrada no R2.', key }, { status: 404 });
     }
 
-    const bytes = await bodyToUint8Array(object.body);
-    const size = bytes.byteLength;
+    const bytes = await bodyToBytes(object.body);
+    const size = bytes.length;
     const range = req.headers.get('range');
     const commonHeaders = {
       'Content-Type': CONTENT_TYPES[extension],
@@ -49,18 +49,18 @@ export async function GET(req: NextRequest, context: { params: Promise<{ filenam
         });
       }
 
-      const chunk = bytes.slice(parsed.start, parsed.end + 1);
-      return new NextResponse(chunk, {
+      const chunk: Uint8Array = bytes.subarray(parsed.start, parsed.end + 1);
+      return new NextResponse(chunk as BodyInit, {
         status: 206,
         headers: {
           ...commonHeaders,
-          'Content-Length': String(chunk.byteLength),
+          'Content-Length': String(chunk.length),
           'Content-Range': `bytes ${parsed.start}-${parsed.end}/${size}`,
         },
       });
     }
 
-    return new NextResponse(bytes, {
+    return new NextResponse(bytes as BodyInit, {
       status: 200,
       headers: {
         ...commonHeaders,
@@ -107,7 +107,7 @@ function parseRange(range: string, size: number) {
   return { start, end: Math.min(end, size - 1) };
 }
 
-async function bodyToUint8Array(body: BodyInit) {
+async function bodyToBytes(body: BodyInit): Promise<Uint8Array> {
   if (body instanceof Uint8Array) return body;
   if (body instanceof ArrayBuffer) return new Uint8Array(body);
   if (body instanceof Blob) return new Uint8Array(await body.arrayBuffer());
@@ -122,12 +122,12 @@ async function bodyToUint8Array(body: BodyInit) {
       if (done) break;
       if (value) chunks.push(value instanceof Uint8Array ? value : new Uint8Array(value));
     }
-    const length = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
+    const length = chunks.reduce((total, chunk) => total + chunk.length, 0);
     const bytes = new Uint8Array(length);
     let offset = 0;
     for (const chunk of chunks) {
       bytes.set(chunk, offset);
-      offset += chunk.byteLength;
+      offset += chunk.length;
     }
     return bytes;
   }

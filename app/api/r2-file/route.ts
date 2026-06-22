@@ -1,7 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getR2Object } from '@/lib/r2Storage';
 
-const ALLOWED_PREFIXES = ['atuem/avatar/', 'atuem/atuem/avatar/', 'atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/', 'atuem/Animacao/', 'atuem/atuem/Animacao/'];
+const ALLOWED_PREFIXES = [
+  'atuem/avatar/',
+  'atuem/atuem/avatar/',
+  'atuem/music/',
+  'atuem/atuem/music/',
+  'atuem/Music/',
+  'atuem/musica/',
+  'atuem/atuem/musica/',
+  'atuem/Musica/',
+  'atuem/Música/',
+  'atuem/musicas/',
+  'atuem/atuem/musicas/',
+  'atuem/Musicas/',
+  'atuem/Músicas/',
+  'atuem/audio/',
+  'atuem/atuem/audio/',
+  'atuem/audios/',
+  'music/',
+  'Music/',
+  'musica/',
+  'Musica/',
+  'música/',
+  'musicas/',
+  'Musicas/',
+  'Músicas/',
+  'audio/',
+  'audios/',
+  'atuem/Animacao/',
+  'atuem/atuem/Animacao/',
+];
 const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.mp3', '.ogg', '.wav', '.m4a', '.glb'];
 
 export async function GET(req: NextRequest) {

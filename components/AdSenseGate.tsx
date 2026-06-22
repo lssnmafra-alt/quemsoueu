@@ -1,20 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { X } from 'lucide-react';
 
 const ADSENSE_CLIENT = 'ca-pub-4115543805172090';
 const ADSENSE_GATE_SLOT = '7846590607';
-const LAST_AD_KEY = 'quemSouEu:lastAdsenseGateAt';
-const ONE_HOUR_MS = 60 * 60 * 1000;
+const LAST_ACTIVITY_KEY = 'quemSouEu:lastPlayerActivityAt';
+const HAS_SEEN_AD_KEY = 'quemSouEu:hasSeenAdsenseGate';
+const INACTIVE_MS = 60 * 60 * 1000;
 const CLOSE_DELAY_SECONDS = 8;
+const ACTIVITY_THROTTLE_MS = 5000;
 
 export default function AdSenseGate() {
   const pathname = usePathname();
   const [visible, setVisible] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(CLOSE_DELAY_SECONDS);
   const [adPushed, setAdPushed] = useState(false);
+  const lastWriteRef = useRef(0);
 
   const adSlot = process.env.NEXT_PUBLIC_ADSENSE_GATE_SLOT || ADSENSE_GATE_SLOT;
   const shouldAvoidPage = useMemo(() => {
@@ -25,17 +28,57 @@ export default function AdSenseGate() {
   useEffect(() => {
     if (shouldAvoidPage) return;
 
-    try {
-      const lastShown = Number(localStorage.getItem(LAST_AD_KEY) || 0);
-      const canShow = !lastShown || Date.now() - lastShown >= ONE_HOUR_MS;
-      if (!canShow) return;
-    } catch {
-      // Se o navegador bloquear localStorage, mostra apenas nesta sessão.
+    const now = Date.now();
+    const state = readAdState();
+    const firstAccess = !state.hasSeen;
+    const returnedAfterInactivity = state.lastActivity > 0 && now - state.lastActivity >= INACTIVE_MS;
+
+    if (firstAccess || returnedAfterInactivity) {
+      const timer = window.setTimeout(() => setVisible(true), 650);
+      return () => window.clearTimeout(timer);
     }
 
-    const timer = window.setTimeout(() => setVisible(true), 650);
-    return () => window.clearTimeout(timer);
-  }, [shouldAvoidPage]);
+    writeActivity(now);
+  }, [shouldAvoidPage, pathname]);
+
+  useEffect(() => {
+    if (shouldAvoidPage) return;
+
+    const checkBeforeWritingActivity = () => {
+      if (visible) return;
+
+      const now = Date.now();
+      if (now - lastWriteRef.current < ACTIVITY_THROTTLE_MS) return;
+
+      const state = readAdState();
+      const returnedAfterInactivity = state.hasSeen && state.lastActivity > 0 && now - state.lastActivity >= INACTIVE_MS;
+
+      if (returnedAfterInactivity) {
+        setVisible(true);
+        return;
+      }
+
+      writeActivity(now);
+      lastWriteRef.current = now;
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        writeActivity(Date.now());
+        return;
+      }
+      checkBeforeWritingActivity();
+    };
+
+    const events: Array<keyof WindowEventMap> = ['focus', 'click', 'keydown', 'mousemove', 'touchstart', 'scroll'];
+    events.forEach((event) => window.addEventListener(event, checkBeforeWritingActivity, { passive: true }));
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, checkBeforeWritingActivity));
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [shouldAvoidPage, visible]);
 
   useEffect(() => {
     if (!visible) return;
@@ -63,9 +106,12 @@ export default function AdSenseGate() {
   }, [adPushed, adSlot, visible]);
 
   const close = () => {
+    const now = Date.now();
     try {
-      localStorage.setItem(LAST_AD_KEY, String(Date.now()));
+      localStorage.setItem(HAS_SEEN_AD_KEY, '1');
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
     } catch {}
+    lastWriteRef.current = now;
     setVisible(false);
   };
 
@@ -110,4 +156,21 @@ export default function AdSenseGate() {
       </div>
     </div>
   );
+}
+
+function readAdState() {
+  try {
+    return {
+      hasSeen: localStorage.getItem(HAS_SEEN_AD_KEY) === '1',
+      lastActivity: Number(localStorage.getItem(LAST_ACTIVITY_KEY) || 0),
+    };
+  } catch {
+    return { hasSeen: false, lastActivity: 0 };
+  }
+}
+
+function writeActivity(timestamp: number) {
+  try {
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(timestamp));
+  } catch {}
 }

@@ -1,8 +1,33 @@
 import { NextResponse } from 'next/server';
 import { listR2Objects } from '@/lib/r2Storage';
 
-const PREFIXES = ['atuem/music/', 'atuem/atuem/music/', 'atuem/Music/', 'atuem/Musica/', 'atuem/Música/'];
-const DEFAULT_GENRES = ['Disco', 'Kpop', 'Rock', 'Indie', 'Eletronica', 'Pop', 'Funk', 'Rap'];
+const PREFIXES = [
+  'atuem/music/',
+  'atuem/atuem/music/',
+  'atuem/Music/',
+  'atuem/musica/',
+  'atuem/atuem/musica/',
+  'atuem/Musica/',
+  'atuem/Música/',
+  'atuem/musicas/',
+  'atuem/atuem/musicas/',
+  'atuem/Musicas/',
+  'atuem/Músicas/',
+  'atuem/audio/',
+  'atuem/atuem/audio/',
+  'atuem/audios/',
+  'music/',
+  'Music/',
+  'musica/',
+  'Musica/',
+  'música/',
+  'musicas/',
+  'Musicas/',
+  'Músicas/',
+  'audio/',
+  'audios/',
+];
+const DEFAULT_GENRES = ['Disco', 'K-pop', 'Rock', 'Indie', 'Eletrônica', 'Pop', 'Funk', 'Rap'];
 
 export async function GET() {
   try {

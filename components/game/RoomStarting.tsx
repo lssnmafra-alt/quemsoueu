@@ -12,6 +12,12 @@ const VIDEO_LOAD_TIMEOUT_MS = 12000;
 
 type SequencePhase = 'before' | 'loading' | 'video' | 'after';
 
+type SequencePlayer = {
+  id: string;
+  nickname: string;
+  avatar_url: string;
+};
+
 export default function RoomStarting({ room, players }: any) {
   const [sequenceIndex, setSequenceIndex] = useState(0);
   const [sequencePhase, setSequencePhase] = useState<SequencePhase>('before');
@@ -26,7 +32,15 @@ export default function RoomStarting({ room, players }: any) {
     return [...visiblePlayers].sort((a, b) => (a.play_order || 0) - (b.play_order || 0));
   }, [players]);
 
+  const stablePreloadPlayers = useMemo(() => orderedPlayers.map((player: any) => ({
+    id: player.id,
+    avatar_url: player.avatar_url,
+  })), [orderedPlayers.map((player: any) => `${player.id}:${player.avatar_url || ''}`).join('|')]);
+
   const focusedPlayer = orderedPlayers[sequenceIndex] || null;
+  const focusedPlayerId = String(focusedPlayer?.id || '');
+  const focusedNickname = String(focusedPlayer?.nickname || 'Jogador');
+  const focusedAvatarUrl = String(focusedPlayer?.avatar_url || '');
   const totalPlayers = orderedPlayers.length || 1;
   const isVideoPhase = sequencePhase === 'video';
 
@@ -46,6 +60,7 @@ export default function RoomStarting({ room, players }: any) {
     setCurrentVideoSrc('');
     setVideoStatus('Preparando apresentação...');
     advancingRef.current = false;
+    videoCacheRef.current.clear();
   }, [room.id]);
 
   useEffect(() => {
@@ -59,7 +74,13 @@ export default function RoomStarting({ room, players }: any) {
   }, [advanceToPlaying, orderedPlayers.length, sequenceIndex]);
 
   useEffect(() => {
-    if (!focusedPlayer) return;
+    if (!focusedPlayerId) return;
+
+    const playerSnapshot: SequencePlayer = {
+      id: focusedPlayerId,
+      nickname: focusedNickname,
+      avatar_url: focusedAvatarUrl,
+    };
 
     let cancelled = false;
     let timer: number | undefined;
@@ -79,7 +100,7 @@ export default function RoomStarting({ room, players }: any) {
 
     if (sequencePhase === 'before') {
       setCurrentVideoSrc('');
-      setVideoStatus(`${focusedPlayer.nickname} na imagem estática`);
+      setVideoStatus(`${playerSnapshot.nickname} na imagem estática`);
       timer = window.setTimeout(() => {
         if (!cancelled) setSequencePhase('loading');
       }, STATIC_BEFORE_MS);
@@ -87,18 +108,18 @@ export default function RoomStarting({ room, players }: any) {
 
     if (sequencePhase === 'loading') {
       setCurrentVideoSrc('');
-      setVideoStatus(`Carregando vídeo de ${focusedPlayer.nickname}...`);
-      resolveAndPreloadIntroVideo(focusedPlayer, videoCacheRef.current)
+      setVideoStatus(`Carregando vídeo de ${playerSnapshot.nickname}...`);
+      resolveAndPreloadIntroVideo(playerSnapshot, videoCacheRef.current)
         .then((url) => {
           if (cancelled) return;
           setCurrentVideoSrc(url || '');
-          setVideoStatus(url ? `${focusedPlayer.nickname} em vídeo` : `${focusedPlayer.nickname} sem vídeo, usando imagem`);
+          setVideoStatus(url ? `${playerSnapshot.nickname} em vídeo` : `${playerSnapshot.nickname} sem vídeo, usando imagem`);
           setSequencePhase('video');
         })
         .catch(() => {
           if (cancelled) return;
           setCurrentVideoSrc('');
-          setVideoStatus(`${focusedPlayer.nickname} sem vídeo, usando imagem`);
+          setVideoStatus(`${playerSnapshot.nickname} sem vídeo, usando imagem`);
           setSequencePhase('video');
         });
     }
@@ -110,7 +131,7 @@ export default function RoomStarting({ room, players }: any) {
     }
 
     if (sequencePhase === 'after') {
-      setVideoStatus(`${focusedPlayer.nickname} voltou para imagem estática`);
+      setVideoStatus(`${playerSnapshot.nickname} voltou para imagem estática`);
       timer = window.setTimeout(moveNext, STATIC_AFTER_MS);
     }
 
@@ -118,7 +139,7 @@ export default function RoomStarting({ room, players }: any) {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [advanceToPlaying, focusedPlayer, orderedPlayers.length, sequenceIndex, sequencePhase]);
+  }, [advanceToPlaying, focusedAvatarUrl, focusedNickname, focusedPlayerId, orderedPlayers.length, sequenceIndex, sequencePhase]);
 
   const gridColumns = useMemo(() => {
     if (orderedPlayers.length <= 4) return 'md:grid-cols-2';
@@ -131,7 +152,7 @@ export default function RoomStarting({ room, players }: any) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 md:p-6 bg-[#f5f6ff] font-sans text-indigo-950 party-grid-bg relative overflow-hidden">
-      <AvatarModelPreloader players={orderedPlayers} eventType="intro" />
+      <AvatarModelPreloader players={stablePreloadPlayers} eventType="intro" />
       <div className="max-w-6xl w-full text-center relative z-10">
         <AnimatePresence mode="wait">
           <motion.div
@@ -287,7 +308,7 @@ function IntroVideoPlayer({ src, player }: { src: string; player: any }) {
   );
 }
 
-async function resolveAndPreloadIntroVideo(player: any, cache: Map<string, string>) {
+async function resolveAndPreloadIntroVideo(player: SequencePlayer, cache: Map<string, string>) {
   const avatarUrl = String(player?.avatar_url || '').trim();
   if (!avatarUrl || avatarUrl.startsWith('avatar:')) return '';
 

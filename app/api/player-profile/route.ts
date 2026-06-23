@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const id = String(body.id || body.userId || '').trim();
-    const nickname = String(body.nickname || '').trim().slice(0, 16);
+    const nickname = normalizeNicknameDisplay(body.nickname).slice(0, 16);
     const avatarUrl = String(body.avatar_url || body.avatarUrl || '').trim();
     const musicGenres = normalizeGenres(body.music_genres || body.musicGenres);
     const musicBlockedTracks = normalizeBlockedTracks(body.music_blocked_tracks || body.musicBlockedTracks);
@@ -36,6 +36,20 @@ export async function POST(req: NextRequest) {
 
     if (!isUuid(id)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
     if (!nickname) return NextResponse.json({ error: 'Digite seu nickname.' }, { status: 400 });
+
+    const nicknameKey = normalizeNicknameForUniqueness(nickname);
+    const { data: existingProfiles, error: duplicateError } = await supabaseGame
+      .from('profiles')
+      .select('id,nickname')
+      .neq('id', id)
+      .limit(1000);
+
+    if (duplicateError) throw duplicateError;
+
+    const nicknameTaken = (existingProfiles || []).some((row: any) => normalizeNicknameForUniqueness(row.nickname) === nicknameKey);
+    if (nicknameTaken) {
+      return NextResponse.json({ error: 'Esse nickname ja esta em uso. Escolha outro.' }, { status: 409 });
+    }
 
     const { data, error } = await supabaseGame
       .from('profiles')
@@ -71,6 +85,17 @@ function normalizeBlockedTracks(value: unknown) {
     .map((item) => String(item || '').trim())
     .filter((item) => item && !item.includes('..') && !item.startsWith('/') && !item.includes('\\'))
     .slice(0, MAX_BLOCKED_TRACKS);
+}
+
+function normalizeNicknameDisplay(value: unknown) {
+  return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function normalizeNicknameForUniqueness(value: unknown) {
+  return normalizeNicknameDisplay(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 }
 
 function isUuid(value: string) {

@@ -1,6 +1,7 @@
 @import url('/gameplay-table.css');
 @import url('/arena-r2-skin.css');
 @import url('/gameplay-components.css');
+@import url('/gameplay-hotfix.css');
 
 /* Gameplay premium polish layer.
    Scoped to PLAYING only. Visual-only. */

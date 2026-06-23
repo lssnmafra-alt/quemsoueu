@@ -3,12 +3,12 @@
 .fixed.right-4.top-20>*{max-width:min(22rem,calc(100vw - 1.5rem))!important;animation:gameplay-notice-out 4s ease-out forwards!important}
 @media(max-width:640px){.fixed.right-4.top-20{right:.7rem!important;bottom:5.4rem!important}.fixed.right-4.top-20>*{max-width:78vw!important;padding:.65rem .8rem!important;border-radius:1rem!important;font-size:.68rem!important;line-height:1.15!important}}
 
-/* Real gameplay table layout correction. Visual-only. */
-.party-grid-bg>div:first-child{display:flex;flex-direction:column}
-.party-grid-bg>div:first-child>header{order:1}
-.party-grid-bg>div:first-child>section:first-of-type{order:4;max-height:none!important}
-.party-grid-bg>div:first-child>section:first-of-type>div:first-child>p:first-child{font-size:0!important}
-.party-grid-bg>div:first-child>section:first-of-type>div:first-child>p:first-child:after{content:"Jogadores na arena";font-size:.62rem;letter-spacing:.18em}
+/* Real gameplay table layout correction. Visual-only. Scoped to the playing table structure only. */
+.party-grid-bg>div:first-child:has(>header+section){display:flex;flex-direction:column}
+.party-grid-bg>div:first-child:has(>header+section)>header{order:1}
+.party-grid-bg>div:first-child:has(>header+section)>section:first-of-type{order:4;max-height:none!important}
+.party-grid-bg>div:first-child:has(>header+section)>section:first-of-type>div:first-child>p:first-child{font-size:0!important}
+.party-grid-bg>div:first-child:has(>header+section)>section:first-of-type>div:first-child>p:first-child:after{content:"Jogadores na arena";font-size:.62rem;letter-spacing:.18em}
 .party-grid-bg div:has(>h3 svg.lucide-list){order:2;max-height:none!important;margin-top:.25rem!important;margin-bottom:.8rem!important;border-radius:1.6rem!important;padding:1rem!important}
 .party-grid-bg div:has(>h3 svg.lucide-list)>h3{justify-content:center;border-bottom:0!important;padding-bottom:0!important;color:transparent!important;font-size:0!important}
 .party-grid-bg div:has(>h3 svg.lucide-list)>h3 svg{display:none!important}
@@ -19,9 +19,9 @@
 .party-grid-bg div:has(>h3 svg.lucide-list)>ul>li>span{min-height:1.7rem!important;font-size:.74rem!important;line-height:.9rem!important}
 .party-grid-bg div:has(>div>p):has(button[type="button"]){order:2}
 .party-grid-bg section:has(span):has(.lucide-zap){order:3}
-@media(max-width:640px){.party-grid-bg div:has(>h3 svg.lucide-list){padding:.72rem!important;border-radius:1.25rem!important}.party-grid-bg div:has(>h3 svg.lucide-list)>h3:before{min-width:min(78vw,280px);padding:.52rem .9rem;font-size:.86rem}.party-grid-bg div:has(>h3 svg.lucide-list)>ul{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.6rem!important}.party-grid-bg div:has(>h3 svg.lucide-list)>ul>li{padding:.4rem!important;border-radius:1rem!important}.party-grid-bg>div:first-child>section:first-of-type{max-height:20dvh!important;overflow-y:auto!important;padding:.55rem!important}.party-grid-bg>div:first-child>section:first-of-type>div:last-child{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.42rem!important}}
+@media(max-width:640px){.party-grid-bg div:has(>h3 svg.lucide-list){padding:.72rem!important;border-radius:1.25rem!important}.party-grid-bg div:has(>h3 svg.lucide-list)>h3:before{min-width:min(78vw,280px);padding:.52rem .9rem;font-size:.86rem}.party-grid-bg div:has(>h3 svg.lucide-list)>ul{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.6rem!important}.party-grid-bg div:has(>h3 svg.lucide-list)>ul>li{padding:.4rem!important;border-radius:1rem!important}.party-grid-bg>div:first-child:has(>header+section)>section:first-of-type{max-height:20dvh!important;overflow-y:auto!important;padding:.55rem!important}.party-grid-bg>div:first-child:has(>header+section)>section:first-of-type>div:last-child{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.42rem!important}}
 
 @media(max-width:640px){button,[role="button"],input{min-height:44px}}
 @media(max-width:1023px){.grid.lg\:grid-cols-12{display:flex!important;flex-direction:column!important}.lg\:col-span-8,.lg\:col-span-4{width:100%!important;max-width:100%!important}}
 .party-grid-bg header .font-mono{font-size:clamp(1.55rem,5vw,2.4rem)!important}
-@media(max-width:640px){.party-grid-bg>div:first-child>header{position:sticky!important;top:.5rem!important;z-index:60!important}.party-grid-bg>div:first-child>section:first-of-type{overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x mandatory!important}.party-grid-bg>div:first-child>section:first-of-type>div:last-child{display:flex!important;width:max-content!important;min-width:100%!important;grid-template-columns:none!important}.party-grid-bg>div:first-child>section:first-of-type>div:last-child>div{min-width:10.25rem!important;scroll-snap-align:start!important}}
+@media(max-width:640px){.party-grid-bg>div:first-child:has(>header+section)>header{position:sticky!important;top:.5rem!important;z-index:60!important}.party-grid-bg>div:first-child:has(>header+section)>section:first-of-type{overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x mandatory!important}.party-grid-bg>div:first-child:has(>header+section)>section:first-of-type>div:last-child{display:flex!important;width:max-content!important;min-width:100%!important;grid-template-columns:none!important}.party-grid-bg>div:first-child:has(>header+section)>section:first-of-type>div:last-child>div{min-width:10.25rem!important;scroll-snap-align:start!important}}

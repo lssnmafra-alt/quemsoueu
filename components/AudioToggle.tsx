@@ -93,7 +93,7 @@ export default function AudioToggle() {
             initial={{ opacity: 0, x: -18, y: 16, scale: 0.96 }}
             animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
             exit={{ opacity: 0, x: -18, y: 16, scale: 0.96 }}
-            className="fixed bottom-20 left-4 z-[120] w-[calc(100vw-2rem)] max-w-sm cursor-grab rounded-3xl border-4 border-indigo-100 bg-white/95 p-3 shadow-2xl backdrop-blur active:cursor-grabbing"
+            className="fixed bottom-20 left-4 z-[120] w-[calc(100vw-2rem)] max-w-sm cursor-grab rounded-3xl border-4 border-indigo-100 bg-white/95 p-3 shadow-2xl backdrop-blur active:cursor-grabbing max-sm:left-3 max-sm:right-3 max-sm:bottom-24 max-sm:w-auto"
           >
             <button
               type="button"
@@ -120,14 +120,16 @@ export default function AudioToggle() {
         )}
       </AnimatePresence>
 
-      <div className="fixed bottom-4 left-4 z-[90]">
+      <div className="fixed bottom-4 left-4 z-[90] max-sm:left-auto max-sm:right-3 max-sm:bottom-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <AnimatePresence>
           {open && (
             <motion.div
+              drag
+              dragMomentum={false}
               initial={{ opacity: 0, y: 10, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.96 }}
-              className="mb-3 w-[calc(100vw-2rem)] max-w-64 rounded-2xl border-2 border-indigo-100 bg-white p-4 shadow-xl"
+              className="mb-3 w-[calc(100vw-2rem)] max-w-64 cursor-grab rounded-2xl border-2 border-indigo-100 bg-white p-4 shadow-xl active:cursor-grabbing max-sm:max-w-[18rem]"
             >
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-xs font-black uppercase tracking-wider text-indigo-950">Audio do jogo</p>

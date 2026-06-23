@@ -96,28 +96,28 @@ export default function ChatMenu({ roomId, room, me, players = [], collapsible =
   if (!isOpen) {
     return (
       <motion.button
-        drag
-        dragElastic={0.08}
-        dragMomentum={false}
-        whileDrag={{ scale: 1.05 }}
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.94 }}
         onClick={toggle}
-        className="qse-chat-button fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[75] flex h-14 w-14 items-center justify-center rounded-full border-2 border-indigo-200 bg-indigo-600 p-3 text-white shadow-2xl transition-colors hover:bg-indigo-700 active:cursor-grabbing"
+        className="qse-chat-button gameplay-chat-button fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[75] flex h-14 w-14 items-center justify-center rounded-full border-2 border-indigo-200 bg-indigo-600 p-3 text-white shadow-2xl transition-colors hover:bg-indigo-700"
         aria-label="Abrir chat"
       >
-        <MessageCircle className="h-7 w-7 pointer-events-none" />
-        {unread > 0 && <span className="absolute -top-1.5 -right-1.5 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-black text-white shadow-md pointer-events-none">{unread}</span>}
+        <MessageCircle className="pointer-events-none h-7 w-7" />
+        {unread > 0 && <span className="pointer-events-none absolute -right-1.5 -top-1.5 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-black text-white shadow-md">{unread}</span>}
       </motion.button>
     );
   }
 
   return (
     <motion.div
-      drag={collapsible}
-      dragElastic={0.06}
-      dragMomentum={false}
       initial={{ opacity: 0, y: 12, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="qse-chat-panel fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[80] flex h-[min(420px,calc(100dvh-8rem))] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border-2 border-indigo-100 bg-white shadow-2xl pointer-events-auto"
+      className={cn(
+        'qse-chat-panel gameplay-chat-panel fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[80] flex h-[min(420px,calc(100dvh-8rem))] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border-2 border-indigo-100 bg-white shadow-2xl pointer-events-auto',
+        collapsible && 'gameplay-chat-panel--collapsible',
+      )}
+      role="dialog"
+      aria-label="Chat da sala"
     >
       <div className="flex shrink-0 items-center justify-between border-b border-indigo-100 bg-indigo-50/70 px-4 py-3">
         <span className="flex items-center gap-2 text-xs font-black text-indigo-950"><Smile className="h-5 w-5 text-indigo-500" /> CHAT</span>
@@ -131,7 +131,7 @@ export default function ChatMenu({ roomId, room, me, players = [], collapsible =
           return (
             <div key={m.id} className="w-full rounded-2xl border border-indigo-100 bg-indigo-50/35 px-3 py-2 text-[13px] leading-snug shadow-sm">
               <span className={cn('mr-1.5 font-black tracking-wide', senderColor?.text || 'text-indigo-600')}>{m.sender_name}:</span>
-              <span className="font-semibold text-indigo-950 break-words [overflow-wrap:anywhere]">{m.content}</span>
+              <span className="break-words font-semibold text-indigo-950 [overflow-wrap:anywhere]">{m.content}</span>
             </div>
           );
         })}

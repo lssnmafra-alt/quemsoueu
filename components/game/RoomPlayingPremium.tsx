@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Clock, Eye, Heart, LogOut, Skull, Target, Zap } from 'lucide-react';
+import { Clock, Eye, Heart, HeartCrack, LogOut, Skull, Target, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabaseGame } from '@/lib/supabase';
 import { audioManager } from '@/lib/audioManager';
@@ -12,7 +12,7 @@ import ChatMenu from './ChatMenu';
 
 const ALLOWED_VOTE_SECONDS = [15, 30, 45] as const;
 const DEFAULT_VOTE_SECONDS = 30;
-const REVEAL_TIMING = { thinking: 900, card: 2600, owner: 2600, result: 2200, eliminated: 5200 };
+const REVEAL_TIMING = { thinking: 700, card: 3000, owner: 4200, result: 1100, eliminated: 2800 };
 
 type RevealStage = 'thinking' | 'card' | 'owner' | 'result' | 'eliminated';
 type RecapTone = 'hit' | 'miss' | 'timeout' | 'tiebreak' | 'finished';
@@ -88,15 +88,21 @@ function buildRecap(payload: any, progress: any, activePlayers: any[], currentTu
   const hitPlayers = payload.hitPlayers || [];
 
   if (progress?.finished) return { tone: 'finished', label: 'fim', main: 'Partida encerrada', detail: `Campeão: ${progress.winner || 'sem vencedor definido'}.` };
-  if (progress?.tiebreak || progress?.needsPicking) return { tone: 'tiebreak', label: 'morte súbita', main: `${voterName} votou em ${charName}.`, detail: 'A partida entrou em desempate.', next: 'Escolham novas cartas.' };
+  if (progress?.tiebreak || progress?.needsPicking) return { tone: 'tiebreak', label: 'morte súbita', main: `${voterName} votou em ${charName}.`, detail: 'Desempate.', next: 'Escolham novas cartas.' };
   if (hitPlayers.length > 0) {
     const eliminated = hitPlayers.filter((p: any) => (p.lives || 0) <= 0 || p.is_eliminated);
     const detail = eliminated.length > 0
-      ? `${eliminated.map((p: any) => p.nickname).join(', ')} foi eliminado da arena.`
-      : `${hitPlayers.map((p: any) => p.nickname).join(', ')} perdeu 1 vida.`;
+      ? `${eliminated.map((p: any) => p.nickname).join(', ')} eliminado.`
+      : `${hitPlayers.map((p: any) => p.nickname).join(', ')} perdeu vida.`;
     return { tone: 'hit', label: 'acerto', main: `${voterName} acertou ${charName}.`, detail, next: nextPlayerText(payload, progress, activePlayers, currentTurnNumber) };
   }
   return { tone: 'miss', label: 'erro', main: `${voterName} votou em ${charName}.`, detail: 'Ninguém tinha essa carta.', next: nextPlayerText(payload, progress, activePlayers, currentTurnNumber) };
+}
+
+function getRevealResultLabel(revelation: any) {
+  if (!revelation?.hitPlayers?.length) return 'ninguém';
+  if (revelation.eliminatedPlayers?.length) return 'eliminado';
+  return 'perdeu vida';
 }
 
 export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any) {
@@ -105,6 +111,7 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
   const [liveCharIds, setLiveCharIds] = useState<Set<string>>(new Set());
   const [liveCardsLoaded, setLiveCardsLoaded] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
+  const [selectedVoteId, setSelectedVoteId] = useState<string | null>(null);
   const [revealStage, setRevealStage] = useState<RevealStage>('thinking');
   const [revelation, setRevelation] = useState<any>(null);
   const [recap, setRecap] = useState<Recap | null>(null);
@@ -171,7 +178,7 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
   const showRecap = useCallback((nextRecap: Omit<Recap, 'id'>) => {
     const id = crypto.randomUUID?.() || Math.random().toString();
     setRecap({ id, ...nextRecap });
-    setTimeout(() => setRecap((current) => current?.id === id ? null : current), 8500);
+    setTimeout(() => setRecap((current) => current?.id === id ? null : current), 6500);
   }, []);
 
   const showReveal = useCallback(async (payload: any) => {
@@ -190,10 +197,10 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
     await sleep(REVEAL_TIMING.card);
 
     setRevealStage('owner');
+    audioManager.playSFX(hitPlayers.length > 0 ? 'life_lost' : 'miss');
     await sleep(REVEAL_TIMING.owner);
 
     setRevealStage('result');
-    audioManager.playSFX(hitPlayers.length > 0 ? 'life_lost' : 'miss');
     await sleep(REVEAL_TIMING.result);
 
     if (eliminatedPlayers.length > 0) {
@@ -203,6 +210,7 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
     }
 
     setRevelation(null);
+    setSelectedVoteId(null);
     await refreshLiveCards();
   }, [deckChars, me?.id, refreshLiveCards]);
 
@@ -256,6 +264,7 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
     voteProcessingRef.current = false;
     botTurnRef.current = '';
     setIsVoting(false);
+    setSelectedVoteId(null);
     void refreshLiveCards();
     if (!isExplaining) audioManager.playSFX('turn');
   }, [isExplaining, refreshLiveCards, room.current_turn_number]);
@@ -306,7 +315,7 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
         await sleep(result.eliminated ? 5200 : 3600);
         setTimeoutNotice(null);
         await refreshLiveCards();
-        showRecap({ tone: result.tiebreak ? 'tiebreak' : result.finished ? 'finished' : 'timeout', label: result.finished ? 'fim' : result.tiebreak ? 'morte súbita' : 'tempo', main: `${activePlayer.nickname} não votou a tempo.`, detail: result.eliminated ? `${activePlayer.nickname} foi eliminado da arena.` : result.missedTurns === 1 ? 'Recebeu a 1ª falta.' : 'Perdeu 1 vida.' });
+        showRecap({ tone: result.tiebreak ? 'tiebreak' : result.finished ? 'finished' : 'timeout', label: result.finished ? 'fim' : result.tiebreak ? 'morte súbita' : 'tempo', main: `${activePlayer.nickname} não votou a tempo.`, detail: result.eliminated ? `${activePlayer.nickname} foi eliminado.` : result.missedTurns === 1 ? '1ª falta.' : 'Perdeu 1 vida.' });
       }).finally(() => { timeoutRef.current = false; });
     }, 500);
     return () => clearInterval(interval);
@@ -337,6 +346,7 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
   const processVote = async (characterId: string) => {
     if (!activePlayer || !isMyTurn || voteProcessingRef.current || isVoting) return;
     voteProcessingRef.current = true;
+    setSelectedVoteId(characterId);
     setIsVoting(true);
     setRecap(null);
     try {
@@ -346,7 +356,10 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
         body: JSON.stringify({ turnNumber: room.current_turn_number, playerId: activePlayer.id, characterId }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || result?.ok === false) return;
+      if (!response.ok || result?.ok === false) {
+        setSelectedVoteId(null);
+        return;
+      }
       await handleRevealPayload({ turnNumber: room.current_turn_number, charName: result.target, characterId: result.targetId, hitPlayerIds: hitIds(result), hitPlayers: result.hitPlayers || [], voterId: activePlayer.id, voterName: activePlayer.nickname });
     } finally {
       voteProcessingRef.current = false;
@@ -359,7 +372,16 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
   const maxRounds = Number(room.max_rounds || room.round_limit || room.max_turns || 0);
   const roundLabel = maxRounds > 0 ? `Rodada ${roundNumber}/${maxRounds}` : `Rodada ${roundNumber}`;
   const turnStatusText = isSpectator ? 'Assistindo' : isVoting ? 'Registrando voto' : isMyTurn ? 'Sua vez!' : activePlayer ? playerStatus(activePlayer, activePlayerId) : 'Aguardando';
-  const actionHint = isMyTurn ? 'Toque em uma carta para votar' : isSpectator ? 'Acompanhe a rodada' : activePlayer ? `${activePlayer.nickname} joga agora` : 'Preparando mesa';
+  const actionHint = isMyTurn ? 'Toque em uma carta' : isSpectator ? 'Acompanhe' : activePlayer ? `${activePlayer.nickname} joga agora` : 'Preparando';
+
+  const revealCard = revelation ? (
+    <div className="gameplay-reveal-card-shell">
+      <div className="gameplay-reveal-card">
+        <CharacterImage name={revelation.charName} imageUrl={revelation.card?.image_url} avatarConfig={revelation.card?.avatar_config} isOfficial={usesOfficialImages} showRarityFrame={usesOfficialImages} alt={revelation.charName} className="h-full w-full object-cover" />
+      </div>
+      <h2>{revelation.charName}</h2>
+    </div>
+  ) : null;
 
   return (
     <div className={cn('gameplay-screen flex h-[100dvh] overflow-hidden font-sans relative party-grid-bg', isSpectator && 'grayscale-[0.08]')}>
@@ -405,14 +427,14 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
               const content = (
                 <>
                   <div className="gameplay-card-portrait">
-                    <CharacterImage name={card.name} imageUrl={card.image_url} avatarConfig={card.avatar_config} isOfficial={usesOfficialImages} showRarityFrame={usesOfficialImages} alt="" className="h-full w-full object-cover" />
+                    <CharacterImage name={card.name} imageUrl={card.image_url} avatarConfig={card.avatar_config} isOfficial={usesOfficialImages} showRarityFrame={usesOfficialImages} alt={card.name} className="h-full w-full object-cover" />
                   </div>
                   <p className="gameplay-card-name">{card.name}</p>
                 </>
               );
 
-              return isMyTurn ? (
-                <motion.button key={card.id} type="button" initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.025, 0.2) }} onClick={() => processVote(card.id)} disabled={isVoting || voteProcessingRef.current} className="gameplay-card-item gameplay-card-item--button group" data-action="vote-card">
+              return isMyTurn || selectedVoteId === card.id ? (
+                <motion.button key={card.id} type="button" initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.025, 0.2) }} onClick={() => processVote(card.id)} disabled={isVoting || voteProcessingRef.current} className={cn('gameplay-card-item gameplay-card-item--button group', selectedVoteId === card.id && 'gameplay-card-item--selected')} data-action="vote-card" aria-label={`Votar em ${card.name}`}>
                   {content}
                   <span className="gameplay-card-target"><Target className="h-7 w-7" /> Escolher</span>
                 </motion.button>
@@ -455,7 +477,7 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
 
         <AnimatePresence>
           {recap && !isExplaining && (
-            <motion.section key={recap.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn('gameplay-recap', recapClasses(recap.tone))}>
+            <motion.section key={recap.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn('gameplay-recap', recapClasses(recap.tone))} aria-live="polite">
               <div className="min-w-0">
                 <span>{recap.label}</span>
                 <p>{recap.main}</p>
@@ -468,9 +490,9 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
 
         <AnimatePresence>{suddenDeathIntro && !isExplaining && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[85] flex items-center justify-center rounded-[2rem] bg-slate-950/86 p-4 text-white backdrop-blur-md"><motion.div initial={{ scale: 0.86, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }} className="max-w-md rounded-3xl border-4 border-rose-500 bg-rose-950/80 p-8 text-center shadow-2xl"><p className="mb-3 text-xs font-black uppercase tracking-[0.35em] text-rose-200">Agora ficou sério</p><h2 className="font-display text-5xl font-black">MORTE SÚBITA</h2><p className="mt-4 text-sm font-bold uppercase tracking-wider text-rose-100">Últimos jogadores restantes.</p></motion.div></motion.div>}</AnimatePresence>
 
-        <AnimatePresence>{timeoutNotice && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[82] flex items-center justify-center rounded-[2rem] bg-slate-950/84 p-4 text-white backdrop-blur-md"><motion.div initial={{ y: 20, scale: 0.94, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -14, opacity: 0 }} className="max-w-lg rounded-3xl border-4 border-amber-300 bg-white p-8 text-center text-indigo-950 shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.3em] text-amber-600">Tempo esgotado</p><h2 className="mt-2 font-display text-3xl font-black">{timeoutNotice.player?.nickname} não votou a tempo</h2><p className="mt-4 rounded-2xl border-2 border-amber-100 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800">{timeoutNotice.result?.eliminated ? 'Foi eliminado da arena.' : timeoutNotice.result?.missedTurns === 1 ? 'Recebeu a 1ª falta.' : 'Perdeu 1 vida.'}</p></motion.div></motion.div>}</AnimatePresence>
+        <AnimatePresence>{timeoutNotice && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[82] flex items-center justify-center rounded-[2rem] bg-slate-950/84 p-4 text-white backdrop-blur-md"><motion.div initial={{ y: 20, scale: 0.94, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -14, opacity: 0 }} className="max-w-lg rounded-3xl border-4 border-amber-300 bg-white p-8 text-center text-indigo-950 shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.3em] text-amber-600">Tempo esgotado</p><h2 className="mt-2 font-display text-3xl font-black">{timeoutNotice.player?.nickname}</h2><p className="mt-4 rounded-2xl border-2 border-amber-100 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800">{timeoutNotice.result?.eliminated ? 'Caveira: eliminado.' : timeoutNotice.result?.missedTurns === 1 ? '1ª falta.' : 'Coração quebrado: perdeu 1 vida.'}</p></motion.div></motion.div>}</AnimatePresence>
 
-        <AnimatePresence>{revelation && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[80] flex items-center justify-center rounded-[2rem] bg-slate-950/88 p-4 text-white backdrop-blur-md"><AnimatePresence mode="wait" initial={false}>{revealStage === 'thinking' ? <motion.div key="thinking" initial={{ y: 18, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }} className="text-center"><Zap className="mx-auto mb-5 h-16 w-16 rounded-full border border-indigo-300/30 bg-indigo-500/20 p-4 text-indigo-100" /><p className="text-xs font-black uppercase tracking-[0.35em] text-indigo-200">Preparando palpite</p><h2 className="mt-3 font-display text-4xl font-black">{revelation.voterName}</h2></motion.div> : revealStage === 'card' ? <motion.div key="card" initial={{ scale: 0.9, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 1.03, opacity: 0 }} className="w-full max-w-sm text-center"><p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-amber-200">{revelation.voterName} votou em</p><div className="mx-auto mb-5 w-60 max-w-[74vw] rounded-[1.6rem] border-4 border-white/20 bg-slate-900 p-2 shadow-2xl"><div className="aspect-[2/3] overflow-hidden rounded-2xl bg-slate-800"><CharacterImage name={revelation.charName} imageUrl={revelation.card?.image_url} avatarConfig={revelation.card?.avatar_config} isOfficial={usesOfficialImages} showRarityFrame={usesOfficialImages} alt="" className="h-full w-full object-cover" /></div></div><h2 className="font-display text-4xl font-black uppercase leading-none md:text-5xl">{revelation.charName}</h2></motion.div> : revealStage === 'owner' ? <motion.div key="owner" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="w-full max-w-md rounded-3xl border-4 border-indigo-200 bg-white p-7 text-center text-indigo-950 shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500">Dono da carta</p><h2 className="mt-3 font-display text-2xl font-black">{revelation.hitPlayers.length > 0 ? `${revelation.charName} estava com:` : `Ninguém tinha ${revelation.charName}`}</h2>{revelation.hitPlayers.length > 0 && <div className="mt-4 grid gap-2">{revelation.hitPlayers.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-indigo-100 bg-indigo-50 px-4 py-3 font-black text-indigo-800">{p.nickname}</div>)}</div>}</motion.div> : revealStage === 'result' ? revelation.hitPlayers.length > 0 ? <motion.div key="hit" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} className="max-w-md rounded-3xl border-4 border-emerald-300 bg-emerald-500 p-8 text-center text-white shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.35em] text-emerald-100">Resultado</p><h2 className="mt-3 font-display text-5xl font-black">ACERTOU!</h2><p className="mt-4 text-sm font-black uppercase tracking-wider text-emerald-50">{revelation.hitPlayers.map((p: any) => p.nickname).join(', ')} foi atingido.</p></motion.div> : <motion.div key="miss" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} className="max-w-md rounded-3xl border-4 border-slate-600 bg-slate-900 p-8 text-center text-white shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400">Resultado</p><h2 className="mt-3 font-display text-5xl font-black text-slate-200">ERROU</h2><p className="mt-4 text-sm font-black uppercase tracking-wider text-slate-300">O palpite não encontrou ninguém.</p></motion.div> : <motion.div key="eliminated" initial={{ y: 18, scale: 0.92, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="w-full max-w-2xl rounded-[2rem] border-4 border-slate-500 bg-gradient-to-br from-slate-950 via-slate-900 to-zinc-800 p-7 text-center text-white shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.35em] text-slate-300">Fora da arena</p><h2 className="mt-2 font-display text-4xl font-black md:text-5xl">{revelation.eliminatedPlayers.length > 1 ? 'ELIMINADOS' : 'ELIMINADO'}</h2><div className={cn('mx-auto mt-6 grid gap-4', revelation.eliminatedPlayers.length === 1 ? 'max-w-xs grid-cols-1' : 'max-w-xl grid-cols-2 md:grid-cols-3')}>{revelation.eliminatedPlayers.map((p: any) => <div key={p.id} className="rounded-3xl border border-white/15 bg-white/8 p-4"><AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} state="defeat" primaryColor={p.color?.hex} className="mx-auto h-28 w-28 rounded-3xl border-4 border-slate-500 bg-slate-800 grayscale" imageClassName="grayscale opacity-60" /><p className="mt-3 text-sm font-black uppercase tracking-wider text-slate-100">{p.nickname}</p></div>)}</div></motion.div>}</AnimatePresence></motion.div>}</AnimatePresence>
+        <AnimatePresence>{revelation && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[80] flex items-center justify-center rounded-[2rem] bg-slate-950/88 p-4 text-white backdrop-blur-md"><AnimatePresence mode="wait" initial={false}>{revealStage === 'thinking' ? <motion.div key="thinking" initial={{ y: 18, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }} className="gameplay-reveal-thinking"><Zap className="mx-auto mb-4 h-14 w-14 rounded-full border border-indigo-300/30 bg-indigo-500/20 p-4 text-indigo-100" /><p>{revelation.voterName}</p></motion.div> : revealStage === 'card' ? <motion.div key="card" initial={{ scale: 0.86, rotateY: -16, y: 24, opacity: 0 }} animate={{ scale: 1, rotateY: 0, y: 0, opacity: 1 }} exit={{ scale: 1.03, opacity: 0 }} className="gameplay-reveal-clean gameplay-reveal-clean--card"><p className="gameplay-reveal-kicker">votou em</p>{revealCard}</motion.div> : revealStage === 'owner' ? <motion.div key="owner" initial={{ scale: 0.94, y: 18, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 1.02, opacity: 0 }} className="gameplay-reveal-clean gameplay-reveal-clean--owner"><p className="gameplay-reveal-kicker">{getRevealResultLabel(revelation)}</p>{revealCard}<div className="gameplay-hit-list">{revelation.hitPlayers.length > 0 ? revelation.hitPlayers.map((p: any) => { const eliminated = (p.lives || 0) <= 0 || p.is_eliminated || revelation.eliminatedPlayers?.some((e: any) => e.id === p.id); return <div key={p.id} className={cn('gameplay-hit-chip', eliminated && 'gameplay-hit-chip--dead')}><AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} state={eliminated ? 'defeat' : 'vote'} primaryColor={p.color?.hex} className="gameplay-hit-avatar" imageClassName={eliminated ? 'grayscale opacity-70' : undefined} /><strong>{p.nickname}</strong>{eliminated ? <Skull className="h-5 w-5" /> : <HeartCrack className="h-5 w-5" />}</div>; }) : <div className="gameplay-hit-chip gameplay-hit-chip--miss"><strong>Ninguém tinha</strong></div>}</div></motion.div> : revealStage === 'result' ? <motion.div key="result" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} className={cn('gameplay-reveal-result', revelation.hitPlayers.length > 0 ? 'gameplay-reveal-result--hit' : 'gameplay-reveal-result--miss')}><h2>{revelation.hitPlayers.length > 0 ? 'ACERTOU' : 'ERROU'}</h2></motion.div> : <motion.div key="eliminated" initial={{ y: 18, scale: 0.92, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="gameplay-reveal-clean gameplay-reveal-clean--owner"><p className="gameplay-reveal-kicker">eliminado</p>{revealCard}<div className="gameplay-hit-list">{revelation.eliminatedPlayers.map((p: any) => <div key={p.id} className="gameplay-hit-chip gameplay-hit-chip--dead"><AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} state="defeat" primaryColor={p.color?.hex} className="gameplay-hit-avatar" imageClassName="grayscale opacity-70" /><strong>{p.nickname}</strong><Skull className="h-5 w-5" /></div>)}</div></motion.div>}</AnimatePresence></motion.div>}</AnimatePresence>
       </main>
       <ChatMenu roomId={room.id} me={me} players={players} collapsible={true} />
     </div>

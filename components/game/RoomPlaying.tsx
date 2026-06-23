@@ -8,6 +8,7 @@ import ChatMenu from './ChatMenu';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import CharacterImage from '@/components/CharacterImage';
 import { isOfficialDeckId } from '@/lib/officialDecks';
+import { useSyncedCountdown } from '@/hooks/useSyncedCountdown';
 
 const REVEAL_TIMING = {
   thinking: 1300,
@@ -37,6 +38,16 @@ function formatTimer(seconds: number) {
   return `${minutes}:${rest.toString().padStart(2, '0')}`;
 }
 
+const ALLOWED_VOTE_SECONDS = [15, 30, 45] as const;
+const DEFAULT_VOTE_SECONDS = 30;
+
+function clampVoteSeconds(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_VOTE_SECONDS;
+  const rounded = Math.round(parsed);
+  return (ALLOWED_VOTE_SECONDS as readonly number[]).includes(rounded) ? rounded : DEFAULT_VOTE_SECONDS;
+}
+
 function getHitIds(value: any) {
   const ids = value?.hitPlayerIds || value?.hit_player_ids || value?.hits || [];
   return Array.isArray(ids) ? ids.filter((id) => typeof id === 'string') : [];
@@ -56,8 +67,8 @@ function consequenceText(player: any) {
 }
 
 export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
+  const safeVoteSeconds = clampVoteSeconds(room.vote_time_seconds);
   const [deckChars, setDeckChars] = useState<any[]>([]);
-  const [timeLeft, setTimeLeft] = useState(secondsLeft(room.turn_expires_at) || room.vote_time_seconds || 30);
   const [actionLog, setActionLog] = useState<{ id: string; msg: string }[]>([]);
   const [isRevealing, setIsRevealing] = useState(false);
   const [revealStage, setRevealStage] = useState<'thinking' | 'card' | 'owner' | 'result' | 'consequence'>('thinking');
@@ -86,6 +97,13 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const isExplaining = isRevealing || Boolean(timeoutNotice);
   const isMyTurn = activePlayer?.id === me.id && !me.is_eliminated && !isExplaining && !isVoting && !voteProcessingRef.current;
   const humanPlayers = orderedPlayers.filter((p: any) => !p.is_bot);
+  const { secondsLeft: timeLeft, formattedTime } = useSyncedCountdown({
+    expiresAt: room.turn_expires_at,
+    fallbackSeconds: safeVoteSeconds,
+    maxSeconds: safeVoteSeconds,
+    enabled: !isExplaining && !isVoting,
+    phaseKey: `${room.id}:PLAYING:${room.current_turn_number || 0}`,
+  });
 
   useEffect(() => { playersRef.current = players; }, [players]);
 
@@ -268,10 +286,9 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     voteProcessingRef.current = false;
     botTurnRef.current = '';
     setIsVoting(false);
-    setTimeLeft(secondsLeft(room.turn_expires_at) || room.vote_time_seconds || 30);
     void refreshLiveCards();
     if (!isExplaining) audioManager.playSFX('turn');
-  }, [room.current_turn_number, room.vote_time_seconds, refreshLiveCards, isExplaining]);
+  }, [room.current_turn_number, refreshLiveCards, isExplaining]);
 
   useEffect(() => {
     audioManager.setMusicRate(isSuddenDeath ? 1.18 : 1);
@@ -294,11 +311,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     const interval = setInterval(() => {
       if (isExplaining || isVoting) return;
       const diff = secondsLeft(room.turn_expires_at);
-      if (diff > 0) {
-        setTimeLeft(diff);
-        return;
-      }
-      setTimeLeft(0);
+      if (diff > 0) return;
       if (!activePlayer || handlingTimeoutRef.current || voteProcessingRef.current) return;
       const timeoutKey = `timeout-lock-${room.id}-${room.current_turn_number}-${activePlayer.id}`;
       try {
@@ -370,7 +383,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
             <div className={cn('flex items-center gap-2 px-3 py-2 rounded-2xl border text-[10px] md:text-xs font-black uppercase tracking-wider', isSpectator ? 'bg-slate-800 border-slate-600 text-slate-200' : isSuddenDeath ? 'bg-white border-rose-200 text-rose-600' : 'bg-indigo-50 border-indigo-100 text-indigo-700')}>
               <Zap className="w-4 h-4" />{isExplaining || isVoting ? 'Resultado em andamento' : activePlayer?.is_bot ? 'Bot pensando...' : activePlayer ? 'Escolhendo...' : 'Aguardando'}
             </div>
-            {!isExplaining && !isVoting && <div className="flex items-center gap-2 px-3 py-2 rounded-2xl border bg-indigo-50/50 border-indigo-100"><Clock className="w-4 h-4 text-indigo-500" /><span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : 'text-indigo-950')}>{formatTimer(timeLeft)}</span></div>}
+            {!isExplaining && !isVoting && <div className="flex items-center gap-2 px-3 py-2 rounded-2xl border bg-indigo-50/50 border-indigo-100"><Clock className="w-4 h-4 text-indigo-500" /><span className={cn('text-xl md:text-2xl font-black font-mono', timeLeft <= 5 ? 'text-rose-500 animate-pulse' : 'text-indigo-950')}>{formattedTime || formatTimer(timeLeft)}</span></div>}
             <button onClick={leaveRoom} className="h-10 md:h-11 px-3 md:px-4 rounded-2xl border-2 border-rose-100 bg-rose-50 text-rose-600 text-[10px] md:text-xs font-black uppercase flex items-center gap-1.5 hover:bg-rose-100 transition-all cursor-pointer">Sair <LogOut className="w-4 h-4" /></button>
           </div>
         </header>

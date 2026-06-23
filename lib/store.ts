@@ -72,10 +72,10 @@ function getStoredGuest() {
   const nickname = localStorage.getItem('guestNickname') || storedProfile?.nickname;
   if (!guestId || !nickname) return { user: null, profile: null };
 
-  const baseProfile = { id: guestId, nickname, is_guest: true, played_matches: 0, wins: 0 };
+  const baseProfile = { id: guestId, nickname, is_guest: true, played_matches: 0, wins: 0, profile_completed: true };
   return {
     user: { id: guestId, email: `guest_${guestId}@guest.com` },
-    profile: { ...baseProfile, ...(storedProfile || {}), id: guestId, nickname, is_guest: true }
+    profile: { ...baseProfile, ...(storedProfile || {}), id: guestId, nickname, is_guest: true, profile_completed: true }
   };
 }
 
@@ -171,6 +171,10 @@ export const useUserStore = create<UserState>((set) => ({
       id: guestId,
       nickname,
       is_guest: true,
+      avatar_url: storedProfile?.avatar_url || '',
+      music_genres: Array.isArray(storedProfile?.music_genres) ? storedProfile.music_genres : [],
+      music_blocked_tracks: Array.isArray(storedProfile?.music_blocked_tracks) ? storedProfile.music_blocked_tracks : [],
+      profile_completed: true,
       played_matches: storedProfile?.played_matches || 0,
       wins: storedProfile?.wins || 0,
     };

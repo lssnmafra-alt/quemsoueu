@@ -319,7 +319,7 @@ function IntroVideoPlayer({ src, player }: { src: string; player: any }) {
 
 async function resolveAndPreloadIntroVideo(player: SequencePlayer, cache: Map<string, string>) {
   const avatarUrl = String(player?.avatar_url || '').trim();
-  if (!avatarUrl || avatarUrl.startsWith('avatar:')) return '';
+  if (!avatarUrl) return '';
 
   const cacheKey = `${player.id}:${avatarUrl}`;
   const cached = cache.get(cacheKey);

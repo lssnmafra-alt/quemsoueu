@@ -1,0 +1,274 @@
+/* Stable gameplay UI layer.
+   This file defines the future class contract for gameplay UI and keeps compatibility
+   with the current RoomPlayingPremium markup while the JSX is migrated safely.
+
+   Future explicit classes:
+   .gameplay-arena-screen
+   .gameplay-shell
+   .gameplay-top-hud
+   .gameplay-card-table
+   .gameplay-card-grid
+   .gameplay-card-item
+   .gameplay-card-name
+   .gameplay-player-rail
+*/
+
+:root {
+  --qse-arena-bg: url('/api/r2-file?key=atuem%2FCenarios%2FReino%20das%20rosas.PNG');
+}
+
+.gameplay-arena-screen,
+.party-grid-bg:has(> main) {
+  background-color: #100723 !important;
+  background-image: linear-gradient(180deg, rgba(12, 4, 28, .06), rgba(12, 4, 28, .70)), var(--qse-arena-bg) !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+
+.gameplay-arena-screen::before,
+.party-grid-bg:has(> main)::before {
+  background: linear-gradient(180deg, rgba(8, 2, 18, .02), rgba(8, 2, 18, .45)) !important;
+  mask-image: none !important;
+}
+
+.gameplay-arena-screen::after,
+.party-grid-bg:has(> main)::after {
+  display: none !important;
+}
+
+.gameplay-shell,
+.party-grid-bg:has(> main) > main {
+  gap: .55rem !important;
+  padding-bottom: 8.4rem !important;
+  scroll-padding-bottom: 8.4rem !important;
+}
+
+.gameplay-top-hud,
+.party-grid-bg:has(> main) > main > header {
+  position: sticky !important;
+  top: .35rem !important;
+  z-index: 55 !important;
+  border-color: rgba(255, 202, 82, .42) !important;
+  background: linear-gradient(180deg, rgba(55, 18, 82, .95), rgba(28, 10, 52, .95)) !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .32), inset 0 1px 0 rgba(255, 255, 255, .18) !important;
+  color: #fff !important;
+}
+
+.gameplay-top-hud h1,
+.gameplay-top-hud p,
+.gameplay-top-hud span,
+.party-grid-bg:has(> main) > main > header h1,
+.party-grid-bg:has(> main) > main > header p,
+.party-grid-bg:has(> main) > main > header span {
+  color: #fff7d6 !important;
+}
+
+.gameplay-card-table,
+.party-grid-bg:has(> main) > main > section:first-of-type {
+  position: relative;
+  overflow: visible !important;
+  border: 1px solid rgba(255, 214, 106, .24) !important;
+  background: linear-gradient(180deg, rgba(55, 18, 70, .66), rgba(21, 7, 35, .46)) !important;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255, 255, 255, .12) !important;
+  padding: clamp(1.15rem, 2.5vw, 2.1rem) !important;
+}
+
+.gameplay-card-table::before,
+.party-grid-bg:has(> main) > main > section:first-of-type::before {
+  content: "";
+  position: absolute;
+  inset: .55rem;
+  z-index: -1;
+  border-radius: 1.6rem;
+  background: linear-gradient(180deg, rgba(255, 235, 188, .13), rgba(255, 218, 164, .04));
+  box-shadow: inset 0 0 0 1px rgba(255, 214, 106, .12);
+}
+
+.gameplay-card-table p:first-child,
+.gameplay-card-table h2,
+.party-grid-bg:has(> main) > main > section:first-of-type p:first-child,
+.party-grid-bg:has(> main) > main > section:first-of-type h2 {
+  color: #fff7d6 !important;
+  text-shadow: 0 4px 14px rgba(0, 0, 0, .45);
+}
+
+.gameplay-card-grid,
+.party-grid-bg:has(> main) > main > section:first-of-type > div:last-child {
+  position: relative;
+  z-index: 1;
+  align-items: start;
+}
+
+.gameplay-card-item,
+.party-grid-bg:has(> main) > main > section:first-of-type > div:last-child > button,
+.party-grid-bg:has(> main) > main > section:first-of-type > div:last-child > div {
+  position: relative;
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 1.2rem !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: .45rem .45rem 2.35rem !important;
+}
+
+.gameplay-card-item .aspect-\[2\/3\],
+.party-grid-bg:has(> main) > main > section:first-of-type .aspect-\[2\/3\] {
+  position: relative;
+  z-index: 2;
+  overflow: visible !important;
+  border-radius: 1rem !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.gameplay-card-name,
+.party-grid-bg:has(> main) > main > section:first-of-type > div:last-child p {
+  position: absolute !important;
+  left: 12% !important;
+  right: 12% !important;
+  bottom: .42rem !important;
+  z-index: 45 !important;
+  margin: 0 !important;
+  min-height: 1.75rem !important;
+  border-radius: 999px;
+  background: rgba(49, 16, 67, .94);
+  padding: .35rem .4rem;
+  color: #fff8db !important;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .55);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+
+.gameplay-player-rail,
+.party-grid-bg:has(> main) > main > section:last-of-type {
+  position: fixed !important;
+  left: .7rem !important;
+  right: .7rem !important;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + .85rem) !important;
+  z-index: 58 !important;
+  max-height: 5.9rem !important;
+  overflow: hidden !important;
+  border-color: rgba(255, 202, 82, .38) !important;
+  background: linear-gradient(180deg, rgba(41, 13, 63, .92), rgba(15, 5, 29, .94)) !important;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, .36), inset 0 1px 0 rgba(255, 255, 255, .13) !important;
+  padding: .55rem !important;
+  backdrop-filter: blur(14px);
+}
+
+.gameplay-player-rail > div:last-child,
+.party-grid-bg:has(> main) > main > section:last-of-type > div:last-child {
+  display: flex !important;
+  gap: .45rem !important;
+  overflow-x: auto !important;
+  padding-bottom: .15rem !important;
+  scrollbar-width: none;
+}
+
+.gameplay-player-rail > div:last-child::-webkit-scrollbar,
+.party-grid-bg:has(> main) > main > section:last-of-type > div:last-child::-webkit-scrollbar {
+  display: none;
+}
+
+.gameplay-player-rail > div:last-child > div,
+.party-grid-bg:has(> main) > main > section:last-of-type > div:last-child > div {
+  min-width: 10.5rem !important;
+  padding: .48rem !important;
+  border-radius: 1rem !important;
+}
+
+.party-grid-bg:has(> main) .qse-rarity-card {
+  filter: drop-shadow(0 18px 20px rgba(0, 0, 0, .23));
+  isolation: isolate;
+}
+
+.party-grid-bg:has(> main) .qse-rarity-card::before {
+  content: "";
+  position: absolute;
+  inset: -.24rem;
+  z-index: -1;
+  border-radius: 1.55rem;
+  background: linear-gradient(180deg, var(--rarity-a), var(--rarity-b));
+  box-shadow: 0 0 30px var(--rarity-glow), inset 0 1px 0 rgba(255, 255, 255, .32);
+}
+
+.party-grid-bg:has(> main) .qse-rarity-card::after {
+  content: "";
+  position: absolute;
+  inset: .25rem;
+  z-index: 25;
+  pointer-events: none;
+  border-radius: 1.25rem;
+  border: 2px solid rgba(255, 255, 255, .20);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .18), 0 0 18px var(--rarity-glow);
+}
+
+@media (max-width: 640px) {
+  .gameplay-shell,
+  .party-grid-bg:has(> main) > main {
+    padding: .42rem !important;
+    padding-bottom: 8.6rem !important;
+    gap: .42rem !important;
+  }
+
+  .gameplay-top-hud,
+  .party-grid-bg:has(> main) > main > header {
+    top: .25rem !important;
+    margin-bottom: .1rem !important;
+    padding: .5rem !important;
+    border-radius: 1.05rem !important;
+  }
+
+  .gameplay-top-hud h1,
+  .party-grid-bg:has(> main) > main > header h1 {
+    font-size: 1.04rem !important;
+    line-height: 1.08 !important;
+    margin-top: .28rem !important;
+    white-space: normal !important;
+  }
+
+  .gameplay-card-table,
+  .party-grid-bg:has(> main) > main > section:first-of-type {
+    padding: .68rem .36rem .92rem !important;
+    margin-bottom: .42rem !important;
+    border-radius: 1.1rem !important;
+  }
+
+  .gameplay-card-table h2,
+  .party-grid-bg:has(> main) > main > section:first-of-type h2 {
+    font-size: 1.28rem !important;
+    line-height: 1 !important;
+  }
+
+  .gameplay-card-grid,
+  .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .78rem .54rem !important;
+  }
+
+  .gameplay-card-item,
+  .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child > button,
+  .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child > div {
+    padding: .24rem .22rem 1.92rem !important;
+  }
+
+  .gameplay-card-name,
+  .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child p {
+    font-size: .62rem !important;
+    line-height: .74rem !important;
+    bottom: .28rem !important;
+    left: 9% !important;
+    right: 9% !important;
+    min-height: 1.4rem !important;
+    padding: .24rem .28rem !important;
+  }
+
+  .gameplay-player-rail,
+  .party-grid-bg:has(> main) > main > section:last-of-type {
+    left: .44rem !important;
+    right: .44rem !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + .64rem) !important;
+    max-height: 5.3rem !important;
+    padding: .44rem !important;
+    border-radius: 1rem !important;
+  }
+}

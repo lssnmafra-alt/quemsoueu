@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { audioManager, type CurrentMusicInfo } from '@/lib/audioManager';
-import { Music, Volume2, VolumeX, SlidersHorizontal, Disc3, X } from 'lucide-react';
+import { Music, Volume2, VolumeX, SlidersHorizontal, Disc3, X, SkipBack, SkipForward, Pause, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,8 @@ export default function AudioToggle() {
   const [prefs, setPrefs] = useState({ ...audioManager.prefs });
   const [currentTrack, setCurrentTrack] = useState<CurrentMusicInfo | null>(() => audioManager.getCurrentMusicInfo());
   const [toastTrack, setToastTrack] = useState<CurrentMusicInfo | null>(null);
+  const [musicPaused, setMusicPaused] = useState(() => audioManager.isMusicPaused());
+  const [switchingTrack, setSwitchingTrack] = useState(false);
 
   useEffect(() => {
     let toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -20,6 +22,7 @@ export default function AudioToggle() {
     const showTrack = (detail: CurrentMusicInfo | null) => {
       if (!detail?.url) return;
       setCurrentTrack(detail);
+      setMusicPaused(audioManager.isMusicPaused());
       setToastTrack(detail);
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(() => setToastTrack(null), 7200);
@@ -42,6 +45,7 @@ export default function AudioToggle() {
   const syncPrefs = () => {
     setPrefs({ ...audioManager.prefs });
     setCurrentTrack(audioManager.getCurrentMusicInfo());
+    setMusicPaused(audioManager.isMusicPaused());
   };
 
   const update = (next: Partial<typeof prefs>) => {
@@ -56,6 +60,28 @@ export default function AudioToggle() {
 
     syncPrefs();
   };
+
+  const togglePause = () => {
+    audioManager.initFromUserGesture();
+    audioManager.toggleMusicPause();
+    setTimeout(syncPrefs, 80);
+  };
+
+  const goNext = async () => {
+    setSwitchingTrack(true);
+    await audioManager.nextMusic();
+    setSwitchingTrack(false);
+    syncPrefs();
+  };
+
+  const goPrevious = async () => {
+    setSwitchingTrack(true);
+    await audioManager.previousMusic();
+    setSwitchingTrack(false);
+    syncPrefs();
+  };
+
+  const musicControlsDisabled = prefs.muted || !prefs.musicEnabled || switchingTrack;
 
   return (
     <>
@@ -79,11 +105,11 @@ export default function AudioToggle() {
             </button>
             <div className="flex items-center gap-3">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-indigo-100 bg-gradient-to-br from-indigo-500 to-amber-300 text-white shadow-inner">
-                <Disc3 className="h-7 w-7 animate-spin" />
+                <Disc3 className={cn('h-7 w-7', musicPaused ? '' : 'animate-spin')} />
               </div>
               <div className="min-w-0 text-left">
                 <p className="text-[10px] font-black uppercase tracking-wider text-indigo-500 flex items-center gap-1.5">
-                  <Music className="h-3.5 w-3.5" /> Tocando agora
+                  <Music className="h-3.5 w-3.5" /> {musicPaused ? 'Musica pausada' : 'Tocando agora'}
                 </p>
                 <p className="mt-0.5 truncate text-base font-black text-indigo-950">{toastTrack.title || 'Musica'}</p>
                 <p className="truncate text-xs font-bold text-slate-500">Categoria: {toastTrack.genre || 'Selecionada'}</p>
@@ -115,12 +141,45 @@ export default function AudioToggle() {
               </div>
 
               {currentTrack?.url && (
-                <div className="mb-4 rounded-2xl border-2 border-indigo-50 bg-indigo-50/50 p-3">
+                <div className="mb-3 rounded-2xl border-2 border-indigo-50 bg-indigo-50/50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-wider text-indigo-500">Musica atual</p>
                   <p className="mt-1 truncate text-xs font-black text-indigo-950">{currentTrack.title || 'Musica'}</p>
                   <p className="mt-0.5 truncate text-[11px] font-bold text-slate-500">Categoria: {currentTrack.genre || 'Selecionada'}</p>
                 </div>
               )}
+
+              <div className="mb-4 grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={goPrevious}
+                  disabled={musicControlsDisabled}
+                  className="flex h-9 items-center justify-center rounded-2xl border-2 border-indigo-100 bg-white text-indigo-600 shadow-sm transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Voltar musica"
+                  title="Voltar"
+                >
+                  <SkipBack className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={togglePause}
+                  disabled={prefs.muted || switchingTrack}
+                  className="flex h-9 items-center justify-center rounded-2xl border-2 border-indigo-100 bg-indigo-600 text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label={musicPaused ? 'Tocar musica' : 'Pausar musica'}
+                  title={musicPaused ? 'Tocar' : 'Pausar'}
+                >
+                  {musicPaused ? <Play className="h-4 w-4 fill-white" /> : <Pause className="h-4 w-4 fill-white" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={goNext}
+                  disabled={musicControlsDisabled}
+                  className="flex h-9 items-center justify-center rounded-2xl border-2 border-indigo-100 bg-white text-indigo-600 shadow-sm transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Proxima musica"
+                  title="Próxima"
+                >
+                  <SkipForward className="h-4 w-4" />
+                </button>
+              </div>
 
               <label className="mb-3 flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
                 <span className="flex items-center gap-2"><Music className="h-4 w-4 text-indigo-500" /> Musica</span>

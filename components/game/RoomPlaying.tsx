@@ -147,11 +147,19 @@ function buildVoteRecap(payload: any, progress: any, activePlayers: any[], curre
 }
 
 function recapToneClass(tone: RoundRecapTone) {
-  if (tone === 'hit') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
-  if (tone === 'miss') return 'border-slate-200 bg-white text-slate-900';
-  if (tone === 'timeout') return 'border-amber-200 bg-amber-50 text-amber-900';
-  if (tone === 'tiebreak') return 'border-rose-200 bg-rose-50 text-rose-900';
-  return 'border-indigo-200 bg-indigo-50 text-indigo-950';
+  if (tone === 'hit') return 'border-emerald-300/40 bg-gradient-to-br from-emerald-950 via-emerald-800 to-teal-700 text-white shadow-2xl shadow-emerald-950/20';
+  if (tone === 'miss') return 'border-slate-300/30 bg-gradient-to-br from-slate-950 via-slate-800 to-slate-700 text-white shadow-2xl shadow-slate-950/20';
+  if (tone === 'timeout') return 'border-amber-300/50 bg-gradient-to-br from-amber-950 via-amber-800 to-orange-700 text-white shadow-2xl shadow-amber-950/20';
+  if (tone === 'tiebreak') return 'border-rose-300/50 bg-gradient-to-br from-rose-950 via-rose-800 to-fuchsia-800 text-white shadow-2xl shadow-rose-950/20';
+  return 'border-indigo-300/40 bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-800 text-white shadow-2xl shadow-indigo-950/20';
+}
+
+function recapBadge(tone: RoundRecapTone) {
+  if (tone === 'hit') return 'ACERTO';
+  if (tone === 'miss') return 'ERROU';
+  if (tone === 'timeout') return 'TEMPO ESGOTADO';
+  if (tone === 'tiebreak') return 'MORTE SÚBITA';
+  return 'FIM DA PARTIDA';
 }
 
 export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
@@ -256,10 +264,12 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
     audioManager.playSFX(hitPlayers.length > 0 ? 'life_lost' : 'miss');
     await sleep(REVEAL_TIMING.result);
 
-    setRevealStage('consequence');
-    if (eliminatedPlayers.length > 0) audioManager.playSFX(eliminatedPlayers.some((p: any) => p.id === me?.id) ? 'defeat' : 'player_eliminated');
-    const consequenceDelay = REVEAL_TIMING.consequence + (eliminatedPlayers.length > 0 ? REVEAL_TIMING.eliminationExtra : 0) + (hitPlayers.length > 1 ? REVEAL_TIMING.multiHitExtra : 0);
-    await sleep(consequenceDelay);
+    if (eliminatedPlayers.length > 0) {
+      setRevealStage('consequence');
+      audioManager.playSFX(eliminatedPlayers.some((p: any) => p.id === me?.id) ? 'defeat' : 'player_eliminated');
+      const consequenceDelay = REVEAL_TIMING.consequence + REVEAL_TIMING.eliminationExtra + (hitPlayers.length > 1 ? REVEAL_TIMING.multiHitExtra : 0);
+      await sleep(consequenceDelay);
+    }
 
     setIsRevealing(false);
     setRevelation(null);
@@ -502,29 +512,32 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
           {roundRecap && !isExplaining && (
             <motion.section
               key={roundRecap.id}
-              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              initial={{ opacity: 0, y: 18, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.98 }}
-              className={cn('mb-3 rounded-3xl border-2 p-4 md:p-5 shadow-sm', recapToneClass(roundRecap.tone))}
+              exit={{ opacity: 0, y: -10, scale: 0.98 }}
+              className={cn('relative mx-auto mb-4 w-full max-w-3xl overflow-hidden rounded-[2rem] border-2 p-5 md:p-6', recapToneClass(roundRecap.tone))}
             >
-              <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.25em] opacity-70">Recap</p>
-              <h2 className="mt-1 text-xl md:text-2xl font-black font-display">{roundRecap.title}</h2>
-              <div className="mt-3 grid gap-1.5 text-sm md:text-base font-bold">
-                {roundRecap.lines.slice(0, 3).map((line) => <p key={line}>{line}</p>)}
+              <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
+              <div className="pointer-events-none absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
+              <div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0">
+                  <p className="inline-flex rounded-full border border-white/20 bg-white/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-white/85">{recapBadge(roundRecap.tone)}</p>
+                  <h2 className="mt-3 text-2xl md:text-3xl font-black font-display leading-tight">{roundRecap.title}</h2>
+                  <div className="mt-3 grid gap-1.5 text-sm md:text-base font-extrabold text-white/90">
+                    {roundRecap.lines.slice(0, 3).map((line) => <p key={line}>{line}</p>)}
+                  </div>
+                </div>
+                <div className="hidden md:flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl border border-white/20 bg-white/10 text-white/80">
+                  <Zap className="h-8 w-8" />
+                </div>
               </div>
-              {roundRecap.next && <p className="mt-4 rounded-2xl border border-current/15 bg-white/60 px-4 py-2 text-sm font-black">{roundRecap.next}</p>}
+              {roundRecap.next && <p className="relative mt-5 rounded-2xl border border-white/20 bg-white/14 px-4 py-3 text-sm font-black text-white">{roundRecap.next}</p>}
             </motion.section>
           )}
         </AnimatePresence>
 
         {isExplaining ? (
-          <div className="flex flex-1 min-h-[220px] items-center justify-center rounded-3xl border-2 border-indigo-100 bg-white/70 p-6 text-center shadow-sm">
-            <div className="max-w-md">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500">Acompanhe a cena</p>
-              <h3 className="mt-2 text-2xl md:text-3xl font-black font-display text-indigo-950">O resultado está sendo explicado</h3>
-              <p className="mt-3 text-sm font-bold text-slate-500">Primeiro o palpite, depois o dono da carta, o resultado e a consequência.</p>
-            </div>
-          </div>
+          <div className="flex-1 min-h-[260px]" />
         ) : (!isMyTurn && !isVoting) ? (
           <div className="bg-white border-2 border-indigo-100 rounded-2xl p-3 md:p-4 mb-3 max-h-[68vh] overflow-y-auto shadow-sm">
             <h3 className="text-xs md:text-sm font-black text-indigo-950 uppercase mb-2 border-b-2 border-indigo-50 pb-1.5 flex items-center gap-2"><List className="w-4 h-4 md:w-5 md:h-5 text-indigo-500" /> Personagens vivos</h3>
@@ -554,9 +567,9 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
 
         <AnimatePresence>{timeoutNotice && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[82] flex items-center justify-center bg-slate-950/84 backdrop-blur-md rounded-3xl p-4 text-white"><motion.div initial={{ y: 20, scale: 0.94, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -14, opacity: 0 }} className="max-w-lg w-full rounded-3xl border-4 border-amber-300 bg-white p-8 text-center text-indigo-950 shadow-2xl"><div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600 border-4 border-amber-200"><AlertTriangle className="h-8 w-8" /></div><p className="text-xs font-black uppercase tracking-[0.3em] text-amber-600 mb-2">Tempo esgotado</p><h2 className="text-3xl font-black font-display">{timeoutNotice.player?.nickname} não votou a tempo</h2><p className="mt-4 rounded-2xl border-2 border-amber-100 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800">{timeoutNotice.eliminated ? 'Foi eliminado pela consequência do timeout.' : timeoutNotice.missedTurns === 1 ? 'Recebeu a 1ª falta.' : 'Perdeu 1 vida por não votar.'}</p></motion.div></motion.div>}</AnimatePresence>
 
-        <AnimatePresence>{isRevealing && revelation && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-950/86 backdrop-blur-md rounded-3xl p-4 text-white"><AnimatePresence mode="wait" initial={false}>{revealStage === 'thinking' ? <motion.div key="thinking" initial={{ y: 18, scale: 0.96, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -14, opacity: 0 }} className="text-center p-8 max-w-sm w-full"><div className="w-20 h-20 bg-indigo-500/20 border-2 border-indigo-300/40 text-indigo-200 rounded-full flex items-center justify-center mx-auto mb-5 animate-pulse"><Zap className="w-10 h-10" /></div><p className="text-xs font-black uppercase tracking-[0.35em] text-indigo-200 mb-3">Preparando palpite</p><h2 className="text-3xl font-black font-display">{revelation.voterName}</h2><p className="mt-2 text-sm font-bold text-white/70">vai revelar uma escolha...</p></motion.div> : revealStage === 'card' ? <motion.div key="card" initial={{ scale: 0.88, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 1.03, y: -14, opacity: 0 }} className="w-full max-w-sm text-center"><p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-amber-200">{revelation.voterName} votou em:</p><div className="mx-auto mb-5 w-60 max-w-[74vw] rounded-[1.6rem] border-4 border-white/20 bg-slate-900 p-2 shadow-2xl"><div className="aspect-[2/3] overflow-hidden rounded-2xl bg-slate-800"><CharacterImage name={revelation.charName} imageUrl={revelation.card?.image_url} avatarConfig={revelation.card?.avatar_config} isOfficial={usesOfficialImages} alt="" className="h-full w-full object-cover" /></div></div><h2 className="text-4xl md:text-5xl font-black font-display uppercase leading-none drop-shadow-lg">{revelation.charName}</h2></motion.div> : revealStage === 'owner' ? <motion.div key="owner" initial={{ y: 20, scale: 0.94, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-indigo-200 shadow-2xl max-w-md w-full rounded-3xl"><p className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500 mb-3">Dono da carta</p>{revelation.hitPlayers.length > 0 ? <><h2 className="text-2xl font-black font-display mb-4">{revelation.charName} estava com:</h2><div className="grid gap-2">{revelation.hitPlayers.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-indigo-100 bg-indigo-50 px-4 py-3 font-black text-indigo-800">{p.nickname}</div>)}</div></> : <><h2 className="text-2xl font-black font-display mb-4">Ninguém tinha {revelation.charName}</h2><div className="rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-4 text-lg font-black text-slate-600">Palpite sem alvo</div></>}</motion.div> : revealStage === 'result' ? revelation.hitPlayers.length > 0 ? <motion.div key="hit" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} className="text-center p-8 bg-emerald-500 border-4 border-emerald-300 shadow-2xl max-w-md w-full rounded-3xl text-white"><p className="text-xs font-black uppercase tracking-[0.35em] text-emerald-100 mb-3">Resultado</p><h2 className="text-5xl font-black font-display drop-shadow-lg">ACERTOU!</h2><p className="mt-4 text-sm font-black uppercase tracking-wider text-emerald-50">O palpite atingiu {revelation.hitPlayers.map((p: any) => p.nickname).join(', ')}</p></motion.div> : <motion.div key="miss" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} className="text-center p-8 bg-slate-900 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white"><p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400 mb-3">Resultado</p><h2 className="text-5xl font-black font-display text-slate-200">ERROU</h2><p className="mt-4 text-sm font-black uppercase tracking-wider text-slate-300">O palpite não encontrou ninguém</p></motion.div> : <motion.div key="consequence" initial={{ y: 18, scale: 0.92, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-amber-300 shadow-2xl max-w-lg w-full rounded-3xl"><p className="text-xs font-black uppercase tracking-[0.3em] text-amber-600 mb-2">Consequência</p>{revelation.hitPlayers.length > 0 ? <div className="grid gap-2">{revelation.hitPlayers.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-amber-100 bg-amber-50 px-4 py-3 font-black text-amber-800">{consequenceText(p)}</div>)}</div> : <p className="text-lg font-bold text-slate-600">Ninguém perdeu vida.</p>}{revelation.eliminatedPlayers.length > 0 && <p className="mt-4 rounded-2xl bg-rose-50 border-2 border-rose-100 px-4 py-3 text-rose-700 font-black">Eliminado: {revelation.eliminatedPlayers.map((p: any) => p.nickname).join(', ')}</p>}</motion.div>}</AnimatePresence></motion.div>}</AnimatePresence>
+        <AnimatePresence>{isRevealing && revelation && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-950/86 backdrop-blur-md rounded-3xl p-4 text-white"><AnimatePresence mode="wait" initial={false}>{revealStage === 'thinking' ? <motion.div key="thinking" initial={{ y: 18, scale: 0.96, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -14, opacity: 0 }} className="text-center p-8 max-w-sm w-full"><div className="w-20 h-20 bg-indigo-500/20 border-2 border-indigo-300/40 text-indigo-200 rounded-full flex items-center justify-center mx-auto mb-5 animate-pulse"><Zap className="w-10 h-10" /></div><p className="text-xs font-black uppercase tracking-[0.35em] text-indigo-200 mb-3">Preparando palpite</p><h2 className="text-3xl font-black font-display">{revelation.voterName}</h2><p className="mt-2 text-sm font-bold text-white/70">vai revelar uma escolha...</p></motion.div> : revealStage === 'card' ? <motion.div key="card" initial={{ scale: 0.88, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 1.03, y: -14, opacity: 0 }} className="w-full max-w-sm text-center"><p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-amber-200">{revelation.voterName} votou em:</p><div className="mx-auto mb-5 w-60 max-w-[74vw] rounded-[1.6rem] border-4 border-white/20 bg-slate-900 p-2 shadow-2xl"><div className="aspect-[2/3] overflow-hidden rounded-2xl bg-slate-800"><CharacterImage name={revelation.charName} imageUrl={revelation.card?.image_url} avatarConfig={revelation.card?.avatar_config} isOfficial={usesOfficialImages} alt="" className="h-full w-full object-cover" /></div></div><h2 className="text-4xl md:text-5xl font-black font-display uppercase leading-none drop-shadow-lg">{revelation.charName}</h2></motion.div> : revealStage === 'owner' ? <motion.div key="owner" initial={{ y: 20, scale: 0.94, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="text-center p-7 bg-white text-indigo-950 border-4 border-indigo-200 shadow-2xl max-w-md w-full rounded-3xl"><p className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500 mb-3">Dono da carta</p>{revelation.hitPlayers.length > 0 ? <><h2 className="text-2xl font-black font-display mb-4">{revelation.charName} estava com:</h2><div className="grid gap-2">{revelation.hitPlayers.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-indigo-100 bg-indigo-50 px-4 py-3 font-black text-indigo-800">{p.nickname}</div>)}</div></> : <><h2 className="text-2xl font-black font-display mb-4">Ninguém tinha {revelation.charName}</h2><div className="rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 py-4 text-lg font-black text-slate-600">Palpite sem alvo</div></>}</motion.div> : revealStage === 'result' ? revelation.hitPlayers.length > 0 ? <motion.div key="hit" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} className="text-center p-8 bg-emerald-500 border-4 border-emerald-300 shadow-2xl max-w-md w-full rounded-3xl text-white"><p className="text-xs font-black uppercase tracking-[0.35em] text-emerald-100 mb-3">Resultado</p><h2 className="text-5xl font-black font-display drop-shadow-lg">ACERTOU!</h2><p className="mt-4 text-sm font-black uppercase tracking-wider text-emerald-50">O palpite atingiu {revelation.hitPlayers.map((p: any) => p.nickname).join(', ')}</p></motion.div> : <motion.div key="miss" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} className="text-center p-8 bg-slate-900 border-4 border-slate-600 shadow-2xl max-w-md w-full rounded-3xl text-white"><p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400 mb-3">Resultado</p><h2 className="text-5xl font-black font-display text-slate-200">ERROU</h2><p className="mt-4 text-sm font-black uppercase tracking-wider text-slate-300">O palpite não encontrou ninguém</p></motion.div> : <motion.div key="eliminated" initial={{ y: 18, scale: 0.92, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="w-full max-w-2xl rounded-[2rem] border-4 border-slate-500 bg-gradient-to-br from-slate-950 via-slate-900 to-zinc-800 p-7 text-center text-white shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.35em] text-slate-300 mb-3">Fora da arena</p><h2 className="text-4xl md:text-5xl font-black font-display drop-shadow-lg">{revelation.eliminatedPlayers.length > 1 ? 'ELIMINADOS' : 'ELIMINADO'}</h2><div className={cn('mx-auto mt-6 grid gap-4', revelation.eliminatedPlayers.length === 1 ? 'max-w-xs grid-cols-1' : 'max-w-xl grid-cols-2 md:grid-cols-3')}>{revelation.eliminatedPlayers.map((p: any) => <div key={p.id} className="rounded-3xl border border-white/15 bg-white/8 p-4"><AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} state="defeat" primaryColor={p.color?.hex} className="mx-auto h-28 w-28 rounded-3xl border-4 border-slate-500 bg-slate-800 grayscale" imageClassName="grayscale opacity-60" /><p className="mt-3 text-sm font-black uppercase tracking-wider text-slate-100">{p.nickname}</p></div>)}</div><p className="mx-auto mt-6 max-w-md text-sm font-bold text-slate-300">A mesa mudou. O próximo palpite vale ainda mais.</p></motion.div>}</AnimatePresence></motion.div>}</AnimatePresence>
       </div>
-      {!isExplaining && <ChatMenu roomId={room.id} me={me} players={players} collapsible={true} />}
+      <ChatMenu roomId={room.id} me={me} players={players} collapsible={true} />
     </div>
   );
 }

@@ -1,0 +1,306 @@
+/* Agent vision fixes — visual-only.
+   Goal: make mobile gameplay answer clearly who plays, who waits, and how many lives remain.
+   No gameplay rules, timers, bots or vote logic are changed here. */
+
+.gameplay-player-list {
+  scroll-snap-type: x mandatory !important;
+  padding-bottom: .35rem !important;
+}
+
+.gameplay-player-list::after {
+  content: "arraste para ver todos";
+  flex: 0 0 auto;
+  align-self: center;
+  border: 1px solid rgba(255, 225, 128, .35);
+  border-radius: 999px;
+  background: rgba(255, 244, 194, .16);
+  padding: .36rem .52rem;
+  color: #ffe9a7;
+  font-size: .48rem;
+  font-weight: 950;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.gameplay-player-chip {
+  scroll-snap-align: start !important;
+  position: relative !important;
+  min-width: 10.7rem !important;
+  max-width: 10.7rem !important;
+  border: 2px solid rgba(255,255,255,.74) !important;
+}
+
+.gameplay-player-chip--active {
+  min-width: 11.35rem !important;
+  max-width: 11.35rem !important;
+  transform: translateY(-2px) scale(1.02) !important;
+  border-width: 3px !important;
+  background: linear-gradient(180deg, #fffdf5, #fff5cf) !important;
+  box-shadow:
+    0 0 0 2px rgba(255, 224, 118, .92),
+    0 0 26px color-mix(in srgb, var(--player-color, #ffcc46) 58%, transparent),
+    0 12px 28px rgba(0,0,0,.28) !important;
+}
+
+.gameplay-player-chip--dead {
+  opacity: .58 !important;
+  filter: grayscale(.8) !important;
+}
+
+.gameplay-now-badge {
+  top: -.45rem !important;
+  right: .28rem !important;
+  z-index: 4 !important;
+  border: 2px solid rgba(255,255,255,.92) !important;
+  background: linear-gradient(180deg, #ffef8a, #f59e0b) !important;
+  color: #3a114d !important;
+  box-shadow: 0 8px 18px rgba(0,0,0,.28) !important;
+  padding: .18rem .42rem !important;
+  font-size: .48rem !important;
+  letter-spacing: .08em !important;
+}
+
+.gameplay-player-chip--active .gameplay-now-badge {
+  font-size: .54rem !important;
+}
+
+.gameplay-player-info p {
+  color: #201041 !important;
+  font-weight: 1000 !important;
+}
+
+.gameplay-player-info span {
+  display: inline-flex !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin-top: .12rem !important;
+  border: 1px solid rgba(91, 53, 213, .16) !important;
+  border-radius: 999px !important;
+  background: #f5f3ff !important;
+  padding: .12rem .38rem !important;
+  color: #5634ca !important;
+  font-size: .52rem !important;
+  font-weight: 1000 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+}
+
+.gameplay-player-chip--active .gameplay-player-info span {
+  border-color: rgba(245, 158, 11, .35) !important;
+  background: #fff7d1 !important;
+  color: #8a3600 !important;
+}
+
+.gameplay-life-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: .16rem !important;
+  margin-top: .2rem !important;
+}
+
+.gameplay-life-row::after {
+  content: attr(aria-label);
+  display: inline-flex;
+  align-items: center;
+  margin-left: .28rem;
+  border: 1px solid rgba(91,53,213,.18);
+  border-radius: 999px;
+  background: #ffffff;
+  padding: .14rem .38rem;
+  color: #2f1b74;
+  font-size: .5rem;
+  font-weight: 1000;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.gameplay-life-icon {
+  width: .78rem !important;
+  height: .78rem !important;
+}
+
+.gameplay-life-icon--alive {
+  color: #f43f5e !important;
+  fill: currentColor !important;
+  filter: drop-shadow(0 1px 2px rgba(244,63,94,.35));
+}
+
+.gameplay-life-icon--lost {
+  color: #9ca3af !important;
+}
+
+.gameplay-card-grid--selectable .gameplay-card-item--button {
+  border: 3px solid rgba(255, 230, 148, .74) !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,.18), inset 0 0 0 1px rgba(255,255,255,.25) !important;
+}
+
+.gameplay-card-grid--selectable .gameplay-card-item--button::before {
+  content: "toque para votar";
+  position: absolute;
+  left: 50%;
+  top: .45rem;
+  z-index: 25;
+  transform: translateX(-50%);
+  border: 2px solid rgba(255,255,255,.9);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffef8a, #f59e0b);
+  box-shadow: 0 8px 18px rgba(0,0,0,.28);
+  padding: .18rem .44rem;
+  color: #3a114d;
+  font-size: .48rem;
+  font-weight: 1000;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.gameplay-card-grid--selectable .gameplay-card-target {
+  opacity: 1 !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  border: 3px solid rgba(255, 235, 156, .92) !important;
+  background: rgba(46, 12, 68, .82) !important;
+  color: #fff8d4 !important;
+  box-shadow: 0 14px 28px rgba(0,0,0,.34) !important;
+}
+
+.gameplay-card-grid--selectable .gameplay-card-item--button:hover,
+.gameplay-card-grid--selectable .gameplay-card-item--button:focus-visible,
+.gameplay-card-grid--selectable .gameplay-card-item--button:active {
+  border-color: #ffdf6a !important;
+  outline: 4px solid rgba(255, 223, 106, .62) !important;
+  outline-offset: 2px !important;
+  transform: translateY(-3px) scale(1.025) !important;
+}
+
+.gameplay-card-grid--selectable .gameplay-card-item--button:disabled {
+  opacity: .7 !important;
+  cursor: wait !important;
+}
+
+.gameplay-recap {
+  border-width: 3px !important;
+  box-shadow: 0 14px 28px rgba(0,0,0,.18) !important;
+}
+
+.gameplay-recap p {
+  font-size: clamp(.9rem, 2.4vw, 1.08rem) !important;
+  font-weight: 1000 !important;
+}
+
+.gameplay-recap small {
+  display: inline-flex !important;
+  margin-top: .35rem !important;
+  border-radius: 999px !important;
+  background: rgba(255,255,255,.74) !important;
+  padding: .24rem .58rem !important;
+  font-weight: 1000 !important;
+}
+
+@media (max-width: 760px) {
+  .gameplay-timer {
+    min-width: 7.9rem !important;
+    font-size: 1.58rem !important;
+    padding: .36rem .62rem !important;
+  }
+
+  .gameplay-board-title h1 {
+    font-size: 1.15rem !important;
+    line-height: 1.14 !important;
+  }
+
+  .gameplay-board-actions {
+    max-width: 9.6rem !important;
+  }
+
+  .gameplay-board-actions span,
+  .gameplay-board-actions strong {
+    min-height: 1.38rem !important;
+    font-size: .54rem !important;
+  }
+
+  .gameplay-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .7rem .52rem !important;
+  }
+
+  .gameplay-card-item {
+    min-height: 13.8rem !important;
+    padding: .24rem .18rem 1.36rem !important;
+  }
+
+  .gameplay-card-name {
+    bottom: .46rem !important;
+    min-height: 1.28rem !important;
+    font-size: .64rem !important;
+    line-height: .72rem !important;
+  }
+
+  .gameplay-card-grid--selectable .gameplay-card-target {
+    min-width: 6.7rem !important;
+    padding: .54rem .74rem !important;
+    font-size: .64rem !important;
+  }
+
+  .gameplay-player-scoreboard {
+    padding: .45rem .46rem .5rem !important;
+  }
+
+  .gameplay-scoreboard-head {
+    font-size: .58rem !important;
+  }
+
+  .gameplay-player-chip {
+    min-width: 10.2rem !important;
+    max-width: 10.2rem !important;
+    grid-template-columns: 1.9rem minmax(0, 1fr) !important;
+    padding: .35rem .42rem !important;
+  }
+
+  .gameplay-player-chip--active {
+    min-width: 11rem !important;
+    max-width: 11rem !important;
+  }
+
+  .gameplay-player-avatar {
+    width: 1.9rem !important;
+    height: 1.9rem !important;
+  }
+
+  .gameplay-player-info p {
+    font-size: .72rem !important;
+    line-height: .82rem !important;
+  }
+
+  .gameplay-player-info span {
+    font-size: .48rem !important;
+    line-height: .58rem !important;
+  }
+
+  .gameplay-life-row::after {
+    font-size: .48rem !important;
+    padding: .12rem .32rem !important;
+  }
+
+  .gameplay-life-icon {
+    width: .7rem !important;
+    height: .7rem !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .gameplay-card-item {
+    min-height: 12.9rem !important;
+  }
+
+  .gameplay-player-chip {
+    min-width: 9.7rem !important;
+    max-width: 9.7rem !important;
+  }
+
+  .gameplay-player-chip--active {
+    min-width: 10.4rem !important;
+    max-width: 10.4rem !important;
+  }
+}

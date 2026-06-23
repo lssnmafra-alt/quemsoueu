@@ -8,7 +8,8 @@ import AvatarModelPreloader from '@/components/avatar/AvatarModelPreloader';
 const STATIC_BEFORE_MS = 900;
 const VIDEO_MS = 6000;
 const STATIC_AFTER_MS = 900;
-const VIDEO_LOAD_TIMEOUT_MS = 12000;
+const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 3500;
+const VIDEO_LOAD_TIMEOUT_MS = 4500;
 
 type SequencePhase = 'before' | 'loading' | 'video' | 'after';
 
@@ -84,6 +85,7 @@ export default function RoomStarting({ room, players }: any) {
 
     let cancelled = false;
     let timer: number | undefined;
+    let loadingResolved = false;
 
     const moveNext = () => {
       if (cancelled) return;
@@ -98,6 +100,14 @@ export default function RoomStarting({ room, players }: any) {
       setVideoStatus('Preparando próximo jogador...');
     };
 
+    const continueWithStaticImage = () => {
+      if (cancelled || loadingResolved) return;
+      loadingResolved = true;
+      setCurrentVideoSrc('');
+      setVideoStatus(`${playerSnapshot.nickname} sem vídeo, usando imagem`);
+      setSequencePhase('video');
+    };
+
     if (sequencePhase === 'before') {
       setCurrentVideoSrc('');
       setVideoStatus(`${playerSnapshot.nickname} na imagem estática`);
@@ -109,19 +119,18 @@ export default function RoomStarting({ room, players }: any) {
     if (sequencePhase === 'loading') {
       setCurrentVideoSrc('');
       setVideoStatus(`Carregando vídeo de ${playerSnapshot.nickname}...`);
+
+      timer = window.setTimeout(continueWithStaticImage, INTRO_VIDEO_LOOKUP_TIMEOUT_MS + VIDEO_LOAD_TIMEOUT_MS + 500);
+
       resolveAndPreloadIntroVideo(playerSnapshot, videoCacheRef.current)
         .then((url) => {
-          if (cancelled) return;
+          if (cancelled || loadingResolved) return;
+          loadingResolved = true;
           setCurrentVideoSrc(url || '');
           setVideoStatus(url ? `${playerSnapshot.nickname} em vídeo` : `${playerSnapshot.nickname} sem vídeo, usando imagem`);
           setSequencePhase('video');
         })
-        .catch(() => {
-          if (cancelled) return;
-          setCurrentVideoSrc('');
-          setVideoStatus(`${playerSnapshot.nickname} sem vídeo, usando imagem`);
-          setSequencePhase('video');
-        });
+        .catch(() => continueWithStaticImage());
     }
 
     if (sequencePhase === 'video') {
@@ -316,8 +325,10 @@ async function resolveAndPreloadIntroVideo(player: SequencePlayer, cache: Map<st
   const cached = cache.get(cacheKey);
   if (cached !== undefined) return cached;
 
-  const response = await fetch(`/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=intro`, { cache: 'no-store' });
-  const result = await response.json().catch(() => null);
+  const result = await fetchJsonWithTimeout(
+    `/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=intro`,
+    INTRO_VIDEO_LOOKUP_TIMEOUT_MS,
+  );
   const url = result?.available ? String(result.videoUrl || result.url || '') : '';
 
   if (!url) {
@@ -328,6 +339,20 @@ async function resolveAndPreloadIntroVideo(player: SequencePlayer, cache: Map<st
   await preloadVideoFile(url, VIDEO_LOAD_TIMEOUT_MS);
   cache.set(cacheKey, url);
   return url;
+}
+
+async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    if (!response.ok) return null;
+    return await response.json().catch(() => null);
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 async function preloadVideoFile(src: string, timeoutMs: number) {

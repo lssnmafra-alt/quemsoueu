@@ -2,3 +2,21 @@
 .fixed.right-4.top-20{top:auto!important;right:.75rem!important;bottom:5.75rem!important;align-items:flex-end!important;max-width:min(22rem,calc(100vw - 1.5rem))!important}
 .fixed.right-4.top-20>*{max-width:min(22rem,calc(100vw - 1.5rem))!important;animation:gameplay-notice-out 4s ease-out forwards!important}
 @media(max-width:640px){.fixed.right-4.top-20{right:.7rem!important;bottom:5.4rem!important}.fixed.right-4.top-20>*{max-width:78vw!important;padding:.65rem .8rem!important;border-radius:1rem!important;font-size:.68rem!important;line-height:1.15!important}}
+
+/* Real gameplay table layout correction. Visual-only. */
+.party-grid-bg>div:first-child{display:flex;flex-direction:column}
+.party-grid-bg>div:first-child>header{order:1}
+.party-grid-bg>div:first-child>section:first-of-type{order:4;max-height:none!important}
+.party-grid-bg>div:first-child>section:first-of-type>div:first-child>p:first-child{font-size:0!important}
+.party-grid-bg>div:first-child>section:first-of-type>div:first-child>p:first-child:after{content:"Jogadores na arena";font-size:.62rem;letter-spacing:.18em}
+.party-grid-bg div:has(>h3 svg.lucide-list){order:2;max-height:none!important;margin-top:.25rem!important;margin-bottom:.8rem!important;border-radius:1.6rem!important;padding:1rem!important}
+.party-grid-bg div:has(>h3 svg.lucide-list)>h3{justify-content:center;border-bottom:0!important;padding-bottom:0!important;color:transparent!important;font-size:0!important}
+.party-grid-bg div:has(>h3 svg.lucide-list)>h3 svg{display:none!important}
+.party-grid-bg div:has(>h3 svg.lucide-list)>h3:before{content:"Mesa da rodada";display:inline-flex;align-items:center;justify-content:center;min-width:min(84vw,360px);margin:0 auto .35rem;border:2px solid rgba(99,102,241,.18);border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(238,242,255,.9));box-shadow:0 12px 30px rgba(15,23,42,.08);padding:.68rem 1.1rem;color:#312e81;font-size:1.05rem;font-weight:1000;letter-spacing:.08em;text-transform:uppercase}
+.party-grid-bg div:has(>h3 svg.lucide-list)>h3:after{display:none!important}
+.party-grid-bg div:has(>h3 svg.lucide-list)>ul{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(126px,1fr))!important;gap:.9rem!important}
+.party-grid-bg div:has(>h3 svg.lucide-list)>ul>li{border-width:2px!important;border-radius:1.15rem!important;padding:.55rem!important;background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(248,250,252,.92))!important;box-shadow:0 16px 34px rgba(15,23,42,.12),inset 0 1px 0 rgba(255,255,255,.85)!important}
+.party-grid-bg div:has(>h3 svg.lucide-list)>ul>li>span{min-height:1.7rem!important;font-size:.74rem!important;line-height:.9rem!important}
+.party-grid-bg div:has(>div>p):has(button[type="button"]){order:2}
+.party-grid-bg section:has(span):has(.lucide-zap){order:3}
+@media(max-width:640px){.party-grid-bg div:has(>h3 svg.lucide-list){padding:.72rem!important;border-radius:1.25rem!important}.party-grid-bg div:has(>h3 svg.lucide-list)>h3:before{min-width:min(78vw,280px);padding:.52rem .9rem;font-size:.86rem}.party-grid-bg div:has(>h3 svg.lucide-list)>ul{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.6rem!important}.party-grid-bg div:has(>h3 svg.lucide-list)>ul>li{padding:.4rem!important;border-radius:1rem!important}.party-grid-bg>div:first-child>section:first-of-type{max-height:20dvh!important;overflow-y:auto!important;padding:.55rem!important}.party-grid-bg>div:first-child>section:first-of-type>div:last-child{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.42rem!important}}

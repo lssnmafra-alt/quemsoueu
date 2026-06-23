@@ -1,8 +1,8 @@
 /* R2 arena skin: Reino das rosas. Visual-only. */
 :root{
   --qse-arena-bg:url('/api/r2-file?key=atuem%2Fatuem%2FCenarios%2FReino%20das%20rosas.PNG');
-  --qse-table-frame:url('/api/r2-file?key=atuem%2Fatuem%2FCenarios%2Fmesa_reino_das_rosas.png');
-  --qse-card-frame:url('/api/r2-file?key=atuem%2Fatuem%2FCenarios%2Fcarta_reino_das_rosas.png');
+--qse-table-frame:url('/api/r2-file?key=atuem%2Fatuem%2FCenarios%2Fmesa_reino_das_rosas.png');
+--qse-card-frame:url('/api/r2-file?key=atuem%2Fatuem%2FCenarios%2Fcarta_reino_das_rosas.png');
 }
 
 .party-grid-bg{

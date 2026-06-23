@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ImgHTMLAttributes, type SyntheticEvent } from 'react';
+import { useEffect, useMemo, useState, type ImgHTMLAttributes, type ReactNode, type SyntheticEvent } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AvatarRenderer from '@/components/avatar/AvatarRenderer';
 import OfficialFrame, { getOfficialFrameTheme, type OfficialCardTheme } from '@/components/cards/OfficialFrame';
 import OfficialName from '@/components/cards/OfficialName';
 import type { AvatarConfig } from '@/lib/avatarConfig';
+import { CARD_RARITY_LABELS, getCardRarity, getCardRarityFrameUrl, type CardRarity } from '@/lib/cardRarity';
 
 type CharacterImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'> & {
   name: string;
@@ -17,6 +18,8 @@ type CharacterImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'al
   alt?: string;
   placeholderClassName?: string;
   hideOfficialName?: boolean;
+  showRarityFrame?: boolean;
+  cardRarity?: CardRarity;
 };
 
 const OFFICIAL_FRAME_THEME_OPTIONS: Array<{ value: OfficialCardTheme; label: string }> = [
@@ -37,6 +40,8 @@ export default function CharacterImage({
   className,
   placeholderClassName,
   hideOfficialName = false,
+  showRarityFrame = false,
+  cardRarity,
   onError,
   referrerPolicy = 'no-referrer',
   ...props
@@ -52,10 +57,11 @@ export default function CharacterImage({
   const [savingFrameTheme, setSavingFrameTheme] = useState(false);
   const frameTheme = officialFrameTheme ?? manualFrameTheme ?? pickOfficialFrameTheme(name);
   const theme = getOfficialFrameTheme(frameTheme);
+  const rarity = getCardRarity(cardRarity ?? avatarConfig);
   const [brokenUrls, setBrokenUrls] = useState<Record<string, true>>({});
   const src = sources.find((candidate) => !brokenUrls[candidate]);
   const shouldHideOfficialName = hideOfficialName || String(className || '').includes('w-12 h-14');
-  const showOfficialFrameThemePicker = Boolean(isOfficial && officialDeckEditorId && !shouldHideOfficialName);
+  const showOfficialFrameThemePicker = Boolean(isOfficial && officialDeckEditorId && !shouldHideOfficialName && !showRarityFrame);
 
   useEffect(() => {
     setManualFrameTheme(storedOfficialFrameTheme);
@@ -129,6 +135,45 @@ export default function CharacterImage({
       </select>
     </label>
   ) : null;
+
+  const renderRarityFrame = (children: ReactNode) => (
+    <div className={cn('relative overflow-visible', className)} title={`${name} - ${CARD_RARITY_LABELS[rarity]}`}>
+      <div className="absolute inset-[7%] z-0 overflow-hidden rounded-[1.1rem]">
+        {children}
+      </div>
+      <img
+        src={getCardRarityFrameUrl(rarity)}
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-[-6%] z-10 h-[112%] w-[112%] object-fill"
+        referrerPolicy="no-referrer"
+      />
+      {!shouldHideOfficialName && (
+        <span className="pointer-events-none absolute left-[18%] right-[18%] top-[7.8%] z-20 truncate rounded-full bg-slate-950/70 px-2 py-0.5 text-center text-[9px] font-black uppercase tracking-[0.16em] text-white shadow-lg">
+          {CARD_RARITY_LABELS[rarity]}
+        </span>
+      )}
+    </div>
+  );
+
+  if (showRarityFrame) {
+    if (!src) {
+      return renderRarityFrame(
+        <AvatarRenderer config={avatarConfig} name={name} className="h-full w-full object-cover" />
+      );
+    }
+
+    return renderRarityFrame(
+      <img
+        {...props}
+        src={src}
+        alt={alt ?? name}
+        referrerPolicy={referrerPolicy}
+        className="h-full w-full object-cover object-center"
+        onError={handleError}
+      />,
+    );
+  }
 
   if (!src) {
     if (!isOfficial) {

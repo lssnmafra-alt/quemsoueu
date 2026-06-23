@@ -1,5 +1,6 @@
 @import url('/gameplay-components.css');
 @import url('/gameplay-friga.css');
+@import url('/gameplay-agent-fixes.css');
 
 /* Gameplay premium polish entrypoint.
-   Explicit classes first, Friga-inspired skin last. */
+   Explicit classes first, Friga-inspired skin, then agent vision clarity fixes. */

@@ -1,15 +1,15 @@
+@import url('/gameplay-table.css');
+
 /* Gameplay premium polish layer
+   This file now delegates the structural table correction to gameplay-table.css.
    Visual-only. No gameplay rules, timers, bots or backend behavior. */
 
 .party-grid-bg > div:first-child > header {
   position: relative;
   overflow: hidden;
   border-radius: 1.5rem !important;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.9)) !important;
-  box-shadow:
-    0 18px 42px rgba(15, 23, 42, .08),
-    inset 0 1px 0 rgba(255,255,255,.9) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.9)) !important;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, .08), inset 0 1px 0 rgba(255,255,255,.9) !important;
 }
 
 .party-grid-bg > div:first-child > header::before {
@@ -17,9 +17,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(circle at 8% 0%, rgba(245, 158, 11, .13), transparent 34%),
-    radial-gradient(circle at 90% 10%, rgba(99, 102, 241, .12), transparent 34%);
+  background: radial-gradient(circle at 8% 0%, rgba(245, 158, 11, .13), transparent 34%), radial-gradient(circle at 90% 10%, rgba(99, 102, 241, .12), transparent 34%);
 }
 
 .party-grid-bg > div:first-child > header > * {
@@ -27,230 +25,32 @@
   z-index: 1;
 }
 
-.party-grid-bg > div:first-child > section:first-of-type {
-  box-shadow:
-    0 18px 45px rgba(15, 23, 42, .08),
-    inset 0 1px 0 rgba(255,255,255,.8) !important;
-}
-
-/* Player arena cards: less admin, more table participant. */
-.party-grid-bg > div:first-child > section:first-of-type > div:last-child > div {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.92)) !important;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, .08) !important;
-}
-
-.party-grid-bg > div:first-child > section:first-of-type > div:last-child > div:has(span) {
-  backdrop-filter: blur(8px);
-}
-
-/* Recap should feel like a compact match beat, not a large notification. */
-.party-grid-bg section + div + section,
-.party-grid-bg section + section {
-  max-width: 920px;
-}
-
-.party-grid-bg section:has(span):has(.lucide-zap) {
-  box-shadow: 0 16px 36px rgba(15, 23, 42, .08) !important;
-}
-
-/* Voting panel: compact hero prompt. */
-.party-grid-bg div:has(> div > p):has(button[type="button"]) > div:first-child {
-  position: relative;
-  overflow: hidden;
-  border-width: 2px !important;
-  border-radius: 1.65rem !important;
-  box-shadow:
-    0 18px 42px rgba(15, 23, 42, .1),
-    inset 0 1px 0 rgba(255,255,255,.75) !important;
-}
-
-.party-grid-bg div:has(> div > p):has(button[type="button"]) > div:first-child::after {
-  content: "";
-  position: absolute;
-  right: -3rem;
-  bottom: -3rem;
-  width: 10rem;
-  height: 10rem;
-  border-radius: 999px;
-  background: rgba(255,255,255,.32);
-  pointer-events: none;
-}
-
-/* Vote cards: make them feel like playable cards. */
 .party-grid-bg button[type="button"]:has(.aspect-\[2\/3\]) {
   border-width: 2px !important;
   border-color: rgba(99,102,241,.16) !important;
   background: rgba(255,255,255,.92) !important;
-  box-shadow:
-    0 14px 30px rgba(15, 23, 42, .1),
-    inset 0 1px 0 rgba(255,255,255,.9) !important;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, .1), inset 0 1px 0 rgba(255,255,255,.9) !important;
 }
 
 .party-grid-bg button[type="button"]:has(.aspect-\[2\/3\]):hover {
   border-color: rgba(99,102,241,.48) !important;
-  box-shadow:
-    0 22px 44px rgba(15, 23, 42, .16),
-    0 0 0 4px rgba(99,102,241,.08) !important;
+  box-shadow: 0 22px 44px rgba(15, 23, 42, .16), 0 0 0 4px rgba(99,102,241,.08) !important;
 }
 
-.party-grid-bg button[type="button"]:has(.aspect-\[2\/3\]) .aspect-\[2\/3\] {
-  border: 1px solid rgba(15, 23, 42, .08);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, .16);
-}
-
-/* Reveal overlay: centered stage feeling. */
 .party-grid-bg .z-\[80\],
 .party-grid-bg .z-\[82\],
 .party-grid-bg .z-\[85\] {
   border-radius: 1.75rem;
 }
 
-.party-grid-bg .z-\[80\]::before,
-.party-grid-bg .z-\[82\]::before,
-.party-grid-bg .z-\[85\]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 44%, rgba(255,255,255,.1), transparent 35%),
-    radial-gradient(circle at 50% 72%, rgba(245,158,11,.12), transparent 44%);
-}
-
-/* Part 4: cinematic reveal stage. */
 .party-grid-bg .z-\[80\] {
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 34%, rgba(99,102,241,.26), transparent 32%),
-    radial-gradient(circle at 50% 76%, rgba(245,158,11,.18), transparent 42%),
-    rgba(15, 23, 42, .88) !important;
-}
-
-.party-grid-bg .z-\[80\]::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 8%;
-  width: min(72vw, 680px);
-  height: min(28vw, 180px);
-  transform: translateX(-50%);
-  border-radius: 999px;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse at center, rgba(255,255,255,.18), rgba(99,102,241,.10) 42%, transparent 70%);
-  filter: blur(3px);
-}
-
-.party-grid-bg .z-\[80\] > div {
-  position: relative;
-  z-index: 1;
-}
-
-.party-grid-bg .z-\[80\] h2 {
-  letter-spacing: -0.035em;
-  text-shadow: 0 10px 30px rgba(0,0,0,.24);
-}
-
-.party-grid-bg .z-\[80\] .aspect-\[2\/3\] {
-  box-shadow:
-    0 28px 80px rgba(0,0,0,.38),
-    0 0 0 1px rgba(255,255,255,.14),
-    0 0 42px rgba(245,158,11,.16) !important;
-}
-
-.party-grid-bg .z-\[80\] div:has(> .aspect-\[2\/3\]) {
-  filter: drop-shadow(0 18px 38px rgba(0,0,0,.35));
-}
-
-.party-grid-bg .z-\[80\] div[class*="bg-white"][class*="text-indigo-950"] {
-  border-width: 2px !important;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.94)) !important;
-  box-shadow:
-    0 26px 80px rgba(0,0,0,.28),
-    inset 0 1px 0 rgba(255,255,255,.88) !important;
-}
-
-.party-grid-bg .z-\[80\] div[class*="bg-emerald-500"],
-.party-grid-bg .z-\[80\] div[class*="bg-slate-900"] {
-  border-width: 2px !important;
-  box-shadow:
-    0 28px 80px rgba(0,0,0,.32),
-    0 0 0 1px rgba(255,255,255,.14) !important;
-}
-
-.party-grid-bg .z-\[80\] div[class*="bg-emerald-500"] {
-  background:
-    radial-gradient(circle at 50% 0%, rgba(255,255,255,.2), transparent 34%),
-    linear-gradient(135deg, #10b981, #059669) !important;
-}
-
-.party-grid-bg .z-\[80\] div[class*="bg-slate-900"] {
-  background:
-    radial-gradient(circle at 50% 0%, rgba(255,255,255,.12), transparent 34%),
-    linear-gradient(135deg, #020617, #1e293b) !important;
-}
-
-/* Elimination scene should feel heavy and intentional. */
-.party-grid-bg .z-\[80\] div[class*="from-slate-950"][class*="to-zinc-800"] {
-  border-width: 2px !important;
-  box-shadow:
-    0 30px 90px rgba(0,0,0,.42),
-    0 0 0 1px rgba(255,255,255,.12) !important;
-}
-
-.party-grid-bg .z-\[80\] div[class*="from-slate-950"] img {
-  filter: grayscale(1) contrast(.92) brightness(.82);
+  background: radial-gradient(circle at 50% 34%, rgba(99,102,241,.26), transparent 32%), radial-gradient(circle at 50% 76%, rgba(245,158,11,.18), transparent 42%), rgba(15, 23, 42, .88) !important;
 }
 
 @media (max-width: 640px) {
-  .party-grid-bg > div:first-child {
-    gap: .45rem;
-  }
-
   .party-grid-bg > div:first-child > header {
     border-radius: 1.2rem !important;
-  }
-
-  .party-grid-bg > div:first-child > header > div:last-child {
-    display: grid !important;
-    grid-template-columns: 1fr auto;
-    width: 100%;
-  }
-
-  .party-grid-bg > div:first-child > header > div:last-child > div:first-child {
-    min-width: 0;
-    justify-content: center;
-  }
-
-  .party-grid-bg > div:first-child > section:first-of-type {
-    max-height: 26dvh !important;
-  }
-
-  .party-grid-bg div:has(> div > p):has(button[type="button"]) > div:first-child {
-    padding: .8rem !important;
-    border-radius: 1.25rem !important;
-    margin-bottom: .75rem !important;
-  }
-
-  .party-grid-bg div:has(> div > p):has(button[type="button"]) > div:first-child img {
-    width: 3.25rem !important;
-    height: 3.25rem !important;
-  }
-
-  .party-grid-bg div:has(> div > p):has(button[type="button"]) > div:first-child h3 {
-    font-size: 1.35rem !important;
-    line-height: 1.55rem !important;
-  }
-
-  .party-grid-bg button[type="button"]:has(.aspect-\[2\/3\]) {
-    border-radius: 1.15rem !important;
-    padding: .42rem !important;
-  }
-
-  .party-grid-bg button[type="button"]:has(.aspect-\[2\/3\]) .aspect-\[2\/3\] {
-    border-radius: .85rem !important;
   }
 
   .party-grid-bg .z-\[80\],
@@ -258,20 +58,5 @@
   .party-grid-bg .z-\[85\] {
     border-radius: 1.15rem;
     padding: .85rem !important;
-  }
-
-  .party-grid-bg .z-\[80\] h2 {
-    font-size: clamp(2rem, 10vw, 3.2rem) !important;
-  }
-
-  .party-grid-bg .z-\[80\] .w-60 {
-    width: min(68vw, 15rem) !important;
-  }
-
-  .party-grid-bg .z-\[80\] div[class*="max-w-md"],
-  .party-grid-bg .z-\[80\] div[class*="max-w-lg"],
-  .party-grid-bg .z-\[80\] div[class*="max-w-2xl"] {
-    max-width: 92vw !important;
-    padding: 1.25rem !important;
   }
 }

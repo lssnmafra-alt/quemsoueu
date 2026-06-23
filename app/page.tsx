@@ -28,8 +28,10 @@ export default function LoginPage() {
   }, [authInitialized, authLoading, router, user, profile]);
 
   const handleGuestLogin = async () => {
-    if (!nickname.trim()) {
-      setError('Escolha um apelido!');
+    const cleanNickname = nickname.trim();
+
+    if (!cleanNickname) {
+      setError('Digite um apelido para entrar no jogo.');
       return;
     }
 
@@ -37,9 +39,9 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const isSafe = await moderateText(nickname);
+      const isSafe = await moderateText(cleanNickname);
       if (!isSafe) {
-        setError('Esse apelido contém palavras impróprias!');
+        setError('Use outro apelido. Evite termos ofensivos, palavras reservadas ou nomes genéricos como teste.');
         setLoading(false);
         return;
       }
@@ -47,8 +49,8 @@ export default function LoginPage() {
       console.warn('Moderation failed, proceeding anyway.', err);
     }
 
-    await loginGuest(nickname);
-    router.push('/profile?next=/lobby');
+    await loginGuest(cleanNickname);
+    router.push('/lobby');
     setLoading(false);
   };
 
@@ -113,7 +115,10 @@ export default function LoginPage() {
                   placeholder="DIGITE SEU APELIDO..."
                   value={nickname}
                   maxLength={16}
-                  onChange={(e) => setNickname(e.target.value)}
+                  onChange={(e) => {
+                    setNickname(e.target.value);
+                    if (error) setError('');
+                  }}
                   className="bg-white border-2 border-indigo-200 focus:border-indigo-500 h-14 rounded-xl text-center text-xl font-bold text-indigo-950 placeholder:text-slate-350 transition-all shadow-inner focus-visible:ring-indigo-100"
                 />
                 {error && (
@@ -128,7 +133,7 @@ export default function LoginPage() {
                 disabled={loading || !nickname.trim()}
                 className="w-full h-14 text-base font-black tracking-wider uppercase text-white btn-squishy-indigo cursor-pointer flex items-center justify-center gap-2"
               >
-                {loading ? 'Entrando...' : 'Jogar Agora!'}
+                {loading ? 'Entrando...' : 'Jogar Rápido'}
                 {!loading && <Play className="w-4 h-4 fill-white" />}
               </Button>
             </div>

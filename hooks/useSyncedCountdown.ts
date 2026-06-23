@@ -39,15 +39,33 @@ export function useSyncedCountdown({
   maxSeconds,
   enabled = true,
   phaseKey = '',
-  tickMs = 250,
+  tickMs = 1000,
 }: SyncedCountdownOptions) {
   const safeFallback = safeSeconds(fallbackSeconds, 0);
   const safeMax = Math.max(0, safeSeconds(maxSeconds, safeFallback));
   const initialSeconds = Math.min(secondsUntil(expiresAt) ?? safeFallback, safeMax);
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
-  const anchorRef = useRef({ key: '', startedAt: 0, startSeconds: initialSeconds });
+  const expiresAtRef = useRef(expiresAt);
 
-  const key = useMemo(() => `${phaseKey}|${expiresAt || 'no-expiry'}|${safeFallback}|${safeMax}`, [expiresAt, phaseKey, safeFallback, safeMax]);
+  const resetKey = useMemo(() => `${phaseKey}|${safeFallback}|${safeMax}`, [phaseKey, safeFallback, safeMax]);
+  const safeTickMs = useMemo(() => {
+    const parsed = Number(tickMs);
+    if (!Number.isFinite(parsed)) return 1000;
+    return Math.max(1000, Math.floor(parsed));
+  }, [tickMs]);
+
+  useEffect(() => {
+    const serverSeconds = Math.min(secondsUntil(expiresAt) ?? safeFallback, safeMax);
+    expiresAtRef.current = expiresAt;
+
+    if (!enabled) return;
+
+    setSecondsLeft((current) => {
+      if (current <= 0 && serverSeconds > 0) return serverSeconds;
+      if (serverSeconds > current + 1) return serverSeconds;
+      return current;
+    });
+  }, [enabled, expiresAt, safeFallback, safeMax]);
 
   useEffect(() => {
     if (!enabled) {
@@ -55,34 +73,16 @@ export function useSyncedCountdown({
       return;
     }
 
-    const serverSeconds = Math.min(secondsUntil(expiresAt) ?? safeFallback, safeMax);
-    anchorRef.current = {
-      key,
-      startedAt: Date.now(),
-      startSeconds: serverSeconds,
-    };
-    setSecondsLeft(serverSeconds);
+    setSecondsLeft(Math.min(secondsUntil(expiresAtRef.current) ?? safeFallback, safeMax));
 
-    const tick = () => {
-      const anchor = anchorRef.current;
-      const elapsedSeconds = Math.floor((Date.now() - anchor.startedAt) / 1000);
-      const localSeconds = Math.max(0, anchor.startSeconds - elapsedSeconds);
-      const authoritativeSeconds = secondsUntil(expiresAt);
+    const tick = () => setSecondsLeft((current) => {
+      if (current <= 0) return 0;
+      return current - 1;
+    });
 
-      if (authoritativeSeconds === 0) {
-        setSecondsLeft(0);
-        return;
-      }
-
-      const cappedAuthoritative = authoritativeSeconds === null ? safeMax : Math.min(authoritativeSeconds, safeMax);
-      const nextSeconds = Math.min(localSeconds, cappedAuthoritative);
-      setSecondsLeft((current) => (current === nextSeconds ? current : nextSeconds));
-    };
-
-    tick();
-    const timer = window.setInterval(tick, tickMs);
+    const timer = window.setInterval(tick, safeTickMs);
     return () => window.clearInterval(timer);
-  }, [enabled, expiresAt, key, safeFallback, safeMax, tickMs]);
+  }, [enabled, resetKey, safeFallback, safeMax, safeTickMs]);
 
   return {
     secondsLeft,

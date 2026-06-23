@@ -1,26 +1,19 @@
-/* Temporary gameplay mobile hotfix layer.
+/* Gameplay mobile hotfix layer.
    Visual-only. Keeps gameplay logic untouched. */
-
-/* Give the sticky HUD breathing room without covering the first card row too aggressively. */
-.gameplay-top-hud,
-.party-grid-bg:has(> main) > main > header {
-  transform: translateZ(0);
-}
 
 .gameplay-card-table,
 .party-grid-bg:has(> main) > main > section:first-of-type {
-  padding-top: 1rem !important;
+  padding-top: .9rem !important;
 }
 
 .gameplay-card-table > div:first-child,
 .party-grid-bg:has(> main) > main > section:first-of-type > div:first-child {
   position: relative;
   z-index: 4;
-  margin-bottom: .95rem !important;
+  margin-bottom: .8rem !important;
   pointer-events: none;
 }
 
-/* If the table has only one remaining card, make it feel intentional instead of lost on the left. */
 .gameplay-card-grid:has(> :only-child),
 .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child:has(> :only-child) {
   display: flex !important;
@@ -29,64 +22,36 @@
 
 .gameplay-card-grid:has(> :only-child) > *,
 .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child:has(> :only-child) > * {
-  width: min(48%, 13.5rem) !important;
-  min-width: 10.5rem !important;
+  width: min(46%, 13rem) !important;
+  min-width: 10rem !important;
 }
 
-/* Pull the name plaque inside the visual body of the card and reduce the duplicated-plaque feeling. */
 .gameplay-card-name,
 .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child p {
-  bottom: 1.72rem !important;
+  bottom: 1.55rem !important;
   background: linear-gradient(180deg, rgba(70, 23, 89, .90), rgba(42, 12, 58, .94)) !important;
   border: 1px solid rgba(255, 255, 255, .10);
-  min-height: 1.42rem !important;
+  min-height: 1.34rem !important;
 }
 
-/* Common cards should look clean; rare+ still gets badge from CharacterImage. */
 .qse-rarity-card[data-rarity="comum"]::before {
   box-shadow: 0 0 12px rgba(239, 229, 208, .18), inset 0 1px 0 rgba(255,255,255,.2) !important;
 }
 
-/* Player rail: useful, but less intrusive. */
-.gameplay-player-rail,
-.party-grid-bg:has(> main) > main > section:last-of-type {
-  max-height: 4.65rem !important;
-  padding: .34rem .42rem !important;
-  z-index: 54 !important;
-}
-
-.gameplay-player-rail > div:first-child,
-.party-grid-bg:has(> main) > main > section:last-of-type > div:first-child {
-  margin-bottom: .12rem !important;
-}
-
-.gameplay-player-rail > div:last-child > div,
-.party-grid-bg:has(> main) > main > section:last-of-type > div:last-child > div {
-  min-width: 8.4rem !important;
-  padding: .32rem !important;
-}
-
-/* Floating chat/config should not sit directly on the important card/player rail area. */
 .party-grid-bg:has(> main) [class*="fixed"][class*="bottom"] {
   transform: scale(.72) !important;
-  opacity: .74 !important;
+  opacity: .72 !important;
 }
 
 .party-grid-bg:has(> main) [class*="fixed"][class*="bottom"]:hover,
 .party-grid-bg:has(> main) [class*="fixed"][class*="bottom"]:focus-within {
-  transform: scale(.92) !important;
+  transform: scale(.9) !important;
   opacity: 1 !important;
 }
 
 @media (max-width: 640px) {
-  .gameplay-shell,
-  .party-grid-bg:has(> main) > main {
-    padding-bottom: 7.1rem !important;
-  }
-
   .gameplay-top-hud,
   .party-grid-bg:has(> main) > main > header {
-    top: .18rem !important;
     padding: .42rem !important;
   }
 
@@ -103,7 +68,7 @@
 
   .gameplay-card-table,
   .party-grid-bg:has(> main) > main > section:first-of-type {
-    padding-top: .78rem !important;
+    padding-top: .72rem !important;
   }
 
   .gameplay-card-table h2,
@@ -113,37 +78,27 @@
 
   .gameplay-card-grid,
   .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child {
-    gap: .5rem .34rem !important;
+    gap: .4rem .28rem !important;
   }
 
   .gameplay-card-item,
   .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child > button,
   .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child > div {
-    padding: .16rem .14rem 1.32rem !important;
+    padding: .12rem .1rem 1.16rem !important;
   }
 
   .gameplay-card-name,
   .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child p {
-    bottom: 1rem !important;
+    bottom: .88rem !important;
     left: 10% !important;
     right: 10% !important;
-    font-size: .56rem !important;
-    min-height: 1.2rem !important;
+    font-size: .54rem !important;
+    min-height: 1.08rem !important;
+    padding: .18rem .22rem !important;
   }
 
   .gameplay-card-grid:has(> :only-child) > *,
   .party-grid-bg:has(> main) > main > section:first-of-type > div:last-child:has(> :only-child) > * {
-    width: min(56%, 12.25rem) !important;
-  }
-
-  .gameplay-player-rail,
-  .party-grid-bg:has(> main) > main > section:last-of-type {
-    max-height: 4.35rem !important;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + .58rem) !important;
-  }
-
-  .gameplay-player-rail > div:last-child > div,
-  .party-grid-bg:has(> main) > main > section:last-of-type > div:last-child > div {
-    min-width: 7.9rem !important;
+    width: min(54%, 11.75rem) !important;
   }
 }

@@ -36,16 +36,10 @@
   transform: translateY(-2px) scale(1.015) !important;
   border-width: 3px !important;
   background: linear-gradient(180deg, #fffdf5, #fff4c4) !important;
-  box-shadow:
-    0 0 0 2px rgba(255, 224, 118, .82),
-    0 0 22px color-mix(in srgb, var(--player-color, #ffcc46) 50%, transparent),
-    0 10px 24px rgba(0,0,0,.24) !important;
+  box-shadow: 0 0 0 2px rgba(255, 224, 118, .82), 0 0 22px color-mix(in srgb, var(--player-color, #ffcc46) 50%, transparent), 0 10px 24px rgba(0,0,0,.24) !important;
 }
 
-.gameplay-player-chip--dead {
-  opacity: .58 !important;
-  filter: grayscale(.8) !important;
-}
+.gameplay-player-chip--dead { opacity: .58 !important; filter: grayscale(.8) !important; }
 
 .gameplay-now-badge {
   top: -.42rem !important;
@@ -60,10 +54,7 @@
   letter-spacing: .08em !important;
 }
 
-.gameplay-player-info p {
-  color: #201041 !important;
-  font-weight: 1000 !important;
-}
+.gameplay-player-info p { color: #201041 !important; font-weight: 1000 !important; }
 
 .gameplay-player-info span {
   display: inline-flex !important;
@@ -81,18 +72,9 @@
   text-transform: uppercase !important;
 }
 
-.gameplay-player-chip--active .gameplay-player-info span {
-  border-color: rgba(245, 158, 11, .35) !important;
-  background: #fff7d1 !important;
-  color: #8a3600 !important;
-}
+.gameplay-player-chip--active .gameplay-player-info span { border-color: rgba(245, 158, 11, .35) !important; background: #fff7d1 !important; color: #8a3600 !important; }
 
-.gameplay-life-row {
-  display: flex !important;
-  align-items: center !important;
-  gap: .14rem !important;
-  margin-top: .2rem !important;
-}
+.gameplay-life-row { display: flex !important; align-items: center !important; gap: .14rem !important; margin-top: .2rem !important; }
 
 .gameplay-life-row::after {
   content: attr(aria-label);
@@ -111,35 +93,13 @@
   white-space: nowrap;
 }
 
-.gameplay-life-icon {
-  width: .74rem !important;
-  height: .74rem !important;
-}
+.gameplay-life-icon { width: .74rem !important; height: .74rem !important; }
+.gameplay-life-icon--alive { color: #f43f5e !important; fill: currentColor !important; filter: drop-shadow(0 1px 2px rgba(244,63,94,.3)); }
+.gameplay-life-icon--lost { color: #9ca3af !important; }
 
-.gameplay-life-icon--alive {
-  color: #f43f5e !important;
-  fill: currentColor !important;
-  filter: drop-shadow(0 1px 2px rgba(244,63,94,.3));
-}
-
-.gameplay-life-icon--lost {
-  color: #9ca3af !important;
-}
-
-/* Cards: cleaner layout. No permanent instructional badges on every card. */
-.gameplay-card-grid {
-  justify-items: center !important;
-}
-
-.gameplay-card-item {
-  width: 100% !important;
-  max-width: 10.9rem !important;
-  margin-inline: auto !important;
-}
-
-.gameplay-card-portrait {
-  border-radius: 1.05rem !important;
-}
+.gameplay-card-grid { justify-items: center !important; }
+.gameplay-card-item { width: 100% !important; max-width: 10.9rem !important; margin-inline: auto !important; }
+.gameplay-card-portrait { border-radius: 1.05rem !important; }
 
 .gameplay-card-name {
   left: 15% !important;
@@ -160,10 +120,7 @@
   box-shadow: 0 8px 18px rgba(0,0,0,.16), inset 0 0 0 1px rgba(255,255,255,.18) !important;
 }
 
-.gameplay-card-grid--selectable .gameplay-card-item--button::before {
-  content: none !important;
-  display: none !important;
-}
+.gameplay-card-grid--selectable .gameplay-card-item--button::before { content: none !important; display: none !important; }
 
 .gameplay-card-grid--selectable .gameplay-card-target {
   opacity: 0 !important;
@@ -178,15 +135,14 @@
 .gameplay-card-grid--selectable .gameplay-card-item--button:hover .gameplay-card-target,
 .gameplay-card-grid--selectable .gameplay-card-item--button:focus-visible .gameplay-card-target,
 .gameplay-card-grid--selectable .gameplay-card-item--button:focus .gameplay-card-target,
-.gameplay-card-grid--selectable .gameplay-card-item--button:active .gameplay-card-target {
-  opacity: 1 !important;
-  transform: translate(-50%, -50%) scale(1) !important;
-}
+.gameplay-card-grid--selectable .gameplay-card-item--button:active .gameplay-card-target,
+.gameplay-card-item--selected .gameplay-card-target { opacity: 1 !important; transform: translate(-50%, -50%) scale(1) !important; }
 
 .gameplay-card-grid--selectable .gameplay-card-item--button:hover,
 .gameplay-card-grid--selectable .gameplay-card-item--button:focus-visible,
 .gameplay-card-grid--selectable .gameplay-card-item--button:focus,
-.gameplay-card-grid--selectable .gameplay-card-item--button:active {
+.gameplay-card-grid--selectable .gameplay-card-item--button:active,
+.gameplay-card-item--selected {
   border-color: #ef4444 !important;
   outline: 4px solid rgba(239, 68, 68, .38) !important;
   outline-offset: 2px !important;
@@ -196,150 +152,67 @@
 
 .gameplay-card-grid--selectable .gameplay-card-item--button:hover .gameplay-card-name,
 .gameplay-card-grid--selectable .gameplay-card-item--button:focus .gameplay-card-name,
-.gameplay-card-grid--selectable .gameplay-card-item--button:active .gameplay-card-name {
-  background: linear-gradient(180deg, #ef4444, #991b1b) !important;
-  color: #fff !important;
-}
+.gameplay-card-grid--selectable .gameplay-card-item--button:active .gameplay-card-name,
+.gameplay-card-item--selected .gameplay-card-name { background: linear-gradient(180deg, #ef4444, #991b1b) !important; color: #fff !important; }
 
-.gameplay-card-grid--selectable .gameplay-card-item--button:disabled {
-  opacity: .72 !important;
-  cursor: wait !important;
-}
+.gameplay-card-grid--selectable .gameplay-card-item--button:disabled { opacity: .72 !important; cursor: wait !important; }
 
-/* Keep result messages short and less dominant than the reveal card. */
-.gameplay-recap {
-  border-width: 2px !important;
-  box-shadow: 0 10px 22px rgba(0,0,0,.14) !important;
-}
+.gameplay-recap { border-width: 2px !important; box-shadow: 0 10px 22px rgba(0,0,0,.14) !important; }
+.gameplay-recap p { font-size: clamp(.84rem, 2.2vw, 1rem) !important; font-weight: 1000 !important; }
+.gameplay-recap small { display: inline-flex !important; margin-top: .28rem !important; border-radius: 999px !important; background: rgba(255,255,255,.72) !important; padding: .2rem .52rem !important; font-weight: 1000 !important; }
 
-.gameplay-recap p {
-  font-size: clamp(.84rem, 2.2vw, 1rem) !important;
-  font-weight: 1000 !important;
-}
-
-.gameplay-recap small {
-  display: inline-flex !important;
-  margin-top: .28rem !important;
-  border-radius: 999px !important;
-  background: rgba(255,255,255,.72) !important;
-  padding: .2rem .52rem !important;
-  font-weight: 1000 !important;
-}
+.gameplay-reveal-thinking { text-align: center; }
+.gameplay-reveal-thinking p { font-size: clamp(1.9rem, 8vw, 3.1rem); font-weight: 1000; color: #fff7d6; text-shadow: 0 6px 18px rgba(0,0,0,.45); }
+.gameplay-reveal-clean { width: min(92vw, 26rem); text-align: center; }
+.gameplay-reveal-kicker { display: inline-flex; margin-bottom: .55rem; border: 1px solid rgba(255,222,122,.36); border-radius: 999px; background: rgba(255,244,194,.12); padding: .28rem .72rem; color: #ffe8a3; font-size: .7rem; font-weight: 1000; letter-spacing: .18em; text-transform: uppercase; }
+.gameplay-reveal-card-shell { margin-inline: auto; width: min(70vw, 15.2rem); }
+.gameplay-reveal-clean--owner .gameplay-reveal-card-shell { width: min(58vw, 12.6rem); }
+.gameplay-reveal-card { position: relative; aspect-ratio: 2 / 3; overflow: hidden; border: 5px solid rgba(255,225,132,.58); border-radius: 1.65rem; background: #12051f; box-shadow: 0 22px 48px rgba(0,0,0,.42), 0 0 0 2px rgba(255,255,255,.18) inset; }
+.gameplay-reveal-card-shell h2 { margin-top: .8rem; font-size: clamp(1.45rem, 6vw, 2.6rem); line-height: 1; font-weight: 1000; color: #fff7d6; text-transform: uppercase; text-shadow: 0 6px 16px rgba(0,0,0,.45); }
+.gameplay-hit-list { display: grid; gap: .55rem; margin-top: .85rem; }
+.gameplay-hit-chip { display: grid; grid-template-columns: 2.35rem minmax(0,1fr) auto; align-items: center; gap: .55rem; border: 2px solid rgba(255,255,255,.18); border-radius: 1.2rem; background: rgba(255,255,255,.93); padding: .42rem .55rem; color: #35134f; box-shadow: 0 10px 24px rgba(0,0,0,.25); }
+.gameplay-hit-chip strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-size: .92rem; font-weight: 1000; }
+.gameplay-hit-chip svg { color: #e11d48; }
+.gameplay-hit-chip--dead { background: linear-gradient(180deg, #18181b, #0f0f14); color: #fff; border-color: rgba(255,255,255,.22); }
+.gameplay-hit-chip--dead svg { color: #f8fafc; }
+.gameplay-hit-chip--miss { grid-template-columns: 1fr; background: rgba(15,23,42,.92); color: #fff; }
+.gameplay-hit-chip--miss strong { text-align: center; }
+.gameplay-hit-avatar { width: 2.35rem !important; height: 2.35rem !important; border-radius: .9rem !important; }
+.gameplay-reveal-result { border: 4px solid rgba(255,255,255,.2); border-radius: 2rem; padding: 1.4rem 2rem; box-shadow: 0 22px 48px rgba(0,0,0,.42); text-align: center; }
+.gameplay-reveal-result h2 { font-size: clamp(2.5rem, 12vw, 5rem); font-weight: 1000; line-height: .9; }
+.gameplay-reveal-result--hit { background: linear-gradient(180deg, #16a34a, #047857); color: #fff; }
+.gameplay-reveal-result--miss { background: linear-gradient(180deg, #1f2937, #020617); color: #e5e7eb; }
 
 @media (max-width: 760px) {
-  .gameplay-timer {
-    min-width: 7.7rem !important;
-    font-size: 1.54rem !important;
-    padding: .34rem .58rem !important;
-  }
-
-  .gameplay-board-title h1 {
-    font-size: 1.12rem !important;
-    line-height: 1.14 !important;
-  }
-
-  .gameplay-board-actions {
-    max-width: 9.2rem !important;
-  }
-
-  .gameplay-board-actions span,
-  .gameplay-board-actions strong {
-    min-height: 1.28rem !important;
-    font-size: .52rem !important;
-  }
-
-  .gameplay-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: .62rem .38rem !important;
-    padding-inline: .08rem !important;
-  }
-
-  .gameplay-card-item {
-    max-width: 10.2rem !important;
-    min-height: 13.4rem !important;
-    padding: .18rem .12rem 1.14rem !important;
-  }
-
-  .gameplay-card-name {
-    left: 14% !important;
-    right: 14% !important;
-    bottom: .92rem !important;
-    min-height: 1.1rem !important;
-    padding: .14rem .3rem !important;
-    font-size: .6rem !important;
-    line-height: .68rem !important;
-  }
-
-  .gameplay-card-grid--selectable .gameplay-card-target {
-    min-width: 5.8rem !important;
-    padding: .46rem .62rem !important;
-    font-size: .6rem !important;
-  }
-
-  .gameplay-player-scoreboard {
-    padding: .42rem .42rem .46rem !important;
-  }
-
-  .gameplay-scoreboard-head {
-    font-size: .56rem !important;
-  }
-
-  .gameplay-player-chip {
-    min-width: 9.85rem !important;
-    max-width: 9.85rem !important;
-    grid-template-columns: 1.82rem minmax(0, 1fr) !important;
-    padding: .32rem .38rem !important;
-  }
-
-  .gameplay-player-chip--active {
-    min-width: 10.35rem !important;
-    max-width: 10.35rem !important;
-  }
-
-  .gameplay-player-avatar {
-    width: 1.82rem !important;
-    height: 1.82rem !important;
-  }
-
-  .gameplay-player-info p {
-    font-size: .7rem !important;
-    line-height: .8rem !important;
-  }
-
-  .gameplay-player-info span {
-    font-size: .46rem !important;
-    line-height: .56rem !important;
-  }
-
-  .gameplay-life-row::after {
-    font-size: .46rem !important;
-    padding: .1rem .3rem !important;
-  }
-
-  .gameplay-life-icon {
-    width: .68rem !important;
-    height: .68rem !important;
-  }
+  .gameplay-timer { min-width: 7.7rem !important; font-size: 1.54rem !important; padding: .34rem .58rem !important; }
+  .gameplay-board-title h1 { font-size: 1.12rem !important; line-height: 1.14 !important; }
+  .gameplay-board-actions { max-width: 9.2rem !important; }
+  .gameplay-board-actions span, .gameplay-board-actions strong { min-height: 1.28rem !important; font-size: .52rem !important; }
+  .gameplay-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: .62rem .38rem !important; padding-inline: .08rem !important; }
+  .gameplay-card-item { max-width: 10.2rem !important; min-height: 13.4rem !important; padding: .18rem .12rem 1.14rem !important; }
+  .gameplay-card-name { left: 14% !important; right: 14% !important; bottom: .92rem !important; min-height: 1.1rem !important; padding: .14rem .3rem !important; font-size: .6rem !important; line-height: .68rem !important; }
+  .gameplay-card-grid--selectable .gameplay-card-target { min-width: 5.8rem !important; padding: .46rem .62rem !important; font-size: .6rem !important; }
+  .gameplay-player-scoreboard { padding: .42rem .42rem .46rem !important; }
+  .gameplay-scoreboard-head { font-size: .56rem !important; }
+  .gameplay-player-chip { min-width: 9.85rem !important; max-width: 9.85rem !important; grid-template-columns: 1.82rem minmax(0, 1fr) !important; padding: .32rem .38rem !important; }
+  .gameplay-player-chip--active { min-width: 10.35rem !important; max-width: 10.35rem !important; }
+  .gameplay-player-avatar { width: 1.82rem !important; height: 1.82rem !important; }
+  .gameplay-player-info p { font-size: .7rem !important; line-height: .8rem !important; }
+  .gameplay-player-info span { font-size: .46rem !important; line-height: .56rem !important; }
+  .gameplay-life-row::after { font-size: .46rem !important; padding: .1rem .3rem !important; }
+  .gameplay-life-icon { width: .68rem !important; height: .68rem !important; }
+  .gameplay-reveal-clean { width: min(94vw, 23rem); }
+  .gameplay-reveal-card-shell { width: min(74vw, 14rem); }
+  .gameplay-reveal-clean--owner .gameplay-reveal-card-shell { width: min(52vw, 10.8rem); }
+  .gameplay-hit-chip { grid-template-columns: 2.1rem minmax(0,1fr) auto; padding: .36rem .48rem; }
+  .gameplay-hit-avatar { width: 2.1rem !important; height: 2.1rem !important; }
 }
 
 @media (max-width: 420px) {
-  .gameplay-card-item {
-    max-width: 9.7rem !important;
-    min-height: 12.8rem !important;
-  }
-
-  .gameplay-card-name {
-    bottom: .84rem !important;
-    font-size: .58rem !important;
-  }
-
-  .gameplay-player-chip {
-    min-width: 9.35rem !important;
-    max-width: 9.35rem !important;
-  }
-
-  .gameplay-player-chip--active {
-    min-width: 9.95rem !important;
-    max-width: 9.95rem !important;
-  }
+  .gameplay-card-item { max-width: 9.7rem !important; min-height: 12.8rem !important; }
+  .gameplay-card-name { bottom: .84rem !important; font-size: .58rem !important; }
+  .gameplay-player-chip { min-width: 9.35rem !important; max-width: 9.35rem !important; }
+  .gameplay-player-chip--active { min-width: 9.95rem !important; max-width: 9.95rem !important; }
+  .gameplay-reveal-card-shell { width: min(76vw, 13.2rem); }
+  .gameplay-reveal-clean--owner .gameplay-reveal-card-shell { width: min(55vw, 10rem); }
 }

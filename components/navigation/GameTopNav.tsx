@@ -1,0 +1,76 @@
+'use client';
+
+import { usePathname, useRouter } from 'next/navigation';
+import { BookOpen, Coins, Gamepad2, LogOut, Shield, UserRound, Users } from 'lucide-react';
+import AvatarFigure from '@/components/avatar/AvatarFigure';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+type GameTopNavProps = {
+  profile?: any;
+  isAdmin?: boolean;
+  onLogout?: () => void;
+};
+
+const tabs = [
+  { label: 'Jogar', href: '/', icon: Gamepad2, match: (path: string) => path === '/' || path === '/lobby' },
+  { label: 'Decks', href: '/decks', icon: BookOpen, match: (path: string) => path.startsWith('/decks') },
+  { label: 'Amigos', href: '/friends', icon: Users, match: (path: string) => path.startsWith('/friends') },
+  { label: 'Perfil', href: '/profile', icon: UserRound, match: (path: string) => path.startsWith('/profile') },
+];
+
+export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameTopNavProps) {
+  const router = useRouter();
+  const pathname = usePathname() || '/';
+  const nickname = profile?.nickname || 'Jogador';
+
+  return (
+    <nav className="fixed left-0 right-0 top-0 z-[100] border-b-4 border-indigo-950/40 bg-[#071a64]/95 text-white shadow-[0_12px_40px_rgba(15,23,42,.35)] backdrop-blur-xl">
+      <div className="mx-auto flex h-[74px] max-w-[1500px] items-center justify-between gap-3 px-3 md:px-6">
+        <div className="flex h-full items-center gap-1 overflow-x-auto pr-2">
+          <div className="mr-2 hidden h-11 min-w-11 items-center justify-center rounded-xl border-2 border-cyan-300/40 bg-cyan-400/20 text-cyan-100 shadow-inner md:flex">
+            <Gamepad2 className="h-5 w-5" />
+          </div>
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const active = tab.match(pathname);
+            return (
+              <button
+                key={tab.href}
+                type="button"
+                onClick={() => router.push(tab.href)}
+                className={cn(
+                  'relative flex h-full min-w-fit items-center gap-2 px-3 text-[11px] font-black uppercase tracking-wide transition-all md:px-5 md:text-xs',
+                  active ? 'bg-white text-[#071a64] shadow-[inset_0_-5px_0_#facc15]' : 'text-blue-100 hover:bg-white/10 hover:text-white',
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <span className="hidden items-center gap-1 rounded-md border border-amber-300/50 bg-amber-300 px-2.5 py-1 text-[10px] font-black uppercase text-amber-950 shadow md:flex">
+              <Shield className="h-3.5 w-3.5" /> ADM
+            </span>
+          )}
+          <div className="hidden items-center gap-1 rounded-md border border-cyan-300/50 bg-blue-700 px-3 py-1.5 text-xs font-black text-cyan-50 shadow md:flex">
+            <Coins className="h-4 w-4 text-cyan-200" /> 100
+          </div>
+          <button type="button" onClick={() => router.push('/profile')} className="flex items-center gap-2 rounded-xl border-2 border-white/20 bg-white/10 p-1.5 pr-3 transition hover:bg-white/20">
+            <AvatarFigure avatarUrl={profile?.avatar_url} label={nickname} className="h-10 w-10 rounded-lg border-2 border-cyan-200 bg-slate-100" />
+            <span className="hidden max-w-[150px] truncate text-left text-xs font-black uppercase leading-tight md:block">{nickname}</span>
+          </button>
+          {onLogout && (
+            <Button type="button" variant="ghost" onClick={onLogout} className="h-10 rounded-xl border border-white/15 px-3 text-white hover:bg-rose-500/20 hover:text-white">
+              <LogOut className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+}

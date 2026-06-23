@@ -1,0 +1,35 @@
+/* UI/UX audit fixes. Visual-only: no gameplay rule changes. */
+html,body{max-width:100%;overflow-x:hidden}
+button,a,input,select,textarea,[role="button"]{-webkit-tap-highlight-color:rgba(79,70,229,.18)}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[role="button"]:focus-visible{outline:3px solid #f59e0b!important;outline-offset:3px!important}
+button,[role="button"]{touch-action:manipulation}
+
+@media(max-width:1023px){
+  .grid.lg\:grid-cols-12{display:flex!important;flex-direction:column!important}
+  .lg\:col-span-8,.lg\:col-span-4{width:100%!important;max-width:100%!important}
+  .grid.lg\:grid-cols-12 aside{order:2}
+  .grid.lg\:grid-cols-12 section{order:1}
+}
+
+@media(max-width:640px){
+  button,[role="button"],input{min-height:44px}
+  .max-w-\[1400px\]{max-width:100%!important}
+  .grid.lg\:grid-cols-12{gap:1rem!important}
+  .grid.lg\:grid-cols-12 h3{font-size:1.35rem!important;line-height:1.15!important}
+  .grid.lg\:grid-cols-12 .bg-white.border-4{padding:1rem!important;border-radius:1.35rem!important}
+  .grid.lg\:grid-cols-12 input{font-size:16px!important}
+  .grid.lg\:grid-cols-12 aside .min-h-\[560px\]{min-height:auto!important}
+  .grid.lg\:grid-cols-12 aside .max-h-\[680px\]{max-height:none!important}
+  .gameplay-chat-button{right:.75rem!important;bottom:calc(4.75rem + env(safe-area-inset-bottom))!important}
+  .gameplay-chat-panel{right:.5rem!important;bottom:calc(4.75rem + env(safe-area-inset-bottom))!important;width:calc(100vw - 1rem)!important;height:min(70dvh,420px)!important;border-radius:1.35rem!important}
+}
+
+.party-grid-bg header .font-mono{font-size:clamp(1.4rem,5vw,2.25rem)!important}
+
+@media(max-width:640px){
+  .party-grid-bg>div:first-child>header{position:sticky!important;top:.5rem!important;z-index:60!important}
+  .party-grid-bg>div:first-child>section:first-of-type{max-height:none!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x mandatory!important;padding:.65rem!important}
+  .party-grid-bg>div:first-child>section:first-of-type>div:first-child:after{content:"arraste para ver todos";display:inline-flex;margin-left:auto;border:1px solid rgba(99,102,241,.16);border-radius:999px;background:#fff;padding:.2rem .45rem;font-size:.52rem;font-weight:1000;letter-spacing:.12em;text-transform:uppercase;color:#6366f1}
+  .party-grid-bg>div:first-child>section:first-of-type>div:last-child{display:flex!important;width:max-content!important;min-width:100%!important;grid-template-columns:none!important;gap:.5rem!important}
+  .party-grid-bg>div:first-child>section:first-of-type>div:last-child>div{min-width:10.25rem!important;scroll-snap-align:start!important}
+}

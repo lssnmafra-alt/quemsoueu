@@ -8,8 +8,7 @@ import AvatarModelPreloader from '@/components/avatar/AvatarModelPreloader';
 const STATIC_BEFORE_MS = 900;
 const VIDEO_MS = 6000;
 const STATIC_AFTER_MS = 900;
-const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 3500;
-const VIDEO_LOAD_TIMEOUT_MS = 4500;
+const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 2500;
 
 type SequencePhase = 'before' | 'loading' | 'video' | 'after';
 
@@ -118,11 +117,11 @@ export default function RoomStarting({ room, players }: any) {
 
     if (sequencePhase === 'loading') {
       setCurrentVideoSrc('');
-      setVideoStatus(`Carregando vídeo de ${playerSnapshot.nickname}...`);
+      setVideoStatus(`Buscando vídeo de ${playerSnapshot.nickname}...`);
 
-      timer = window.setTimeout(continueWithStaticImage, INTRO_VIDEO_LOOKUP_TIMEOUT_MS + VIDEO_LOAD_TIMEOUT_MS + 500);
+      timer = window.setTimeout(continueWithStaticImage, INTRO_VIDEO_LOOKUP_TIMEOUT_MS + 1200);
 
-      resolveAndPreloadIntroVideo(playerSnapshot, videoCacheRef.current)
+      resolveIntroVideo(playerSnapshot, videoCacheRef.current)
         .then((url) => {
           if (cancelled || loadingResolved) return;
           loadingResolved = true;
@@ -232,7 +231,7 @@ function StaticIntroPanel({ player, isFocused, phase }: { player: any; isFocused
   const label = !isFocused
     ? 'Aguardando destaque'
     : phase === 'loading'
-      ? 'Carregando vídeo...'
+      ? 'Buscando vídeo...'
       : phase === 'after'
         ? 'Imagem estática final'
         : 'Imagem estática';
@@ -265,18 +264,35 @@ function IntroVideoPlayer({ src, player }: { src: string; player: any }) {
     video.muted = true;
     video.defaultMuted = true;
     video.volume = 0;
+    video.playsInline = true;
+  };
+
+  const attemptPlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    forceMuted();
+    const playPromise = video.play?.();
+    if (playPromise) playPromise.then(() => setReady(true)).catch(() => null);
   };
 
   const markReady = () => {
     forceMuted();
     setReady(true);
-    videoRef.current?.play?.().catch(() => null);
+    attemptPlay();
   };
 
   useEffect(() => {
+    setReady(false);
     forceMuted();
-    const timer = window.setTimeout(() => setReady(true), 500);
-    return () => window.clearTimeout(timer);
+    videoRef.current?.load?.();
+
+    const timers = [80, 300, 700, 1200, 1800].map((delay) => window.setTimeout(attemptPlay, delay));
+    const fallback = window.setTimeout(() => setReady(true), 2200);
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      window.clearTimeout(fallback);
+    };
   }, [src]);
 
   return (
@@ -295,8 +311,10 @@ function IntroVideoPlayer({ src, player }: { src: string; player: any }) {
           onLoadedMetadata={markReady}
           onVolumeChange={forceMuted}
           onPlay={forceMuted}
+          onPlaying={() => setReady(true)}
           onLoadedData={markReady}
           onCanPlay={markReady}
+          onError={() => setReady(true)}
           className="h-full w-full bg-white object-contain"
         />
       </div>
@@ -317,7 +335,7 @@ function IntroVideoPlayer({ src, player }: { src: string; player: any }) {
   );
 }
 
-async function resolveAndPreloadIntroVideo(player: SequencePlayer, cache: Map<string, string>) {
+async function resolveIntroVideo(player: SequencePlayer, cache: Map<string, string>) {
   const avatarUrl = String(player?.avatar_url || '').trim();
   if (!avatarUrl) return '';
 
@@ -331,14 +349,8 @@ async function resolveAndPreloadIntroVideo(player: SequencePlayer, cache: Map<st
   );
   const url = result?.available ? String(result.videoUrl || result.url || '') : '';
 
-  if (!url) {
-    cache.set(cacheKey, '');
-    return '';
-  }
-
-  await preloadVideoFile(url, VIDEO_LOAD_TIMEOUT_MS);
-  cache.set(cacheKey, url);
-  return url;
+  cache.set(cacheKey, url || '');
+  return url || '';
 }
 
 async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
@@ -355,22 +367,9 @@ async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
   }
 }
 
-async function preloadVideoFile(src: string, timeoutMs: number) {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(src, { cache: 'force-cache', signal: controller.signal });
-    if (response.ok) await response.arrayBuffer();
-  } catch {
-    // Se o navegador nao conseguir pré-carregar, ainda tentamos tocar o vídeo no elemento <video>.
-  } finally {
-    window.clearTimeout(timeout);
-  }
-}
-
 function phaseLabel(phase: SequencePhase, currentVideoSrc: string) {
   if (phase === 'before') return 'Imagem estática';
-  if (phase === 'loading') return 'Carregando vídeo';
+  if (phase === 'loading') return 'Buscando vídeo';
   if (phase === 'video') return currentVideoSrc ? 'Vídeo de 6 segundos' : 'Imagem estática';
   return 'Imagem estática final';
 }

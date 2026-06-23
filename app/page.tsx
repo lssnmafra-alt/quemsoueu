@@ -24,11 +24,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!authInitialized || authLoading || !user) return;
-    router.push(profileNeedsSetup(profile) ? '/profile?next=/lobby' : '/lobby');
+    if (profileNeedsSetup(profile)) router.push('/profile');
   }, [authInitialized, authLoading, router, user, profile]);
 
   const handleGuestLogin = async () => {
-    const cleanNickname = nickname.trim();
+    const cleanNickname = nickname.trim().replace(/\s+/g, ' ');
 
     if (!cleanNickname) {
       setError('Digite um apelido para entrar no jogo.');
@@ -49,9 +49,14 @@ export default function LoginPage() {
       console.warn('Moderation failed, proceeding anyway.', err);
     }
 
-    await loginGuest(cleanNickname);
-    router.push('/lobby');
-    setLoading(false);
+    try {
+      await loginGuest(cleanNickname);
+      router.push('/lobby');
+    } catch (loginError: any) {
+      setError(loginError.message || 'Nao foi possivel entrar com esse apelido.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -144,7 +149,7 @@ export default function LoginPage() {
               <div className="flex-1 h-0.5 bg-slate-200"></div>
             </div>
 
-            <GoogleLoginButton redirectTo="/profile?next=/lobby" />
+            <GoogleLoginButton redirectTo="/" />
           </div>
 
           <div className="flex justify-center gap-4 text-xs font-semibold text-white/85 font-mono drop-shadow">

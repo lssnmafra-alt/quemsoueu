@@ -1,4 +1,5 @@
 @import url('/gameplay-components.css');
+@import url('/gameplay-friga.css');
 
 /* Gameplay premium polish entrypoint.
-   The PLAYING layout now uses explicit JSX classes instead of structural selectors. */
+   Explicit classes first, Friga-inspired skin last. */

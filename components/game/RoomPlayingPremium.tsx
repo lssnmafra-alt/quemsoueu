@@ -355,58 +355,69 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
   };
 
   const headline = isSpectator ? 'Você está assistindo' : isMyTurn ? 'Sua vez de escolher uma carta' : activePlayer?.is_bot ? `${activePlayer.nickname} está pensando` : activePlayer ? `${activePlayer.nickname} está escolhendo` : 'Aguardando rodada';
+  const roundNumber = (room.current_turn_number || 0) + 1;
+  const maxRounds = Number(room.max_rounds || room.round_limit || room.max_turns || 0);
+  const roundLabel = maxRounds > 0 ? `Rodada ${roundNumber}/${maxRounds}` : `Rodada ${roundNumber}`;
+  const turnStatusText = isSpectator ? 'Assistindo' : isVoting ? 'Registrando voto' : isMyTurn ? 'Sua vez!' : activePlayer ? playerStatus(activePlayer, activePlayerId) : 'Aguardando';
+  const actionHint = isMyTurn ? 'Toque em uma carta para votar' : isSpectator ? 'Acompanhe a rodada' : activePlayer ? `${activePlayer.nickname} joga agora` : 'Preparando mesa';
 
   return (
-    <div className={cn('flex h-[100dvh] overflow-hidden bg-[#f5f6ff] font-sans relative party-grid-bg', isSpectator && 'grayscale-[0.08]')}>
-      <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-y-auto p-2.5 md:p-6">
-        <header className="mb-3 shrink-0 rounded-[1.35rem] border-2 border-indigo-100 bg-white/92 p-3 shadow-sm backdrop-blur md:rounded-[1.75rem] md:p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-amber-600">Quem Sou Eu?</span>
-                <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Rodada {(room.current_turn_number || 0) + 1}</span>
-                {isSuddenDeath && <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-rose-600">Morte súbita</span>}
-              </div>
-              <h1 className="mt-2 truncate font-display text-xl font-black text-indigo-950 md:text-2xl">{headline}</h1>
-            </div>
+    <div className={cn('gameplay-screen flex h-[100dvh] overflow-hidden font-sans relative party-grid-bg', isSpectator && 'grayscale-[0.08]')}>
+      <main className="gameplay-shell relative z-10 flex min-w-0 flex-1 flex-col overflow-y-auto">
+        <header className="gameplay-hud">
+          <div className="gameplay-hud-brand">
+            <span className="gameplay-logo-mark">Quem Sou Eu?</span>
+            <span className="gameplay-round-pill">{roundLabel}</span>
+            {isSuddenDeath && <span className="gameplay-sudden-pill">Morte súbita</span>}
+          </div>
 
-            <div className="grid grid-cols-[1fr_auto] items-center gap-2 sm:flex sm:justify-end">
-              <div className="flex items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-2 text-xs font-black uppercase tracking-wide text-indigo-700">
-                <Zap className="h-4 w-4" /> {isMyTurn ? 'Sua vez' : activePlayer ? playerStatus(activePlayer, activePlayerId) : 'Aguardando'}
-              </div>
-              {!isExplaining && !isVoting && <div className="flex items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-white px-4 py-2 font-mono text-2xl font-black text-indigo-950"><Clock className="h-4 w-4 text-indigo-500" /> {formattedTime}</div>}
-              <button onClick={leaveRoom} className="col-span-2 rounded-2xl border-2 border-rose-100 bg-rose-50 px-4 py-2 text-[10px] font-black uppercase tracking-wide text-rose-600 sm:col-span-1"><LogOut className="mr-1 inline h-4 w-4" /> Sair</button>
+          <div className={cn('gameplay-timer', timeLeft <= 5 && !isExplaining && !isVoting && 'gameplay-timer--danger')} aria-label="Tempo restante">
+            <Clock className="h-4 w-4" />
+            <span>{!isExplaining && !isVoting ? formattedTime : '--:--'}</span>
+          </div>
+
+          <div className="gameplay-top-status">
+            <div className={cn('gameplay-turn-pill', isMyTurn && 'gameplay-turn-pill--mine')}>
+              {isSpectator ? <Eye className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
+              <span>{turnStatusText}</span>
             </div>
+            <button onClick={leaveRoom} className="gameplay-icon-action gameplay-leave-button" aria-label="Sair da sala">
+              <LogOut className="h-4 w-4" />
+              <span>Sair</span>
+            </button>
           </div>
         </header>
 
-        <section className={cn('relative mb-3 overflow-hidden rounded-[1.65rem] border-2 border-indigo-100 bg-white/88 p-3 shadow-xl backdrop-blur md:rounded-[2rem] md:p-5', isExplaining && 'opacity-35 pointer-events-none')}>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <section className={cn('gameplay-board', isExplaining && 'gameplay-muted')}>
+          <div className="gameplay-board-title">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500">Mesa da rodada</p>
-              <h2 className="font-display text-2xl font-black text-indigo-950 md:text-4xl">Cartas em jogo</h2>
+              <p>Mesa da rodada</p>
+              <h1>{headline}</h1>
             </div>
-            <div className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-600">{visibleDeckChars.length} personagens vivos</div>
+            <div className="gameplay-board-actions">
+              <span>{visibleDeckChars.length} cartas vivas</span>
+              <strong>{actionHint}</strong>
+            </div>
           </div>
 
-          <div className={cn('grid gap-3 md:gap-4', isMyTurn ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6')}>
+          <div className={cn('gameplay-card-grid', isMyTurn && 'gameplay-card-grid--selectable')}>
             {visibleDeckChars.map((card, index) => {
               const content = (
                 <>
-                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-slate-950 shadow-inner">
-                    <CharacterImage name={card.name} imageUrl={card.image_url} avatarConfig={card.avatar_config} isOfficial={usesOfficialImages} alt="" className="h-full w-full object-cover" />
+                  <div className="gameplay-card-portrait">
+                    <CharacterImage name={card.name} imageUrl={card.image_url} avatarConfig={card.avatar_config} isOfficial={usesOfficialImages} showRarityFrame={usesOfficialImages} alt="" className="h-full w-full object-cover" />
                   </div>
-                  <p className="mt-2 flex min-h-[2.2rem] items-center justify-center text-center text-xs font-black leading-tight text-indigo-950 md:text-sm">{card.name}</p>
+                  <p className="gameplay-card-name">{card.name}</p>
                 </>
               );
 
               return isMyTurn ? (
-                <motion.button key={card.id} type="button" initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.025, 0.2) }} onClick={() => processVote(card.id)} disabled={isVoting || voteProcessingRef.current} className="group relative rounded-[1.35rem] border-2 border-indigo-100 bg-white p-2 shadow-lg transition hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl disabled:cursor-wait disabled:opacity-60">
+                <motion.button key={card.id} type="button" initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.025, 0.2) }} onClick={() => processVote(card.id)} disabled={isVoting || voteProcessingRef.current} className="gameplay-card-item gameplay-card-item--button group" data-action="vote-card">
                   {content}
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[1.35rem] bg-indigo-500/0 transition group-hover:bg-indigo-500/10"><Target className="h-10 w-10 rounded-full bg-white p-2 text-indigo-500 opacity-0 shadow-lg transition group-hover:opacity-100" /></div>
+                  <span className="gameplay-card-target"><Target className="h-7 w-7" /> Escolher</span>
                 </motion.button>
               ) : (
-                <motion.div key={card.id} initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.02, 0.2) }} className="rounded-[1.35rem] border-2 border-indigo-100 bg-white p-2 shadow-lg">
+                <motion.div key={card.id} initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.02, 0.2) }} className="gameplay-card-item">
                   {content}
                 </motion.div>
               );
@@ -414,44 +425,27 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
           </div>
         </section>
 
-        <AnimatePresence>
-          {recap && !isExplaining && (
-            <motion.section key={recap.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn('mx-auto mb-3 w-full max-w-4xl rounded-3xl border-2 p-3 shadow-sm md:p-4', recapClasses(recap.tone))}>
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div className="min-w-0">
-                  <span className="rounded-full border border-current/15 bg-white/60 px-3 py-1 text-[9px] font-black uppercase tracking-[0.22em]">{recap.label}</span>
-                  <p className="mt-2 text-sm font-black leading-snug md:text-base">{recap.main}</p>
-                  {recap.detail && <p className="mt-1 text-xs font-bold opacity-80 md:text-sm">{recap.detail}</p>}
-                </div>
-                {recap.next && <div className="rounded-2xl border border-current/15 bg-white/50 px-4 py-2 text-xs font-black md:text-sm">{recap.next}</div>}
-              </div>
-            </motion.section>
-          )}
-        </AnimatePresence>
-
-        <section className={cn('mt-auto rounded-[1.35rem] border-2 border-indigo-100 bg-white/85 p-2 shadow-sm backdrop-blur md:rounded-[1.75rem] md:p-3', isExplaining && 'opacity-35 pointer-events-none')}>
-          <div className="mb-2 flex items-center justify-between px-1">
-            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-indigo-500">Jogadores na arena</p>
-            <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">{activePlayers.length} vivos</p>
+        <section className={cn('gameplay-player-scoreboard', isExplaining && 'gameplay-muted')} aria-label="Placar de jogadores">
+          <div className="gameplay-scoreboard-head">
+            <span>Jogadores</span>
+            <strong>{activePlayers.length} vivos</strong>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          <div className="gameplay-player-list">
             {orderedPlayers.map((player: any) => {
               const alive = isAlive(player);
               const active = player.id === activePlayerId;
               const status = playerStatus(player, activePlayerId);
               const lives = Math.max(0, player.lives || 0);
               return (
-                <div key={player.id} className={cn('relative overflow-hidden rounded-2xl border-2 bg-white p-2 shadow-sm', !alive ? 'border-slate-200 opacity-70 grayscale' : active ? cn('ring-2 ring-offset-1 ring-offset-white shadow-md', player.color?.border || 'border-indigo-400', player.color?.lightBgc || 'bg-indigo-50') : 'border-slate-100')}>
-                  {active && alive && <span className={cn('absolute right-2 top-2 rounded-full border bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-wide', player.color?.text || 'text-indigo-700', player.color?.border || 'border-indigo-200')}>AGORA</span>}
-                  <div className="flex items-center gap-2 pr-10">
-                    <AvatarFigure avatarUrl={player.avatar_url} label={player.nickname} primaryColor={player.color?.hex} className={cn('h-10 w-10 shrink-0 rounded-2xl border-2 bg-white', !alive ? 'border-slate-300' : player.color?.border || 'border-slate-200')} imageClassName={!alive ? 'grayscale opacity-60' : undefined} />
-                    <div className="min-w-0">
-                      <p className={cn('truncate text-xs font-black', !alive ? 'text-slate-500' : player.color?.text || 'text-indigo-950')}>{player.nickname}</p>
-                      <p className={cn('mt-0.5 text-[8px] font-black uppercase tracking-wide', !alive ? 'text-slate-500' : active ? player.color?.text || 'text-indigo-700' : 'text-slate-400')}>{status}</p>
+                <div key={player.id} className={cn('gameplay-player-chip', !alive && 'gameplay-player-chip--dead', active && alive && 'gameplay-player-chip--active')} style={alive ? { ['--player-color' as any]: player.color?.hex || '#7c3aed' } : undefined}>
+                  {active && alive && <span className="gameplay-now-badge">AGORA</span>}
+                  <AvatarFigure avatarUrl={player.avatar_url} label={player.nickname} primaryColor={player.color?.hex} className="gameplay-player-avatar" imageClassName={!alive ? 'grayscale opacity-60' : undefined} />
+                  <div className="gameplay-player-info">
+                    <p>{player.nickname}</p>
+                    <span>{status}</span>
+                    <div className="gameplay-life-row" aria-label={`${lives} vidas`}>
+                      {Array.from({ length: room.chars_per_player }).map((_, i) => i < lives ? <Heart key={i} className="gameplay-life-icon gameplay-life-icon--alive" /> : <Skull key={i} className="gameplay-life-icon gameplay-life-icon--lost" />)}
                     </div>
-                  </div>
-                  <div className="mt-2 flex items-center gap-0.5">
-                    {Array.from({ length: room.chars_per_player }).map((_, i) => i < lives ? <Heart key={i} className={cn('h-3 w-3 fill-current', player.color?.text || 'text-indigo-500')} /> : <Skull key={i} className="h-3 w-3 text-slate-300" />)}
                   </div>
                 </div>
               );
@@ -459,11 +453,24 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
           </div>
         </section>
 
+        <AnimatePresence>
+          {recap && !isExplaining && (
+            <motion.section key={recap.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn('gameplay-recap', recapClasses(recap.tone))}>
+              <div className="min-w-0">
+                <span>{recap.label}</span>
+                <p>{recap.main}</p>
+                {recap.detail && <small>{recap.detail}</small>}
+              </div>
+              {recap.next && <strong>{recap.next}</strong>}
+            </motion.section>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence>{suddenDeathIntro && !isExplaining && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[85] flex items-center justify-center rounded-[2rem] bg-slate-950/86 p-4 text-white backdrop-blur-md"><motion.div initial={{ scale: 0.86, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }} className="max-w-md rounded-3xl border-4 border-rose-500 bg-rose-950/80 p-8 text-center shadow-2xl"><p className="mb-3 text-xs font-black uppercase tracking-[0.35em] text-rose-200">Agora ficou sério</p><h2 className="font-display text-5xl font-black">MORTE SÚBITA</h2><p className="mt-4 text-sm font-bold uppercase tracking-wider text-rose-100">Últimos jogadores restantes.</p></motion.div></motion.div>}</AnimatePresence>
 
         <AnimatePresence>{timeoutNotice && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[82] flex items-center justify-center rounded-[2rem] bg-slate-950/84 p-4 text-white backdrop-blur-md"><motion.div initial={{ y: 20, scale: 0.94, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -14, opacity: 0 }} className="max-w-lg rounded-3xl border-4 border-amber-300 bg-white p-8 text-center text-indigo-950 shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.3em] text-amber-600">Tempo esgotado</p><h2 className="mt-2 font-display text-3xl font-black">{timeoutNotice.player?.nickname} não votou a tempo</h2><p className="mt-4 rounded-2xl border-2 border-amber-100 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800">{timeoutNotice.result?.eliminated ? 'Foi eliminado da arena.' : timeoutNotice.result?.missedTurns === 1 ? 'Recebeu a 1ª falta.' : 'Perdeu 1 vida.'}</p></motion.div></motion.div>}</AnimatePresence>
 
-        <AnimatePresence>{revelation && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[80] flex items-center justify-center rounded-[2rem] bg-slate-950/88 p-4 text-white backdrop-blur-md"><AnimatePresence mode="wait" initial={false}>{revealStage === 'thinking' ? <motion.div key="thinking" initial={{ y: 18, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }} className="text-center"><Zap className="mx-auto mb-5 h-16 w-16 rounded-full border border-indigo-300/30 bg-indigo-500/20 p-4 text-indigo-100" /><p className="text-xs font-black uppercase tracking-[0.35em] text-indigo-200">Preparando palpite</p><h2 className="mt-3 font-display text-4xl font-black">{revelation.voterName}</h2></motion.div> : revealStage === 'card' ? <motion.div key="card" initial={{ scale: 0.9, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 1.03, opacity: 0 }} className="w-full max-w-sm text-center"><p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-amber-200">{revelation.voterName} votou em</p><div className="mx-auto mb-5 w-60 max-w-[74vw] rounded-[1.6rem] border-4 border-white/20 bg-slate-900 p-2 shadow-2xl"><div className="aspect-[2/3] overflow-hidden rounded-2xl bg-slate-800"><CharacterImage name={revelation.charName} imageUrl={revelation.card?.image_url} avatarConfig={revelation.card?.avatar_config} isOfficial={usesOfficialImages} alt="" className="h-full w-full object-cover" /></div></div><h2 className="font-display text-4xl font-black uppercase leading-none md:text-5xl">{revelation.charName}</h2></motion.div> : revealStage === 'owner' ? <motion.div key="owner" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="w-full max-w-md rounded-3xl border-4 border-indigo-200 bg-white p-7 text-center text-indigo-950 shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500">Dono da carta</p><h2 className="mt-3 font-display text-2xl font-black">{revelation.hitPlayers.length > 0 ? `${revelation.charName} estava com:` : `Ninguém tinha ${revelation.charName}`}</h2>{revelation.hitPlayers.length > 0 && <div className="mt-4 grid gap-2">{revelation.hitPlayers.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-indigo-100 bg-indigo-50 px-4 py-3 font-black text-indigo-800">{p.nickname}</div>)}</div>}</motion.div> : revealStage === 'result' ? revelation.hitPlayers.length > 0 ? <motion.div key="hit" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} className="max-w-md rounded-3xl border-4 border-emerald-300 bg-emerald-500 p-8 text-center text-white shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.35em] text-emerald-100">Resultado</p><h2 className="mt-3 font-display text-5xl font-black">ACERTOU!</h2><p className="mt-4 text-sm font-black uppercase tracking-wider text-emerald-50">{revelation.hitPlayers.map((p: any) => p.nickname).join(', ')} foi atingido.</p></motion.div> : <motion.div key="miss" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} className="max-w-md rounded-3xl border-4 border-slate-600 bg-slate-900 p-8 text-center text-white shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400">Resultado</p><h2 className="mt-3 font-display text-5xl font-black text-slate-200">ERROU</h2><p className="mt-4 text-sm font-black uppercase tracking-wider text-slate-300">O palpite não encontrou ninguém.</p></motion.div> : <motion.div key="eliminated" initial={{ y: 18, scale: 0.92, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="w-full max-w-2xl rounded-[2rem] border-4 border-slate-500 bg-gradient-to-br from-slate-950 via-slate-900 to-zinc-800 p-7 text-center text-white shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.35em] text-slate-300">Fora da arena</p><h2 className="mt-2 font-display text-4xl font-black md:text-5xl">{revelation.eliminatedPlayers.length > 1 ? 'ELIMINADOS' : 'ELIMINADO'}</h2><div className={cn('mx-auto mt-6 grid gap-4', revelation.eliminatedPlayers.length === 1 ? 'max-w-xs grid-cols-1' : 'max-w-xl grid-cols-2 md:grid-cols-3')}>{revelation.eliminatedPlayers.map((p: any) => <div key={p.id} className="rounded-3xl border border-white/15 bg-white/8 p-4"><AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} state="defeat" primaryColor={p.color?.hex} className="mx-auto h-28 w-28 rounded-3xl border-4 border-slate-500 bg-slate-800 grayscale" imageClassName="grayscale opacity-60" /><p className="mt-3 text-sm font-black uppercase tracking-wider text-slate-100">{p.nickname}</p></div>)}</div></motion.div>}</AnimatePresence></motion.div>}</AnimatePresence>
+        <AnimatePresence>{revelation && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[80] flex items-center justify-center rounded-[2rem] bg-slate-950/88 p-4 text-white backdrop-blur-md"><AnimatePresence mode="wait" initial={false}>{revealStage === 'thinking' ? <motion.div key="thinking" initial={{ y: 18, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }} className="text-center"><Zap className="mx-auto mb-5 h-16 w-16 rounded-full border border-indigo-300/30 bg-indigo-500/20 p-4 text-indigo-100" /><p className="text-xs font-black uppercase tracking-[0.35em] text-indigo-200">Preparando palpite</p><h2 className="mt-3 font-display text-4xl font-black">{revelation.voterName}</h2></motion.div> : revealStage === 'card' ? <motion.div key="card" initial={{ scale: 0.9, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 1.03, opacity: 0 }} className="w-full max-w-sm text-center"><p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-amber-200">{revelation.voterName} votou em</p><div className="mx-auto mb-5 w-60 max-w-[74vw] rounded-[1.6rem] border-4 border-white/20 bg-slate-900 p-2 shadow-2xl"><div className="aspect-[2/3] overflow-hidden rounded-2xl bg-slate-800"><CharacterImage name={revelation.charName} imageUrl={revelation.card?.image_url} avatarConfig={revelation.card?.avatar_config} isOfficial={usesOfficialImages} showRarityFrame={usesOfficialImages} alt="" className="h-full w-full object-cover" /></div></div><h2 className="font-display text-4xl font-black uppercase leading-none md:text-5xl">{revelation.charName}</h2></motion.div> : revealStage === 'owner' ? <motion.div key="owner" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="w-full max-w-md rounded-3xl border-4 border-indigo-200 bg-white p-7 text-center text-indigo-950 shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.3em] text-indigo-500">Dono da carta</p><h2 className="mt-3 font-display text-2xl font-black">{revelation.hitPlayers.length > 0 ? `${revelation.charName} estava com:` : `Ninguém tinha ${revelation.charName}`}</h2>{revelation.hitPlayers.length > 0 && <div className="mt-4 grid gap-2">{revelation.hitPlayers.map((p: any) => <div key={p.id} className="rounded-2xl border-2 border-indigo-100 bg-indigo-50 px-4 py-3 font-black text-indigo-800">{p.nickname}</div>)}</div>}</motion.div> : revealStage === 'result' ? revelation.hitPlayers.length > 0 ? <motion.div key="hit" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} className="max-w-md rounded-3xl border-4 border-emerald-300 bg-emerald-500 p-8 text-center text-white shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.35em] text-emerald-100">Resultado</p><h2 className="mt-3 font-display text-5xl font-black">ACERTOU!</h2><p className="mt-4 text-sm font-black uppercase tracking-wider text-emerald-50">{revelation.hitPlayers.map((p: any) => p.nickname).join(', ')} foi atingido.</p></motion.div> : <motion.div key="miss" initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }} className="max-w-md rounded-3xl border-4 border-slate-600 bg-slate-900 p-8 text-center text-white shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400">Resultado</p><h2 className="mt-3 font-display text-5xl font-black text-slate-200">ERROU</h2><p className="mt-4 text-sm font-black uppercase tracking-wider text-slate-300">O palpite não encontrou ninguém.</p></motion.div> : <motion.div key="eliminated" initial={{ y: 18, scale: 0.92, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="w-full max-w-2xl rounded-[2rem] border-4 border-slate-500 bg-gradient-to-br from-slate-950 via-slate-900 to-zinc-800 p-7 text-center text-white shadow-2xl"><p className="text-xs font-black uppercase tracking-[0.35em] text-slate-300">Fora da arena</p><h2 className="mt-2 font-display text-4xl font-black md:text-5xl">{revelation.eliminatedPlayers.length > 1 ? 'ELIMINADOS' : 'ELIMINADO'}</h2><div className={cn('mx-auto mt-6 grid gap-4', revelation.eliminatedPlayers.length === 1 ? 'max-w-xs grid-cols-1' : 'max-w-xl grid-cols-2 md:grid-cols-3')}>{revelation.eliminatedPlayers.map((p: any) => <div key={p.id} className="rounded-3xl border border-white/15 bg-white/8 p-4"><AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} state="defeat" primaryColor={p.color?.hex} className="mx-auto h-28 w-28 rounded-3xl border-4 border-slate-500 bg-slate-800 grayscale" imageClassName="grayscale opacity-60" /><p className="mt-3 text-sm font-black uppercase tracking-wider text-slate-100">{p.nickname}</p></div>)}</div></motion.div>}</AnimatePresence></motion.div>}</AnimatePresence>
       </main>
       <ChatMenu roomId={room.id} me={me} players={players} collapsible={true} />
     </div>

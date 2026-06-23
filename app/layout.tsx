@@ -30,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={`${inter.variable} ${quicksand.variable}`} suppressHydrationWarning>
       <head>
         <link rel="stylesheet" href="/mobile-fixes.css" />
+        <link rel="stylesheet" href="/gameplay-polish.css" />
         <script
           id="quem-sou-eu-runtime-env"
           dangerouslySetInnerHTML={{ __html: getPublicRuntimeEnvScript() }}

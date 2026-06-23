@@ -2,24 +2,18 @@
    Scoped to the PLAYING screen only: .party-grid-bg with direct > main. */
 :root{
   --qse-arena-bg:url('/api/r2-file?key=atuem%2FCenarios%2FReino%20das%20rosas.PNG');
-  --qse-table-frame:url('/api/r2-file?key=atuem%2FCenarios%2Fmesa_reino_das_rosas.png');
 }
 
 .party-grid-bg:has(>main){
   background-color:#100723!important;
-  background-image:linear-gradient(180deg,rgba(12,4,28,.1),rgba(12,4,28,.72)),var(--qse-arena-bg)!important;
+  background-image:linear-gradient(180deg,rgba(12,4,28,.08),rgba(12,4,28,.70)),var(--qse-arena-bg)!important;
   background-size:cover!important;
   background-position:center!important;
   background-repeat:no-repeat!important;
 }
 
-.party-grid-bg:has(>main)::before{
-  background:linear-gradient(180deg,rgba(8,2,18,.02),rgba(8,2,18,.48))!important;
-  mask-image:none!important;
-}
-
+.party-grid-bg:has(>main)::before{background:linear-gradient(180deg,rgba(8,2,18,.02),rgba(8,2,18,.45))!important;mask-image:none!important}
 .party-grid-bg:has(>main)::after{display:none!important}
-
 .party-grid-bg:has(>main)>main{gap:.55rem!important}
 
 .party-grid-bg:has(>main)>main>header{
@@ -33,104 +27,62 @@
 .party-grid-bg:has(>main)>main>header p,
 .party-grid-bg:has(>main)>main>header span{color:#fff7d6!important}
 
-.party-grid-bg:has(>main)>main>header span:first-child{
-  background:rgba(255,244,202,.96)!important;
-  color:#3c1458!important;
-  border-color:rgba(255,202,82,.55)!important;
-}
+.party-grid-bg:has(>main)>main>header span:first-child{background:rgba(255,244,202,.96)!important;color:#3c1458!important;border-color:rgba(255,202,82,.55)!important}
+.party-grid-bg:has(>main)>main>header [class*=bg-indigo]{border-color:rgba(255,202,82,.35)!important;background:rgba(47,14,74,.88)!important;color:#ffe8a3!important}
 
-.party-grid-bg:has(>main)>main>header [class*=bg-indigo]{
-  border-color:rgba(255,202,82,.35)!important;
-  background:rgba(47,14,74,.88)!important;
-  color:#ffe8a3!important;
-}
-
+/* Mesa: clean panel. The old ornate table image was competing with the cards. */
 .party-grid-bg:has(>main)>main>section:first-of-type{
   position:relative;
   overflow:visible!important;
-  border:0!important;
-  background-color:transparent!important;
-  background-image:linear-gradient(180deg,rgba(53,18,65,.50),rgba(21,7,35,.36)),var(--qse-table-frame)!important;
-  background-size:100% 100%!important;
-  background-position:center!important;
-  background-repeat:no-repeat!important;
-  box-shadow:none!important;
-  padding:clamp(3.6rem,5vw,5rem) clamp(1rem,3.2vw,3.2rem) clamp(1.35rem,2.4vw,2.5rem)!important;
+  border:1px solid rgba(255,214,106,.24)!important;
+  background:linear-gradient(180deg,rgba(55,18,70,.72),rgba(21,7,35,.50))!important;
+  box-shadow:0 22px 70px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.12)!important;
+  padding:clamp(1.15rem,2.5vw,2.1rem)!important;
 }
 
 .party-grid-bg:has(>main)>main>section:first-of-type::before{
   content:"";
   position:absolute;
-  left:5%;right:5%;top:17%;bottom:7%;
+  inset:.55rem;
   z-index:-1;
-  border-radius:1.65rem;
-  background:rgba(255,226,176,.42);
-  box-shadow:inset 0 0 0 2px rgba(114,55,20,.08),0 28px 80px rgba(0,0,0,.22);
+  border-radius:1.6rem;
+  background:linear-gradient(180deg,rgba(255,235,188,.16),rgba(255,218,164,.06));
+  box-shadow:inset 0 0 0 1px rgba(255,214,106,.12);
 }
 
 .party-grid-bg:has(>main)>main>section:first-of-type p:first-child,
-.party-grid-bg:has(>main)>main>section:first-of-type h2{
-  color:#fff7d6!important;
-  text-shadow:0 4px 14px rgba(0,0,0,.45);
-}
-
-.party-grid-bg:has(>main)>main>section:first-of-type>div:first-child{margin-bottom:.55rem!important}
+.party-grid-bg:has(>main)>main>section:first-of-type h2{color:#fff7d6!important;text-shadow:0 4px 14px rgba(0,0,0,.45)}
+.party-grid-bg:has(>main)>main>section:first-of-type>div:first-child{margin-bottom:.75rem!important}
 .party-grid-bg:has(>main)>main>section:first-of-type>div:last-child{position:relative;z-index:1;align-items:start}
 
 .party-grid-bg:has(>main)>main>section:first-of-type>div:last-child>button,
-.party-grid-bg:has(>main)>main>section:first-of-type>div:last-child>div{
-  position:relative;
-  overflow:visible!important;
-  border:0!important;
-  border-radius:1.2rem!important;
-  background:transparent!important;
-  box-shadow:none!important;
-  padding:.35rem!important;
-}
+.party-grid-bg:has(>main)>main>section:first-of-type>div:last-child>div{position:relative;overflow:visible!important;border:0!important;border-radius:1.2rem!important;background:transparent!important;box-shadow:none!important;padding:.45rem!important}
 
-.party-grid-bg:has(>main)>main>section:first-of-type .aspect-\[2\/3\]{
-  position:relative;
-  z-index:2;
-  overflow:visible!important;
-  border-radius:1rem!important;
-  background:transparent!important;
-  box-shadow:none!important;
-}
+.party-grid-bg:has(>main)>main>section:first-of-type .aspect-\[2\/3\]{position:relative;z-index:2;overflow:visible!important;border-radius:1rem!important;background:transparent!important;box-shadow:none!important}
 
-.party-grid-bg:has(>main)>main>section:first-of-type>div:last-child p{
-  position:relative;
-  z-index:5;
-  margin-top:.4rem!important;
-  border-radius:999px;
-  background:rgba(49,16,67,.9);
-  padding:.34rem .45rem;
-  color:#fff8db!important;
-  text-shadow:0 2px 6px rgba(0,0,0,.55);
-}
+.party-grid-bg:has(>main)>main>section:first-of-type>div:last-child p{position:relative;z-index:5;margin-top:.48rem!important;border-radius:999px;background:rgba(49,16,67,.92);padding:.34rem .45rem;color:#fff8db!important;text-shadow:0 2px 6px rgba(0,0,0,.55)}
 
-.party-grid-bg:has(>main)>main>section:last-of-type{
-  border-color:rgba(255,202,82,.32)!important;
-  background:linear-gradient(180deg,rgba(41,13,63,.86),rgba(22,8,39,.9))!important;
-  box-shadow:0 18px 46px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.13)!important;
-}
-
+.party-grid-bg:has(>main)>main>section:last-of-type{border-color:rgba(255,202,82,.32)!important;background:linear-gradient(180deg,rgba(41,13,63,.86),rgba(22,8,39,.9))!important;box-shadow:0 18px 46px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.13)!important}
 .party-grid-bg:has(>main)>main>section:last-of-type p{color:#ffe8a3!important}
 
 @media(max-width:640px){
-  .party-grid-bg:has(>main)>main{padding:.45rem!important;gap:.45rem!important}
-  .party-grid-bg:has(>main)>main>header{margin-bottom:.15rem!important;padding:.7rem!important;border-radius:1.25rem!important}
-  .party-grid-bg:has(>main)>main>header h1{font-size:1.42rem!important;line-height:1.1!important;margin-top:.45rem!important;white-space:normal!important}
-  .party-grid-bg:has(>main)>main>header>div{gap:.55rem!important}
-  .party-grid-bg:has(>main)>main>header button{height:2.55rem!important;padding:.45rem .75rem!important;font-size:.68rem!important}
-  .party-grid-bg:has(>main)>main>header [class*=font-mono]{height:2.85rem!important;padding:.35rem .8rem!important;font-size:2rem!important}
-  .party-grid-bg:has(>main)>main>section:first-of-type{padding:2.75rem .45rem 1rem!important;background-size:112% 100%!important;margin-bottom:.45rem!important}
-  .party-grid-bg:has(>main)>main>section:first-of-type::before{left:3%;right:3%;top:13%;bottom:5%;border-radius:1.15rem;background:rgba(255,226,176,.32)}
-  .party-grid-bg:has(>main)>main>section:first-of-type h2{font-size:1.75rem!important;line-height:1!important}
-  .party-grid-bg:has(>main)>main>section:first-of-type>div:first-child{padding:0 .45rem;margin-bottom:.3rem!important}
-  .party-grid-bg:has(>main)>main>section:first-of-type>div:first-child>div:last-child{font-size:.68rem!important;padding:.35rem .6rem!important}
-  .party-grid-bg:has(>main)>main>section:first-of-type>div:last-child{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.45rem!important}
+  .party-grid-bg:has(>main)>main{padding:.42rem!important;gap:.42rem!important}
+  .party-grid-bg:has(>main)>main>header{margin-bottom:.1rem!important;padding:.62rem!important;border-radius:1.15rem!important}
+  .party-grid-bg:has(>main)>main>header h1{font-size:1.28rem!important;line-height:1.08!important;margin-top:.38rem!important;white-space:normal!important}
+  .party-grid-bg:has(>main)>main>header>div{gap:.42rem!important}
+  .party-grid-bg:has(>main)>main>header button{height:2.2rem!important;padding:.35rem .65rem!important;font-size:.62rem!important;border-radius:1rem!important}
+  .party-grid-bg:has(>main)>main>header [class*=font-mono]{height:2.45rem!important;padding:.25rem .7rem!important;font-size:1.75rem!important;border-radius:1rem!important}
+  .party-grid-bg:has(>main)>main>header [class*=uppercase]{font-size:.62rem!important}
+  .party-grid-bg:has(>main)>main>section:first-of-type{padding:.82rem .42rem 1rem!important;margin-bottom:.42rem!important;border-radius:1.2rem!important}
+  .party-grid-bg:has(>main)>main>section:first-of-type::before{inset:.38rem;border-radius:1rem;background:linear-gradient(180deg,rgba(255,235,188,.12),rgba(255,218,164,.04))}
+  .party-grid-bg:has(>main)>main>section:first-of-type h2{font-size:1.55rem!important;line-height:1!important}
+  .party-grid-bg:has(>main)>main>section:first-of-type>div:first-child{padding:0 .35rem;margin-bottom:.25rem!important}
+  .party-grid-bg:has(>main)>main>section:first-of-type>div:first-child>div:last-child{font-size:.66rem!important;padding:.3rem .55rem!important}
+  .party-grid-bg:has(>main)>main>section:first-of-type>div:last-child{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.62rem .48rem!important}
   .party-grid-bg:has(>main)>main>section:first-of-type>div:last-child>button,
-  .party-grid-bg:has(>main)>main>section:first-of-type>div:last-child>div{padding:.18rem!important}
-  .party-grid-bg:has(>main)>main>section:first-of-type>div:last-child p{font-size:.74rem!important;line-height:.86rem!important;margin-top:.25rem!important;min-height:1.8rem!important}
-  .party-grid-bg:has(>main)>main>section:last-of-type{max-height:28dvh;overflow-y:auto;padding:.5rem!important;margin-bottom:4.5rem!important}
+  .party-grid-bg:has(>main)>main>section:first-of-type>div:last-child>div{padding:.32rem!important}
+  .party-grid-bg:has(>main)>main>section:first-of-type>div:last-child p{font-size:.72rem!important;line-height:.84rem!important;margin-top:.36rem!important;min-height:1.65rem!important}
+  .party-grid-bg:has(>main)>main>section:last-of-type{max-height:30dvh;overflow-y:auto;padding:.5rem!important;margin-bottom:5rem!important}
+  .party-grid-bg:has(>main) [class*=fixed],
+  .party-grid-bg:has(>main) [class*=absolute]{scroll-margin-bottom:5rem}
 }

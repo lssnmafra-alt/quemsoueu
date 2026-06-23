@@ -41,7 +41,7 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   const src = sources.find((candidate) => !brokenUrls[candidate]);
   const classText = String(className || '');
   const shouldHideOfficialName = hideOfficialName || classText.includes('w-12 h-14');
-  const shouldUseRarityFrame = showRarityFrame;
+  const shouldUseRarityFrame = showRarityFrame || (classText.includes('object-cover') && classText.includes('h-full') && classText.includes('w-full'));
   const showOfficialFrameThemePicker = Boolean(isOfficial && officialDeckEditorId && !shouldHideOfficialName && !shouldUseRarityFrame);
   const showRarityPicker = Boolean(isOfficial && officialDeckEditorId && !shouldHideOfficialName && shouldUseRarityFrame);
   const showRarityBadge = rarity !== 'comum' && !shouldHideOfficialName;

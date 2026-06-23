@@ -160,7 +160,7 @@ export default function RoomStarting({ room, players }: any) {
     : 'Preparando jogadores...';
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 md:p-6 bg-[#f5f6ff] font-sans text-indigo-950 party-grid-bg relative overflow-hidden">
+    <div className="flex flex-col items-center justify-start md:justify-center min-h-[100dvh] p-3 py-4 md:p-6 bg-[#f5f6ff] font-sans text-indigo-950 party-grid-bg relative overflow-y-auto overflow-x-hidden">
       <AvatarModelPreloader players={stablePreloadPlayers} eventType="intro" />
       <div className="max-w-6xl w-full text-center relative z-10">
         <AnimatePresence mode="wait">
@@ -194,7 +194,7 @@ export default function RoomStarting({ room, players }: any) {
                 transition={{ delay: Math.min(index * 0.08, 0.4), type: 'spring', stiffness: 260, damping: 24 }}
                 className={cn(
                   'relative overflow-hidden rounded-3xl border-4 bg-white p-3 text-left shadow-xl transition-all',
-                  isFocused ? cn(p.color?.border || 'border-indigo-400', 'ring-4 ring-amber-200') : 'border-indigo-100',
+                  isFocused ? cn(p.color?.border || 'border-indigo-400', 'ring-4 ring-amber-200 order-first md:order-none') : 'border-indigo-100',
                 )}
               >
                 <div className={cn('absolute inset-x-0 top-0 h-2', p.color?.bg || 'bg-indigo-400')} />

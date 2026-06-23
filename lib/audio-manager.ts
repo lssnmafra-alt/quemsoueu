@@ -47,6 +47,12 @@ const MUSIC_BLOCKED_TRACKS_KEY = 'quemSouEu:musicBlockedTracks';
 const NOW_PLAYING_EVENT = 'quemSouEu:music-track';
 const DEFAULT_MUSIC_GENRES = ['Disco', 'Kpop', 'Rock'];
 
+type PlayMusicOptions = {
+  force?: boolean;
+  excludeKeys?: string[];
+  pushHistory?: boolean;
+};
+
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private music: HTMLAudioElement | null = null;
@@ -56,6 +62,8 @@ export class AudioManager {
   private hasUserGesture = false;
   private musicRate = 1;
   private musicRequestId = 0;
+  private musicPaused = false;
+  private musicHistory: CurrentMusicInfo[] = [];
   public prefs: AudioPrefs = DEFAULT_PREFS;
 
   constructor() {
@@ -72,6 +80,10 @@ export class AudioManager {
 
   getCurrentMusicInfo() {
     return this.currentMusicInfo;
+  }
+
+  isMusicPaused() {
+    return this.musicPaused;
   }
 
   initFromUserGesture() {
@@ -99,50 +111,102 @@ export class AudioManager {
     else this.stopMusic();
   }
 
-  async playMusic(track: MusicTrack) {
+  async playMusic(track: MusicTrack, options: PlayMusicOptions = {}) {
     if (typeof window === 'undefined') return;
 
     const previousTrack = this.activeMusicTrack;
     const selectedGenres = this.getMusicGenres();
     const blockedTracks = this.getMusicBlockedTracks();
     const nextGenres = selectedGenres.length > 0 ? selectedGenres : DEFAULT_MUSIC_GENRES;
-    const nextGenreKey = `${nextGenres.join('|')}::blocked:${blockedTracks.join('|')}`;
+    const excludedKeys = [...blockedTracks, ...(options.excludeKeys || [])].filter(Boolean);
+    const nextGenreKey = `${nextGenres.join('|')}::blocked:${excludedKeys.join('|')}`;
     this.activeMusicTrack = track;
 
     if (this.prefs.muted || !this.prefs.musicEnabled) return;
-    if (this.music && previousTrack === track && this.music.dataset.genreKey === nextGenreKey) return;
+    if (!options.force && this.music && previousTrack === track && this.music.dataset.genreKey === nextGenreKey) return;
 
     const requestId = ++this.musicRequestId;
+    const previousInfo = this.currentMusicInfo;
     this.stopHtmlMusicOnly();
 
-    const trackInfo = await this.resolveLicensedTrack(track, nextGenres, blockedTracks);
+    const trackInfo = await this.resolveLicensedTrack(track, nextGenres, excludedKeys);
     if (requestId !== this.musicRequestId || !trackInfo?.url || this.prefs.muted || !this.prefs.musicEnabled) return;
 
-    this.emitMusicInfo({ ...trackInfo, mood: trackInfo.mood || String(track) });
-
-    if (!this.hasUserGesture) return;
-
-    const audio = new Audio(trackInfo.url);
-    audio.loop = true;
-    audio.volume = this.prefs.musicVolume;
-    audio.playbackRate = this.musicRate;
-    audio.dataset.genreKey = nextGenreKey;
-    audio.addEventListener('error', () => this.stopHtmlMusicOnly(), { once: true });
-
-    this.music = audio;
-    this.activeMusicUrl = trackInfo.url;
-
-    try {
-      await audio.play();
-    } catch {
-      this.stopHtmlMusicOnly();
+    if (options.pushHistory !== false && previousInfo?.url && previousInfo.url !== trackInfo.url) {
+      this.pushMusicHistory(previousInfo);
     }
+
+    await this.startResolvedMusic(trackInfo, nextGenreKey);
   }
 
   stopMusic(clearTrack = true) {
     this.musicRequestId += 1;
     this.stopHtmlMusicOnly();
+    this.musicPaused = false;
     if (clearTrack) this.activeMusicTrack = null;
+  }
+
+  pauseMusic() {
+    this.initFromUserGesture();
+    if (!this.music) return;
+    this.music.pause();
+    this.musicPaused = true;
+  }
+
+  resumeMusic() {
+    this.initFromUserGesture();
+    this.prefs.muted = false;
+    this.prefs.musicEnabled = true;
+    this.savePrefs();
+
+    if (this.music) {
+      void this.music.play().then(() => {
+        this.musicPaused = false;
+      }).catch(() => {});
+      return;
+    }
+
+    void this.playMusic(this.activeMusicTrack || this.currentMusicInfo?.mood || 'lobby-theme', { force: true, pushHistory: false });
+  }
+
+  toggleMusicPause() {
+    if (this.musicPaused) this.resumeMusic();
+    else this.pauseMusic();
+  }
+
+  async nextMusic() {
+    this.initFromUserGesture();
+    this.prefs.muted = false;
+    this.prefs.musicEnabled = true;
+    this.savePrefs();
+
+    const current = this.currentMusicInfo;
+    const excludeKeys = current?.key ? [current.key] : [];
+    await this.playMusic(this.activeMusicTrack || current?.mood || 'lobby-theme', { force: true, excludeKeys, pushHistory: true });
+  }
+
+  async previousMusic() {
+    this.initFromUserGesture();
+    this.prefs.muted = false;
+    this.prefs.musicEnabled = true;
+    this.savePrefs();
+
+    const previous = this.musicHistory.pop();
+    if (previous?.url) {
+      this.musicRequestId += 1;
+      this.stopHtmlMusicOnly();
+      await this.startResolvedMusic(previous, 'manual-previous');
+      return;
+    }
+
+    if (this.music) {
+      this.music.currentTime = 0;
+      await this.music.play().catch(() => {});
+      this.musicPaused = false;
+      return;
+    }
+
+    await this.playMusic(this.activeMusicTrack || this.currentMusicInfo?.mood || 'lobby-theme', { force: true, pushHistory: false });
   }
 
   playSfx(effect: SfxEffect) {
@@ -227,6 +291,36 @@ export class AudioManager {
     } catch {
       return null;
     }
+  }
+
+  private async startResolvedMusic(trackInfo: CurrentMusicInfo, genreKey: string) {
+    this.emitMusicInfo(trackInfo);
+
+    if (!this.hasUserGesture) return;
+
+    const audio = new Audio(trackInfo.url);
+    audio.loop = true;
+    audio.volume = this.prefs.musicVolume;
+    audio.playbackRate = this.musicRate;
+    audio.dataset.genreKey = genreKey;
+    audio.addEventListener('error', () => this.stopHtmlMusicOnly(), { once: true });
+
+    this.music = audio;
+    this.activeMusicUrl = trackInfo.url;
+
+    try {
+      await audio.play();
+      this.musicPaused = false;
+    } catch {
+      this.stopHtmlMusicOnly();
+    }
+  }
+
+  private pushMusicHistory(info: CurrentMusicInfo) {
+    if (!info?.url) return;
+    const last = this.musicHistory[this.musicHistory.length - 1];
+    if (last?.url === info.url) return;
+    this.musicHistory = [...this.musicHistory.slice(-8), info];
   }
 
   private getMusicGenres() {

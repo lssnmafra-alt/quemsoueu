@@ -18,7 +18,7 @@ export default function AvatarModelPreloader({ players, max = 12, eventType = 'i
     const controllers: AbortController[] = [];
     const avatarUrls = [...new Set(players
       .map((player) => String(player?.avatar_url || '').trim())
-      .filter((url) => url && !url.startsWith('avatar:')))]
+      .filter(Boolean))]
       .slice(0, max);
 
     const total = avatarUrls.length;

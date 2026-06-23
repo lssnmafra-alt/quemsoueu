@@ -1,63 +1,24 @@
 @import url('/gameplay-table.css');
 @import url('/arena-r2-skin.css');
 
-/* Gameplay premium polish layer
-   Structural polish is in gameplay-table.css.
-   Arena assets are in arena-r2-skin.css.
-   Visual-only. No gameplay rules, timers, bots or backend behavior. */
+/* Gameplay premium polish layer.
+   Scoped to PLAYING only. Visual-only. */
 
-.party-grid-bg > div:first-child > header {
-  position: relative;
-  overflow: hidden;
-  border-radius: 1.5rem !important;
-  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.9)) !important;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, .08), inset 0 1px 0 rgba(255,255,255,.9) !important;
-}
-
-.party-grid-bg > div:first-child > header::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(circle at 8% 0%, rgba(245, 158, 11, .13), transparent 34%), radial-gradient(circle at 90% 10%, rgba(99, 102, 241, .12), transparent 34%);
-}
-
-.party-grid-bg > div:first-child > header > * {
-  position: relative;
-  z-index: 1;
-}
-
-.party-grid-bg button[type="button"]:has(.aspect-\[2\/3\]) {
-  border-width: 2px !important;
-  border-color: rgba(99,102,241,.16) !important;
-  background: rgba(255,255,255,.92) !important;
-  box-shadow: 0 14px 30px rgba(15, 23, 42, .1), inset 0 1px 0 rgba(255,255,255,.9) !important;
-}
-
-.party-grid-bg button[type="button"]:has(.aspect-\[2\/3\]):hover {
-  border-color: rgba(99,102,241,.48) !important;
-  box-shadow: 0 22px 44px rgba(15, 23, 42, .16), 0 0 0 4px rgba(99,102,241,.08) !important;
-}
-
-.party-grid-bg .z-\[80\],
-.party-grid-bg .z-\[82\],
-.party-grid-bg .z-\[85\] {
+.party-grid-bg:has(>main) .z-\[80\],
+.party-grid-bg:has(>main) .z-\[82\],
+.party-grid-bg:has(>main) .z-\[85\] {
   border-radius: 1.75rem;
 }
 
-.party-grid-bg .z-\[80\] {
+.party-grid-bg:has(>main) .z-\[80\] {
   overflow: hidden;
   background: radial-gradient(circle at 50% 34%, rgba(99,102,241,.26), transparent 32%), radial-gradient(circle at 50% 76%, rgba(245,158,11,.18), transparent 42%), rgba(15, 23, 42, .88) !important;
 }
 
 @media (max-width: 640px) {
-  .party-grid-bg > div:first-child > header {
-    border-radius: 1.2rem !important;
-  }
-
-  .party-grid-bg .z-\[80\],
-  .party-grid-bg .z-\[82\],
-  .party-grid-bg .z-\[85\] {
+  .party-grid-bg:has(>main) .z-\[80\],
+  .party-grid-bg:has(>main) .z-\[82\],
+  .party-grid-bg:has(>main) .z-\[85\] {
     border-radius: 1.15rem;
     padding: .85rem !important;
   }

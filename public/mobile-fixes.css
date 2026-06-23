@@ -23,3 +23,5 @@
 
 @media(max-width:640px){button,[role="button"],input{min-height:44px}}
 @media(max-width:1023px){.grid.lg\:grid-cols-12{display:flex!important;flex-direction:column!important}.lg\:col-span-8,.lg\:col-span-4{width:100%!important;max-width:100%!important}}
+.party-grid-bg header .font-mono{font-size:clamp(1.55rem,5vw,2.4rem)!important}
+@media(max-width:640px){.party-grid-bg>div:first-child>header{position:sticky!important;top:.5rem!important;z-index:60!important}.party-grid-bg>div:first-child>section:first-of-type{overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x mandatory!important}.party-grid-bg>div:first-child>section:first-of-type>div:last-child{display:flex!important;width:max-content!important;min-width:100%!important;grid-template-columns:none!important}.party-grid-bg>div:first-child>section:first-of-type>div:last-child>div{min-width:10.25rem!important;scroll-snap-align:start!important}}

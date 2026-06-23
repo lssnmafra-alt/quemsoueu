@@ -10,7 +10,7 @@ import { preloadRoomAssets } from '@/lib/preloadGameAssets';
 import RoomLobby from '@/components/game/RoomLobby';
 import RoomPicking from '@/components/game/RoomPicking';
 import RoomStarting from '@/components/game/RoomStarting';
-import RoomPlaying from '@/components/game/RoomPlaying';
+import RoomPlayingPremium from '@/components/game/RoomPlayingPremium';
 import RoomFinished from '@/components/game/RoomFinished';
 import AudioToggle from '@/components/AudioToggle';
 import LoadingArena from '@/components/LoadingArena';
@@ -278,7 +278,7 @@ export default function RoomPage() {
             {room.status === 'LOBBY' && <RoomLobby room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
             {room.status === 'PICKING' && <RoomPicking room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} />}
             {room.status === 'STARTING' && <RoomStarting room={room} players={enrichedPlayers} isAdmin={isAdmin} />}
-            {room.status === 'PLAYING' && <RoomPlaying room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
+            {room.status === 'PLAYING' && <RoomPlayingPremium room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
             {room.status === 'FINISHED' && <RoomFinished room={room} players={enrichedPlayers} me={me} isAdmin={isAdmin} leaveRoom={leaveRoom} />}
           </motion.div>
         </AnimatePresence>

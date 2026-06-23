@@ -101,7 +101,7 @@ export default function ChatMenu({ roomId, room, me, players = [], collapsible =
         dragMomentum={false}
         whileDrag={{ scale: 1.05 }}
         onClick={toggle}
-        className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[75] flex h-14 w-14 items-center justify-center rounded-full border-2 border-indigo-200 bg-indigo-600 p-3 text-white shadow-2xl transition-colors hover:bg-indigo-700 active:cursor-grabbing"
+        className="qse-chat-button fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[75] flex h-14 w-14 items-center justify-center rounded-full border-2 border-indigo-200 bg-indigo-600 p-3 text-white shadow-2xl transition-colors hover:bg-indigo-700 active:cursor-grabbing"
         aria-label="Abrir chat"
       >
         <MessageCircle className="h-7 w-7 pointer-events-none" />
@@ -117,7 +117,7 @@ export default function ChatMenu({ roomId, room, me, players = [], collapsible =
       dragMomentum={false}
       initial={{ opacity: 0, y: 12, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[80] flex h-[min(420px,calc(100dvh-8rem))] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border-2 border-indigo-100 bg-white shadow-2xl pointer-events-auto"
+      className="qse-chat-panel fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[80] flex h-[min(420px,calc(100dvh-8rem))] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border-2 border-indigo-100 bg-white shadow-2xl pointer-events-auto"
     >
       <div className="flex shrink-0 items-center justify-between border-b border-indigo-100 bg-indigo-50/70 px-4 py-3">
         <span className="flex items-center gap-2 text-xs font-black text-indigo-950"><Smile className="h-5 w-5 text-indigo-500" /> CHAT</span>

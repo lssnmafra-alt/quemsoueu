@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabaseGame } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { differenceInSeconds } from 'date-fns';
+import { useSyncedCountdown, formatCountdown } from '@/hooks/useSyncedCountdown';
 import { motion } from 'motion/react';
 import { Check, Layers, Lightbulb, Loader2, RefreshCw } from 'lucide-react';
 import CharacterImage from '@/components/CharacterImage';
@@ -19,19 +19,11 @@ function clampPickSeconds(value: unknown) {
   return (ALLOWED_PICK_SECONDS as readonly number[]).includes(rounded) ? rounded : DEFAULT_PICK_SECONDS;
 }
 
-function formatSeconds(totalSeconds: number) {
-  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-  const minutes = Math.floor(safeSeconds / 60);
-  const seconds = safeSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
 export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const safePickSeconds = clampPickSeconds(room.pick_time_seconds);
   const [deckChars, setDeckChars] = useState<any[]>([]);
   const [currentCards, setCurrentCards] = useState<any[]>([]);
   const [selectedChars, setSelectedChars] = useState<string[]>([]);
-  const [timeLeft, setTimeLeft] = useState(safePickSeconds);
   const [confirmed, setConfirmed] = useState(false);
   const [pickingNotice, setPickingNotice] = useState('');
   const [isDeckLoading, setIsDeckLoading] = useState(true);
@@ -70,6 +62,14 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
     : confirmed
       ? `Escolha confirmada. Aguardando os demais jogadores.${pendingText}`
       : `Escolha ${pickCount} ${pickCount === 1 ? 'personagem' : 'personagens'}.${pendingText}`);
+
+  const { secondsLeft: timeLeft, formattedTime } = useSyncedCountdown({
+    expiresAt: room.turn_expires_at,
+    fallbackSeconds: safePickSeconds,
+    maxSeconds: safePickSeconds,
+    enabled: !allRealPlayersReady && !finalizingRef.current,
+    phaseKey: `${room.id}:PICKING:${isTiebreak ? 'tiebreak' : 'initial'}`,
+  });
 
   const loadPickingState = useCallback(async () => {
     try {
@@ -117,7 +117,6 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const finalizePicking = useCallback(async () => {
     if (finalizingRef.current) return;
     finalizingRef.current = true;
-    setTimeLeft(0);
     setPickingNotice('Tempo encerrado. Sorteando automaticamente e preparando a partida...');
 
     try {
@@ -164,7 +163,6 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
 
     const allReady = activeRealPlayers.every((p: any) => (liveCountByPlayer.get(p.id) || 0) >= pickCount);
     if (allReady) {
-      setTimeLeft(0);
       await finalizePicking();
     } else {
       await loadPickingState();
@@ -177,34 +175,20 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   }, [finalizeIfReady]);
 
   useEffect(() => {
-    if (allRealPlayersReady || finalizingRef.current) {
-      setTimeLeft(0);
-      return;
+    if (allRealPlayersReady || finalizingRef.current) return;
+
+    const expiresMs = new Date(room.turn_expires_at || '').getTime();
+    const rawSeconds = Number.isFinite(expiresMs) ? Math.max(0, Math.ceil((expiresMs - Date.now()) / 1000)) : safePickSeconds;
+
+    if (rawSeconds > safePickSeconds + TIMER_REPAIR_GRACE_SECONDS && timerRepairRef.current !== room.turn_expires_at) {
+      timerRepairRef.current = room.turn_expires_at || 'missing';
+      fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
     }
 
-    const updateTimer = () => {
-      const diff = differenceInSeconds(new Date(room.turn_expires_at), new Date());
-      const rawSeconds = Math.max(0, diff);
-      const visibleSeconds = Math.min(rawSeconds || safePickSeconds, safePickSeconds);
-
-      if (rawSeconds > safePickSeconds + TIMER_REPAIR_GRACE_SECONDS && timerRepairRef.current !== room.turn_expires_at) {
-        timerRepairRef.current = room.turn_expires_at || 'missing';
-        fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
-      }
-
-      if (rawSeconds <= 0) {
-        setTimeLeft(0);
-        finalizePicking();
-      } else {
-        setTimeLeft(visibleSeconds);
-      }
-    };
-
-    updateTimer();
-    const i = setInterval(updateTimer, 1000);
-
-    return () => clearInterval(i);
-  }, [allRealPlayersReady, room.turn_expires_at, room.id, safePickSeconds, finalizePicking]);
+    if (rawSeconds <= 0 || timeLeft <= 0) {
+      finalizePicking();
+    }
+  }, [allRealPlayersReady, room.turn_expires_at, room.id, safePickSeconds, finalizePicking, timeLeft]);
 
   const toggleChar = (id: string) => {
     if (confirmed || !isMeEligible) return;
@@ -258,7 +242,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
         className="max-w-[1200px] w-full bg-white border-4 border-indigo-150 p-4 md:p-10 rounded-3xl relative z-10 text-center shadow-xl flex flex-col"
       >
         <div className="absolute top-0 left-0 w-full h-2 bg-indigo-50 overflow-hidden rounded-t-3xl">
-          <motion.div className={cn('h-full transition-all duration-1000', timeLeft <= 5 ? 'bg-rose-500' : 'bg-indigo-500')} style={{ width: `${progressPercent}%` }} />
+          <div className="h-full bg-gradient-to-r from-indigo-500 to-amber-300 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
         </div>
 
         <div className="mb-5 md:mb-8 mt-4 relative">
@@ -270,7 +254,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
           </p>
           {!allRealPlayersReady && !confirmed && (
             <p className="mt-2 text-xs text-indigo-500 font-bold uppercase tracking-wider">
-              Tempo restante: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{formatSeconds(timeLeft)}</span>
+              Tempo restante: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{formattedTime || formatCountdown(timeLeft)}</span>
             </p>
           )}
         </div>

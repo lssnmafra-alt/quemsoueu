@@ -65,6 +65,18 @@ async function loadServerProfile(userId: string) {
   }
 }
 
+async function saveServerProfile(profile: any) {
+  if (typeof window === 'undefined' || !profile?.id) return null;
+  const response = await fetch('/api/player-profile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(profile),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Nao foi possivel salvar o perfil.');
+  return result.profile || profile;
+}
+
 function getStoredGuest() {
   if (typeof window === 'undefined') return { user: null, profile: null };
   const guestId = localStorage.getItem('guestId');
@@ -162,8 +174,6 @@ export const useUserStore = create<UserState>((set) => ({
     const stored = typeof window !== 'undefined' ? localStorage.getItem('guestId') : null;
     const storedProfile = readJson(APP_PROFILE_KEY);
     const guestId = stored || crypto.randomUUID();
-    if (!stored && typeof window !== 'undefined') localStorage.setItem('guestId', guestId);
-    if (typeof window !== 'undefined') localStorage.setItem('guestNickname', nickname);
 
     const guestUser = { id: guestId, email: `guest_${guestId}@guest.com` };
     const guestProfile = {
@@ -178,8 +188,14 @@ export const useUserStore = create<UserState>((set) => ({
       played_matches: storedProfile?.played_matches || 0,
       wins: storedProfile?.wins || 0,
     };
-    persistAuth(guestUser, guestProfile);
-    set({ user: guestUser, profile: guestProfile, loading: false, initialized: true });
+
+    const savedProfile = await saveServerProfile(guestProfile);
+
+    if (!stored && typeof window !== 'undefined') localStorage.setItem('guestId', guestId);
+    if (typeof window !== 'undefined') localStorage.setItem('guestNickname', savedProfile.nickname || nickname);
+
+    persistAuth(guestUser, savedProfile);
+    set({ user: guestUser, profile: savedProfile, loading: false, initialized: true });
   },
   logout: async () => {
     await supabaseAuth.auth.signOut();

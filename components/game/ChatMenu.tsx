@@ -99,10 +99,11 @@ export default function ChatMenu({ roomId, room, me, players = [], collapsible =
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.94 }}
         onClick={toggle}
-        className="qse-chat-button gameplay-chat-button fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[75] flex h-14 w-14 items-center justify-center rounded-full border-2 border-indigo-200 bg-indigo-600 p-3 text-white shadow-2xl transition-colors hover:bg-indigo-700"
-        aria-label="Abrir chat"
+        className="qse-chat-button gameplay-chat-button fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[75] flex h-14 min-w-14 items-center justify-center gap-2 rounded-full border-2 border-indigo-200 bg-indigo-600 px-4 py-3 text-white shadow-2xl transition-colors hover:bg-indigo-700 max-sm:min-w-[5.25rem] max-sm:rounded-2xl"
+        aria-label={unread > 0 ? `Abrir chat, ${unread} mensagens novas` : 'Abrir chat'}
       >
-        <MessageCircle className="pointer-events-none h-7 w-7" />
+        <MessageCircle className="pointer-events-none h-6 w-6" />
+        <span className="pointer-events-none hidden text-xs font-black uppercase tracking-wide max-sm:inline">Chat</span>
         {unread > 0 && <span className="pointer-events-none absolute -right-1.5 -top-1.5 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-black text-white shadow-md">{unread}</span>}
       </motion.button>
     );
@@ -121,7 +122,7 @@ export default function ChatMenu({ roomId, room, me, players = [], collapsible =
     >
       <div className="flex shrink-0 items-center justify-between border-b border-indigo-100 bg-indigo-50/70 px-4 py-3">
         <span className="flex items-center gap-2 text-xs font-black text-indigo-950"><Smile className="h-5 w-5 text-indigo-500" /> CHAT</span>
-        <button onClick={toggle} className="rounded-xl bg-white p-2 text-indigo-500 shadow-sm hover:bg-indigo-100" aria-label="Fechar chat"><X className="h-4 w-4" /></button>
+        <button onClick={toggle} className="rounded-xl bg-white p-2 text-indigo-500 shadow-sm hover:bg-indigo-100" aria-label="Minimizar chat"><X className="h-4 w-4" /></button>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain bg-white p-3">

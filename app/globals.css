@@ -132,6 +132,113 @@ h3:has(svg.lucide-list) > span:last-child {
   animation: arena-glow 7s ease-in-out infinite;
 }
 
+/* Live characters: make the waiting-state list feel like cards on a table. */
+.party-grid-bg div:has(> h3 svg.lucide-list) {
+  position: relative;
+  border-radius: 1.75rem !important;
+  border-color: rgba(99, 102, 241, 0.18) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.88)) !important;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
+  overflow: hidden;
+}
+
+.party-grid-bg div:has(> h3 svg.lucide-list)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(245, 158, 11, 0.14), transparent 34%),
+    radial-gradient(circle at 84% 16%, rgba(99, 102, 241, 0.12), transparent 36%);
+}
+
+.party-grid-bg div:has(> h3 svg.lucide-list) > h3 {
+  position: relative;
+  margin-bottom: 0.85rem !important;
+  border-bottom: 0 !important;
+  padding-bottom: 0 !important;
+  color: #1e1b4b !important;
+  letter-spacing: 0.12em;
+}
+
+.party-grid-bg div:has(> h3 svg.lucide-list) > h3::after {
+  content: "cartas na mesa";
+  margin-left: auto;
+  border: 1px solid rgba(99, 102, 241, 0.14);
+  border-radius: 999px;
+  background: rgba(238, 242, 255, 0.72);
+  padding: 0.25rem 0.55rem;
+  color: #6366f1;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.party-grid-bg div:has(> h3 svg.lucide-list) > ul {
+  position: relative;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 0.75rem;
+}
+
+.party-grid-bg div:has(> h3 svg.lucide-list) > ul > li {
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem !important;
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 0.45rem !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.party-grid-bg div:has(> h3 svg.lucide-list) > ul > li:hover {
+  transform: translateY(-2px);
+  border-color: rgba(99, 102, 241, 0.32);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+}
+
+.party-grid-bg div:has(> h3 svg.lucide-list) > ul > li > div,
+.party-grid-bg div:has(> h3 svg.lucide-list) > ul > li > img {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 2 / 3;
+  border-radius: 0.95rem !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5), 0 9px 20px rgba(15, 23, 42, 0.16);
+}
+
+.party-grid-bg div:has(> h3 svg.lucide-list) > ul > li > span {
+  display: block;
+  min-height: 2rem;
+  color: #1e1b4b !important;
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
+  line-height: 1.05rem;
+  text-align: center;
+  white-space: normal !important;
+}
+
+@media (max-width: 640px) {
+  .party-grid-bg div:has(> h3 svg.lucide-list) > ul {
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+    gap: 0.55rem;
+  }
+
+  .party-grid-bg div:has(> h3 svg.lucide-list) > ul > li {
+    border-radius: 1rem;
+    padding: 0.35rem !important;
+  }
+
+  .party-grid-bg div:has(> h3 svg.lucide-list) > ul > li > span {
+    min-height: 1.65rem;
+    font-size: 0.62rem !important;
+    line-height: 0.82rem;
+  }
+}
+
 /* Official deck editor card preview
    The external editor card has text/buttons below the art. Keep the card editor auto-height
    and reserve a separate vertical 2:3 preview area so actions never compress the art. */

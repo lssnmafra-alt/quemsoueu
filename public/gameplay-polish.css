@@ -1,28 +1,4 @@
-@import url('/gameplay-table.css');
-@import url('/arena-r2-skin.css');
 @import url('/gameplay-components.css');
-@import url('/gameplay-hotfix.css');
-@import url('/gameplay-unfloat.css');
 
-/* Gameplay premium polish layer.
-   Scoped to PLAYING only. Visual-only. */
-
-.party-grid-bg:has(>main) .z-\[80\],
-.party-grid-bg:has(>main) .z-\[82\],
-.party-grid-bg:has(>main) .z-\[85\] {
-  border-radius: 1.75rem;
-}
-
-.party-grid-bg:has(>main) .z-\[80\] {
-  overflow: hidden;
-  background: radial-gradient(circle at 50% 34%, rgba(99,102,241,.26), transparent 32%), radial-gradient(circle at 50% 76%, rgba(245,158,11,.18), transparent 42%), rgba(15, 23, 42, .88) !important;
-}
-
-@media (max-width: 640px) {
-  .party-grid-bg:has(>main) .z-\[80\],
-  .party-grid-bg:has(>main) .z-\[82\],
-  .party-grid-bg:has(>main) .z-\[85\] {
-    border-radius: 1.15rem;
-    padding: .85rem !important;
-  }
-}
+/* Gameplay premium polish entrypoint.
+   The PLAYING layout now uses explicit JSX classes instead of structural selectors. */

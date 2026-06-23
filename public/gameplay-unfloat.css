@@ -1,19 +1,14 @@
-/* Gameplay flow layout.
-   Visual-only. Header and player rail stay in normal page flow, not floating. */
+/* Gameplay score layout.
+   Visual-only. Players are a life HUD, not a second board and not a floating panel. */
 
 .gameplay-top-hud,
 .party-grid-bg:has(> main) > main > header {
   position: relative !important;
   top: auto !important;
   z-index: 10 !important;
-  margin-bottom: .6rem !important;
+  order: 0 !important;
+  margin-bottom: .45rem !important;
   transform: none !important;
-}
-
-.gameplay-shell,
-.party-grid-bg:has(> main) > main {
-  padding-bottom: .75rem !important;
-  scroll-padding-bottom: .75rem !important;
 }
 
 .gameplay-player-rail,
@@ -22,28 +17,45 @@
   left: auto !important;
   right: auto !important;
   bottom: auto !important;
-  z-index: 8 !important;
-  max-height: none !important;
+  order: 1 !important;
+  z-index: 9 !important;
+  max-height: 4.15rem !important;
   overflow: hidden !important;
-  margin-top: .55rem !important;
-  margin-bottom: .75rem !important;
-  padding: .5rem !important;
-  border-radius: 1.2rem !important;
+  margin: 0 0 .5rem !important;
+  padding: .42rem .5rem !important;
+  border-radius: 1.35rem !important;
+  background: linear-gradient(180deg, rgba(41, 13, 63, .86), rgba(15, 5, 29, .9)) !important;
+}
+
+.gameplay-card-table,
+.party-grid-bg:has(> main) > main > section:first-of-type {
+  order: 2 !important;
+}
+
+.gameplay-recap,
+.party-grid-bg:has(> main) > main > section:not(:first-of-type):not(:last-of-type) {
+  order: 3 !important;
+}
+
+.gameplay-shell,
+.party-grid-bg:has(> main) > main {
+  padding-bottom: .75rem !important;
+  scroll-padding-bottom: .75rem !important;
 }
 
 .gameplay-player-rail > div:first-child,
 .party-grid-bg:has(> main) > main > section:last-of-type > div:first-child {
-  margin-bottom: .35rem !important;
+  margin-bottom: .28rem !important;
 }
 
 .gameplay-player-rail > div:last-child,
 .party-grid-bg:has(> main) > main > section:last-of-type > div:last-child {
   display: flex !important;
   grid-template-columns: none !important;
-  gap: .45rem !important;
+  gap: .42rem !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
-  padding-bottom: .15rem !important;
+  padding-bottom: .08rem !important;
   scroll-snap-type: x proximity;
   scrollbar-width: none;
 }
@@ -55,71 +67,93 @@
 
 .gameplay-player-rail > div:last-child > div,
 .party-grid-bg:has(> main) > main > section:last-of-type > div:last-child > div {
-  min-width: 8.6rem !important;
-  max-width: 8.6rem !important;
-  padding: .38rem !important;
-  border-radius: .9rem !important;
+  min-width: 6.6rem !important;
+  max-width: 6.6rem !important;
+  min-height: 2.2rem !important;
+  padding: .28rem !important;
+  border-radius: 999px !important;
   scroll-snap-align: start;
+  background: rgba(255,255,255,.92) !important;
 }
 
 .gameplay-player-rail [class*="h-10"][class*="w-10"],
 .party-grid-bg:has(> main) > main > section:last-of-type [class*="h-10"][class*="w-10"] {
-  width: 1.85rem !important;
-  height: 1.85rem !important;
-  border-radius: .75rem !important;
+  width: 1.7rem !important;
+  height: 1.7rem !important;
+  border-radius: 999px !important;
 }
 
-/* Floating chat/config should exist, but not dominate the player rail or cards. */
-.party-grid-bg:has(> main) [class*="fixed"][class*="bottom"] {
-  transform: scale(.72) !important;
-  opacity: .72 !important;
+.gameplay-player-rail p,
+.party-grid-bg:has(> main) > main > section:last-of-type p {
+  font-size: .56rem !important;
+  line-height: .72rem !important;
 }
 
-.party-grid-bg:has(> main) [class*="fixed"][class*="bottom"]:hover,
-.party-grid-bg:has(> main) [class*="fixed"][class*="bottom"]:focus-within {
-  transform: scale(.9) !important;
+.gameplay-player-rail svg,
+.party-grid-bg:has(> main) > main > section:last-of-type svg {
+  width: .62rem !important;
+  height: .62rem !important;
+}
+
+.qse-chat-button,
+.qse-chat-panel {
+  transform: none !important;
   opacity: 1 !important;
+}
+
+.party-grid-bg:has(> main) .qse-chat-button {
+  width: 2.8rem !important;
+  height: 2.8rem !important;
+  bottom: calc(1rem + env(safe-area-inset-bottom)) !important;
+  right: .8rem !important;
+  z-index: 72 !important;
+}
+
+.party-grid-bg:has(> main) .qse-chat-panel {
+  opacity: 1 !important;
+  background: #fff !important;
+  z-index: 90 !important;
 }
 
 @media (max-width: 640px) {
   .gameplay-top-hud,
   .party-grid-bg:has(> main) > main > header {
-    margin-bottom: .5rem !important;
+    margin-bottom: .38rem !important;
   }
 
   .gameplay-player-rail,
   .party-grid-bg:has(> main) > main > section:last-of-type {
-    margin-top: .5rem !important;
-    margin-bottom: 1rem !important;
-    padding: .42rem !important;
+    max-height: 3.85rem !important;
+    margin-bottom: .42rem !important;
+    padding: .34rem .4rem !important;
+  }
+
+  .gameplay-player-rail > div:first-child,
+  .party-grid-bg:has(> main) > main > section:last-of-type > div:first-child {
+    margin-bottom: .18rem !important;
   }
 
   .gameplay-player-rail > div:last-child,
   .party-grid-bg:has(> main) > main > section:last-of-type > div:last-child {
-    gap: .4rem !important;
+    gap: .34rem !important;
   }
 
   .gameplay-player-rail > div:last-child > div,
   .party-grid-bg:has(> main) > main > section:last-of-type > div:last-child > div {
-    min-width: 7.65rem !important;
-    max-width: 7.65rem !important;
-    padding: .32rem !important;
-  }
-
-  .gameplay-player-rail p,
-  .party-grid-bg:has(> main) > main > section:last-of-type p {
-    font-size: .52rem !important;
-    line-height: .7rem !important;
+    min-width: 5.8rem !important;
+    max-width: 5.8rem !important;
+    min-height: 2rem !important;
+    padding: .22rem !important;
   }
 
   .gameplay-player-rail [class*="h-10"][class*="w-10"],
   .party-grid-bg:has(> main) > main > section:last-of-type [class*="h-10"][class*="w-10"] {
-    width: 1.55rem !important;
-    height: 1.55rem !important;
+    width: 1.42rem !important;
+    height: 1.42rem !important;
   }
 
   .gameplay-shell,
   .party-grid-bg:has(> main) > main {
-    padding-bottom: .6rem !important;
+    padding-bottom: .65rem !important;
   }
 }

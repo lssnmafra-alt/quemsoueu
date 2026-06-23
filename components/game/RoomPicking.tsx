@@ -246,15 +246,15 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
         </div>
 
         <div className="mb-5 md:mb-8 mt-4 relative">
-          <h2 className="text-4xl md:text-5xl font-black mb-2 text-indigo-950 font-display flex items-center justify-center gap-2">
-            <Layers className="h-9 w-9 text-indigo-500" /> {isTiebreak ? 'Desempate!' : 'Monte seu Baralho'}
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black mb-2 text-indigo-950 font-display flex items-center justify-center gap-2">
+            <Layers className="h-8 w-8 md:h-9 md:w-9 text-indigo-500" /> {isTiebreak ? 'Desempate!' : 'Monte seu Baralho'}
           </h2>
           <p className={cn('text-sm font-black uppercase tracking-wider', pickingNotice ? 'text-amber-600' : allRealPlayersReady ? 'text-emerald-600' : confirmed ? 'text-emerald-700' : 'text-indigo-600')}>
             {mainStatus}
           </p>
           {!allRealPlayersReady && !confirmed && (
-            <p className="mt-2 text-xs text-indigo-500 font-bold uppercase tracking-wider">
-              Tempo restante: <span className={cn('font-bold text-rose-500 font-mono', timeLeft <= 5 && 'animate-pulse')}>{formattedTime || formatCountdown(timeLeft)}</span>
+            <p className="mt-3 text-xs text-indigo-600 font-black uppercase tracking-wider">
+              Tempo restante: <span className={cn('ml-1 inline-flex rounded-2xl border-2 border-rose-100 bg-rose-50 px-3 py-1 text-xl md:text-2xl font-black text-rose-600 font-mono shadow-sm', timeLeft <= 5 && 'animate-pulse')}>{formattedTime || formatCountdown(timeLeft)}</span>
             </p>
           )}
         </div>
@@ -273,7 +273,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
           </p>
         ) : null}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-8 sm:gap-6 mb-8 overflow-y-auto max-h-[58vh] p-2 sm:p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-3 gap-y-7 sm:gap-6 mb-8 overflow-y-auto max-h-[58vh] p-2 sm:p-4">
           {isDeckLoading && deckChars.length === 0 && (
             <div className="col-span-full flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-indigo-100 bg-indigo-50/40 p-8 text-indigo-500">
               <Loader2 className="h-8 w-8 animate-spin" />
@@ -295,18 +295,29 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
 
           {deckChars.map((c, i) => {
             const isSelected = selectedChars.includes(c.id);
+            const canToggle = !confirmed && isMeEligible;
             return (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                whileHover={{ scale: confirmed || !isMeEligible ? 1 : 1.04, translateY: confirmed || !isMeEligible ? 0 : -4 }}
+                whileHover={{ scale: canToggle ? 1.04 : 1, translateY: canToggle ? -4 : 0 }}
                 transition={{ delay: i * 0.05 }}
                 key={c.id}
+                role="button"
+                tabIndex={canToggle ? 0 : -1}
+                aria-pressed={isSelected}
+                aria-label={`${isSelected ? 'Remover' : 'Selecionar'} ${c.name}`}
                 onClick={() => toggleChar(c.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    toggleChar(c.id);
+                  }
+                }}
                 className={cn(
-                  'aspect-[2/3] transition-all duration-300 relative shadow-md border-4 rounded-2xl',
+                  'aspect-[2/3] transition-all duration-300 relative shadow-md border-4 rounded-2xl focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-amber-400',
                   usesOfficialImages ? 'bg-transparent overflow-visible p-1' : 'bg-slate-50 flex flex-col overflow-hidden',
-                  confirmed || !isMeEligible ? 'cursor-default' : 'cursor-pointer',
+                  canToggle ? 'cursor-pointer' : 'cursor-default',
                   isSelected ? 'border-indigo-500 ring-4 ring-indigo-200 scale-[1.02]' : 'border-slate-100 hover:border-indigo-300',
                   (confirmed || !isMeEligible) && !isSelected && 'opacity-50 grayscale bg-slate-100'
                 )}
@@ -316,7 +327,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
                   imageUrl={c.image_url}
                   avatarConfig={c.avatar_config}
                   isOfficial={usesOfficialImages}
-                  alt=""
+                  alt={c.name}
                   className={usesOfficialImages ? 'h-full w-full' : 'flex-1 object-cover w-full h-full bg-slate-100'}
                 />
 
@@ -340,6 +351,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
           <Button
             onClick={confirmSelection}
             disabled={selectedChars.length !== pickCount || confirmed || !isMeEligible}
+            aria-label={confirmed ? 'Selecao confirmada' : selectedChars.length === pickCount ? 'Confirmar escolha de personagens' : `Faltam ${pickCount - selectedChars.length} personagens para confirmar`}
             className={cn(
               'w-full md:w-96 h-14 text-sm font-black tracking-wider uppercase transition-all rounded-2xl cursor-pointer',
               selectedChars.length === pickCount && !confirmed && isMeEligible

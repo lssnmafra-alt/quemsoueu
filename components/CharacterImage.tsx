@@ -7,7 +7,7 @@ import AvatarRenderer from '@/components/avatar/AvatarRenderer';
 import OfficialFrame, { getOfficialFrameTheme, type OfficialCardTheme } from '@/components/cards/OfficialFrame';
 import OfficialName from '@/components/cards/OfficialName';
 import type { AvatarConfig } from '@/lib/avatarConfig';
-import { CARD_RARITY_LABELS, getCardRarity, getCardRarityFrameUrl, type CardRarity } from '@/lib/cardRarity';
+import { CARD_RARITY_LABELS, CARD_RARITY_OPTIONS, getCardRarity, getCardRarityFrameUrl, type CardRarity } from '@/lib/cardRarity';
 
 type CharacterImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'> & {
   name: string;
@@ -52,20 +52,29 @@ export default function CharacterImage({
   }, [imageUrl]);
 
   const storedOfficialFrameTheme = getStoredOfficialFrameTheme(avatarConfig);
+  const storedCardRarity = getCardRarity(cardRarity ?? avatarConfig);
   const [manualFrameTheme, setManualFrameTheme] = useState<OfficialCardTheme | undefined>(storedOfficialFrameTheme);
+  const [manualCardRarity, setManualCardRarity] = useState<CardRarity>(storedCardRarity);
   const [officialDeckEditorId, setOfficialDeckEditorId] = useState('');
   const [savingFrameTheme, setSavingFrameTheme] = useState(false);
+  const [savingRarity, setSavingRarity] = useState(false);
   const frameTheme = officialFrameTheme ?? manualFrameTheme ?? pickOfficialFrameTheme(name);
   const theme = getOfficialFrameTheme(frameTheme);
-  const rarity = getCardRarity(cardRarity ?? avatarConfig);
+  const rarity = manualCardRarity;
   const [brokenUrls, setBrokenUrls] = useState<Record<string, true>>({});
   const src = sources.find((candidate) => !brokenUrls[candidate]);
   const shouldHideOfficialName = hideOfficialName || String(className || '').includes('w-12 h-14');
-  const showOfficialFrameThemePicker = Boolean(isOfficial && officialDeckEditorId && !shouldHideOfficialName && !showRarityFrame);
+  const shouldUseRarityFrame = showRarityFrame || (isOfficial && !shouldHideOfficialName);
+  const showOfficialFrameThemePicker = Boolean(isOfficial && officialDeckEditorId && !shouldHideOfficialName && !shouldUseRarityFrame);
+  const showRarityPicker = Boolean(isOfficial && officialDeckEditorId && !shouldHideOfficialName && shouldUseRarityFrame);
 
   useEffect(() => {
     setManualFrameTheme(storedOfficialFrameTheme);
   }, [storedOfficialFrameTheme, name]);
+
+  useEffect(() => {
+    setManualCardRarity(storedCardRarity);
+  }, [storedCardRarity, name]);
 
   useEffect(() => {
     if (!isOfficial || typeof window === 'undefined') {
@@ -118,20 +127,53 @@ export default function CharacterImage({
     }
   };
 
+  const handleCardRarityChange = async (nextRarity: CardRarity) => {
+    if (!officialDeckEditorId || savingRarity) return;
+
+    const previousRarity = rarity;
+    setManualCardRarity(nextRarity);
+    setSavingRarity(true);
+
+    try {
+      const response = await fetch('/api/official-decks/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update-rarity',
+          deckId: officialDeckEditorId,
+          name,
+          imageUrl: sanitizeImageUrl(imageUrl) || '',
+          rarity: nextRarity,
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Nao foi possivel salvar a raridade.');
+      }
+    } catch (error: any) {
+      setManualCardRarity(previousRarity);
+      alert(error.message || 'Nao foi possivel salvar a raridade.');
+    } finally {
+      setSavingRarity(false);
+    }
+  };
+
   const officialFrameThemePicker = showOfficialFrameThemePicker ? (
     <label className="absolute left-2 top-2 z-30 rounded-xl border border-white/25 bg-slate-950/75 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-lg backdrop-blur">
       <span className="mb-0.5 block opacity-70">Moldura</span>
-      <select
-        value={frameTheme}
-        disabled={savingFrameTheme}
-        onChange={(event) => handleOfficialFrameThemeChange(event.target.value as OfficialCardTheme)}
-        className="pointer-events-auto w-full cursor-pointer rounded-lg border border-white/15 bg-white/95 px-1 py-0.5 text-[10px] font-black text-slate-900 outline-none disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {OFFICIAL_FRAME_THEME_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
+      <select value={frameTheme} disabled={savingFrameTheme} onChange={(event) => handleOfficialFrameThemeChange(event.target.value as OfficialCardTheme)} className="pointer-events-auto w-full cursor-pointer rounded-lg border border-white/15 bg-white/95 px-1 py-0.5 text-[10px] font-black text-slate-900 outline-none disabled:cursor-not-allowed disabled:opacity-60">
+        {OFFICIAL_FRAME_THEME_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+    </label>
+  ) : null;
+
+  const rarityPicker = showRarityPicker ? (
+    <label className="absolute left-2 top-2 z-30 rounded-xl border border-white/25 bg-slate-950/75 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-lg backdrop-blur">
+      <span className="mb-0.5 block opacity-70">Raridade</span>
+      <select value={rarity} disabled={savingRarity} onChange={(event) => handleCardRarityChange(event.target.value as CardRarity)} className="pointer-events-auto w-full cursor-pointer rounded-lg border border-white/15 bg-white/95 px-1 py-0.5 text-[10px] font-black text-slate-900 outline-none disabled:cursor-not-allowed disabled:opacity-60">
+        {CARD_RARITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
     </label>
   ) : null;
@@ -141,38 +183,18 @@ export default function CharacterImage({
       <div className="absolute inset-[7%] z-0 overflow-hidden rounded-[1.1rem]">
         {children}
       </div>
-      <img
-        src={getCardRarityFrameUrl(rarity)}
-        alt=""
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-[-6%] z-10 h-[112%] w-[112%] object-fill"
-        referrerPolicy="no-referrer"
-      />
-      {!shouldHideOfficialName && (
-        <span className="pointer-events-none absolute left-[18%] right-[18%] top-[7.8%] z-20 truncate rounded-full bg-slate-950/70 px-2 py-0.5 text-center text-[9px] font-black uppercase tracking-[0.16em] text-white shadow-lg">
-          {CARD_RARITY_LABELS[rarity]}
-        </span>
-      )}
+      <img src={getCardRarityFrameUrl(rarity)} alt="" aria-hidden="true" className="pointer-events-none absolute inset-[-6%] z-10 h-[112%] w-[112%] object-fill" referrerPolicy="no-referrer" />
+      {!shouldHideOfficialName && <span className="pointer-events-none absolute left-[18%] right-[18%] top-[7.8%] z-20 truncate rounded-full bg-slate-950/70 px-2 py-0.5 text-center text-[9px] font-black uppercase tracking-[0.16em] text-white shadow-lg">{CARD_RARITY_LABELS[rarity]}</span>}
+      {rarityPicker}
     </div>
   );
 
-  if (showRarityFrame) {
+  if (shouldUseRarityFrame) {
     if (!src) {
-      return renderRarityFrame(
-        <AvatarRenderer config={avatarConfig} name={name} className="h-full w-full object-cover" />
-      );
+      return renderRarityFrame(<AvatarRenderer config={avatarConfig} name={name} className="h-full w-full object-cover" />);
     }
 
-    return renderRarityFrame(
-      <img
-        {...props}
-        src={src}
-        alt={alt ?? name}
-        referrerPolicy={referrerPolicy}
-        className="h-full w-full object-cover object-center"
-        onError={handleError}
-      />,
-    );
+    return renderRarityFrame(<img {...props} src={src} alt={alt ?? name} referrerPolicy={referrerPolicy} className="h-full w-full object-cover object-center" onError={handleError} />);
   }
 
   if (!src) {
@@ -181,19 +203,9 @@ export default function CharacterImage({
     }
 
     return (
-      <div
-        className={cn(
-          'official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] shadow-xl',
-          theme.border,
-          theme.base,
-          className,
-          placeholderClassName,
-        )}
-      >
+      <div className={cn('official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] shadow-xl', theme.border, theme.base, className, placeholderClassName)}>
         <div className="absolute inset-[0.22rem] rounded-[0.95rem] bg-slate-900" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <ImageIcon className={cn('h-12 w-12 opacity-45', theme.nameColor)} />
-        </div>
+        <div className="absolute inset-0 flex items-center justify-center"><ImageIcon className={cn('h-12 w-12 opacity-45', theme.nameColor)} /></div>
         <OfficialFrame theme={frameTheme} />
         {!shouldHideOfficialName && <OfficialName name={name || 'Personagem'} theme={theme} showLabel />}
         {officialFrameThemePicker}
@@ -203,22 +215,8 @@ export default function CharacterImage({
 
   if (isOfficial) {
     return (
-      <div
-        className={cn(
-          'official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] shadow-xl',
-          theme.border,
-          theme.base,
-          className,
-        )}
-      >
-        <img
-          {...props}
-          src={src}
-          alt={alt ?? name}
-          referrerPolicy={referrerPolicy}
-          className="absolute inset-[0.22rem] h-[calc(100%-0.44rem)] w-[calc(100%-0.44rem)] rounded-[0.95rem] object-cover object-center"
-          onError={handleError}
-        />
+      <div className={cn('official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] shadow-xl', theme.border, theme.base, className)}>
+        <img {...props} src={src} alt={alt ?? name} referrerPolicy={referrerPolicy} className="absolute inset-[0.22rem] h-[calc(100%-0.44rem)] w-[calc(100%-0.44rem)] rounded-[0.95rem] object-cover object-center" onError={handleError} />
         <div className="pointer-events-none absolute inset-[0.22rem] rounded-[0.95rem] bg-gradient-to-t from-slate-950/5 via-transparent to-white/5" />
         <OfficialFrame theme={frameTheme} />
         {!shouldHideOfficialName && <OfficialName name={name} theme={theme} />}
@@ -227,26 +225,15 @@ export default function CharacterImage({
     );
   }
 
-  return (
-    <img
-      {...props}
-      src={src}
-      alt={alt ?? name}
-      referrerPolicy={referrerPolicy}
-      className={className}
-      onError={handleError}
-    />
-  );
+  return <img {...props} src={src} alt={alt ?? name} referrerPolicy={referrerPolicy} className={className} onError={handleError} />;
 }
 
 function pickOfficialFrameTheme(name: string): OfficialCardTheme {
   const normalized = normalizeThemeText(name);
-
   if (includesAny(normalized, ['bruxa', 'esmeralda', 'floresta', 'mago', 'maga'])) return 'nature';
   if (includesAny(normalized, ['fantasma', 'entidade', 'galatico', 'arcano', 'cosmico'])) return 'arcane';
   if (includesAny(normalized, ['susto', 'medo', 'palhaco', 'acougueiro'])) return 'ruby';
   if (includesAny(normalized, ['mascara', 'obsidiano', 'metal', 'sombra'])) return 'shadow';
-
   return 'celestial';
 }
 
@@ -255,16 +242,11 @@ function includesAny(value: string, terms: string[]) {
 }
 
 function normalizeThemeText(value: string) {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 }
 
 function getStoredOfficialFrameTheme(avatarConfig?: AvatarConfig | null): OfficialCardTheme | undefined {
   const theme = (avatarConfig as any)?.officialFrameTheme;
-
   return isOfficialFrameTheme(theme) ? theme : undefined;
 }
 
@@ -274,21 +256,16 @@ function isOfficialFrameTheme(value: unknown): value is OfficialCardTheme {
 
 function sanitizeImageUrl(value?: string | null) {
   const url = value?.trim();
-
   if (!url) return undefined;
   if (isBadLocalFallback(url)) return undefined;
-
   return url;
 }
 
 function isBadLocalFallback(url: string) {
   const normalized = url.toLowerCase().trim();
-
   if (normalized.startsWith('data:image/svg')) return true;
   if (normalized.includes('fallback-svg')) return true;
   if (normalized.includes('source=fallback')) return true;
-
   if (normalized.includes('/characters/') && normalized.endsWith('.svg')) return true;
-
   return false;
 }

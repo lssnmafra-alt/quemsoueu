@@ -1,7 +1,9 @@
 @import url('/gameplay-table.css');
+@import url('/arena-r2-skin.css');
 
 /* Gameplay premium polish layer
-   This file now delegates the structural table correction to gameplay-table.css.
+   Structural polish is in gameplay-table.css.
+   Arena assets are in arena-r2-skin.css.
    Visual-only. No gameplay rules, timers, bots or backend behavior. */
 
 .party-grid-bg > div:first-child > header {

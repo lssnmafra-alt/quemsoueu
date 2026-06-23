@@ -1,0 +1,72 @@
+/* Remove floating gameplay panels.
+   Visual-only. Keeps header and players in normal page flow. */
+
+.gameplay-top-hud,
+.party-grid-bg:has(> main) > main > header {
+  position: relative !important;
+  top: auto !important;
+  z-index: 10 !important;
+  margin-bottom: .65rem !important;
+  transform: none !important;
+}
+
+.gameplay-player-rail,
+.party-grid-bg:has(> main) > main > section:last-of-type {
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: 8 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  margin-top: .7rem !important;
+  margin-bottom: 1.25rem !important;
+}
+
+.gameplay-player-rail > div:last-child,
+.party-grid-bg:has(> main) > main > section:last-of-type > div:last-child {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  overflow: visible !important;
+}
+
+.gameplay-player-rail > div:last-child > div,
+.party-grid-bg:has(> main) > main > section:last-of-type > div:last-child > div {
+  min-width: 0 !important;
+}
+
+.gameplay-shell,
+.party-grid-bg:has(> main) > main {
+  padding-bottom: 1rem !important;
+  scroll-padding-bottom: 1rem !important;
+}
+
+.party-grid-bg:has(> main) [class*="fixed"][class*="bottom"] {
+  transform: scale(.88) !important;
+  opacity: .86 !important;
+}
+
+@media (max-width: 640px) {
+  .gameplay-top-hud,
+  .party-grid-bg:has(> main) > main > header {
+    margin-bottom: .55rem !important;
+  }
+
+  .gameplay-player-rail,
+  .party-grid-bg:has(> main) > main > section:last-of-type {
+    margin-top: .55rem !important;
+    margin-bottom: 4.25rem !important;
+    padding: .5rem !important;
+  }
+
+  .gameplay-player-rail > div:last-child,
+  .party-grid-bg:has(> main) > main > section:last-of-type > div:last-child {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .45rem !important;
+  }
+
+  .gameplay-shell,
+  .party-grid-bg:has(> main) > main {
+    padding-bottom: 1rem !important;
+  }
+}

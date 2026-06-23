@@ -118,6 +118,92 @@
     radial-gradient(circle at 50% 72%, rgba(245,158,11,.12), transparent 44%);
 }
 
+/* Part 4: cinematic reveal stage. */
+.party-grid-bg .z-\[80\] {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(99,102,241,.26), transparent 32%),
+    radial-gradient(circle at 50% 76%, rgba(245,158,11,.18), transparent 42%),
+    rgba(15, 23, 42, .88) !important;
+}
+
+.party-grid-bg .z-\[80\]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: min(72vw, 680px);
+  height: min(28vw, 180px);
+  transform: translateX(-50%);
+  border-radius: 999px;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, rgba(255,255,255,.18), rgba(99,102,241,.10) 42%, transparent 70%);
+  filter: blur(3px);
+}
+
+.party-grid-bg .z-\[80\] > div {
+  position: relative;
+  z-index: 1;
+}
+
+.party-grid-bg .z-\[80\] h2 {
+  letter-spacing: -0.035em;
+  text-shadow: 0 10px 30px rgba(0,0,0,.24);
+}
+
+.party-grid-bg .z-\[80\] .aspect-\[2\/3\] {
+  box-shadow:
+    0 28px 80px rgba(0,0,0,.38),
+    0 0 0 1px rgba(255,255,255,.14),
+    0 0 42px rgba(245,158,11,.16) !important;
+}
+
+.party-grid-bg .z-\[80\] div:has(> .aspect-\[2\/3\]) {
+  filter: drop-shadow(0 18px 38px rgba(0,0,0,.35));
+}
+
+.party-grid-bg .z-\[80\] div[class*="bg-white"][class*="text-indigo-950"] {
+  border-width: 2px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.94)) !important;
+  box-shadow:
+    0 26px 80px rgba(0,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.88) !important;
+}
+
+.party-grid-bg .z-\[80\] div[class*="bg-emerald-500"],
+.party-grid-bg .z-\[80\] div[class*="bg-slate-900"] {
+  border-width: 2px !important;
+  box-shadow:
+    0 28px 80px rgba(0,0,0,.32),
+    0 0 0 1px rgba(255,255,255,.14) !important;
+}
+
+.party-grid-bg .z-\[80\] div[class*="bg-emerald-500"] {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255,255,255,.2), transparent 34%),
+    linear-gradient(135deg, #10b981, #059669) !important;
+}
+
+.party-grid-bg .z-\[80\] div[class*="bg-slate-900"] {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255,255,255,.12), transparent 34%),
+    linear-gradient(135deg, #020617, #1e293b) !important;
+}
+
+/* Elimination scene should feel heavy and intentional. */
+.party-grid-bg .z-\[80\] div[class*="from-slate-950"][class*="to-zinc-800"] {
+  border-width: 2px !important;
+  box-shadow:
+    0 30px 90px rgba(0,0,0,.42),
+    0 0 0 1px rgba(255,255,255,.12) !important;
+}
+
+.party-grid-bg .z-\[80\] div[class*="from-slate-950"] img {
+  filter: grayscale(1) contrast(.92) brightness(.82);
+}
+
 @media (max-width: 640px) {
   .party-grid-bg > div:first-child {
     gap: .45rem;
@@ -165,5 +251,27 @@
 
   .party-grid-bg button[type="button"]:has(.aspect-\[2\/3\]) .aspect-\[2\/3\] {
     border-radius: .85rem !important;
+  }
+
+  .party-grid-bg .z-\[80\],
+  .party-grid-bg .z-\[82\],
+  .party-grid-bg .z-\[85\] {
+    border-radius: 1.15rem;
+    padding: .85rem !important;
+  }
+
+  .party-grid-bg .z-\[80\] h2 {
+    font-size: clamp(2rem, 10vw, 3.2rem) !important;
+  }
+
+  .party-grid-bg .z-\[80\] .w-60 {
+    width: min(68vw, 15rem) !important;
+  }
+
+  .party-grid-bg .z-\[80\] div[class*="max-w-md"],
+  .party-grid-bg .z-\[80\] div[class*="max-w-lg"],
+  .party-grid-bg .z-\[80\] div[class*="max-w-2xl"] {
+    max-width: 92vw !important;
+    padding: 1.25rem !important;
   }
 }

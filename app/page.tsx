@@ -59,6 +59,9 @@ export default function LoginPage() {
     }
   };
 
+  const loggedInReady = Boolean(user && !profileNeedsSetup(profile));
+  const playerName = profile?.nickname || user?.email?.split('@')[0] || 'Jogador';
+
   return (
     <div className="relative min-h-screen bg-[#090a1d] flex flex-col items-center justify-center overflow-hidden font-sans p-4">
       <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-95" />
@@ -109,48 +112,64 @@ export default function LoginPage() {
         </div>
 
         <div className="w-full space-y-5">
-          <div className="bg-slate-50 border-2 border-slate-200 p-6 rounded-2xl">
-            <div className="space-y-4">
-              <div>
-                <label className="text-[12px] uppercase font-black tracking-wider text-indigo-950 block mb-2 text-center">
-                  Qual o seu nome no jogo?
-                </label>
+          {loggedInReady ? (
+            <div className="bg-slate-50 border-2 border-slate-200 p-6 rounded-2xl text-center">
+              <p className="text-[11px] uppercase font-black tracking-wider text-indigo-500">Voce ja esta conectado</p>
+              <h2 className="mt-1 truncate text-2xl font-black text-indigo-950 font-display">{playerName}</h2>
+              <p className="mt-2 text-xs font-bold text-slate-500">O lobby fica separado da tela inicial.</p>
+              <div className="mt-5 space-y-3">
+                <Button onClick={() => router.push('/lobby')} className="w-full h-14 text-base font-black tracking-wider uppercase text-white btn-squishy-indigo cursor-pointer flex items-center justify-center gap-2">
+                  Entrar no lobby <Play className="w-4 h-4 fill-white" />
+                </Button>
+                <Button type="button" variant="outline" onClick={() => router.push('/profile')} className="w-full h-12 rounded-xl border-2 border-indigo-100 text-xs font-black uppercase text-indigo-700 hover:bg-indigo-50">
+                  Editar perfil
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-50 border-2 border-slate-200 p-6 rounded-2xl">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[12px] uppercase font-black tracking-wider text-indigo-950 block mb-2 text-center">
+                    Qual o seu nome no jogo?
+                  </label>
 
-                <Input
-                  placeholder="DIGITE SEU APELIDO..."
-                  value={nickname}
-                  maxLength={16}
-                  onChange={(e) => {
-                    setNickname(e.target.value);
-                    if (error) setError('');
-                  }}
-                  className="bg-white border-2 border-indigo-200 focus:border-indigo-500 h-14 rounded-xl text-center text-xl font-bold text-indigo-950 placeholder:text-slate-350 transition-all shadow-inner focus-visible:ring-indigo-100"
-                />
-                {error && (
-                  <p className="text-xs font-semibold text-rose-500 text-center mt-2.5">
-                    {error}
-                  </p>
-                )}
+                  <Input
+                    placeholder="DIGITE SEU APELIDO..."
+                    value={nickname}
+                    maxLength={16}
+                    onChange={(e) => {
+                      setNickname(e.target.value);
+                      if (error) setError('');
+                    }}
+                    className="bg-white border-2 border-indigo-200 focus:border-indigo-500 h-14 rounded-xl text-center text-xl font-bold text-indigo-950 placeholder:text-slate-350 transition-all shadow-inner focus-visible:ring-indigo-100"
+                  />
+                  {error && (
+                    <p className="text-xs font-semibold text-rose-500 text-center mt-2.5">
+                      {error}
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  onClick={handleGuestLogin}
+                  disabled={loading || !nickname.trim()}
+                  className="w-full h-14 text-base font-black tracking-wider uppercase text-white btn-squishy-indigo cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {loading ? 'Entrando...' : 'Jogar Rápido'}
+                  {!loading && <Play className="w-4 h-4 fill-white" />}
+                </Button>
               </div>
 
-              <Button
-                onClick={handleGuestLogin}
-                disabled={loading || !nickname.trim()}
-                className="w-full h-14 text-base font-black tracking-wider uppercase text-white btn-squishy-indigo cursor-pointer flex items-center justify-center gap-2"
-              >
-                {loading ? 'Entrando...' : 'Jogar Rápido'}
-                {!loading && <Play className="w-4 h-4 fill-white" />}
-              </Button>
-            </div>
+              <div className="flex items-center gap-3 py-4">
+                <div className="flex-1 h-0.5 bg-slate-200"></div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">ou entre com</span>
+                <div className="flex-1 h-0.5 bg-slate-200"></div>
+              </div>
 
-            <div className="flex items-center gap-3 py-4">
-              <div className="flex-1 h-0.5 bg-slate-200"></div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">ou entre com</span>
-              <div className="flex-1 h-0.5 bg-slate-200"></div>
+              <GoogleLoginButton redirectTo="/" />
             </div>
-
-            <GoogleLoginButton redirectTo="/" />
-          </div>
+          )}
 
           <div className="flex justify-center gap-4 text-xs font-semibold text-white/85 font-mono drop-shadow">
             <span className="flex items-center gap-1">

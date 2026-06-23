@@ -63,8 +63,10 @@ export default function CharacterImage({
   const rarity = manualCardRarity;
   const [brokenUrls, setBrokenUrls] = useState<Record<string, true>>({});
   const src = sources.find((candidate) => !brokenUrls[candidate]);
-  const shouldHideOfficialName = hideOfficialName || String(className || '').includes('w-12 h-14');
-  const shouldUseRarityFrame = showRarityFrame || (isOfficial && !shouldHideOfficialName);
+  const classText = String(className || '');
+  const shouldHideOfficialName = hideOfficialName || classText.includes('w-12 h-14');
+  const looksLikeFullCardImage = classText.includes('h-full') && classText.includes('w-full');
+  const shouldUseRarityFrame = showRarityFrame || looksLikeFullCardImage || (isOfficial && !shouldHideOfficialName);
   const showOfficialFrameThemePicker = Boolean(isOfficial && officialDeckEditorId && !shouldHideOfficialName && !shouldUseRarityFrame);
   const showRarityPicker = Boolean(isOfficial && officialDeckEditorId && !shouldHideOfficialName && shouldUseRarityFrame);
 
@@ -87,16 +89,12 @@ export default function CharacterImage({
   }, [isOfficial]);
 
   const handleError = (event: SyntheticEvent<HTMLImageElement>) => {
-    if (src) {
-      setBrokenUrls((current) => ({ ...current, [src]: true }));
-    }
-
+    if (src) setBrokenUrls((current) => ({ ...current, [src]: true }));
     onError?.(event);
   };
 
   const handleOfficialFrameThemeChange = async (nextTheme: OfficialCardTheme) => {
     if (!officialDeckEditorId || savingFrameTheme) return;
-
     const previousTheme = frameTheme;
     setManualFrameTheme(nextTheme);
     setSavingFrameTheme(true);
@@ -105,20 +103,10 @@ export default function CharacterImage({
       const response = await fetch('/api/official-decks/edit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update-frame-theme',
-          deckId: officialDeckEditorId,
-          name,
-          imageUrl: sanitizeImageUrl(imageUrl) || '',
-          frameTheme: nextTheme,
-        }),
+        body: JSON.stringify({ action: 'update-frame-theme', deckId: officialDeckEditorId, name, imageUrl: sanitizeImageUrl(imageUrl) || '', frameTheme: nextTheme }),
       });
-
       const result = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Nao foi possivel salvar a cor da moldura.');
-      }
+      if (!response.ok) throw new Error(result.error || 'Nao foi possivel salvar a cor da moldura.');
     } catch (error: any) {
       setManualFrameTheme(previousTheme);
       alert(error.message || 'Nao foi possivel salvar a cor da moldura.');
@@ -129,7 +117,6 @@ export default function CharacterImage({
 
   const handleCardRarityChange = async (nextRarity: CardRarity) => {
     if (!officialDeckEditorId || savingRarity) return;
-
     const previousRarity = rarity;
     setManualCardRarity(nextRarity);
     setSavingRarity(true);
@@ -138,20 +125,10 @@ export default function CharacterImage({
       const response = await fetch('/api/official-decks/edit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update-rarity',
-          deckId: officialDeckEditorId,
-          name,
-          imageUrl: sanitizeImageUrl(imageUrl) || '',
-          rarity: nextRarity,
-        }),
+        body: JSON.stringify({ action: 'update-rarity', deckId: officialDeckEditorId, name, imageUrl: sanitizeImageUrl(imageUrl) || '', rarity: nextRarity }),
       });
-
       const result = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Nao foi possivel salvar a raridade.');
-      }
+      if (!response.ok) throw new Error(result.error || 'Nao foi possivel salvar a raridade.');
     } catch (error: any) {
       setManualCardRarity(previousRarity);
       alert(error.message || 'Nao foi possivel salvar a raridade.');
@@ -180,27 +157,22 @@ export default function CharacterImage({
 
   const renderRarityFrame = (children: ReactNode) => (
     <div className={cn('relative overflow-visible', className)} title={`${name} - ${CARD_RARITY_LABELS[rarity]}`}>
-      <div className="absolute inset-[7%] z-0 overflow-hidden rounded-[1.1rem]">
+      <div className="absolute inset-[8%_8%_14%_8%] z-0 overflow-hidden rounded-[1rem]">
         {children}
       </div>
-      <img src={getCardRarityFrameUrl(rarity)} alt="" aria-hidden="true" className="pointer-events-none absolute inset-[-6%] z-10 h-[112%] w-[112%] object-fill" referrerPolicy="no-referrer" />
+      <img src={getCardRarityFrameUrl(rarity)} alt="" aria-hidden="true" className="pointer-events-none absolute inset-[-7%] z-10 h-[114%] w-[114%] object-fill drop-shadow-xl" referrerPolicy="no-referrer" />
       {!shouldHideOfficialName && <span className="pointer-events-none absolute left-[18%] right-[18%] top-[7.8%] z-20 truncate rounded-full bg-slate-950/70 px-2 py-0.5 text-center text-[9px] font-black uppercase tracking-[0.16em] text-white shadow-lg">{CARD_RARITY_LABELS[rarity]}</span>}
       {rarityPicker}
     </div>
   );
 
   if (shouldUseRarityFrame) {
-    if (!src) {
-      return renderRarityFrame(<AvatarRenderer config={avatarConfig} name={name} className="h-full w-full object-cover" />);
-    }
-
+    if (!src) return renderRarityFrame(<AvatarRenderer config={avatarConfig} name={name} className="h-full w-full object-cover" />);
     return renderRarityFrame(<img {...props} src={src} alt={alt ?? name} referrerPolicy={referrerPolicy} className="h-full w-full object-cover object-center" onError={handleError} />);
   }
 
   if (!src) {
-    if (!isOfficial) {
-      return <AvatarRenderer config={avatarConfig} name={name} className={className} />;
-    }
+    if (!isOfficial) return <AvatarRenderer config={avatarConfig} name={name} className={className} />;
 
     return (
       <div className={cn('official-card-preview relative overflow-hidden rounded-[1.35rem] border-[3px] shadow-xl', theme.border, theme.base, className, placeholderClassName)}>
@@ -237,35 +209,9 @@ function pickOfficialFrameTheme(name: string): OfficialCardTheme {
   return 'celestial';
 }
 
-function includesAny(value: string, terms: string[]) {
-  return terms.some((term) => value.includes(term));
-}
-
-function normalizeThemeText(value: string) {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-}
-
-function getStoredOfficialFrameTheme(avatarConfig?: AvatarConfig | null): OfficialCardTheme | undefined {
-  const theme = (avatarConfig as any)?.officialFrameTheme;
-  return isOfficialFrameTheme(theme) ? theme : undefined;
-}
-
-function isOfficialFrameTheme(value: unknown): value is OfficialCardTheme {
-  return OFFICIAL_FRAME_THEME_OPTIONS.some((option) => option.value === value);
-}
-
-function sanitizeImageUrl(value?: string | null) {
-  const url = value?.trim();
-  if (!url) return undefined;
-  if (isBadLocalFallback(url)) return undefined;
-  return url;
-}
-
-function isBadLocalFallback(url: string) {
-  const normalized = url.toLowerCase().trim();
-  if (normalized.startsWith('data:image/svg')) return true;
-  if (normalized.includes('fallback-svg')) return true;
-  if (normalized.includes('source=fallback')) return true;
-  if (normalized.includes('/characters/') && normalized.endsWith('.svg')) return true;
-  return false;
-}
+function includesAny(value: string, terms: string[]) { return terms.some((term) => value.includes(term)); }
+function normalizeThemeText(value: string) { return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(); }
+function getStoredOfficialFrameTheme(avatarConfig?: AvatarConfig | null): OfficialCardTheme | undefined { const theme = (avatarConfig as any)?.officialFrameTheme; return isOfficialFrameTheme(theme) ? theme : undefined; }
+function isOfficialFrameTheme(value: unknown): value is OfficialCardTheme { return OFFICIAL_FRAME_THEME_OPTIONS.some((option) => option.value === value); }
+function sanitizeImageUrl(value?: string | null) { const url = value?.trim(); if (!url) return undefined; if (isBadLocalFallback(url)) return undefined; return url; }
+function isBadLocalFallback(url: string) { const normalized = url.toLowerCase().trim(); if (normalized.startsWith('data:image/svg')) return true; if (normalized.includes('fallback-svg')) return true; if (normalized.includes('source=fallback')) return true; if (normalized.includes('/characters/') && normalized.endsWith('.svg')) return true; return false; }

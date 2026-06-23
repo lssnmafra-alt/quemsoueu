@@ -147,19 +147,27 @@ function buildVoteRecap(payload: any, progress: any, activePlayers: any[], curre
 }
 
 function recapToneClass(tone: RoundRecapTone) {
-  if (tone === 'hit') return 'border-emerald-300/40 bg-gradient-to-br from-emerald-950 via-emerald-800 to-teal-700 text-white shadow-2xl shadow-emerald-950/20';
-  if (tone === 'miss') return 'border-slate-300/30 bg-gradient-to-br from-slate-950 via-slate-800 to-slate-700 text-white shadow-2xl shadow-slate-950/20';
-  if (tone === 'timeout') return 'border-amber-300/50 bg-gradient-to-br from-amber-950 via-amber-800 to-orange-700 text-white shadow-2xl shadow-amber-950/20';
-  if (tone === 'tiebreak') return 'border-rose-300/50 bg-gradient-to-br from-rose-950 via-rose-800 to-fuchsia-800 text-white shadow-2xl shadow-rose-950/20';
-  return 'border-indigo-300/40 bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-800 text-white shadow-2xl shadow-indigo-950/20';
+  if (tone === 'hit') return 'border-emerald-100 bg-white text-indigo-950 shadow-sm';
+  if (tone === 'miss') return 'border-slate-200 bg-white text-indigo-950 shadow-sm';
+  if (tone === 'timeout') return 'border-amber-100 bg-white text-indigo-950 shadow-sm';
+  if (tone === 'tiebreak') return 'border-rose-100 bg-white text-indigo-950 shadow-sm';
+  return 'border-indigo-100 bg-white text-indigo-950 shadow-sm';
+}
+
+function recapBadgeClass(tone: RoundRecapTone) {
+  if (tone === 'hit') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  if (tone === 'miss') return 'border-slate-200 bg-slate-50 text-slate-600';
+  if (tone === 'timeout') return 'border-amber-200 bg-amber-50 text-amber-700';
+  if (tone === 'tiebreak') return 'border-rose-200 bg-rose-50 text-rose-700';
+  return 'border-indigo-200 bg-indigo-50 text-indigo-700';
 }
 
 function recapBadge(tone: RoundRecapTone) {
   if (tone === 'hit') return 'ACERTO';
   if (tone === 'miss') return 'ERROU';
-  if (tone === 'timeout') return 'TEMPO ESGOTADO';
+  if (tone === 'timeout') return 'TEMPO';
   if (tone === 'tiebreak') return 'MORTE SÚBITA';
-  return 'FIM DA PARTIDA';
+  return 'FIM';
 }
 
 export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
@@ -490,48 +498,60 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
           </div>
         </header>
 
-        <div className={cn('mb-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 transition-opacity', isExplaining && 'opacity-35 pointer-events-none')}>
-          {orderedPlayers.map((p: any) => {
-            const isOut = p.is_eliminated || (p.lives || 0) <= 0;
-            const isActive = activePlayer?.id === p.id;
-            const statusText = isOut ? 'Fora' : isActive ? 'Jogando agora' : 'Aguardando';
-            return <div key={p.id} className={cn('border-2 rounded-2xl px-2 py-1.5 md:px-3 md:py-2 flex items-center gap-2 shadow-sm min-w-0 transition-all relative overflow-hidden', isOut ? 'bg-slate-100/90 border-slate-300 opacity-70 grayscale' : isActive ? cn(p.color?.border || 'border-indigo-400', p.color?.lightBgc || 'bg-indigo-50') : 'bg-white/90 border-indigo-100')}>
-              <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn('w-7 h-7 md:w-8 md:h-8 rounded-xl border-2 shrink-0', isOut ? 'border-slate-400 bg-slate-200' : p.color?.border || 'border-slate-200')} />
-              <div className="min-w-0 flex-1">
-                <p className={cn('text-[11px] md:text-xs font-black truncate', isOut ? 'text-slate-500' : p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                  <span className={cn('text-[8px] font-black uppercase tracking-wider', isOut ? 'text-slate-500' : isActive ? p.color?.text || 'text-indigo-700' : 'text-slate-500')}>{statusText}</span>
-                  {!isOut && <span className="flex items-center gap-0.5">{Array.from({ length: room.chars_per_player }).map((_, i) => i < p.lives ? <Heart key={i} className={cn('w-3 h-3 md:w-3.5 md:h-3.5 fill-current', p.color?.text || 'text-indigo-500')} /> : <Skull key={i} className="w-3 h-3 md:w-3.5 md:h-3.5 text-slate-300" />)}</span>}
+        <section className={cn('mb-3 rounded-[1.5rem] border-2 border-indigo-100 bg-white/90 p-2 shadow-sm transition-opacity', isExplaining && 'opacity-35 pointer-events-none')}>
+          <div className="mb-1.5 flex items-center justify-between px-1.5">
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-indigo-500">Mesa da rodada</p>
+            <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">{activePlayers.length} vivos</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
+            {orderedPlayers.map((p: any) => {
+              const isOut = p.is_eliminated || (p.lives || 0) <= 0;
+              const isActive = activePlayer?.id === p.id;
+              const statusText = isOut ? 'Fora' : isActive ? 'Agora' : 'Aguardando';
+              const lifePercent = Math.max(0, Math.min(100, ((p.lives || 0) / Math.max(1, room.chars_per_player || 1)) * 100));
+              return <div key={p.id} className={cn('relative min-w-0 overflow-hidden rounded-2xl border-2 bg-white p-2 shadow-sm transition-all', isOut ? 'border-slate-200 opacity-70 grayscale' : isActive ? cn('scale-[1.015] shadow-md ring-2 ring-offset-1 ring-offset-white', p.color?.border || 'border-indigo-400', p.color?.lightBgc || 'bg-indigo-50') : 'border-slate-100')}>
+                {isActive && !isOut && <span className={cn('absolute right-2 top-2 rounded-full border bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-wider', p.color?.text || 'text-indigo-700', p.color?.border || 'border-indigo-200')}>AGORA</span>}
+                <div className="flex items-center gap-2.5 pr-10">
+                  <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn('w-10 h-10 md:w-11 md:h-11 rounded-2xl border-2 shrink-0 bg-white', isOut ? 'border-slate-300' : p.color?.border || 'border-slate-200')} imageClassName={isOut ? 'grayscale opacity-60' : undefined} />
+                  <div className="min-w-0 flex-1">
+                    <p className={cn('text-[11px] md:text-xs font-black truncate', isOut ? 'text-slate-500' : p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
+                    <p className={cn('mt-0.5 text-[8px] font-black uppercase tracking-wider', isOut ? 'text-slate-500' : isActive ? p.color?.text || 'text-indigo-700' : 'text-slate-400')}>{statusText}</p>
+                  </div>
                 </div>
-              </div>
-            </div>;
-          })}
-        </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${lifePercent}%`, backgroundColor: isOut ? '#94a3b8' : p.color?.hex || '#4f46e5' }} />
+                </div>
+                {!isOut && <div className="mt-1.5 flex items-center gap-0.5">{Array.from({ length: room.chars_per_player }).map((_, i) => i < p.lives ? <Heart key={i} className={cn('w-3 h-3 fill-current', p.color?.text || 'text-indigo-500')} /> : <Skull key={i} className="w-3 h-3 text-slate-300" />)}</div>}
+              </div>;
+            })}
+          </div>
+        </section>
 
         <AnimatePresence>
           {roundRecap && !isExplaining && (
             <motion.section
               key={roundRecap.id}
-              initial={{ opacity: 0, y: 18, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.98 }}
-              className={cn('relative mx-auto mb-4 w-full max-w-3xl overflow-hidden rounded-[2rem] border-2 p-5 md:p-6', recapToneClass(roundRecap.tone))}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className={cn('mb-3 rounded-[1.5rem] border-2 p-3 md:p-4', recapToneClass(roundRecap.tone))}
             >
-              <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
-              <div className="pointer-events-none absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
-              <div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="min-w-0">
-                  <p className="inline-flex rounded-full border border-white/20 bg-white/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.25em] text-white/85">{recapBadge(roundRecap.tone)}</p>
-                  <h2 className="mt-3 text-2xl md:text-3xl font-black font-display leading-tight">{roundRecap.title}</h2>
-                  <div className="mt-3 grid gap-1.5 text-sm md:text-base font-extrabold text-white/90">
-                    {roundRecap.lines.slice(0, 3).map((line) => <p key={line}>{line}</p>)}
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border', recapBadgeClass(roundRecap.tone))}>
+                    <Zap className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={cn('rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.2em]', recapBadgeClass(roundRecap.tone))}>{recapBadge(roundRecap.tone)}</span>
+                      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Rodada {(room.current_turn_number || 0) + 1}</span>
+                    </div>
+                    <p className="mt-2 text-sm md:text-base font-black leading-snug text-indigo-950">{roundRecap.lines[0]}</p>
+                    {roundRecap.lines.length > 1 && <div className="mt-2 flex flex-wrap gap-1.5">{roundRecap.lines.slice(1, 4).map((line) => <span key={line} className="rounded-full border border-indigo-100 bg-indigo-50/60 px-3 py-1 text-[11px] font-black text-indigo-700">{line}</span>)}</div>}
                   </div>
                 </div>
-                <div className="hidden md:flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl border border-white/20 bg-white/10 text-white/80">
-                  <Zap className="h-8 w-8" />
-                </div>
+                {roundRecap.next && <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-xs md:text-sm font-black text-indigo-800 lg:max-w-xs">{roundRecap.next}</div>}
               </div>
-              {roundRecap.next && <p className="relative mt-5 rounded-2xl border border-white/20 bg-white/14 px-4 py-3 text-sm font-black text-white">{roundRecap.next}</p>}
             </motion.section>
           )}
         </AnimatePresence>

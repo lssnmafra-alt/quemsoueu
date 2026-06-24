@@ -5,9 +5,12 @@ import { UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getPublicEnvValue } from '@/lib/publicEnv';
 
+type AvatarVideoEventType = 'home' | 'lobby' | 'intro' | 'victory' | 'defeat';
+
 type AvatarLobbyVideoProps = {
   avatarUrl?: string;
   directVideoUrl?: string;
+  eventType?: AvatarVideoEventType;
   label?: string;
   className?: string;
 };
@@ -97,10 +100,12 @@ function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; on
   );
 }
 
-export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', label = 'Avatar', className }: AvatarLobbyVideoProps) {
+export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', eventType, label = 'Avatar', className }: AvatarLobbyVideoProps) {
   const [videoUrl, setVideoUrl] = useState('');
   const [failed, setFailed] = useState(false);
   const [useWhiteKey, setUseWhiteKey] = useState(false);
+  const resolvedEventType = eventType || (typeof window !== 'undefined' && window.location.pathname === '/' ? 'home' : 'lobby');
+  const imageFallback = resolveAvatarImageUrl(avatarUrl);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +118,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
       return;
     }
 
-    if (typeof window !== 'undefined' && window.location.pathname === '/' && hasHomeAvatarVideoOverride()) {
+    if (typeof window !== 'undefined' && window.location.pathname === '/' && hasHomeAvatarVideoOverride() && !avatarUrl?.startsWith('avatar:')) {
       setUseWhiteKey(true);
       setVideoUrl('/api/home-avatar-video');
       return;
@@ -123,7 +128,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
 
     async function loadVideo() {
       try {
-        const response = await fetch(`/api/avatar-animation-video?eventType=intro&avatarUrl=${encodeURIComponent(avatarUrl)}`, { cache: 'no-store' });
+        const response = await fetch(`/api/avatar-animation-video?eventType=${encodeURIComponent(resolvedEventType)}&avatarUrl=${encodeURIComponent(avatarUrl)}`, { cache: 'no-store' });
         const result = await response.json().catch(() => ({}));
         if (!cancelled && result?.available && result?.videoUrl) setVideoUrl(result.videoUrl);
       } catch {
@@ -133,7 +138,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
 
     void loadVideo();
     return () => { cancelled = true; };
-  }, [avatarUrl, directVideoUrl]);
+  }, [avatarUrl, directVideoUrl, resolvedEventType]);
 
   return (
     <div className={cn('relative flex items-center justify-center overflow-hidden', useWhiteKey ? 'bg-transparent' : 'bg-white', className)}>
@@ -155,12 +160,23 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
             aria-label={label}
           />
         )
-      ) : avatarUrl ? (
-        <img src={avatarUrl} alt={label} referrerPolicy="no-referrer" className="relative z-10 h-full w-full object-cover" />
+      ) : imageFallback ? (
+        <img src={imageFallback} alt={label} referrerPolicy="no-referrer" className="relative z-10 h-full w-full object-cover" />
       ) : (
         <UserRound className="relative z-10 h-20 w-20 text-indigo-400" />
       )}
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/70" />
     </div>
   );
+}
+
+function resolveAvatarImageUrl(avatarUrl: string) {
+  if (!avatarUrl) return '';
+  if (!avatarUrl.startsWith('avatar:')) return avatarUrl;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(avatarUrl.slice(7)));
+    return String(parsed.imageUrl || '').trim();
+  } catch {
+    return '';
+  }
 }

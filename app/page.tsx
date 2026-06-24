@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import GoogleLoginButton from '@/components/auth/GoogleLoginButton';
 import { moderateText } from '@/app/actions/moderate';
 import { motion } from 'motion/react';
-import { BookOpen, Gamepad2, Play, Smile, Sparkles, UserRound, Users } from 'lucide-react';
+import { BookOpen, Gamepad2, Play, Shirt, Smile, Sparkles, UserRound, Users } from 'lucide-react';
 import GameTopNav from '@/components/navigation/GameTopNav';
 import AvatarLobbyVideo from '@/components/avatar/AvatarLobbyVideo';
 
@@ -118,6 +118,7 @@ export default function LoginPage() {
                 <Button onClick={() => router.push('/lobby')} className="home-lobby-play h-20 justify-between rounded-none border-0 bg-yellow-300 px-6 text-2xl font-black uppercase italic text-slate-950 shadow-[0_8px_0_#b45309] hover:bg-yellow-200">
                   Encontrar partidas <Play className="h-7 w-7 fill-current" />
                 </Button>
+                <Button type="button" onClick={() => router.push('/avatar-store')} className="home-lobby-store h-16 rounded-none border-2 border-fuchsia-200/70 bg-fuchsia-500/90 text-sm font-black uppercase text-white hover:bg-fuchsia-400"><Shirt className="mr-2 h-5 w-5" /> Loja de personagens</Button>
                 <div className="home-lobby-secondary grid grid-cols-2 gap-3">
                   <Button type="button" onClick={() => router.push('/profile')} className="home-lobby-small-action h-16 rounded-none border-2 border-white/20 bg-blue-500/80 text-xs font-black uppercase text-white hover:bg-blue-400"><UserRound className="mr-2 h-5 w-5" /> Perfil</Button>
                   <Button type="button" onClick={() => router.push('/friends')} className="home-lobby-small-action h-16 rounded-none border-2 border-white/20 bg-blue-500/80 text-xs font-black uppercase text-white hover:bg-blue-400"><Users className="mr-2 h-5 w-5" /> Amigos</Button>

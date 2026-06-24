@@ -10,6 +10,7 @@ import { moderateText } from '@/app/actions/moderate';
 import { motion } from 'motion/react';
 import { BookOpen, Gamepad2, Play, Smile, Sparkles, UserRound, Users } from 'lucide-react';
 import GameTopNav from '@/components/navigation/GameTopNav';
+import AvatarLobbyVideo from '@/components/avatar/AvatarLobbyVideo';
 
 function profileNeedsSetup(profile: any) {
   if (!profile) return true;
@@ -87,14 +88,17 @@ export default function LoginPage() {
           <section className="grid w-full items-end gap-8 lg:grid-cols-[1fr_420px]">
             <div className="hidden min-h-[620px] items-end justify-center lg:flex">
               <div className="relative flex flex-col items-center">
-                <div className="absolute bottom-0 h-10 w-72 rounded-full bg-cyan-300/40 blur-xl" />
-                <div className="relative flex h-[460px] w-[270px] flex-col items-center justify-center rounded-[3rem] border-4 border-cyan-200/30 bg-white/10 shadow-[0_30px_90px_rgba(6,182,212,.28)] backdrop-blur-md">
-                  <div className="flex h-44 w-44 items-center justify-center overflow-hidden rounded-[2rem] border-4 border-cyan-200 bg-white/90 shadow-2xl">
-                    {profile?.avatar_url ? <img src={profile.avatar_url} alt={playerName} referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : <UserRound className="h-20 w-20 text-indigo-500" />}
+                <div className="absolute bottom-0 h-10 w-80 rounded-full bg-cyan-300/45 blur-xl" />
+                <div className="relative flex h-[560px] w-[360px] flex-col items-center justify-end overflow-hidden rounded-[3.2rem] border-4 border-cyan-200/35 bg-white shadow-[0_35px_100px_rgba(6,182,212,.35)]">
+                  <div className="absolute inset-x-6 top-6 bottom-28 overflow-hidden rounded-[2.6rem] border-4 border-white bg-white shadow-inner">
+                    <AvatarLobbyVideo avatarUrl={profile?.avatar_url} label={playerName} className="h-full w-full rounded-[2.3rem]" />
                   </div>
-                  <p className="mt-5 text-xs font-black uppercase tracking-[0.25em] text-cyan-100">Preparando</p>
-                  <h1 className="mt-2 max-w-[240px] truncate text-center text-3xl font-black uppercase text-white font-display">{playerName}</h1>
-                  <div className="mt-5 rounded-full border border-cyan-200/40 bg-cyan-300/20 px-5 py-2 text-xs font-black uppercase text-cyan-50">Nível 1</div>
+                  <div className="pointer-events-none absolute inset-x-0 bottom-24 h-32 bg-gradient-to-t from-white via-white/90 to-transparent" />
+                  <div className="relative z-20 mb-6 w-[82%] rounded-3xl border-2 border-cyan-100 bg-[#071a64] px-5 py-4 text-center shadow-2xl">
+                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Preparando</p>
+                    <h1 className="mt-1 truncate text-3xl font-black uppercase text-white font-display">{playerName}</h1>
+                    <div className="mt-3 rounded-full border border-cyan-200/40 bg-cyan-300/20 px-5 py-2 text-xs font-black uppercase text-cyan-50">Lobby animation</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -103,7 +107,7 @@ export default function LoginPage() {
               <div className="mb-5 rounded-2xl border border-white/15 bg-white/10 p-4">
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Central do jogador</p>
                 <h2 className="mt-1 text-3xl font-black uppercase text-white font-display md:text-4xl">Escolha o modo</h2>
-                <p className="mt-1 text-sm font-bold text-blue-100">Lobby separado, menus rápidos e cara de jogo.</p>
+                <p className="mt-1 text-sm font-bold text-blue-100">Lobby separado, menus rápidos e personagem animado.</p>
               </div>
 
               <div className="grid gap-3">

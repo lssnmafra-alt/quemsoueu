@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpen, Coins, Gamepad2, LogOut, Shield, UserRound, Users } from 'lucide-react';
+import { BookOpen, Coins, Gamepad2, Home, LogOut, Shield, UserRound, Users } from 'lucide-react';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,8 @@ type GameTopNavProps = {
 };
 
 const tabs = [
-  { label: 'Jogar', href: '/', icon: Gamepad2, match: (path: string) => path === '/' || path === '/lobby' },
+  { label: 'Início', href: '/', icon: Home, match: (path: string) => path === '/' },
+  { label: 'Jogar', href: '/lobby', icon: Gamepad2, match: (path: string) => path === '/lobby' },
   { label: 'Decks', href: '/decks', icon: BookOpen, match: (path: string) => path.startsWith('/decks') },
   { label: 'Amigos', href: '/friends', icon: Users, match: (path: string) => path.startsWith('/friends') },
   { label: 'Perfil', href: '/profile', icon: UserRound, match: (path: string) => path.startsWith('/profile') },
@@ -28,9 +29,9 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
     <nav className="fixed left-0 right-0 top-0 z-[100] border-b-4 border-indigo-950/40 bg-[#071a64]/95 text-white shadow-[0_12px_40px_rgba(15,23,42,.35)] backdrop-blur-xl">
       <div className="mx-auto flex h-[74px] max-w-[1500px] items-center justify-between gap-3 px-3 md:px-6">
         <div className="flex h-full items-center gap-1 overflow-x-auto pr-2">
-          <div className="mr-2 hidden h-11 min-w-11 items-center justify-center rounded-xl border-2 border-cyan-300/40 bg-cyan-400/20 text-cyan-100 shadow-inner md:flex">
-            <Gamepad2 className="h-5 w-5" />
-          </div>
+          <button type="button" onClick={() => router.push('/')} className="mr-2 flex h-11 min-w-11 items-center justify-center rounded-xl border-2 border-cyan-300/40 bg-cyan-400/20 text-cyan-100 shadow-inner transition hover:bg-cyan-300/30" title="Voltar para o início">
+            <Home className="h-5 w-5" />
+          </button>
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const active = tab.match(pathname);

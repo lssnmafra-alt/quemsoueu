@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseGame } from '@/lib/supabase';
+import { supabaseAuth as supabaseGame } from '@/lib/supabase';
 
 const MAX_GENRES = 8;
 const MAX_BLOCKED_TRACKS = 300;

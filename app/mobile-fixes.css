@@ -17,6 +17,7 @@
   animation: qse-toast-autohide 4s ease-out forwards !important;
 }
 
+/* Mobile portrait fixes */
 @media (max-width: 640px) {
   .fixed.right-4.top-20 {
     right: 0.7rem !important;
@@ -29,5 +30,84 @@
     border-radius: 1rem !important;
     font-size: 0.68rem !important;
     line-height: 1.15 !important;
+  }
+
+  /* Optimize login card spacing */
+  .motion-div > div {
+    width: 100% !important;
+    border-radius: 1.5rem !important;
+    border-width: 3px !important;
+    padding: 1rem !important;
+  }
+
+  .motion-div > div > div:first-child {
+    margin-bottom: 1rem !important;
+  }
+
+  .motion-div > div > div:first-child img {
+    max-width: 75% !important;
+    margin: 0 auto 0.5rem !important;
+  }
+
+  .motion-div > div > div:first-child p {
+    font-size: 0.8rem !important;
+    padding: 0 0.5rem !important;
+  }
+
+  .motion-div > div > div:nth-child(2) {
+    border-radius: 1rem !important;
+    padding: 1rem !important;
+  }
+
+  .motion-div > div > div:nth-child(2) label {
+    font-size: 0.75rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .motion-div > div > div:nth-child(2) input {
+    height: 3rem !important;
+    font-size: 0.95rem !important;
+    border-radius: 0.75rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .motion-div > div > div:nth-child(2) button {
+    height: 3rem !important;
+    font-size: 0.9rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .motion-div > div > div:nth-child(2) button svg {
+    width: 1.1rem !important;
+    height: 1.1rem !important;
+  }
+
+  .motion-div > div > div:nth-child(3) {
+    gap: 0.75rem !important;
+    padding: 0.75rem 0 !important;
+  }
+
+  .motion-div > div > div:nth-child(3) > span:nth-child(2) {
+    font-size: 0.7rem !important;
+  }
+
+  /* Prevent overflow on cookies banner */
+  .fixed.inset-x-3.bottom-3 {
+    bottom: 1rem !important;
+    border-radius: 1.25rem !important;
+    padding: 0.875rem !important;
+  }
+
+  /* Audio button positioning */
+  .fixed.bottom-4.left-4 {
+    bottom: 0.875rem !important;
+    left: 0.5rem !important;
+  }
+
+  .fixed.bottom-4.left-4 button {
+    padding: 0.5rem !important;
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    border-radius: 0.75rem !important;
   }
 }

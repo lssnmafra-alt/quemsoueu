@@ -91,12 +91,12 @@ export default function LoginPage() {
                 <div className="absolute bottom-0 h-10 w-80 rounded-full bg-cyan-300/45 blur-xl" />
                 <div className="relative flex h-[560px] w-[360px] flex-col items-center justify-end overflow-hidden rounded-[3.2rem] border-4 border-cyan-200/35 bg-transparent shadow-[0_35px_100px_rgba(6,182,212,.35)]">
                   <div className="absolute inset-x-6 top-6 bottom-28 overflow-hidden rounded-[2.6rem] border-4 border-cyan-100/20 bg-transparent shadow-inner">
-                    <AvatarLobbyVideo avatarUrl={profile?.avatar_url} label={playerName} className="h-full w-full rounded-[2.3rem]" />
+                    <AvatarLobbyVideo avatarUrl={profile?.avatar_url} eventType="home" label={playerName} className="h-full w-full rounded-[2.3rem] bg-transparent" />
                   </div>
                   <div className="relative z-20 mb-6 w-[82%] rounded-3xl border-2 border-cyan-100 bg-[#071a64] px-5 py-4 text-center shadow-2xl">
                     <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Preparando</p>
                     <h1 className="mt-1 truncate text-3xl font-black uppercase text-white font-display">{playerName}</h1>
-                    <div className="mt-3 rounded-full border border-cyan-200/40 bg-cyan-300/20 px-5 py-2 text-xs font-black uppercase text-cyan-50">Lobby animation</div>
+                    <div className="mt-3 rounded-full border border-cyan-200/40 bg-cyan-300/20 px-5 py-2 text-xs font-black uppercase text-cyan-50">Home animation</div>
                   </div>
                 </div>
               </div>

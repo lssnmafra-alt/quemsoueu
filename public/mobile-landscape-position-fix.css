@@ -1,0 +1,17 @@
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) and (max-height: 560px) {
+  .home-lobby-main,
+  .home-lobby-section,
+  .home-lobby-avatar,
+  .home-lobby-panel {
+    overflow: visible !important;
+  }
+
+  .home-lobby-avatar {
+    margin-top: 4rem !important;
+  }
+
+  main.relative.z-10.mx-auto[class*="pt-28"],
+  div.relative.z-10.mx-auto[class*="pt-28"] {
+    padding-top: 5.25rem !important;
+  }
+}

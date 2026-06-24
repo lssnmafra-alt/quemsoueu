@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getR2Object } from '@/lib/r2Storage';
 
-const ALLOWED_PREFIXES = ['atuem/Animacao/', 'atuem/atuem/Animacao/'];
+const ALLOWED_PREFIXES = ['atuem/Animacao/', 'atuem/atuem/Animacao/', 'atuem/avatar/', 'atuem/atuem/avatar/'];
 const CONTENT_TYPES: Record<string, string> = {
   webm: 'video/webm',
   mp4: 'video/mp4',
@@ -138,7 +138,10 @@ async function bodyToBytes(body: BodyInit): Promise<Uint8Array> {
 function isSafeVideoKey(key: string) {
   const lower = key.toLowerCase();
   if (!key || key.includes('..') || key.startsWith('/') || key.includes('\\')) return false;
-  return (lower.endsWith('.webm') || lower.endsWith('.mp4')) && ALLOWED_PREFIXES.some((prefix) => key.startsWith(prefix));
+  if (!(lower.endsWith('.webm') || lower.endsWith('.mp4'))) return false;
+  if (!ALLOWED_PREFIXES.some((prefix) => key.startsWith(prefix))) return false;
+  if (key.includes('/avatar/') && !key.toLowerCase().includes('/animacao/') && !key.toLowerCase().includes('/animations/')) return false;
+  return true;
 }
 
 function safeFilename(filename: string) {

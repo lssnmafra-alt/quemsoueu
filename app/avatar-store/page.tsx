@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Coins, Lock, Check, Sparkles, ArrowLeft, ShoppingCart } from 'lucide-react';
+import { Coins, Lock, Check, ArrowLeft, ShoppingCart } from 'lucide-react';
 import GameTopNav from '@/components/navigation/GameTopNav';
 import LoadingArena from '@/components/LoadingArena';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
@@ -140,7 +140,7 @@ export default function AvatarStorePage() {
     }
   }
 
-  if (!initialized || loading || loadingStore) return <LoadingArena message="Carregando loja..." />;
+  if (!initialized || loading || loadingStore) return <LoadingArena label="Carregando loja..." />;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#071a64] text-white">

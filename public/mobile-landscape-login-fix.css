@@ -1,0 +1,76 @@
+@media (hover: none) and (pointer: coarse) and (max-width: 900px) and (orientation: landscape) {
+  html,
+  body {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    height: auto !important;
+    min-height: 100svh !important;
+  }
+
+  .gameplay-screen,
+  div[class*="h-screen"][class*="bg-[#071a64]"],
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.gameplay-screen),
+  body:has(div[class*="h-screen"][class*="bg-[#071a64]"]),
+  body:has(div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"]) {
+    overflow: hidden !important;
+    height: 100svh !important;
+  }
+
+  main:not(.gameplay-shell).relative.z-20.mx-auto.flex.min-h-screen {
+    min-height: 100svh !important;
+    align-items: flex-start !important;
+    padding-top: .7rem !important;
+    padding-bottom: 4.8rem !important;
+    overflow-y: auto !important;
+  }
+
+  main:not(.gameplay-shell) img[src="/api/branding/logo"] {
+    max-width: 230px !important;
+    margin-bottom: .25rem !important;
+  }
+
+  main:not(.gameplay-shell) .max-w-md {
+    max-width: 21rem !important;
+    border-width: 3px !important;
+    border-radius: 1.35rem !important;
+    padding: .85rem !important;
+  }
+
+  main:not(.gameplay-shell) .max-w-md > div:first-child {
+    margin-bottom: .55rem !important;
+  }
+
+  main:not(.gameplay-shell) .max-w-md p {
+    font-size: .62rem !important;
+    line-height: 1.05 !important;
+  }
+
+  main:not(.gameplay-shell) .max-w-md .rounded-2xl {
+    padding: .75rem !important;
+    border-radius: .95rem !important;
+  }
+
+  main:not(.gameplay-shell) input {
+    height: 2.55rem !important;
+    font-size: .9rem !important;
+    border-radius: .75rem !important;
+  }
+
+  main:not(.gameplay-shell) button {
+    min-height: 0 !important;
+    height: 2.55rem !important;
+    border-radius: .75rem !important;
+    font-size: .72rem !important;
+  }
+
+  main:not(.gameplay-shell) .py-4 {
+    padding-top: .55rem !important;
+    padding-bottom: .55rem !important;
+  }
+}

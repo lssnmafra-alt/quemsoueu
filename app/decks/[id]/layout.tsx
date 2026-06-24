@@ -5,6 +5,8 @@ import { useParams, usePathname } from 'next/navigation';
 import { Edit3, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import GameTopNav from '@/components/navigation/GameTopNav';
+import { isProjectAdmin } from '@/lib/admin';
 import { supabaseGame } from '@/lib/supabase';
 import { useUserStore } from '@/lib/store';
 import { isOfficialDeckId, TEMP_OFFICIAL_DECK_EDITING_ENABLED } from '@/lib/officialDecks';
@@ -13,7 +15,7 @@ export default function DeckRouteLayout({ children }: { children: ReactNode }) {
   const params = useParams();
   const pathname = usePathname();
   const deckId = params.id as string;
-  const { user, initialized: authInitialized, loading: authLoading } = useUserStore();
+  const { user, profile, initialized: authInitialized, loading: authLoading } = useUserStore();
 
   const [isOpen, setIsOpen] = useState(false);
   const [deckName, setDeckName] = useState('');
@@ -23,6 +25,7 @@ export default function DeckRouteLayout({ children }: { children: ReactNode }) {
   const [savingDeckName, setSavingDeckName] = useState(false);
   const [error, setError] = useState('');
 
+  const isAdminUser = isProjectAdmin(user?.id);
   const isStaticOfficialDeck = isOfficialDeckId(deckId);
   const isDeckRoute = pathname === `/decks/${deckId}`;
   const canInspectOfficialDeck = Boolean(
@@ -112,11 +115,17 @@ export default function DeckRouteLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <>
-      {children}
+    <div className="min-h-screen overflow-x-hidden bg-[#071a64] text-white font-sans party-grid-bg">
+      <GameTopNav profile={profile} isAdmin={isAdminUser} />
+      <div className="fixed inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-20" />
+      <div className="fixed inset-0 bg-gradient-to-br from-[#071a64]/95 via-[#0b4fb8]/55 to-[#05091f]/95" />
+
+      <div className="relative z-10 pt-[74px] [&>div]:!min-h-[calc(100vh-74px)] [&>div]:!bg-transparent [&>div]:!p-4 md:[&>div]:!p-8">
+        {children}
+      </div>
 
       {canEditOfficialDeck && (
-        <div className="fixed left-4 bottom-24 z-[80] sm:left-6 sm:bottom-6">
+        <div className="fixed left-4 bottom-24 z-[120] sm:left-6 sm:bottom-6">
           {!isOpen ? (
             <Button
               type="button"
@@ -181,6 +190,6 @@ export default function DeckRouteLayout({ children }: { children: ReactNode }) {
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }

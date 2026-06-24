@@ -5,19 +5,32 @@
     overflow-y: auto !important;
     height: auto !important;
     min-height: 100svh !important;
+    overscroll-behavior-y: contain;
   }
 
-  .gameplay-screen,
-  div[class*="h-screen"][class*="bg-[#071a64]"],
-  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] {
+  body {
+    position: static !important;
+    touch-action: pan-y pan-x !important;
+  }
+
+  main,
+  section,
+  div {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gameplay-screen {
     height: 100svh !important;
     min-height: 100svh !important;
     overflow: hidden !important;
   }
 
-  body:has(.gameplay-screen),
-  body:has(div[class*="h-screen"][class*="bg-[#071a64]"]),
-  body:has(div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"]) {
+  .gameplay-shell {
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+
+  body:has(.gameplay-screen) {
     overflow: hidden !important;
     height: 100svh !important;
   }
@@ -72,5 +85,66 @@
   main:not(.gameplay-shell) .py-4 {
     padding-top: .55rem !important;
     padding-bottom: .55rem !important;
+  }
+
+  body > div.relative.min-h-screen,
+  body > div.relative.min-h-screen.overflow-hidden,
+  body > div.relative.min-h-screen.overflow-y-auto {
+    min-height: 100svh !important;
+    height: auto !important;
+    overflow-y: visible !important;
+    overflow-x: hidden !important;
+  }
+
+  body > div.relative.min-h-screen main,
+  body > div.relative.min-h-screen section,
+  body > div.relative.min-h-screen div[class*="overflow-y-auto"] {
+    overflow-y: auto !important;
+  }
+
+  body > div.relative.min-h-screen nav + *,
+  body > div.relative.min-h-screen .relative.z-10,
+  body > div.relative.min-h-screen .relative.z-20 {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  body > div.relative.min-h-screen [class*="pt-24"],
+  body > div.relative.min-h-screen [class*="pt-28"],
+  body > div.relative.min-h-screen [class*="pt-32"] {
+    padding-top: 5.2rem !important;
+  }
+
+  body > div.relative.min-h-screen h1 {
+    font-size: clamp(1.75rem, 6vw, 2.8rem) !important;
+    line-height: .95 !important;
+  }
+
+  body > div.relative.min-h-screen h2 {
+    font-size: clamp(1.05rem, 3.8vw, 1.6rem) !important;
+    line-height: 1 !important;
+  }
+
+  body > div.relative.min-h-screen .rounded-3xl,
+  body > div.relative.min-h-screen .rounded-[2rem],
+  body > div.relative.min-h-screen .rounded-[2.5rem] {
+    border-radius: 1.25rem !important;
+  }
+
+  body > div.relative.min-h-screen .border-4 {
+    border-width: 3px !important;
+  }
+
+  body > div.relative.min-h-screen .p-8,
+  body > div.relative.min-h-screen .md\:p-8,
+  body > div.relative.min-h-screen .p-10,
+  body > div.relative.min-h-screen .md\:p-10 {
+    padding: .85rem !important;
+  }
+
+  body > div.relative.min-h-screen .gap-8,
+  body > div.relative.min-h-screen .gap-6,
+  body > div.relative.min-h-screen .gap-5 {
+    gap: .7rem !important;
   }
 }

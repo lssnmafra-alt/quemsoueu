@@ -61,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="stylesheet" href="/gameplay-polish.css" />
         <link rel="stylesheet" href="/mobile-landscape-guard.css" />
         <link rel="stylesheet" href="/mobile-landscape-login-fix.css" />
+        <link rel="stylesheet" href="/mobile-landscape-position-fix.css" />
         <script
           id="quem-sou-eu-runtime-env"
           dangerouslySetInnerHTML={{ __html: getPublicRuntimeEnvScript() }}

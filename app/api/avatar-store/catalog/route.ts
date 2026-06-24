@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPublicR2Url } from '@/lib/r2Storage';
 import { getSupabaseAuthServer } from '@/lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -103,7 +102,7 @@ async function skinToItem(skin: any, category: any, rows: any[], unlocks: Set<st
     skinCode: String(skin.skin_code || skin.avatar_key || ''),
     skinName: String(skin.skin_name || (isDefaultSkin ? 'Oficial' : 'Skin')),
     imageKey,
-    imageUrl: imageKey ? await getPublicR2Url(imageKey) : '',
+    imageUrl: imageKey ? imageProxyUrl(imageKey) : '',
     rarity: String(skin.rarity || 'common'),
     accessType,
     priceCoins: Number(skin.price_coins ?? (isDefaultSkin ? 0 : DEFAULT_SKIN_PRICE)),
@@ -158,6 +157,10 @@ function groupCharacters(items: StoreItem[]) {
 
 function toPublicCategory(category: any) {
   return { id: category.id, slug: category.slug, name: category.name, description: category.description || '', r2Prefix: category.r2_prefix, sortOrder: category.sort_order };
+}
+
+function imageProxyUrl(key: string) {
+  return `/api/r2-file?key=${encodeURIComponent(key)}`;
 }
 
 function normalizeKey(value: string) {

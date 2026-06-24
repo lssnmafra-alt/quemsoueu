@@ -112,7 +112,7 @@
   body > div.relative.min-h-screen [class*="pt-24"],
   body > div.relative.min-h-screen [class*="pt-28"],
   body > div.relative.min-h-screen [class*="pt-32"] {
-    padding-top: 5.2rem !important;
+    padding-top: 4.5rem !important;
   }
 
   body > div.relative.min-h-screen h1 {
@@ -152,133 +152,133 @@
     min-height: 100svh !important;
     height: auto !important;
     max-width: min(100vw, 920px) !important;
-    align-items: center !important;
+    align-items: flex-start !important;
     justify-content: center !important;
-    padding: 5rem .75rem .7rem !important;
+    padding: 4.35rem .65rem .7rem !important;
     overflow: visible !important;
   }
 
   .home-lobby-section {
     display: grid !important;
-    grid-template-columns: minmax(13.2rem, .86fr) minmax(18rem, 1.14fr) !important;
-    align-items: end !important;
-    gap: .85rem !important;
+    grid-template-columns: minmax(12.25rem, .8fr) minmax(18rem, 1.2fr) !important;
+    align-items: start !important;
+    gap: .75rem !important;
     width: 100% !important;
-    max-width: 52rem !important;
+    max-width: 50rem !important;
     margin-inline: auto !important;
   }
 
   .home-lobby-avatar {
     display: flex !important;
     min-height: 0 !important;
-    height: calc(100svh - 6rem) !important;
-    max-height: 22rem !important;
-    align-items: flex-end !important;
+    height: auto !important;
+    max-height: none !important;
+    align-items: flex-start !important;
     justify-content: center !important;
     overflow: visible !important;
   }
 
   .home-lobby-avatar > div {
     transform: none !important;
-    width: min(100%, 15rem) !important;
+    width: min(100%, 12.8rem) !important;
   }
 
   .home-lobby-avatar > div > div:nth-child(2) {
-    width: min(100%, 14rem) !important;
-    height: min(calc(100svh - 6.4rem), 21.2rem) !important;
-    border-radius: 2rem !important;
+    width: min(100%, 12.3rem) !important;
+    height: min(calc(100svh - 5.05rem), 18.15rem) !important;
+    border-radius: 1.65rem !important;
     border-width: 3px !important;
   }
 
   .home-lobby-avatar > div > div:nth-child(2) > div:first-child {
-    inset: .75rem .75rem 4.7rem .75rem !important;
-    border-radius: 1.55rem !important;
+    inset: .55rem .55rem 4.35rem .55rem !important;
+    border-radius: 1.25rem !important;
     border-width: 3px !important;
   }
 
   .home-lobby-avatar > div > div:nth-child(2) > div:last-child {
     width: 86% !important;
-    margin-bottom: .8rem !important;
-    border-radius: 1rem !important;
-    padding: .5rem .6rem !important;
+    margin-bottom: .65rem !important;
+    border-radius: .95rem !important;
+    padding: .42rem .5rem !important;
   }
 
   .home-lobby-avatar h1 {
-    font-size: 1.12rem !important;
+    font-size: 1rem !important;
   }
 
   .home-lobby-avatar p,
   .home-lobby-avatar div[class*="rounded-full"] {
-    font-size: .48rem !important;
+    font-size: .42rem !important;
   }
 
   .home-lobby-panel {
     width: 100% !important;
-    max-height: calc(100svh - 5.8rem) !important;
+    max-height: calc(100svh - 4.85rem) !important;
     overflow-y: auto !important;
-    border-radius: 1.35rem !important;
+    border-radius: 1.18rem !important;
     border-width: 3px !important;
-    padding: .85rem !important;
+    padding: .68rem !important;
   }
 
   .home-lobby-info {
-    margin-bottom: .65rem !important;
-    border-radius: 1rem !important;
-    padding: .85rem !important;
+    margin-bottom: .48rem !important;
+    border-radius: .95rem !important;
+    padding: .62rem .72rem !important;
   }
 
   .home-lobby-eyebrow {
-    font-size: .52rem !important;
-    letter-spacing: .16em !important;
+    font-size: .45rem !important;
+    letter-spacing: .14em !important;
   }
 
   .home-lobby-title {
-    margin-top: .12rem !important;
-    font-size: 1.55rem !important;
+    margin-top: .08rem !important;
+    font-size: 1.28rem !important;
     line-height: .95 !important;
   }
 
   .home-lobby-subtitle {
-    margin-top: .34rem !important;
-    font-size: .72rem !important;
-    line-height: 1.15 !important;
+    margin-top: .25rem !important;
+    font-size: .62rem !important;
+    line-height: 1.12 !important;
   }
 
   .home-lobby-actions {
-    gap: .5rem !important;
+    gap: .4rem !important;
   }
 
   .home-lobby-play {
-    height: 3.4rem !important;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-    font-size: 1.1rem !important;
-    box-shadow: 0 5px 0 #b45309 !important;
+    height: 2.82rem !important;
+    padding-left: .78rem !important;
+    padding-right: .78rem !important;
+    font-size: .88rem !important;
+    box-shadow: 0 4px 0 #b45309 !important;
   }
 
   .home-lobby-play svg {
-    width: 1.45rem !important;
-    height: 1.45rem !important;
+    width: 1.2rem !important;
+    height: 1.2rem !important;
   }
 
   .home-lobby-secondary {
-    gap: .5rem !important;
+    gap: .4rem !important;
   }
 
   .home-lobby-small-action,
   .home-lobby-decks {
-    height: 2.8rem !important;
-    font-size: .7rem !important;
+    height: 2.28rem !important;
+    font-size: .62rem !important;
   }
 
   .home-lobby-small-action svg,
   .home-lobby-decks svg {
-    width: 1rem !important;
-    height: 1rem !important;
+    width: .88rem !important;
+    height: .88rem !important;
   }
 
   nav.fixed.top-0 {
-    height: 4.65rem !important;
+    height: 3.95rem !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
     scrollbar-width: none !important;
@@ -289,55 +289,78 @@
   }
 
   nav.fixed.top-0 > div {
-    height: 4.65rem !important;
+    height: 3.95rem !important;
     min-width: max-content !important;
     max-width: none !important;
-    padding-left: .45rem !important;
-    padding-right: .45rem !important;
+    padding-left: .38rem !important;
+    padding-right: .38rem !important;
   }
 
   nav.fixed.top-0 button {
-    height: 4.65rem !important;
-    padding-left: .7rem !important;
-    padding-right: .7rem !important;
-    font-size: .68rem !important;
+    height: 3.95rem !important;
+    padding-left: .58rem !important;
+    padding-right: .58rem !important;
+    font-size: .6rem !important;
   }
 
   nav.fixed.top-0 button:first-child {
-    height: 3rem !important;
-    min-width: 3rem !important;
-    margin-right: .25rem !important;
-    border-radius: .9rem !important;
+    height: 2.55rem !important;
+    min-width: 2.55rem !important;
+    margin-right: .18rem !important;
+    border-radius: .8rem !important;
   }
 
   nav.fixed.top-0 img,
   nav.fixed.top-0 [class*="AvatarFigure"] {
-    width: 2.45rem !important;
-    height: 2.45rem !important;
+    width: 2.15rem !important;
+    height: 2.15rem !important;
   }
 }
 
 @media (hover: none) and (pointer: coarse) and (max-width: 740px) and (orientation: landscape) {
-  .home-lobby-section {
-    grid-template-columns: minmax(10.5rem, .75fr) minmax(17rem, 1.25fr) !important;
-    gap: .6rem !important;
+  .home-lobby-main {
+    padding-top: 4.05rem !important;
   }
 
-  .home-lobby-avatar {
-    max-height: 18.8rem !important;
+  .home-lobby-section {
+    grid-template-columns: minmax(9.4rem, .68fr) minmax(16rem, 1.32fr) !important;
+    gap: .48rem !important;
   }
 
   .home-lobby-avatar > div > div:nth-child(2) {
-    width: 11.4rem !important;
-    height: 17.8rem !important;
+    width: 9.8rem !important;
+    height: 14.8rem !important;
+  }
+
+  .home-lobby-avatar > div > div:nth-child(2) > div:first-child {
+    inset: .42rem .42rem 3.75rem .42rem !important;
+  }
+
+  .home-lobby-panel {
+    max-height: calc(100svh - 4.35rem) !important;
+    padding: .55rem !important;
+  }
+
+  .home-lobby-info {
+    padding: .5rem .58rem !important;
   }
 
   .home-lobby-title {
-    font-size: 1.35rem !important;
+    font-size: 1.08rem !important;
+  }
+
+  .home-lobby-subtitle {
+    font-size: .55rem !important;
   }
 
   .home-lobby-play {
-    height: 3rem !important;
-    font-size: .95rem !important;
+    height: 2.45rem !important;
+    font-size: .78rem !important;
+  }
+
+  .home-lobby-small-action,
+  .home-lobby-decks {
+    height: 2.05rem !important;
+    font-size: .55rem !important;
   }
 }

@@ -83,7 +83,7 @@ export default function LoginPage() {
         <span className="text-[10px] font-semibold text-rose-800 font-mono">E UM PERSONAGEM?</span>
       </motion.div>
 
-      <main className="home-lobby-main relative z-20 mx-auto flex min-h-screen max-w-[1320px] items-center justify-center px-4 pb-8 pt-20 md:px-8">
+      <main className="home-lobby-main relative z-20 mx-auto flex min-h-screen max-w-[1320px] items-center justify-center px-4 pb-8 pt-40 md:px-8">
         {loggedInReady ? (
           <section className="home-lobby-section grid w-full items-end gap-8 lg:grid-cols-[1fr_420px]">
             <div className="home-lobby-avatar hidden min-h-[620px] items-end justify-center lg:flex">

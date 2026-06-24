@@ -12,15 +12,38 @@ import { getPublicRuntimeEnvScript } from '@/lib/publicEnv';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const quicksand = Quicksand({ subsets: ['latin'], variable: '--font-quicksand' });
+const appIconUrl = 'https://pub-4d821b89efc9463aa72b858924e1be7a.r2.dev/atuem/Icob/17A1FF7E-0AFA-4D32-BE07-4C5C4B0C1045.png';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.quemsoueu.cards'),
   title: 'Quem Sou Eu? Jogo de Cartas',
   description: 'Jogo multiplayer de cartas, personagens e adivinhação social.',
+  icons: {
+    icon: [
+      { url: appIconUrl, type: 'image/png' },
+    ],
+    shortcut: [appIconUrl],
+    apple: [
+      { url: appIconUrl, type: 'image/png' },
+    ],
+  },
   openGraph: {
     title: 'Quem Sou Eu?',
     description: 'Jogo multiplayer de cartas, personagens e adivinhação social.',
-    images: ['/api/branding/loading'],
+    images: [
+      {
+        url: appIconUrl,
+        width: 512,
+        height: 512,
+        alt: 'Quem Sou Eu?',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Quem Sou Eu?',
+    description: 'Jogo multiplayer de cartas, personagens e adivinhação social.',
+    images: [appIconUrl],
   },
 };
 
@@ -30,6 +53,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" className={`${inter.variable} ${quicksand.variable}`} suppressHydrationWarning>
       <head>
+        <link rel="icon" href={appIconUrl} type="image/png" />
+        <link rel="shortcut icon" href={appIconUrl} type="image/png" />
+        <link rel="apple-touch-icon" href={appIconUrl} />
+        <meta name="theme-color" content="#071a64" />
         <link rel="stylesheet" href="/mobile-fixes.css" />
         <link rel="stylesheet" href="/gameplay-polish.css" />
         <link rel="stylesheet" href="/mobile-landscape-guard.css" />

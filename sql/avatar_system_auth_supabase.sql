@@ -2,12 +2,13 @@
 -- Project: zpkxigpocyfhupqlyqak
 -- Run this manually in Supabase SQL Editor for https://zpkxigpocyfhupqlyqak.supabase.co
 -- This file is only SQL documentation/migration. Do not import it in frontend code.
--- Current R2 standard by category:
---   atuem/atuem/avatar/Padrao/Melanie.png
---   atuem/atuem/avatar/Padrao/Melanie1.png
---   atuem/atuem/avatar/Padrao/Melanie-1.mp4
---   atuem/atuem/avatar/Terror/Nome.png
---   atuem/atuem/avatar/Futebol/Nome.png
+-- Current R2 standard by category and character folder:
+--   atuem/avatar/Padrao/Melanie/Melanie.png
+--   atuem/avatar/Padrao/Melanie/Melanie1.png
+--   atuem/avatar/Padrao/Melanie/Melanie-1.mp4
+--   atuem/avatar/Padrao/Melanie/Melanie1-1.mp4
+--   atuem/avatar/Terror/Nome/Nome.png
+--   atuem/avatar/Futebol/Nome/Nome.png
 
 create table if not exists public.avatar_categories (
   id uuid primary key default gen_random_uuid(),
@@ -21,7 +22,7 @@ create table if not exists public.avatar_categories (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint avatar_categories_slug_check check (slug ~ '^[a-z0-9][a-z0-9-]*$'),
-  constraint avatar_categories_prefix_check check (r2_prefix like 'atuem/atuem/avatar/%')
+  constraint avatar_categories_prefix_check check (r2_prefix like 'atuem/avatar/%' or r2_prefix like 'atuem/atuem/avatar/%')
 );
 
 create table if not exists public.avatar_skins (
@@ -33,7 +34,7 @@ create table if not exists public.avatar_skins (
   skin_name text not null default 'Oficial',
   image_key text not null,
   card_image_key text,
-  r2_prefix text not null default 'atuem/atuem/avatar/',
+  r2_prefix text not null default 'atuem/avatar/',
   rarity text not null default 'common',
   access_type text not null default 'free',
   price_coins integer not null default 0,
@@ -111,10 +112,10 @@ create index if not exists user_avatar_unlocks_user_idx on public.user_avatar_un
 
 insert into public.avatar_categories (slug, name, description, r2_prefix, is_active, sort_order)
 values
-  ('padrao', 'Padrão', 'Personagens padrão do jogo.', 'atuem/atuem/avatar/Padrao/', true, 10),
-  ('terror', 'Terror', 'Coleção de personagens de terror.', 'atuem/atuem/avatar/Terror/', false, 20),
-  ('futebol', 'Futebol', 'Coleção de jogadores e personagens de futebol.', 'atuem/atuem/avatar/Futebol/', false, 30),
-  ('marvel', 'Marvel', 'Coleção licenciada futura.', 'atuem/atuem/avatar/Marvel/', false, 40)
+  ('padrao', 'Padrão', 'Personagens padrão do jogo.', 'atuem/avatar/Padrao/', true, 10),
+  ('terror', 'Terror', 'Coleção de personagens de terror.', 'atuem/avatar/Terror/', false, 20),
+  ('futebol', 'Futebol', 'Coleção de jogadores e personagens de futebol.', 'atuem/avatar/Futebol/', false, 30),
+  ('marvel', 'Marvel', 'Coleção licenciada futura.', 'atuem/avatar/Marvel/', false, 40)
 on conflict (slug) do update set
   name = excluded.name,
   description = excluded.description,
@@ -123,7 +124,7 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into public.avatar_skins (category_id, avatar_key, avatar_name, skin_code, skin_name, image_key, card_image_key, r2_prefix, rarity, access_type, price_coins, is_active, sort_order)
-select c.id, v.avatar_key, v.avatar_name, v.skin_code, 'Oficial', concat(c.r2_prefix, v.skin_code, '.png'), concat(c.r2_prefix, v.skin_code, '.png'), c.r2_prefix, v.rarity, 'free', 0, true, v.sort_order
+select c.id, v.avatar_key, v.avatar_name, v.skin_code, 'Oficial', concat(c.r2_prefix, v.avatar_key, '/', v.skin_code, '.png'), concat(c.r2_prefix, v.avatar_key, '/', v.skin_code, '.png'), c.r2_prefix, v.rarity, 'free', 0, true, v.sort_order
 from public.avatar_categories c
 cross join (
   values
@@ -152,7 +153,7 @@ on conflict (avatar_key, skin_code) do update set
   updated_at = now();
 
 insert into public.avatar_animations (avatar_skin_id, event_type, animation_key, variant_code, loop, sort_order)
-select s.id, v.event_type, concat(c.r2_prefix, s.skin_code, v.suffix, '.mp4'), v.variant_code, v.loop, v.sort_order
+select s.id, v.event_type, concat(c.r2_prefix, s.avatar_key, '/', s.skin_code, v.suffix, '.mp4'), v.variant_code, v.loop, v.sort_order
 from public.avatar_skins s
 join public.avatar_categories c on c.id = s.category_id
 cross join (

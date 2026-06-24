@@ -147,4 +147,197 @@
   body > div.relative.min-h-screen .gap-5 {
     gap: .7rem !important;
   }
+
+  .home-lobby-main {
+    min-height: 100svh !important;
+    height: auto !important;
+    max-width: min(100vw, 920px) !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 5rem .75rem .7rem !important;
+    overflow: visible !important;
+  }
+
+  .home-lobby-section {
+    display: grid !important;
+    grid-template-columns: minmax(13.2rem, .86fr) minmax(18rem, 1.14fr) !important;
+    align-items: end !important;
+    gap: .85rem !important;
+    width: 100% !important;
+    max-width: 52rem !important;
+    margin-inline: auto !important;
+  }
+
+  .home-lobby-avatar {
+    display: flex !important;
+    min-height: 0 !important;
+    height: calc(100svh - 6rem) !important;
+    max-height: 22rem !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    overflow: visible !important;
+  }
+
+  .home-lobby-avatar > div {
+    transform: none !important;
+    width: min(100%, 15rem) !important;
+  }
+
+  .home-lobby-avatar > div > div:nth-child(2) {
+    width: min(100%, 14rem) !important;
+    height: min(calc(100svh - 6.4rem), 21.2rem) !important;
+    border-radius: 2rem !important;
+    border-width: 3px !important;
+  }
+
+  .home-lobby-avatar > div > div:nth-child(2) > div:first-child {
+    inset: .75rem .75rem 4.7rem .75rem !important;
+    border-radius: 1.55rem !important;
+    border-width: 3px !important;
+  }
+
+  .home-lobby-avatar > div > div:nth-child(2) > div:last-child {
+    width: 86% !important;
+    margin-bottom: .8rem !important;
+    border-radius: 1rem !important;
+    padding: .5rem .6rem !important;
+  }
+
+  .home-lobby-avatar h1 {
+    font-size: 1.12rem !important;
+  }
+
+  .home-lobby-avatar p,
+  .home-lobby-avatar div[class*="rounded-full"] {
+    font-size: .48rem !important;
+  }
+
+  .home-lobby-panel {
+    width: 100% !important;
+    max-height: calc(100svh - 5.8rem) !important;
+    overflow-y: auto !important;
+    border-radius: 1.35rem !important;
+    border-width: 3px !important;
+    padding: .85rem !important;
+  }
+
+  .home-lobby-info {
+    margin-bottom: .65rem !important;
+    border-radius: 1rem !important;
+    padding: .85rem !important;
+  }
+
+  .home-lobby-eyebrow {
+    font-size: .52rem !important;
+    letter-spacing: .16em !important;
+  }
+
+  .home-lobby-title {
+    margin-top: .12rem !important;
+    font-size: 1.55rem !important;
+    line-height: .95 !important;
+  }
+
+  .home-lobby-subtitle {
+    margin-top: .34rem !important;
+    font-size: .72rem !important;
+    line-height: 1.15 !important;
+  }
+
+  .home-lobby-actions {
+    gap: .5rem !important;
+  }
+
+  .home-lobby-play {
+    height: 3.4rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    font-size: 1.1rem !important;
+    box-shadow: 0 5px 0 #b45309 !important;
+  }
+
+  .home-lobby-play svg {
+    width: 1.45rem !important;
+    height: 1.45rem !important;
+  }
+
+  .home-lobby-secondary {
+    gap: .5rem !important;
+  }
+
+  .home-lobby-small-action,
+  .home-lobby-decks {
+    height: 2.8rem !important;
+    font-size: .7rem !important;
+  }
+
+  .home-lobby-small-action svg,
+  .home-lobby-decks svg {
+    width: 1rem !important;
+    height: 1rem !important;
+  }
+
+  nav.fixed.top-0 {
+    height: 4.65rem !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none !important;
+  }
+
+  nav.fixed.top-0::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  nav.fixed.top-0 > div {
+    height: 4.65rem !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    padding-left: .45rem !important;
+    padding-right: .45rem !important;
+  }
+
+  nav.fixed.top-0 button {
+    height: 4.65rem !important;
+    padding-left: .7rem !important;
+    padding-right: .7rem !important;
+    font-size: .68rem !important;
+  }
+
+  nav.fixed.top-0 button:first-child {
+    height: 3rem !important;
+    min-width: 3rem !important;
+    margin-right: .25rem !important;
+    border-radius: .9rem !important;
+  }
+
+  nav.fixed.top-0 img,
+  nav.fixed.top-0 [class*="AvatarFigure"] {
+    width: 2.45rem !important;
+    height: 2.45rem !important;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (max-width: 740px) and (orientation: landscape) {
+  .home-lobby-section {
+    grid-template-columns: minmax(10.5rem, .75fr) minmax(17rem, 1.25fr) !important;
+    gap: .6rem !important;
+  }
+
+  .home-lobby-avatar {
+    max-height: 18.8rem !important;
+  }
+
+  .home-lobby-avatar > div > div:nth-child(2) {
+    width: 11.4rem !important;
+    height: 17.8rem !important;
+  }
+
+  .home-lobby-title {
+    font-size: 1.35rem !important;
+  }
+
+  .home-lobby-play {
+    height: 3rem !important;
+    font-size: .95rem !important;
+  }
 }

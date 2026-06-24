@@ -1,22 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAuth as supabaseGame } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { getPublicEnvValue } from '@/lib/publicEnv';
+import { getSupabaseGameServer, hasSupabaseGameServiceRole } from '@/lib/supabaseAdmin';
 
 const MAX_GENRES = 8;
 const MAX_BLOCKED_TRACKS = 300;
+const PROFILE_SELECT = 'id,email,nickname,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,updated_at,created_at';
 
 export async function GET(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get('userId')?.trim() || '';
     if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
 
-    const { data, error } = await supabaseGame
+    const { data, error } = await getGameClient(req)
       .from('profiles')
-      .select('id,nickname,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,updated_at')
+      .select(PROFILE_SELECT)
       .eq('id', userId)
       .maybeSingle();
 
     if (error) throw error;
-    return NextResponse.json({ profile: data || null });
+    return NextResponse.json({ profile: data ? normalizeProfileResult(data) : null });
   } catch (error: any) {
     console.error('Player profile read error:', error);
     return NextResponse.json({ error: error.message || 'Nao foi possivel carregar o perfil.' }, { status: 500 });
@@ -29,6 +32,7 @@ export async function POST(req: NextRequest) {
     const id = String(body.id || body.userId || '').trim();
     const nickname = normalizeNicknameDisplay(body.nickname).slice(0, 16);
     const avatarUrl = String(body.avatar_url || body.avatarUrl || '').trim();
+    const email = normalizeEmail(body.email || body.userEmail || body.authEmail);
     const musicGenres = normalizeGenres(body.music_genres || body.musicGenres);
     const musicBlockedTracks = normalizeBlockedTracks(body.music_blocked_tracks || body.musicBlockedTracks);
     const profileCompleted = Boolean(body.profile_completed ?? body.profileCompleted ?? true);
@@ -37,9 +41,11 @@ export async function POST(req: NextRequest) {
     if (!isUuid(id)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
     if (!nickname) return NextResponse.json({ error: 'Digite seu nickname.' }, { status: 400 });
 
-    const { data: currentProfile, error: currentProfileError } = await supabaseGame
+    const gameClient = getGameClient(req);
+
+    const { data: currentProfile, error: currentProfileError } = await gameClient
       .from('profiles')
-      .select('id,nickname')
+      .select('id,email,nickname')
       .eq('id', id)
       .maybeSingle();
 
@@ -50,7 +56,7 @@ export async function POST(req: NextRequest) {
     const nicknameUnchangedForThisUser = Boolean(currentProfile?.id) && nicknameKey === currentNicknameKey;
 
     if (!nicknameUnchangedForThisUser) {
-      const { data: existingProfiles, error: duplicateError } = await supabaseGame
+      const { data: existingProfiles, error: duplicateError } = await gameClient
         .from('profiles')
         .select('id,nickname')
         .neq('id', id)
@@ -64,27 +70,79 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { data, error } = await supabaseGame
+    const payload: Record<string, any> = {
+      id,
+      email: currentProfile?.email || email || `player_${id}@quem-sou-eu.local`,
+      nickname,
+      avatar_url: avatarUrl,
+      music_genres: musicGenres,
+      music_blocked_tracks: musicBlockedTracks,
+      profile_completed: profileCompleted,
+      is_guest: isGuest,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await gameClient
       .from('profiles')
-      .upsert({
-        id,
-        nickname,
-        avatar_url: avatarUrl,
-        music_genres: musicGenres,
-        music_blocked_tracks: musicBlockedTracks,
-        profile_completed: profileCompleted,
-        is_guest: isGuest,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'id' })
-      .select('id,nickname,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,updated_at')
+      .upsert(payload, { onConflict: 'id' })
+      .select(PROFILE_SELECT)
       .single();
 
-    if (error) throw error;
-    return NextResponse.json({ profile: data });
+    if (error) {
+      if (isGuest) {
+        return NextResponse.json({ profile: normalizeProfileResult(payload) });
+      }
+      throw error;
+    }
+
+    return NextResponse.json({ profile: normalizeProfileResult(data) });
   } catch (error: any) {
     console.error('Player profile save error:', error);
     return NextResponse.json({ error: error.message || 'Nao foi possivel salvar o perfil.' }, { status: 500 });
   }
+}
+
+function getGameClient(req: NextRequest) {
+  if (hasSupabaseGameServiceRole()) return getSupabaseGameServer();
+
+  const authorization = req.headers.get('authorization') || '';
+  const url = getPublicEnvValue('NEXT_PUBLIC_SUPABASE_URL_GAME');
+  const anonKey = getPublicEnvValue('NEXT_PUBLIC_SUPABASE_ANON_KEY_GAME');
+
+  if (authorization && url && anonKey) {
+    return createClient(url, anonKey, {
+      global: {
+        headers: { Authorization: authorization },
+      },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  }
+
+  return getSupabaseGameServer();
+}
+
+function normalizeProfileResult(profile: any) {
+  if (!profile) return null;
+
+  return {
+    ...profile,
+    nickname: normalizeNicknameDisplay(profile.nickname || profile.email?.split('@')[0] || 'Jogador'),
+    avatar_url: profile.avatar_url || '',
+    music_genres: normalizeGenres(profile.music_genres),
+    music_blocked_tracks: normalizeBlockedTracks(profile.music_blocked_tracks),
+    profile_completed: Boolean(profile.profile_completed ?? true),
+    played_matches: Number(profile.played_matches || 0),
+    wins: Number(profile.wins || 0),
+    is_guest: Boolean(profile.is_guest),
+  };
+}
+
+function normalizeEmail(value: unknown) {
+  const email = String(value || '').trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
 }
 
 function normalizeGenres(value: unknown) {

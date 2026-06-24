@@ -6,19 +6,21 @@ import { cn } from '@/lib/utils';
 
 type AvatarLobbyVideoProps = {
   avatarUrl?: string;
+  directVideoUrl?: string;
   label?: string;
   className?: string;
 };
 
-export default function AvatarLobbyVideo({ avatarUrl = '', label = 'Avatar', className }: AvatarLobbyVideoProps) {
-  const [videoUrl, setVideoUrl] = useState('');
+export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', label = 'Avatar', className }: AvatarLobbyVideoProps) {
+  const [videoUrl, setVideoUrl] = useState(directVideoUrl);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setVideoUrl('');
+    setVideoUrl(directVideoUrl);
     setFailed(false);
 
+    if (directVideoUrl) return;
     if (!avatarUrl) return;
 
     async function loadVideo() {
@@ -33,7 +35,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', label = 'Avatar', cla
 
     void loadVideo();
     return () => { cancelled = true; };
-  }, [avatarUrl]);
+  }, [avatarUrl, directVideoUrl]);
 
   return (
     <div className={cn('relative flex items-center justify-center overflow-hidden bg-white', className)}>

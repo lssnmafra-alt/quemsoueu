@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getPublicEnvValue } from '@/lib/publicEnv';
 
 type AvatarVideoEventType = 'home' | 'lobby' | 'intro' | 'victory' | 'defeat';
 
@@ -14,10 +13,6 @@ type AvatarLobbyVideoProps = {
   label?: string;
   className?: string;
 };
-
-function hasHomeAvatarVideoOverride() {
-  return Boolean(process.env.NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL || getPublicEnvValue('NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL'));
-}
 
 function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; onError: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -101,26 +96,29 @@ function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; on
 }
 
 export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', eventType, label = 'Avatar', className }: AvatarLobbyVideoProps) {
+  const [mounted, setMounted] = useState(false);
+  const [isHome, setIsHome] = useState(false);
   const [videoUrl, setVideoUrl] = useState('');
   const [failed, setFailed] = useState(false);
-  const [useWhiteKey, setUseWhiteKey] = useState(false);
-  const resolvedEventType = eventType || (typeof window !== 'undefined' && window.location.pathname === '/' ? 'home' : 'lobby');
-  const imageFallback = resolveAvatarImageUrl(avatarUrl);
 
   useEffect(() => {
+    setMounted(true);
+    setIsHome(window.location.pathname === '/');
+  }, []);
+
+  const resolvedEventType: AvatarVideoEventType = eventType || (isHome ? 'home' : 'lobby');
+  const useWhiteKey = mounted && resolvedEventType === 'home';
+  const imageFallback = useMemo(() => resolveAvatarImageUrl(avatarUrl), [avatarUrl]);
+
+  useEffect(() => {
+    if (!mounted) return;
+
     let cancelled = false;
     setFailed(false);
-    setUseWhiteKey(false);
     setVideoUrl('');
 
-    if (directVideoUrl) {
+    if (directVideoUrl && (!useWhiteKey || directVideoUrl.startsWith('/api/'))) {
       setVideoUrl(directVideoUrl);
-      return;
-    }
-
-    if (typeof window !== 'undefined' && window.location.pathname === '/' && hasHomeAvatarVideoOverride() && !avatarUrl?.startsWith('avatar:')) {
-      setUseWhiteKey(true);
-      setVideoUrl('/api/home-avatar-video');
       return;
     }
 
@@ -138,12 +136,12 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
 
     void loadVideo();
     return () => { cancelled = true; };
-  }, [avatarUrl, directVideoUrl, resolvedEventType]);
+  }, [avatarUrl, directVideoUrl, mounted, resolvedEventType, useWhiteKey]);
 
   return (
     <div className={cn('relative flex items-center justify-center overflow-hidden', useWhiteKey ? 'bg-transparent' : 'bg-white', className)}>
       {!useWhiteKey && <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,1)_0%,rgba(255,255,255,.96)_55%,rgba(226,246,255,.9)_100%)]" />}
-      {videoUrl && !failed ? (
+      {mounted && videoUrl && !failed ? (
         useWhiteKey ? (
           <WhiteKeyVideo src={videoUrl} label={label} onError={() => setFailed(true)} />
         ) : (

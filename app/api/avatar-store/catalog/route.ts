@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPublicR2Url, listR2Objects } from '@/lib/r2Storage';
 import { R2_AVATAR_CATALOG } from '@/lib/avatars';
+import { getSupabaseAuthServer } from '@/lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -8,6 +9,7 @@ export const revalidate = 0;
 const AVATAR_ROOTS = ['atuem/atuem/avatar/', 'atuem/avatar/'];
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
 const VIDEO_EXTENSIONS = ['.mp4', '.webm'];
+const DEFAULT_SKIN_PRICE = 100;
 
 type StoreItem = {
   id: string;
@@ -28,15 +30,91 @@ type StoreItem = {
   isDefaultSkin: boolean;
 };
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const userId = String(req.nextUrl.searchParams.get('userId') || '').trim();
+
   try {
-    const items = await buildR2Catalog();
-    const finalItems = items.length ? items : fallbackItems();
-    return NextResponse.json({ items: finalItems, characters: groupCharacters(finalItems), wallet: { coins: 0 } }, { headers: { 'Cache-Control': 'no-store' } });
+    const r2Items = await buildR2Catalog();
+    const dbSkins = await readDbSkins();
+    const unlocks = await readUnlocks(userId);
+    const wallet = await readWallet(userId);
+    const finalItems = mergeCatalog(r2Items.length ? r2Items : fallbackItems(), dbSkins, unlocks);
+
+    return NextResponse.json({ items: finalItems, characters: groupCharacters(finalItems), wallet: { coins: wallet } }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
     const items = fallbackItems();
     return NextResponse.json({ items, characters: groupCharacters(items), wallet: { coins: 0 }, fallback: true, error: error.message || 'Catalogo local.' }, { headers: { 'Cache-Control': 'no-store' } });
   }
+}
+
+async function readDbSkins() {
+  try {
+    const db = getSupabaseAuthServer();
+    const result = await db
+      .from('avatar_skins')
+      .select('id,avatar_key,avatar_name,skin_code,skin_name,image_key,card_image_key,rarity,access_type,price_coins,sort_order,is_active')
+      .eq('is_active', true)
+      .order('sort_order');
+    return result.data || [];
+  } catch {
+    return [];
+  }
+}
+
+async function readUnlocks(userId: string) {
+  if (!isUuid(userId)) return new Set<string>();
+  try {
+    const db = getSupabaseAuthServer();
+    const result = await db.from('user_avatar_unlocks').select('avatar_skin_id,expires_at').eq('user_id', userId);
+    return new Set((result.data || [])
+      .filter((row: any) => !row.expires_at || new Date(row.expires_at).getTime() > Date.now())
+      .map((row: any) => String(row.avatar_skin_id)));
+  } catch {
+    return new Set<string>();
+  }
+}
+
+async function readWallet(userId: string) {
+  if (!isUuid(userId)) return 0;
+  try {
+    const db = getSupabaseAuthServer();
+    const result = await db.from('user_wallets').select('coins').eq('user_id', userId).maybeSingle();
+    return Number(result.data?.coins || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function mergeCatalog(r2Items: StoreItem[], dbSkins: any[], unlocks: Set<string>) {
+  const dbByAsset = new Map<string, any>();
+  const dbBySkin = new Map<string, any>();
+
+  for (const skin of dbSkins) {
+    dbByAsset.set(normalizeKey(String(skin.image_key || skin.card_image_key || '')), skin);
+    dbBySkin.set(`${normalizeKey(String(skin.avatar_key || ''))}:${normalizeKey(String(skin.skin_code || ''))}`, skin);
+  }
+
+  return r2Items.map((item) => {
+    const dbSkin = dbByAsset.get(normalizeKey(item.imageKey || '')) || dbBySkin.get(`${normalizeKey(item.avatarKey)}:${normalizeKey(item.skinCode)}`);
+    const id = String(dbSkin?.id || item.id);
+    const isDefaultSkin = Boolean(item.isDefaultSkin);
+    const accessType = String(dbSkin?.access_type || (isDefaultSkin ? 'free' : 'premium'));
+    const priceCoins = Number(dbSkin?.price_coins ?? (isDefaultSkin ? 0 : DEFAULT_SKIN_PRICE));
+    const owned = accessType === 'free' || unlocks.has(id);
+
+    return {
+      ...item,
+      id,
+      displayName: String(dbSkin?.avatar_name || item.displayName),
+      skinName: String(dbSkin?.skin_name || item.skinName),
+      rarity: String(dbSkin?.rarity || item.rarity),
+      accessType,
+      priceCoins,
+      owned,
+      locked: !owned,
+      sortOrder: Number(dbSkin?.sort_order ?? item.sortOrder),
+    };
+  }).sort((a, b) => a.sortOrder - b.sortOrder || a.displayName.localeCompare(b.displayName));
 }
 
 async function buildR2Catalog(): Promise<StoreItem[]> {
@@ -58,10 +136,10 @@ async function buildR2Catalog(): Promise<StoreItem[]> {
       imageKey: image.key,
       imageUrl: await getPublicR2Url(image.key),
       rarity: parsed.isDefaultSkin ? 'common' : 'rare',
-      accessType: 'free',
-      priceCoins: 0,
-      owned: true,
-      locked: false,
+      accessType: parsed.isDefaultSkin ? 'free' : 'premium',
+      priceCoins: parsed.isDefaultSkin ? 0 : DEFAULT_SKIN_PRICE,
+      owned: parsed.isDefaultSkin,
+      locked: !parsed.isDefaultSkin,
       sortOrder: parsed.avatarSort * 100 + parsed.skinNumber,
       animations: {},
       animationVariants: {},
@@ -225,4 +303,8 @@ function sortHash(value: string) {
 
 function naturalCompare(a: string, b: string) {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+function isUuid(value: string) {
+  return value.length === 36 && value.includes('-');
 }

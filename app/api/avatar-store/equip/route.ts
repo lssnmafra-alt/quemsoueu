@@ -36,12 +36,25 @@ export async function POST(req: NextRequest) {
       if (!activeUnlock) return NextResponse.json({ error: 'Voce ainda nao possui essa skin.' }, { status: 403 });
     }
 
+    const { data: animationRows, error: animationError } = await supabaseAuth
+      .from('avatar_animations')
+      .select('event_type,animation_key')
+      .eq('avatar_skin_id', skinId)
+      .eq('is_active', true);
+
+    if (animationError) throw animationError;
+
+    const animations = Object.fromEntries((animationRows || [])
+      .map((row: any) => [String(row.event_type || '').trim(), String(row.animation_key || '').trim()])
+      .filter(([eventType, key]) => eventType && key));
+
     const imageUrl = await getPublicR2Url(skin.image_key);
     const avatarUrl = avatarSelectionToUrl(normalizeAvatarSelection({
       avatarId: skin.avatar_key,
       imageUrl,
       imageKey: skin.image_key,
       animationSlug: `${skin.avatar_key}/${skin.skin_code}`,
+      animations,
       avatarSetId: skin.id,
       skinCode: skin.skin_code,
       skinName: skin.skin_name,

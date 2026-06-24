@@ -37,18 +37,31 @@ export async function POST(req: NextRequest) {
     if (!isUuid(id)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
     if (!nickname) return NextResponse.json({ error: 'Digite seu nickname.' }, { status: 400 });
 
-    const nicknameKey = normalizeNicknameForUniqueness(nickname);
-    const { data: existingProfiles, error: duplicateError } = await supabaseGame
+    const { data: currentProfile, error: currentProfileError } = await supabaseGame
       .from('profiles')
       .select('id,nickname')
-      .neq('id', id)
-      .limit(1000);
+      .eq('id', id)
+      .maybeSingle();
 
-    if (duplicateError) throw duplicateError;
+    if (currentProfileError) throw currentProfileError;
 
-    const nicknameTaken = (existingProfiles || []).some((row: any) => normalizeNicknameForUniqueness(row.nickname) === nicknameKey);
-    if (nicknameTaken) {
-      return NextResponse.json({ error: 'Esse nickname ja esta em uso. Escolha outro.' }, { status: 409 });
+    const nicknameKey = normalizeNicknameForUniqueness(nickname);
+    const currentNicknameKey = normalizeNicknameForUniqueness(currentProfile?.nickname || '');
+    const nicknameUnchangedForThisUser = Boolean(currentProfile?.id) && nicknameKey === currentNicknameKey;
+
+    if (!nicknameUnchangedForThisUser) {
+      const { data: existingProfiles, error: duplicateError } = await supabaseGame
+        .from('profiles')
+        .select('id,nickname')
+        .neq('id', id)
+        .limit(1000);
+
+      if (duplicateError) throw duplicateError;
+
+      const nicknameTaken = (existingProfiles || []).some((row: any) => normalizeNicknameForUniqueness(row.nickname) === nicknameKey);
+      if (nicknameTaken) {
+        return NextResponse.json({ error: 'Esse nickname ja esta em uso. Escolha outro.' }, { status: 409 });
+      }
     }
 
     const { data, error } = await supabaseGame
@@ -95,6 +108,7 @@ function normalizeNicknameForUniqueness(value: unknown) {
   return normalizeNicknameDisplay(value)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '')
     .toLowerCase();
 }
 

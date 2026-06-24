@@ -2,6 +2,7 @@ import { AVATAR_FRAMES } from './avatar-colors';
 
 export type AvatarState = 'idle' | 'walk' | 'attack' | 'defense' | 'vote' | 'eliminated' | 'victory' | 'defeat';
 export type AvatarAccessType = 'free' | 'premium' | 'admin' | 'event';
+export type AvatarAnimationMap = Partial<Record<'home' | 'lobby' | 'intro' | 'victory' | 'defeat' | 'vote' | 'custom', string>>;
 
 export type AvatarSelection = {
   avatarId: string;
@@ -11,6 +12,7 @@ export type AvatarSelection = {
   imageUrl?: string;
   imageKey?: string;
   animationSlug?: string;
+  animations?: AvatarAnimationMap;
   avatarSetId?: string;
   skinCode?: string;
   skinName?: string;
@@ -27,6 +29,7 @@ export type AvatarCatalogItem = {
   imageUrl: string;
   imageKey?: string;
   animationSlug: string;
+  animations?: AvatarAnimationMap;
   avatarSetId?: string;
   accessType: AvatarAccessType;
   locked: boolean;
@@ -78,6 +81,7 @@ export function catalogItemToSelection(item: AvatarCatalogItem): AvatarSelection
     imageUrl: item.imageUrl,
     imageKey: item.imageKey,
     animationSlug: item.animationSlug,
+    animations: item.animations,
     avatarSetId: item.avatarSetId,
     skinCode: item.skinCode,
     skinName: item.skinName,
@@ -87,7 +91,7 @@ export function catalogItemToSelection(item: AvatarCatalogItem): AvatarSelection
 }
 
 export function isMediaAvatarSelection(selection?: Partial<AvatarSelection> | null) {
-  return Boolean(selection?.imageUrl || selection?.imageKey || selection?.animationSlug || selection?.avatarSetId);
+  return Boolean(selection?.imageUrl || selection?.imageKey || selection?.animationSlug || selection?.avatarSetId || selection?.animations);
 }
 
 export function normalizeAvatarSelection(selection?: Partial<AvatarSelection> | null): AvatarSelection {
@@ -100,6 +104,7 @@ export function normalizeAvatarSelection(selection?: Partial<AvatarSelection> | 
       imageUrl: selection?.imageUrl || '',
       imageKey: selection?.imageKey || '',
       animationSlug: selection?.animationSlug || selection?.avatarId || '',
+      animations: normalizeAnimations(selection?.animations),
       avatarSetId: selection?.avatarSetId || '',
       skinCode: selection?.skinCode || 'skin-1',
       skinName: selection?.skinName || 'Padrão',
@@ -148,7 +153,9 @@ export function avatarToSvg(selection: AvatarSelection, state: AvatarState = 'id
   const visorWidth = avatar.id === 'falcao' || avatar.id === 'hacker' ? 64 : 46;
   const horn = avatar.id === 'samurai-urbano' ? '<path d="M69 45 L100 24 L131 45" fill="none" stroke="#F8FAFC" stroke-width="7" stroke-linecap="round"/>' : '';
   const scrap = avatar.id === 'robo-sucata' ? '<rect x="63" y="145" width="74" height="12" rx="4" fill="#475569"/><circle cx="75" cy="151" r="4" fill="#F97316"/><circle cx="125" cy="151" r="4" fill="#F97316"/>' : '';
-  const skull = avatar.id === 'caveira' || state === 'eliminated' ? '<path d="M78 88 h12 M110 88 h12 M91 114 h18" stroke="#0F172A" stroke-width="6" stroke-linecap="round"/>' : '';
+  const skull = avatar.id === 'caveira' || state === 'eliminated'
+    ? '<path d="M78 88 h12 M110 88 h12 M91 114 h18" stroke="#0F172A" stroke-width="6" stroke-linecap="round"/>'
+    : '';
   const voteMark = state === 'vote' ? '<path d="M143 72 l14 14 l28 -32" fill="none" stroke="#16A34A" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>' : '';
   const victory = state === 'victory' ? '<path d="M49 91 C31 74 34 52 52 43" fill="none" stroke="#FACC15" stroke-width="8" stroke-linecap="round"/><path d="M151 91 C169 74 166 52 148 43" fill="none" stroke="#FACC15" stroke-width="8" stroke-linecap="round"/>' : '';
   const defeat = state === 'defeat' ? '<path d="M61 160 C82 175 118 175 139 160" fill="none" stroke="#475569" stroke-width="7" stroke-linecap="round"/>' : '';
@@ -209,8 +216,24 @@ function r2Avatar(avatarKey: string, sortOrder: number, displayName = avatarKey)
     imageUrl: `/api/r2-file?key=${encodedKey}`,
     imageKey: `atuem/atuem/avatar/${avatarKey}.png`,
     animationSlug: `${avatarKey}/skin-1`,
+    animations: {
+      home: `atuem/atuem/Animacao/${avatarKey}-A.mp4`,
+      lobby: `atuem/atuem/Animacao/${avatarKey}-1.mp4`,
+      intro: `atuem/atuem/Animacao/${avatarKey}-A.mp4`,
+      victory: `atuem/atuem/Animacao/${avatarKey}-2.mp4`,
+      defeat: `atuem/atuem/Animacao/${avatarKey}-3.mp4`,
+    },
     accessType: 'free',
     locked: false,
     sortOrder,
   };
+}
+
+function normalizeAnimations(value: unknown): AvatarAnimationMap {
+  if (!value || typeof value !== 'object') return {};
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .map(([key, item]) => [key, String(item || '').trim()])
+      .filter(([, item]) => Boolean(item)),
+  ) as AvatarAnimationMap;
 }

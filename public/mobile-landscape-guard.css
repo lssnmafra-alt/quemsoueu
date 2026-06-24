@@ -110,6 +110,14 @@
 }
 
 @media (hover: none) and (pointer: coarse) and (max-width: 900px) and (orientation: landscape) {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   body {
     overflow: hidden;
   }
@@ -192,5 +200,456 @@
   .home-lobby-decks svg {
     width: 17px !important;
     height: 17px !important;
+  }
+
+  .qse-chat-button,
+  .gameplay-chat-button {
+    right: .55rem !important;
+    bottom: calc(.55rem + env(safe-area-inset-bottom)) !important;
+    z-index: 90 !important;
+    min-width: 2.75rem !important;
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+    padding: 0 !important;
+    border-width: 2px !important;
+  }
+
+  .qse-chat-button span,
+  .gameplay-chat-button span:not([class*="absolute"]) {
+    display: none !important;
+  }
+
+  .qse-chat-button svg,
+  .gameplay-chat-button svg {
+    width: 1.2rem !important;
+    height: 1.2rem !important;
+  }
+
+  .qse-chat-panel,
+  .gameplay-chat-panel {
+    right: .55rem !important;
+    bottom: calc(.55rem + env(safe-area-inset-bottom)) !important;
+    width: min(20rem, calc(100vw - 1.1rem)) !important;
+    height: min(16rem, calc(100svh - 1.1rem)) !important;
+    border-radius: 1.2rem !important;
+  }
+
+  .gameplay-screen {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+  }
+
+  .gameplay-shell {
+    height: 100svh !important;
+    overflow-y: auto !important;
+    gap: .35rem !important;
+    padding: .38rem .48rem .5rem !important;
+    scroll-padding-bottom: 3.4rem !important;
+  }
+
+  .gameplay-hud {
+    top: 0 !important;
+    grid-template-columns: minmax(0, 1fr) auto auto !important;
+    min-height: 2.55rem !important;
+    gap: .32rem !important;
+    border-radius: 1rem !important;
+    padding: .32rem .42rem !important;
+  }
+
+  .gameplay-logo-mark {
+    display: none !important;
+  }
+
+  .gameplay-round-pill,
+  .gameplay-sudden-pill,
+  .gameplay-turn-pill,
+  .gameplay-icon-action {
+    min-width: 0 !important;
+    padding: .34rem .44rem !important;
+    font-size: .48rem !important;
+    letter-spacing: .06em !important;
+  }
+
+  .gameplay-timer {
+    min-width: 5.9rem !important;
+    border-radius: .9rem !important;
+    padding: .32rem .5rem !important;
+    font-size: 1.25rem !important;
+  }
+
+  .gameplay-top-status {
+    gap: .28rem !important;
+  }
+
+  .gameplay-leave-button span {
+    display: none !important;
+  }
+
+  .gameplay-board {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: calc(100svh - 7.8rem) !important;
+    overflow-y: auto !important;
+    border-radius: 1.15rem !important;
+    padding: .44rem !important;
+  }
+
+  .gameplay-board::before {
+    inset: .25rem !important;
+    border-radius: .95rem !important;
+  }
+
+  .gameplay-board-title {
+    align-items: flex-start !important;
+    gap: .36rem !important;
+    margin-bottom: .38rem !important;
+    padding: 0 !important;
+  }
+
+  .gameplay-board-title p {
+    font-size: .46rem !important;
+    letter-spacing: .15em !important;
+  }
+
+  .gameplay-board-title h1 {
+    font-size: .96rem !important;
+    line-height: 1.06 !important;
+  }
+
+  .gameplay-board-actions {
+    max-width: 8.2rem !important;
+    gap: .22rem !important;
+  }
+
+  .gameplay-board-actions span,
+  .gameplay-board-actions strong {
+    min-height: 1.1rem !important;
+    padding: .18rem .34rem !important;
+    font-size: .42rem !important;
+    letter-spacing: .04em !important;
+  }
+
+  .gameplay-card-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: .22rem !important;
+    padding-inline: 0 !important;
+  }
+
+  .gameplay-card-item {
+    max-width: 6.15rem !important;
+    min-height: 0 !important;
+    padding: .12rem .08rem .78rem !important;
+    border-radius: .78rem !important;
+  }
+
+  .gameplay-card-portrait {
+    border-radius: .68rem !important;
+  }
+
+  .gameplay-card-name {
+    left: 10% !important;
+    right: 10% !important;
+    bottom: .38rem !important;
+    min-height: .82rem !important;
+    padding: .08rem .18rem !important;
+    font-size: .44rem !important;
+    line-height: .52rem !important;
+  }
+
+  .gameplay-card-grid--selectable .gameplay-card-target {
+    inset: .12rem .08rem .78rem !important;
+    min-width: 0 !important;
+    padding: .28rem .3rem !important;
+    font-size: .44rem !important;
+  }
+
+  .gameplay-card-target svg {
+    width: 1rem !important;
+    height: 1rem !important;
+  }
+
+  .gameplay-player-scoreboard {
+    flex: 0 0 auto !important;
+    border-radius: .95rem !important;
+    padding: .28rem .34rem .32rem !important;
+  }
+
+  .gameplay-scoreboard-head {
+    margin-bottom: .22rem !important;
+    font-size: .46rem !important;
+    letter-spacing: .1em !important;
+  }
+
+  .gameplay-player-list {
+    gap: .3rem !important;
+    padding-bottom: .1rem !important;
+  }
+
+  .gameplay-player-list::after {
+    display: none !important;
+  }
+
+  .gameplay-player-chip,
+  .gameplay-player-chip--active {
+    min-width: 7.4rem !important;
+    max-width: 7.4rem !important;
+    grid-template-columns: 1.42rem minmax(0, 1fr) !important;
+    gap: .28rem !important;
+    border-radius: .75rem !important;
+    padding: .22rem .26rem !important;
+    transform: none !important;
+  }
+
+  .gameplay-player-avatar {
+    width: 1.42rem !important;
+    height: 1.42rem !important;
+    border-radius: .55rem !important;
+  }
+
+  .gameplay-player-info p {
+    font-size: .56rem !important;
+    line-height: .62rem !important;
+  }
+
+  .gameplay-player-info span {
+    margin-top: .04rem !important;
+    padding: .04rem .18rem !important;
+    font-size: .36rem !important;
+    line-height: .42rem !important;
+  }
+
+  .gameplay-life-row {
+    margin-top: .08rem !important;
+    gap: .04rem !important;
+  }
+
+  .gameplay-life-row::after {
+    display: none !important;
+  }
+
+  .gameplay-life-icon {
+    width: .48rem !important;
+    height: .48rem !important;
+  }
+
+  .gameplay-now-badge {
+    top: -.28rem !important;
+    right: .16rem !important;
+    padding: .08rem .22rem !important;
+    font-size: .34rem !important;
+  }
+
+  .gameplay-recap {
+    width: calc(100% - 1rem) !important;
+    padding: .42rem .55rem !important;
+    border-radius: .9rem !important;
+  }
+
+  .gameplay-recap p {
+    font-size: .72rem !important;
+  }
+
+  .gameplay-reveal-card-shell {
+    width: min(32vw, 8.5rem) !important;
+  }
+
+  .gameplay-reveal-clean--owner .gameplay-reveal-card-shell {
+    width: min(28vw, 7rem) !important;
+  }
+
+  .gameplay-reveal-result {
+    padding: .85rem 1.1rem !important;
+    border-radius: 1.2rem !important;
+  }
+
+  .gameplay-reveal-result h2 {
+    font-size: 2.1rem !important;
+  }
+
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] {
+    max-height: calc(100svh - .8rem) !important;
+    overflow-y: auto !important;
+    border-width: 3px !important;
+    border-radius: 1.25rem !important;
+    padding: .55rem .7rem !important;
+  }
+
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] > div[class*="mb-5"],
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] > div[class*="mb-8"] {
+    margin-top: .35rem !important;
+    margin-bottom: .45rem !important;
+  }
+
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] h2 {
+    margin-bottom: .12rem !important;
+    font-size: 1.45rem !important;
+    line-height: 1 !important;
+  }
+
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] h2 svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+  }
+
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] p {
+    font-size: .72rem !important;
+    line-height: 1.05 !important;
+  }
+
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] span[class*="font-mono"] {
+    padding: .15rem .42rem !important;
+    font-size: 1.05rem !important;
+    border-radius: .75rem !important;
+  }
+
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] div[class*="bg-indigo-50"][class*="border-2"] {
+    padding: .42rem .7rem !important;
+    border-radius: .9rem !important;
+  }
+
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] div[class*="grid-cols-2"][class*="xl:grid-cols-6"] {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: .38rem !important;
+    max-height: calc(100svh - 10.2rem) !important;
+    margin-bottom: .45rem !important;
+    padding: .15rem !important;
+  }
+
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] div[class*="aspect-[2/3]"][class*="rounded-2xl"] {
+    border-width: 2px !important;
+    border-radius: .85rem !important;
+    max-width: 5.7rem !important;
+    margin-inline: auto !important;
+    padding: .08rem !important;
+  }
+
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] button[class*="w-full"] {
+    height: 2.45rem !important;
+    max-width: 16rem !important;
+    border-radius: .9rem !important;
+    font-size: .68rem !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] > div.relative.z-10,
+  div[class*="h-screen"][class*="bg-[#071a64]"] > div[class*="flex-1"] {
+    max-height: 100svh !important;
+    overflow-y: auto !important;
+    padding: .5rem .65rem !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] h1,
+  div[class*="h-screen"][class*="bg-[#071a64]"] h1 {
+    font-size: 1.75rem !important;
+    line-height: .95 !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] h2,
+  div[class*="h-screen"][class*="bg-[#071a64]"] h2 {
+    font-size: 1.15rem !important;
+    line-height: 1 !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] p,
+  div[class*="h-screen"][class*="bg-[#071a64]"] p {
+    font-size: .66rem !important;
+    line-height: 1.12 !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] > div.relative.z-10 > div:first-child,
+  div[class*="h-screen"][class*="bg-[#071a64]"] header {
+    margin-bottom: .45rem !important;
+    border-width: 3px !important;
+    border-radius: 1.2rem !important;
+    padding: .75rem !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] > div.relative.z-10 > div:first-child p:nth-of-type(2) {
+    display: none !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] div[class*="bg-white/10"],
+  div[class*="h-screen"][class*="bg-[#071a64]"] div[class*="bg-white/10"] {
+    padding: .45rem .6rem !important;
+    border-radius: .95rem !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] div[class*="mb-5"][class*="rounded-3xl"],
+  div[class*="h-screen"][class*="bg-[#071a64]"] div[class*="rounded-3xl"] {
+    margin-bottom: .45rem !important;
+    border-width: 3px !important;
+    border-radius: 1.2rem !important;
+    padding: .55rem !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] div[class*="mt-4"][class*="grid"] {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: .42rem !important;
+    max-height: calc(100svh - 9.7rem) !important;
+    overflow-y: auto !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] div[class*="rounded-[2rem]"][class*="bg-white"] {
+    border-width: 2px !important;
+    border-radius: .95rem !important;
+    padding: .16rem !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] div[class*="rounded-[1.55rem]"] {
+    border-radius: .75rem !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] div[class*="aspect-[3/4]"] {
+    aspect-ratio: 3 / 4 !important;
+  }
+
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] .inline-flex.rounded-full {
+    padding: .45rem .85rem !important;
+    font-size: .58rem !important;
+  }
+
+  div[class*="h-screen"][class*="bg-[#071a64]"] div[class*="lg:grid-cols-[1fr_420px]"] {
+    grid-template-columns: minmax(0, 1fr) 16rem !important;
+    gap: .55rem !important;
+    min-height: 0 !important;
+  }
+
+  div[class*="h-screen"][class*="bg-[#071a64]"] div[class*="min-h-[360px]"] {
+    min-height: 0 !important;
+    max-height: calc(100svh - 9.5rem) !important;
+    overflow-y: auto !important;
+  }
+
+  div[class*="h-screen"][class*="bg-[#071a64]"] div[class*="grid-cols-2"][class*="xl:grid-cols-4"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: .38rem !important;
+  }
+
+  div[class*="h-screen"][class*="bg-[#071a64]"] div[class*="aspect-[3/4]"] {
+    aspect-ratio: 3 / 4 !important;
+  }
+
+  div[class*="h-screen"][class*="bg-[#071a64]"] button,
+  div[class*="h-screen"][class*="bg-[#071a64]"] .h-11,
+  div[class*="h-screen"][class*="bg-[#071a64]"] .h-14 {
+    min-height: 0 !important;
+    height: 2.35rem !important;
+    border-radius: .85rem !important;
+    font-size: .62rem !important;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (max-width: 740px) and (orientation: landscape) {
+  .gameplay-card-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+
+  div[class*="max-w-[1200px]"][class*="bg-white"][class*="rounded-3xl"] div[class*="grid-cols-2"][class*="xl:grid-cols-6"],
+  div[class*="min-h-[100dvh]"][class*="bg-[#071a64]"] div[class*="mt-4"][class*="grid"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+
+  div[class*="h-screen"][class*="bg-[#071a64]"] div[class*="lg:grid-cols-[1fr_420px]"] {
+    grid-template-columns: minmax(0, 1fr) 13.5rem !important;
   }
 }

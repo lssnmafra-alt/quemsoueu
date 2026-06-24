@@ -35,11 +35,11 @@ export async function GET(req: NextRequest) {
   try {
     const db = getSupabaseAuthServer();
     const categories = await readCategories(db, true);
-    const categoryIds = new Set(categories.map((category: any) => String(category.id)));
-    const categoriesById = new Map(categories.map((category: any) => [String(category.id), category]));
+    const categoryIds = new Set<string>(categories.map((category: any) => String(category.id)));
+    const categoriesById = new Map<string, any>(categories.map((category: any) => [String(category.id), category]));
     const skins = (await readSkins(db)).filter((skin: any) => categoryIds.has(String(skin.category_id || '')));
     const animationsBySkin = groupAnimations(await readAnimations(db));
-    const unlocks = await readUnlocks(db, userId);
+    const unlocks: Set<string> = await readUnlocks(db, userId);
     const wallet = await readWallet(db, userId);
     const items = await Promise.all(skins.map((skin: any) => skinToItem(skin, categoriesById.get(String(skin.category_id)), animationsBySkin.get(String(skin.id)) || [], unlocks)));
 
@@ -49,14 +49,14 @@ export async function GET(req: NextRequest) {
   }
 }
 
-async function readCategories(db: any, activeOnly: boolean) {
+async function readCategories(db: any, activeOnly: boolean): Promise<any[]> {
   let query = db.from('avatar_categories').select('id,slug,name,description,r2_prefix,is_active,sort_order').order('sort_order');
   if (activeOnly) query = query.eq('is_active', true);
   const result = await query;
   return result.data || [];
 }
 
-async function readSkins(db: any) {
+async function readSkins(db: any): Promise<any[]> {
   const result = await db
     .from('avatar_skins')
     .select('id,category_id,avatar_key,avatar_name,skin_code,skin_name,image_key,card_image_key,rarity,access_type,price_coins,sort_order,is_active,is_featured')
@@ -65,7 +65,7 @@ async function readSkins(db: any) {
   return result.data || [];
 }
 
-async function readAnimations(db: any) {
+async function readAnimations(db: any): Promise<any[]> {
   const result = await db
     .from('avatar_animations')
     .select('avatar_skin_id,event_type,animation_key,variant_code,is_active,sort_order')
@@ -74,15 +74,16 @@ async function readAnimations(db: any) {
   return result.data || [];
 }
 
-async function readUnlocks(db: any, userId: string) {
+async function readUnlocks(db: any, userId: string): Promise<Set<string>> {
   if (!isUuid(userId)) return new Set<string>();
   const result = await db.from('user_avatar_unlocks').select('avatar_skin_id,expires_at').eq('user_id', userId);
-  return new Set((result.data || [])
+  const ids = (result.data || [])
     .filter((row: any) => !row.expires_at || new Date(row.expires_at).getTime() > Date.now())
-    .map((row: any) => String(row.avatar_skin_id)));
+    .map((row: any) => String(row.avatar_skin_id));
+  return new Set<string>(ids);
 }
 
-async function readWallet(db: any, userId: string) {
+async function readWallet(db: any, userId: string): Promise<number> {
   if (!isUuid(userId)) return 0;
   const result = await db.from('user_wallets').select('coins').eq('user_id', userId).maybeSingle();
   return Number(result.data?.coins || 0);
@@ -118,7 +119,7 @@ async function skinToItem(skin: any, category: any, rows: any[], unlocks: Set<st
   };
 }
 
-function groupAnimations(rows: any[]) {
+function groupAnimations(rows: any[]): Map<string, any[]> {
   const map = new Map<string, any[]>();
   for (const row of rows) {
     const id = String(row.avatar_skin_id || '');

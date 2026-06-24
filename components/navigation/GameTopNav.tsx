@@ -29,7 +29,7 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
     <nav className="fixed left-0 right-0 top-0 z-[100] border-b-4 border-indigo-950/40 bg-[#071a64]/95 text-white shadow-[0_12px_40px_rgba(15,23,42,.35)] backdrop-blur-xl">
       <div className="mx-auto flex h-[74px] max-w-[1500px] items-center justify-between gap-3 px-3 md:px-6">
         <div className="flex h-full items-center gap-1 overflow-x-auto pr-2">
-          <button type="button" onClick={() => router.push('/')} className="mr-2 flex h-11 min-w-11 items-center justify-center rounded-xl border-2 border-cyan-300/40 bg-cyan-400/20 text-cyan-100 shadow-inner transition hover:bg-cyan-300/30" title="Voltar para o início">
+          <button type="button" onClick={() => router.push('/')} className="mr-2 flex h-11 min-w-11 items-center justify-center rounded-xl border-2 border-cyan-300/40 bg-cyan-400/20 text-cyan-100 shadow-inner transition hover:bg-cyan-300/30" title="Voltar para o início" aria-label="Voltar para o início">
             <Home className="h-5 w-5" />
           </button>
           {tabs.map((tab) => {

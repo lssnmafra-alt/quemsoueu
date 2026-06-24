@@ -2,20 +2,31 @@
 -- Project: zpkxigpocyfhupqlyqak
 -- Run this manually in Supabase SQL Editor for https://zpkxigpocyfhupqlyqak.supabase.co
 -- This file is only SQL documentation/migration. Do not import it in frontend code.
--- Current R2 standard:
---   atuem/atuem/avatar/Melanie.png       = official image
---   atuem/atuem/avatar/Melanie1.png      = skin 1 image
---   atuem/atuem/avatar/Melanie2.png      = skin 2 image
---   atuem/atuem/avatar/Melanie-1.mp4     = official lobby
---   atuem/atuem/avatar/Melanie-2.mp4     = official victory
---   atuem/atuem/avatar/Melanie-3.mp4     = official defeat
---   atuem/atuem/avatar/Melanie2-1.mp4    = skin Melanie2 lobby
---   atuem/atuem/avatar/Melanie2-2.mp4    = skin Melanie2 victory
---   atuem/atuem/avatar/Melanie2-3.mp4    = skin Melanie2 defeat
---   atuem/atuem/avatar/Melanie2-32.mp4   = extra defeat variation for Melanie2
+-- Current R2 standard by category:
+--   atuem/atuem/avatar/Padrao/Melanie.png
+--   atuem/atuem/avatar/Padrao/Melanie1.png
+--   atuem/atuem/avatar/Padrao/Melanie-1.mp4
+--   atuem/atuem/avatar/Terror/Nome.png
+--   atuem/atuem/avatar/Futebol/Nome.png
+
+create table if not exists public.avatar_categories (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  name text not null,
+  description text,
+  r2_prefix text not null,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint avatar_categories_slug_check check (slug ~ '^[a-z0-9][a-z0-9-]*$'),
+  constraint avatar_categories_prefix_check check (r2_prefix like 'atuem/atuem/avatar/%')
+);
 
 create table if not exists public.avatar_skins (
   id uuid primary key default gen_random_uuid(),
+  category_id uuid references public.avatar_categories(id) on delete set null,
   avatar_key text not null,
   avatar_name text not null,
   skin_code text not null,
@@ -27,6 +38,7 @@ create table if not exists public.avatar_skins (
   access_type text not null default 'free',
   price_coins integer not null default 0,
   is_active boolean not null default true,
+  is_featured boolean not null default false,
   sort_order integer not null default 0,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
@@ -70,10 +82,14 @@ create table if not exists public.user_wallets (
   constraint user_wallets_coins_check check (coins >= 0)
 );
 
+alter table public.avatar_categories enable row level security;
 alter table public.avatar_skins enable row level security;
 alter table public.avatar_animations enable row level security;
 alter table public.user_avatar_unlocks enable row level security;
 alter table public.user_wallets enable row level security;
+
+drop policy if exists avatar_categories_read_active on public.avatar_categories;
+create policy avatar_categories_read_active on public.avatar_categories for select using (is_active = true);
 
 drop policy if exists avatar_skins_read_active on public.avatar_skins;
 create policy avatar_skins_read_active on public.avatar_skins for select using (is_active = true);
@@ -87,21 +103,42 @@ create policy user_avatar_unlocks_read_own on public.user_avatar_unlocks for sel
 drop policy if exists user_wallets_read_own on public.user_wallets;
 create policy user_wallets_read_own on public.user_wallets for select using (auth.uid() = user_id);
 
+create index if not exists avatar_categories_active_idx on public.avatar_categories (is_active, sort_order);
 create index if not exists avatar_skins_access_idx on public.avatar_skins (access_type, is_active, sort_order);
+create index if not exists avatar_skins_category_idx on public.avatar_skins (category_id, is_active, sort_order);
 create index if not exists avatar_animations_skin_event_idx on public.avatar_animations (avatar_skin_id, event_type, is_active);
 create index if not exists user_avatar_unlocks_user_idx on public.user_avatar_unlocks (user_id, expires_at);
 
-insert into public.avatar_skins (avatar_key, avatar_name, skin_code, skin_name, image_key, card_image_key, r2_prefix, rarity, access_type, price_coins, is_active, sort_order)
+insert into public.avatar_categories (slug, name, description, r2_prefix, is_active, sort_order)
 values
-  ('Arlecchino', 'Arlecchino', 'Arlecchino', 'Oficial', 'atuem/atuem/avatar/Arlecchino.png', 'atuem/atuem/avatar/Arlecchino.png', 'atuem/atuem/avatar/', 'legendary', 'free', 0, true, 10),
-  ('Cybegirl', 'Cybegirl', 'Cybegirl', 'Oficial', 'atuem/atuem/avatar/Cybegirl.png', 'atuem/atuem/avatar/Cybegirl.png', 'atuem/atuem/avatar/', 'epic', 'free', 0, true, 20),
-  ('Drbolhas', 'Drbolhas', 'Drbolhas', 'Oficial', 'atuem/atuem/avatar/Drbolhas.png', 'atuem/atuem/avatar/Drbolhas.png', 'atuem/atuem/avatar/', 'rare', 'free', 0, true, 30),
-  ('Melanie', 'Melanie', 'Melanie', 'Oficial', 'atuem/atuem/avatar/Melanie.png', 'atuem/atuem/avatar/Melanie.png', 'atuem/atuem/avatar/', 'epic', 'free', 0, true, 40),
-  ('Popboy', 'Popboy', 'Popboy', 'Oficial', 'atuem/atuem/avatar/Popboy.png', 'atuem/atuem/avatar/Popboy.png', 'atuem/atuem/avatar/', 'rare', 'free', 0, true, 50),
-  ('Rainha traida', 'Rainha traída', 'Rainha traida', 'Oficial', 'atuem/atuem/avatar/Rainha traida.png', 'atuem/atuem/avatar/Rainha traida.png', 'atuem/atuem/avatar/', 'legendary', 'free', 0, true, 60),
-  ('Rayan', 'Rayan', 'Rayan', 'Oficial', 'atuem/atuem/avatar/Rayan.png', 'atuem/atuem/avatar/Rayan.png', 'atuem/atuem/avatar/', 'common', 'free', 0, true, 70),
-  ('Selena', 'Selena', 'Selena', 'Oficial', 'atuem/atuem/avatar/Selena.png', 'atuem/atuem/avatar/Selena.png', 'atuem/atuem/avatar/', 'epic', 'free', 0, true, 80)
+  ('padrao', 'Padrão', 'Personagens padrão do jogo.', 'atuem/atuem/avatar/Padrao/', true, 10),
+  ('terror', 'Terror', 'Coleção de personagens de terror.', 'atuem/atuem/avatar/Terror/', false, 20),
+  ('futebol', 'Futebol', 'Coleção de jogadores e personagens de futebol.', 'atuem/atuem/avatar/Futebol/', false, 30),
+  ('marvel', 'Marvel', 'Coleção licenciada futura.', 'atuem/atuem/avatar/Marvel/', false, 40)
+on conflict (slug) do update set
+  name = excluded.name,
+  description = excluded.description,
+  r2_prefix = excluded.r2_prefix,
+  sort_order = excluded.sort_order,
+  updated_at = now();
+
+insert into public.avatar_skins (category_id, avatar_key, avatar_name, skin_code, skin_name, image_key, card_image_key, r2_prefix, rarity, access_type, price_coins, is_active, sort_order)
+select c.id, v.avatar_key, v.avatar_name, v.skin_code, 'Oficial', concat(c.r2_prefix, v.skin_code, '.png'), concat(c.r2_prefix, v.skin_code, '.png'), c.r2_prefix, v.rarity, 'free', 0, true, v.sort_order
+from public.avatar_categories c
+cross join (
+  values
+    ('Arlecchino', 'Arlecchino', 'Arlecchino', 'legendary', 10),
+    ('Cybegirl', 'Cybegirl', 'Cybegirl', 'epic', 20),
+    ('Drbolhas', 'Drbolhas', 'Drbolhas', 'rare', 30),
+    ('Melanie', 'Melanie', 'Melanie', 'epic', 40),
+    ('Popboy', 'Popboy', 'Popboy', 'rare', 50),
+    ('Rainha traida', 'Rainha traída', 'Rainha traida', 'legendary', 60),
+    ('Rayan', 'Rayan', 'Rayan', 'common', 70),
+    ('Selena', 'Selena', 'Selena', 'epic', 80)
+) as v(avatar_key, avatar_name, skin_code, rarity, sort_order)
+where c.slug = 'padrao'
 on conflict (avatar_key, skin_code) do update set
+  category_id = excluded.category_id,
   avatar_name = excluded.avatar_name,
   skin_name = excluded.skin_name,
   image_key = excluded.image_key,
@@ -115,8 +152,9 @@ on conflict (avatar_key, skin_code) do update set
   updated_at = now();
 
 insert into public.avatar_animations (avatar_skin_id, event_type, animation_key, variant_code, loop, sort_order)
-select s.id, v.event_type, concat('atuem/atuem/avatar/', s.skin_code, v.suffix, '.mp4'), v.variant_code, v.loop, v.sort_order
+select s.id, v.event_type, concat(c.r2_prefix, s.skin_code, v.suffix, '.mp4'), v.variant_code, v.loop, v.sort_order
 from public.avatar_skins s
+join public.avatar_categories c on c.id = s.category_id
 cross join (
   values
     ('home', '-A', 'default', true, 10),
@@ -125,6 +163,7 @@ cross join (
     ('victory', '-2', 'default', false, 30),
     ('defeat', '-3', 'default', false, 40)
 ) as v(event_type, suffix, variant_code, loop, sort_order)
+where c.slug = 'padrao'
 on conflict (avatar_skin_id, event_type, variant_code, animation_key) do update set
   loop = excluded.loop,
   sort_order = excluded.sort_order,

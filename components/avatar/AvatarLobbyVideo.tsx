@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getPublicEnvValue } from '@/lib/publicEnv';
@@ -12,16 +12,8 @@ type AvatarLobbyVideoProps = {
   className?: string;
 };
 
-function getHomeAvatarVideoOverride() {
-  if (typeof window === 'undefined') return '';
-  if (window.location.pathname !== '/') return '';
-  return process.env.NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL || getPublicEnvValue('NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL') || '';
-}
-
-function shouldUseWhiteKey(videoUrl: string) {
-  if (!videoUrl) return false;
-  if (typeof window === 'undefined') return false;
-  return window.location.pathname === '/' && Boolean(process.env.NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL || getPublicEnvValue('NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL'));
+function hasHomeAvatarVideoOverride() {
+  return Boolean(process.env.NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL || getPublicEnvValue('NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL'));
 }
 
 function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; onError: () => void }) {
@@ -48,27 +40,32 @@ function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; on
           canvas.height = video.videoHeight;
         }
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        try {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = frame.data;
+          const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = frame.data;
 
-        for (let index = 0; index < data.length; index += 4) {
-          const red = data[index];
-          const green = data[index + 1];
-          const blue = data[index + 2];
-          const brightness = (red + green + blue) / 3;
-          const spread = Math.max(red, green, blue) - Math.min(red, green, blue);
+          for (let index = 0; index < data.length; index += 4) {
+            const red = data[index];
+            const green = data[index + 1];
+            const blue = data[index + 2];
+            const brightness = (red + green + blue) / 3;
+            const spread = Math.max(red, green, blue) - Math.min(red, green, blue);
 
-          if (brightness > 226 && spread < 32) {
-            data[index + 3] = 0;
-          } else if (brightness > 204 && spread < 42) {
-            data[index + 3] = Math.max(0, Math.min(255, Math.round((226 - brightness) * 12)));
+            if (brightness > 226 && spread < 32) {
+              data[index + 3] = 0;
+            } else if (brightness > 204 && spread < 42) {
+              data[index + 3] = Math.max(0, Math.min(255, Math.round((226 - brightness) * 12)));
+            }
           }
-        }
 
-        ctx.putImageData(frame, 0, 0);
+          ctx.putImageData(frame, 0, 0);
+        } catch {
+          onError();
+          return;
+        }
       }
 
       animationFrame = requestAnimationFrame(render);
@@ -101,17 +98,27 @@ function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; on
 }
 
 export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', label = 'Avatar', className }: AvatarLobbyVideoProps) {
-  const effectiveDirectVideoUrl = useMemo(() => directVideoUrl || getHomeAvatarVideoOverride(), [directVideoUrl]);
-  const [videoUrl, setVideoUrl] = useState(effectiveDirectVideoUrl);
+  const [videoUrl, setVideoUrl] = useState('');
   const [failed, setFailed] = useState(false);
-  const useWhiteKey = shouldUseWhiteKey(videoUrl);
+  const [useWhiteKey, setUseWhiteKey] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setVideoUrl(effectiveDirectVideoUrl);
     setFailed(false);
+    setUseWhiteKey(false);
+    setVideoUrl('');
 
-    if (effectiveDirectVideoUrl) return;
+    if (directVideoUrl) {
+      setVideoUrl(directVideoUrl);
+      return;
+    }
+
+    if (typeof window !== 'undefined' && window.location.pathname === '/' && hasHomeAvatarVideoOverride()) {
+      setUseWhiteKey(true);
+      setVideoUrl('/api/home-avatar-video');
+      return;
+    }
+
     if (!avatarUrl) return;
 
     async function loadVideo() {
@@ -126,7 +133,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
 
     void loadVideo();
     return () => { cancelled = true; };
-  }, [avatarUrl, effectiveDirectVideoUrl]);
+  }, [avatarUrl, directVideoUrl]);
 
   return (
     <div className={cn('relative flex items-center justify-center overflow-hidden', useWhiteKey ? 'bg-transparent' : 'bg-white', className)}>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -11,16 +11,29 @@ type AvatarLobbyVideoProps = {
   className?: string;
 };
 
+declare global {
+  interface Window {
+    __QUEM_SOU_EU_HOME_AVATAR_VIDEO__?: string;
+  }
+}
+
+function getHomeAvatarVideoOverride() {
+  if (typeof window === 'undefined') return '';
+  if (window.location.pathname !== '/') return '';
+  return window.__QUEM_SOU_EU_HOME_AVATAR_VIDEO__ || '';
+}
+
 export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', label = 'Avatar', className }: AvatarLobbyVideoProps) {
-  const [videoUrl, setVideoUrl] = useState(directVideoUrl);
+  const effectiveDirectVideoUrl = useMemo(() => directVideoUrl || getHomeAvatarVideoOverride(), [directVideoUrl]);
+  const [videoUrl, setVideoUrl] = useState(effectiveDirectVideoUrl);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setVideoUrl(directVideoUrl);
+    setVideoUrl(effectiveDirectVideoUrl);
     setFailed(false);
 
-    if (directVideoUrl) return;
+    if (effectiveDirectVideoUrl) return;
     if (!avatarUrl) return;
 
     async function loadVideo() {
@@ -35,7 +48,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
 
     void loadVideo();
     return () => { cancelled = true; };
-  }, [avatarUrl, directVideoUrl]);
+  }, [avatarUrl, effectiveDirectVideoUrl]);
 
   return (
     <div className={cn('relative flex items-center justify-center overflow-hidden bg-white', className)}>

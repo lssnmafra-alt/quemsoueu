@@ -106,8 +106,9 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
     setIsHome(window.location.pathname === '/');
   }, []);
 
-  const resolvedEventType: AvatarVideoEventType = eventType || (isHome ? 'home' : 'lobby');
-  const useWhiteKey = mounted && resolvedEventType === 'home';
+  const isHomeEvent = eventType === 'home' || (mounted && isHome && !eventType);
+  const resolvedEventType: AvatarVideoEventType = isHomeEvent ? 'home' : eventType || 'lobby';
+  const useWhiteKey = isHomeEvent;
   const imageFallback = useMemo(() => resolveAvatarImageUrl(avatarUrl), [avatarUrl]);
 
   useEffect(() => {

@@ -83,10 +83,10 @@ export default function LoginPage() {
         <span className="text-[10px] font-semibold text-rose-800 font-mono">E UM PERSONAGEM?</span>
       </motion.div>
 
-      <main className="relative z-20 mx-auto flex min-h-screen max-w-[1320px] items-center justify-center px-4 pb-8 pt-24 md:px-8">
+      <main className="home-lobby-main relative z-20 mx-auto flex min-h-screen max-w-[1320px] items-center justify-center px-4 pb-8 pt-24 md:px-8">
         {loggedInReady ? (
-          <section className="grid w-full items-end gap-8 lg:grid-cols-[1fr_420px]">
-            <div className="hidden min-h-[620px] items-end justify-center lg:flex">
+          <section className="home-lobby-section grid w-full items-end gap-8 lg:grid-cols-[1fr_420px]">
+            <div className="home-lobby-avatar hidden min-h-[620px] items-end justify-center lg:flex">
               <div className="relative flex flex-col items-center">
                 <div className="absolute bottom-0 h-10 w-80 rounded-full bg-cyan-300/45 blur-xl" />
                 <div className="relative flex h-[560px] w-[360px] flex-col items-center justify-end overflow-hidden rounded-[3.2rem] border-4 border-cyan-200/35 bg-white shadow-[0_35px_100px_rgba(6,182,212,.35)]">
@@ -103,22 +103,22 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border-4 border-cyan-200/30 bg-[#082c7a]/80 p-5 shadow-[0_30px_90px_rgba(0,0,0,.35)] backdrop-blur-xl md:p-7">
-              <div className="mb-5 rounded-2xl border border-white/15 bg-white/10 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Central do jogador</p>
-                <h2 className="mt-1 text-3xl font-black uppercase text-white font-display md:text-4xl">Escolha o modo</h2>
-                <p className="mt-1 text-sm font-bold text-blue-100">Lobby separado, menus rápidos e personagem animado.</p>
+            <div className="home-lobby-panel rounded-3xl border-4 border-cyan-200/30 bg-[#082c7a]/80 p-5 shadow-[0_30px_90px_rgba(0,0,0,.35)] backdrop-blur-xl md:p-7">
+              <div className="home-lobby-info mb-5 rounded-2xl border border-white/15 bg-white/10 p-4">
+                <p className="home-lobby-eyebrow text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Central do jogador</p>
+                <h2 className="home-lobby-title mt-1 text-3xl font-black uppercase text-white font-display md:text-4xl">Escolha o modo</h2>
+                <p className="home-lobby-subtitle mt-1 text-sm font-bold text-blue-100">Lobby separado, menus rápidos e personagem animado.</p>
               </div>
 
-              <div className="grid gap-3">
-                <Button onClick={() => router.push('/lobby')} className="h-20 justify-between rounded-none border-0 bg-yellow-300 px-6 text-2xl font-black uppercase italic text-slate-950 shadow-[0_8px_0_#b45309] hover:bg-yellow-200">
+              <div className="home-lobby-actions grid gap-3">
+                <Button onClick={() => router.push('/lobby')} className="home-lobby-play h-20 justify-between rounded-none border-0 bg-yellow-300 px-6 text-2xl font-black uppercase italic text-slate-950 shadow-[0_8px_0_#b45309] hover:bg-yellow-200">
                   Encontrar partidas <Play className="h-7 w-7 fill-current" />
                 </Button>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button type="button" onClick={() => router.push('/profile')} className="h-16 rounded-none border-2 border-white/20 bg-blue-500/80 text-xs font-black uppercase text-white hover:bg-blue-400"><UserRound className="mr-2 h-5 w-5" /> Perfil</Button>
-                  <Button type="button" onClick={() => router.push('/friends')} className="h-16 rounded-none border-2 border-white/20 bg-blue-500/80 text-xs font-black uppercase text-white hover:bg-blue-400"><Users className="mr-2 h-5 w-5" /> Amigos</Button>
+                <div className="home-lobby-secondary grid grid-cols-2 gap-3">
+                  <Button type="button" onClick={() => router.push('/profile')} className="home-lobby-small-action h-16 rounded-none border-2 border-white/20 bg-blue-500/80 text-xs font-black uppercase text-white hover:bg-blue-400"><UserRound className="mr-2 h-5 w-5" /> Perfil</Button>
+                  <Button type="button" onClick={() => router.push('/friends')} className="home-lobby-small-action h-16 rounded-none border-2 border-white/20 bg-blue-500/80 text-xs font-black uppercase text-white hover:bg-blue-400"><Users className="mr-2 h-5 w-5" /> Amigos</Button>
                 </div>
-                <Button type="button" onClick={() => router.push('/decks')} className="h-16 rounded-none border-2 border-amber-200/70 bg-amber-500/90 text-sm font-black uppercase text-amber-950 hover:bg-amber-400"><BookOpen className="mr-2 h-5 w-5" /> Biblioteca de decks</Button>
+                <Button type="button" onClick={() => router.push('/decks')} className="home-lobby-decks h-16 rounded-none border-2 border-amber-200/70 bg-amber-500/90 text-sm font-black uppercase text-amber-950 hover:bg-amber-400"><BookOpen className="mr-2 h-5 w-5" /> Biblioteca de decks</Button>
               </div>
             </div>
           </section>

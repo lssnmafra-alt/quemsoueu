@@ -227,26 +227,34 @@
   }
 
   .home-lobby-info {
-    margin-bottom: .36rem !important;
-    border-radius: .8rem !important;
-    padding: .42rem .55rem !important;
-  }
-
-  .home-lobby-eyebrow {
     display: none !important;
   }
 
-  .home-lobby-title {
-    margin: 0 !important;
-    font-size: 1rem !important;
-    line-height: .95 !important;
-    white-space: nowrap !important;
+  .home-lobby-mobile-title {
+    display: block !important;
+    margin-bottom: .35rem !important;
+    border: 1px solid rgba(255,255,255,.12) !important;
+    border-radius: .8rem !important;
+    background: rgba(255,255,255,.08) !important;
+    padding: .4rem .52rem !important;
   }
 
-  .home-lobby-subtitle {
-    margin-top: .18rem !important;
-    font-size: .5rem !important;
-    line-height: 1.05 !important;
+  .home-lobby-mobile-title p {
+    margin: 0 0 .08rem !important;
+    color: #a5f3fc !important;
+    font-size: .42rem !important;
+    font-weight: 900 !important;
+    letter-spacing: .16em !important;
+    text-transform: uppercase !important;
+  }
+
+  .home-lobby-mobile-title h2 {
+    margin: 0 !important;
+    color: #fff !important;
+    font-size: .9rem !important;
+    font-weight: 900 !important;
+    line-height: .95 !important;
+    text-transform: uppercase !important;
   }
 
   .home-lobby-actions {
@@ -353,17 +361,17 @@
     padding: .38rem !important;
   }
 
-  .home-lobby-info {
-    padding: .32rem .42rem !important;
-    margin-bottom: .28rem !important;
+  .home-lobby-mobile-title {
+    margin-bottom: .25rem !important;
+    padding: .28rem .38rem !important;
   }
 
-  .home-lobby-title {
-    font-size: .82rem !important;
+  .home-lobby-mobile-title p {
+    font-size: .34rem !important;
   }
 
-  .home-lobby-subtitle {
-    font-size: .42rem !important;
+  .home-lobby-mobile-title h2 {
+    font-size: .72rem !important;
   }
 
   .home-lobby-play {

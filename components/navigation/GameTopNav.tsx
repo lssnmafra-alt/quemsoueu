@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpen, Coins, Gamepad2, Home, LogOut, Shield, UserRound, Users } from 'lucide-react';
+import { BookOpen, Coins, Gamepad2, Home, LogOut, Shield, ShoppingBag, UserRound, Users } from 'lucide-react';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ type GameTopNavProps = {
 const tabs = [
   { label: 'Início', href: '/', icon: Home, match: (path: string) => path === '/' },
   { label: 'Jogar', href: '/lobby', icon: Gamepad2, match: (path: string) => path === '/lobby' },
+  { label: 'Loja', href: '/avatar-store', icon: ShoppingBag, match: (path: string) => path.startsWith('/avatar-store') },
   { label: 'Decks', href: '/decks', icon: BookOpen, match: (path: string) => path.startsWith('/decks') },
   { label: 'Amigos', href: '/friends', icon: Users, match: (path: string) => path.startsWith('/friends') },
   { label: 'Perfil', href: '/profile', icon: UserRound, match: (path: string) => path.startsWith('/profile') },

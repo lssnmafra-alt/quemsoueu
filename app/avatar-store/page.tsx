@@ -8,7 +8,7 @@ import LoadingArena from '@/components/LoadingArena';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import { Button } from '@/components/ui/button';
 import { useUserStore } from '@/lib/store';
-import { avatarSelectionToUrl, normalizeAvatarSelection } from '@/lib/avatars';
+import { avatarSelectionToUrl, normalizeAvatarSelection, type AvatarAnimationMap } from '@/lib/avatars';
 import { cn } from '@/lib/utils';
 
 type StoreItem = {
@@ -25,6 +25,7 @@ type StoreItem = {
   owned: boolean;
   locked: boolean;
   sortOrder: number;
+  animations?: AvatarAnimationMap;
 };
 
 const rarityLabel: Record<string, string> = {
@@ -115,6 +116,7 @@ export default function AvatarStorePage() {
           imageUrl: item.imageUrl,
           imageKey: item.imageKey,
           animationSlug: `${item.avatarKey}/${item.skinCode}`,
+          animations: item.animations || defaultAnimationMap(item),
           skinCode: item.skinCode,
           skinName: item.skinName,
           accessType: item.accessType as any,
@@ -191,7 +193,7 @@ export default function AvatarStorePage() {
             {selected ? (
               <>
                 <div className="mb-4 overflow-hidden rounded-3xl border-4 border-slate-100 bg-slate-50">
-                  <AvatarFigure selection={normalizeAvatarSelection({ avatarId: selected.avatarKey, imageUrl: selected.imageUrl, imageKey: selected.imageKey, animationSlug: `${selected.avatarKey}/${selected.skinCode}`, skinCode: selected.skinCode, skinName: selected.skinName, accessType: selected.accessType as any, displayName: selected.displayName })} className="aspect-[3/4] w-full border-0 rounded-none" />
+                  <AvatarFigure selection={normalizeAvatarSelection({ avatarId: selected.avatarKey, imageUrl: selected.imageUrl, imageKey: selected.imageKey, animationSlug: `${selected.avatarKey}/${selected.skinCode}`, animations: selected.animations || defaultAnimationMap(selected), skinCode: selected.skinCode, skinName: selected.skinName, accessType: selected.accessType as any, displayName: selected.displayName })} className="aspect-[3/4] w-full border-0 rounded-none" />
                 </div>
                 <p className="text-[10px] font-black uppercase tracking-wider text-indigo-500">{rarityLabel[selected.rarity] || selected.rarity} • {selected.skinName}</p>
                 <h2 className="text-3xl font-black uppercase text-slate-950 font-display">{selected.displayName}</h2>
@@ -208,6 +210,18 @@ export default function AvatarStorePage() {
       </main>
     </div>
   );
+}
+
+function defaultAnimationMap(item: StoreItem): AvatarAnimationMap {
+  const base = item.skinCode === 'skin-1' ? 0 : (Number(item.skinCode.match(/\d+/)?.[0] || 1) - 1) * 10;
+  const folder = item.skinCode === 'skin-1' && item.imageKey?.split('/').length === 4 ? 'atuem/atuem/Animacao' : `atuem/atuem/avatar/${item.avatarKey}/Animacao`;
+  return {
+    home: `${folder}/${item.avatarKey}-A.mp4`,
+    intro: `${folder}/${item.avatarKey}-A.mp4`,
+    lobby: `${folder}/${item.avatarKey}-${base + 1}.mp4`,
+    victory: `${folder}/${item.avatarKey}-${base + 2}.mp4`,
+    defeat: `${folder}/${item.avatarKey}-${base + 3}.mp4`,
+  };
 }
 
 function isUuid(value: string) {

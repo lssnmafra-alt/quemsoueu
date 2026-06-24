@@ -9,13 +9,13 @@ const VIDEO_EXTENSIONS = ['.webm', '.mp4'];
 type AnimationEventType = 'intro' | 'victory' | 'defeat';
 
 const EVENT_SUFFIX: Record<AnimationEventType, string> = {
-  intro: '1',
+  intro: 'a',
   victory: '2',
   defeat: '3',
 };
 
 const EVENT_ALIASES: Record<AnimationEventType, string[]> = {
-  intro: ['1', 'intro', 'entrada', 'inicio', 'start'],
+  intro: ['a', '1', 'idle', 'loop', 'lobby', 'intro', 'entrada', 'inicio', 'start'],
   victory: ['2', 'victory', 'vitoria', 'venceu', 'win'],
   defeat: ['3', 'defeat', 'derrota', 'perdeu', 'loss'],
 };

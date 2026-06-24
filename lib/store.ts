@@ -54,10 +54,24 @@ function persistAuth(user: any | null | undefined, profile: any | null | undefin
   }
 }
 
+async function getAuthHeaders() {
+  if (typeof window === 'undefined') return {};
+
+  try {
+    const { data: { session } } = await supabaseAuth.auth.getSession();
+    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 async function loadServerProfile(userId: string) {
   if (typeof window === 'undefined' || !userId) return null;
   try {
-    const response = await fetch(`/api/player-profile?userId=${encodeURIComponent(userId)}`, { cache: 'no-store' });
+    const response = await fetch(`/api/player-profile?userId=${encodeURIComponent(userId)}`, {
+      cache: 'no-store',
+      headers: await getAuthHeaders(),
+    });
     const result = await response.json().catch(() => ({}));
     return response.ok && result.profile ? result.profile : null;
   } catch {
@@ -67,10 +81,17 @@ async function loadServerProfile(userId: string) {
 
 async function saveServerProfile(profile: any) {
   if (typeof window === 'undefined' || !profile?.id) return null;
+  const currentUser = useUserStore.getState().user;
   const response = await fetch('/api/player-profile', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(profile),
+    headers: {
+      'Content-Type': 'application/json',
+      ...(await getAuthHeaders()),
+    },
+    body: JSON.stringify({
+      ...profile,
+      email: profile.email || currentUser?.email || '',
+    }),
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || 'Nao foi possivel salvar o perfil.');

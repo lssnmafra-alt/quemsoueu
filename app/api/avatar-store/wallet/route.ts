@@ -1,0 +1,49 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAuthServer } from '@/lib/supabaseAdmin';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export async function GET(req: NextRequest) {
+  const userId = String(req.nextUrl.searchParams.get('userId') || '').trim();
+  if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
+
+  try {
+    const db = getSupabaseAuthServer();
+    const result = await db.from('user_wallets').select('coins').eq('user_id', userId).maybeSingle();
+    return NextResponse.json({ wallet: { coins: Number(result.data?.coins || 0) } }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Nao foi possivel ler moedas.' }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const userId = String(body.userId || '').trim();
+    const amount = Number(body.amount || 0);
+
+    if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
+    if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: 'Quantidade invalida.' }, { status: 400 });
+
+    const db = getSupabaseAuthServer();
+    const current = await db.from('user_wallets').select('coins').eq('user_id', userId).maybeSingle();
+    const coins = Math.max(0, Number(current.data?.coins || 0) + Math.floor(amount));
+
+    const result = await db
+      .from('user_wallets')
+      .upsert({ user_id: userId, coins, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .select('coins')
+      .maybeSingle();
+
+    if (result.error) throw result.error;
+    return NextResponse.json({ ok: true, wallet: { coins: Number(result.data?.coins || coins) } });
+  } catch (error: any) {
+    console.error('Avatar wallet error:', error);
+    return NextResponse.json({ error: error.message || 'Nao foi possivel inserir moedas.' }, { status: 500 });
+  }
+}
+
+function isUuid(value: string) {
+  return value.length === 36 && value.includes('-');
+}

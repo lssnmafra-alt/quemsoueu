@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseGame } from '@/lib/supabase';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import AvatarModelPreloader from '@/components/avatar/AvatarModelPreloader';
 
-const STATIC_BEFORE_MS = 900;
-const VIDEO_MS = 6000;
-const STATIC_AFTER_MS = 900;
-const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 2500;
+const ARENA_LOADING_MS = 3000;
+const ARENA_SHOWCASE_MS = 6200;
+const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 2600;
 
-type SequencePhase = 'before' | 'loading' | 'video' | 'after';
+type ArenaPhase = 'loading' | 'showcase';
 
 type SequencePlayer = {
   id: string;
@@ -19,12 +18,9 @@ type SequencePlayer = {
 };
 
 export default function RoomStarting({ room, players }: any) {
-  const [sequenceIndex, setSequenceIndex] = useState(0);
-  const [sequencePhase, setSequencePhase] = useState<SequencePhase>('before');
-  const [currentVideoSrc, setCurrentVideoSrc] = useState('');
-  const [videoStatus, setVideoStatus] = useState('');
+  const [arenaPhase, setArenaPhase] = useState<ArenaPhase>('loading');
+  const [videoByPlayerId, setVideoByPlayerId] = useState<Record<string, string>>({});
   const advancingRef = useRef(false);
-  const videoCacheRef = useRef(new Map<string, string>());
 
   const orderedPlayers = useMemo(() => {
     const activePlayers = players.filter((p: any) => !p.is_eliminated && (p.lives || 0) > 0);
@@ -37,13 +33,6 @@ export default function RoomStarting({ room, players }: any) {
     avatar_url: player.avatar_url,
   })), [orderedPlayers.map((player: any) => `${player.id}:${player.avatar_url || ''}`).join('|')]);
 
-  const focusedPlayer = orderedPlayers[sequenceIndex] || null;
-  const focusedPlayerId = String(focusedPlayer?.id || '');
-  const focusedNickname = String(focusedPlayer?.nickname || 'Jogador');
-  const focusedAvatarUrl = String(focusedPlayer?.avatar_url || '');
-  const totalPlayers = orderedPlayers.length || 1;
-  const isVideoPhase = sequencePhase === 'video';
-
   const advanceToPlaying = useCallback(async () => {
     if (advancingRef.current) return;
     advancingRef.current = true;
@@ -55,12 +44,9 @@ export default function RoomStarting({ room, players }: any) {
   }, [room.id, room.vote_time_seconds]);
 
   useEffect(() => {
-    setSequenceIndex(0);
-    setSequencePhase('before');
-    setCurrentVideoSrc('');
-    setVideoStatus('Preparando apresentação...');
+    setArenaPhase('loading');
+    setVideoByPlayerId({});
     advancingRef.current = false;
-    videoCacheRef.current.clear();
   }, [room.id]);
 
   useEffect(() => {
@@ -69,269 +55,158 @@ export default function RoomStarting({ room, players }: any) {
       return;
     }
 
-    const safeIndex = Math.min(sequenceIndex, orderedPlayers.length - 1);
-    if (safeIndex !== sequenceIndex) setSequenceIndex(safeIndex);
-  }, [advanceToPlaying, orderedPlayers.length, sequenceIndex]);
-
-  useEffect(() => {
-    if (!focusedPlayerId) return;
-
-    const playerSnapshot: SequencePlayer = {
-      id: focusedPlayerId,
-      nickname: focusedNickname,
-      avatar_url: focusedAvatarUrl,
-    };
-
     let cancelled = false;
-    let timer: number | undefined;
-    let loadingResolved = false;
+    const cache = new Map<string, string>();
 
-    const moveNext = () => {
+    async function loadAllVideos() {
+      const pairs = await Promise.all(orderedPlayers.map(async (player: any) => {
+        const videoUrl = await resolveIntroVideo({
+          id: String(player.id || ''),
+          nickname: String(player.nickname || 'Jogador'),
+          avatar_url: String(player.avatar_url || ''),
+        }, cache);
+        return [player.id, videoUrl] as const;
+      }));
+
       if (cancelled) return;
-      if (sequenceIndex >= orderedPlayers.length - 1) {
-        void advanceToPlaying();
-        return;
-      }
-
-      setSequenceIndex((current) => current + 1);
-      setSequencePhase('before');
-      setCurrentVideoSrc('');
-      setVideoStatus('Preparando próximo jogador...');
-    };
-
-    const continueWithStaticImage = () => {
-      if (cancelled || loadingResolved) return;
-      loadingResolved = true;
-      setCurrentVideoSrc('');
-      setVideoStatus(`${playerSnapshot.nickname} sem vídeo, usando imagem`);
-      setSequencePhase('video');
-    };
-
-    if (sequencePhase === 'before') {
-      setCurrentVideoSrc('');
-      setVideoStatus(`${playerSnapshot.nickname} na imagem estática`);
-      timer = window.setTimeout(() => {
-        if (!cancelled) setSequencePhase('loading');
-      }, STATIC_BEFORE_MS);
+      const next: Record<string, string> = {};
+      pairs.forEach(([id, url]) => {
+        if (url) next[id] = url;
+      });
+      setVideoByPlayerId(next);
     }
 
-    if (sequencePhase === 'loading') {
-      setCurrentVideoSrc('');
-      setVideoStatus(`Buscando vídeo de ${playerSnapshot.nickname}...`);
-
-      timer = window.setTimeout(continueWithStaticImage, INTRO_VIDEO_LOOKUP_TIMEOUT_MS + 1200);
-
-      resolveIntroVideo(playerSnapshot, videoCacheRef.current)
-        .then((url) => {
-          if (cancelled || loadingResolved) return;
-          loadingResolved = true;
-          setCurrentVideoSrc(url || '');
-          setVideoStatus(url ? `${playerSnapshot.nickname} em vídeo` : `${playerSnapshot.nickname} sem vídeo, usando imagem`);
-          setSequencePhase('video');
-        })
-        .catch(() => continueWithStaticImage());
-    }
-
-    if (sequencePhase === 'video') {
-      timer = window.setTimeout(() => {
-        if (!cancelled) setSequencePhase('after');
-      }, VIDEO_MS);
-    }
-
-    if (sequencePhase === 'after') {
-      setVideoStatus(`${playerSnapshot.nickname} voltou para imagem estática`);
-      timer = window.setTimeout(moveNext, STATIC_AFTER_MS);
-    }
+    void loadAllVideos();
+    const loadingTimer = window.setTimeout(() => {
+      if (!cancelled) setArenaPhase('showcase');
+    }, ARENA_LOADING_MS);
+    const playTimer = window.setTimeout(() => {
+      if (!cancelled) void advanceToPlaying();
+    }, ARENA_LOADING_MS + ARENA_SHOWCASE_MS);
 
     return () => {
       cancelled = true;
-      if (timer) window.clearTimeout(timer);
+      window.clearTimeout(loadingTimer);
+      window.clearTimeout(playTimer);
     };
-  }, [advanceToPlaying, focusedAvatarUrl, focusedNickname, focusedPlayerId, orderedPlayers.length, sequenceIndex, sequencePhase]);
+  }, [advanceToPlaying, orderedPlayers]);
 
   const gridColumns = useMemo(() => {
-    if (orderedPlayers.length <= 4) return 'md:grid-cols-2';
-    return 'md:grid-cols-3';
+    if (orderedPlayers.length <= 4) return 'grid-cols-2 md:grid-cols-4';
+    if (orderedPlayers.length <= 6) return 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6';
+    return 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6';
   }, [orderedPlayers.length]);
 
-  const statusText = focusedPlayer
-    ? `Jogador ${sequenceIndex + 1}/${totalPlayers} — ${videoStatus || 'apresentando'}`
-    : 'Preparando jogadores...';
+  const statusText = arenaPhase === 'loading'
+    ? 'Carregando arena, aguarde...'
+    : 'Ordem definida. Todos prontos para jogar.';
 
   return (
-    <div className="flex flex-col items-center justify-start md:justify-center min-h-[100dvh] p-3 py-4 md:p-6 bg-[#f5f6ff] font-sans text-indigo-950 party-grid-bg relative overflow-y-auto overflow-x-hidden">
+    <div className="relative flex min-h-[100dvh] overflow-hidden bg-[#071a64] text-white font-sans party-grid-bg">
       <AvatarModelPreloader players={stablePreloadPlayers} eventType="intro" />
-      <div className="max-w-6xl w-full text-center relative z-10">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${sequenceIndex}-${sequencePhase}`}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            className="mx-auto mb-4 inline-flex rounded-full border-2 border-indigo-100 bg-white px-5 py-2 text-xs font-black uppercase tracking-widest text-indigo-500 shadow-sm"
-          >
-            {statusText}
-          </motion.div>
-        </AnimatePresence>
+      <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-30" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#071a64]/95 via-[#0b4fb8]/55 to-[#05091f]/95" />
 
-        <h1 className="text-3xl md:text-5xl font-black text-indigo-950 mb-2 font-display">
-          A Partida vai Começar!
-        </h1>
-        <p className="text-xs md:text-sm text-indigo-600 font-bold uppercase tracking-wider mb-5 animate-pulse">
-          Imagem estática → vídeo de 6s → imagem estática. Passando jogador por jogador.
-        </p>
+      <div className="relative z-10 mx-auto flex w-full max-w-[1500px] flex-col px-4 py-5 md:px-8">
+        <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-200">Preparando partida</p>
+            <h1 className="mt-1 text-4xl font-black uppercase italic text-white font-display md:text-6xl">Arena carregando</h1>
+            <p className="mt-2 text-sm font-bold text-blue-100">Todos os personagens entram juntos. Nada de lista um por um.</p>
+          </div>
+          <div className="rounded-2xl border-2 border-cyan-200/30 bg-white/10 px-5 py-3 text-center shadow-xl backdrop-blur">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Status</p>
+            <p className="text-lg font-black uppercase text-yellow-200">{statusText}</p>
+          </div>
+        </motion.div>
 
-        <div className={cn('grid grid-cols-1 gap-4 md:gap-5', gridColumns)}>
-          {orderedPlayers.map((p, index) => {
-            const isFocused = index === sequenceIndex;
-            const showVideo = isFocused && isVideoPhase && Boolean(currentVideoSrc);
-            return (
-              <motion.div
-                key={p.id}
-                initial={{ opacity: 0, scale: 0.92, y: 15 }}
-                animate={{ opacity: isFocused ? 1 : 0.72, scale: isFocused ? 1.04 : 1, y: 0 }}
-                transition={{ delay: Math.min(index * 0.08, 0.4), type: 'spring', stiffness: 260, damping: 24 }}
-                className={cn(
-                  'relative overflow-hidden rounded-3xl border-4 bg-white p-3 text-left shadow-xl transition-all',
-                  isFocused ? cn(p.color?.border || 'border-indigo-400', 'ring-4 ring-amber-200 order-first md:order-none') : 'border-indigo-100',
-                )}
-              >
-                <div className={cn('absolute inset-x-0 top-0 h-2', p.color?.bg || 'bg-indigo-400')} />
+        <div className="mb-5 rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-4 shadow-[0_30px_90px_rgba(0,0,0,.32)] backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3 border-b border-cyan-200/20 pb-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Galeria da ordem</p>
+              <h2 className="text-2xl font-black uppercase italic text-white">{orderedPlayers.length} jogadores prontos</h2>
+            </div>
+            <span className="rounded-md border border-yellow-300/60 bg-yellow-300 px-3 py-1 text-[10px] font-black uppercase text-slate-950">vídeos -A.mp4</span>
+          </div>
 
-                <div className="mb-3 flex items-center justify-between gap-3 pt-2">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border-2 border-amber-200 bg-amber-50 text-lg font-black text-amber-500">
-                      #{index + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className={cn('truncate text-lg font-black font-display', p.color?.text || 'text-indigo-950')}>{p.nickname}</p>
-                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                        {isFocused ? phaseLabel(sequencePhase, currentVideoSrc) : 'Aguardando destaque'}
-                      </p>
-                    </div>
+          <div className={cn('mt-4 grid gap-4', gridColumns)}>
+            {orderedPlayers.map((player: any, index: number) => {
+              const videoUrl = videoByPlayerId[player.id] || '';
+              return (
+                <motion.div
+                  key={player.id}
+                  initial={{ opacity: 0, y: 18, scale: 0.94 }}
+                  animate={{ opacity: 1, y: 0, scale: arenaPhase === 'showcase' ? 1 : 0.98 }}
+                  transition={{ delay: Math.min(index * 0.08, 0.5), type: 'spring', stiffness: 240, damping: 24 }}
+                  className={cn('relative overflow-hidden rounded-[2rem] border-4 bg-white p-2 text-center shadow-2xl', player.color?.border || 'border-cyan-200/40')}
+                >
+                  <div className={cn('absolute inset-x-0 top-0 h-2', player.color?.bg || 'bg-cyan-400')} />
+                  <div className="relative overflow-hidden rounded-[1.55rem] bg-white">
+                    {arenaPhase === 'showcase' && videoUrl ? (
+                      <ArenaIntroVideo src={videoUrl} label={player.nickname} />
+                    ) : (
+                      <div className="flex aspect-[3/4] w-full items-center justify-center bg-white">
+                        <motion.div animate={arenaPhase === 'loading' ? { scale: [1, 1.04, 1], y: [0, -4, 0] } : { scale: 1 }} transition={{ duration: 1.2, repeat: arenaPhase === 'loading' ? Infinity : 0, ease: 'easeInOut' }}>
+                          <AvatarFigure avatarUrl={player.avatar_url} label={player.nickname} primaryColor={player.color?.hex} className="h-28 w-28 rounded-[2rem] border-4 border-white bg-white shadow-xl" />
+                        </motion.div>
+                      </div>
+                    )}
+                    {arenaPhase === 'loading' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/55">
+                        <div className="rounded-2xl border border-indigo-100 bg-white/90 px-3 py-2 text-[10px] font-black uppercase text-indigo-500 shadow-sm">Carregando...</div>
+                      </div>
+                    )}
                   </div>
-                  <AvatarFigure avatarUrl={p.avatar_url} label={p.nickname} primaryColor={p.color?.hex} className={cn('h-14 w-14 shrink-0 rounded-2xl border-2 shadow-sm', p.color?.border || 'border-indigo-200', p.color?.lightBgc || 'bg-slate-50')} />
-                </div>
 
-                {showVideo ? (
-                  <IntroVideoPlayer src={currentVideoSrc} player={p} />
-                ) : (
-                  <StaticIntroPanel player={p} isFocused={isFocused} phase={sequencePhase} />
-                )}
-              </motion.div>
-            );
-          })}
+                  <div className="mt-3 rounded-2xl bg-[#071a64] px-3 py-2 text-left">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-black uppercase text-white">{player.nickname}</p>
+                      <span className="rounded-lg bg-yellow-300 px-2 py-1 text-[10px] font-black text-slate-950">#{index + 1}</span>
+                    </div>
+                    <p className="mt-1 truncate text-[10px] font-black uppercase tracking-wider text-cyan-200">{arenaPhase === 'loading' ? 'Preparando pose' : videoUrl ? 'Pose simultânea' : 'Imagem estática'}</p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mx-auto inline-flex rounded-full border-2 border-yellow-300/50 bg-yellow-300 px-6 py-3 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_6px_0_#b45309]">
+          {arenaPhase === 'loading' ? 'Carregando arena, aguarde...' : 'Entrando no jogo...'}
         </div>
       </div>
     </div>
   );
 }
 
-function StaticIntroPanel({ player, isFocused, phase }: { player: any; isFocused: boolean; phase: SequencePhase }) {
-  const label = !isFocused
-    ? 'Aguardando destaque'
-    : phase === 'loading'
-      ? 'Buscando vídeo...'
-      : phase === 'after'
-        ? 'Imagem estática final'
-        : 'Imagem estática';
-
-  return (
-    <div className="relative flex h-[220px] md:h-[260px] items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-indigo-100 bg-white">
-      <motion.div
-        animate={isFocused ? { scale: [1, 1.04, 1], y: [0, -4, 0] } : { scale: 1, y: 0 }}
-        transition={{ duration: 1.1, repeat: isFocused && phase === 'loading' ? Infinity : 0, ease: 'easeInOut' }}
-      >
-        <AvatarFigure avatarUrl={player.avatar_url} label={player.nickname} primaryColor={player.color?.hex} className="h-32 w-32 rounded-[2rem] border-4 border-white bg-white shadow-lg" />
-      </motion.div>
-      {isFocused && (
-        <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-2xl border border-white/70 bg-white/85 px-3 py-2 text-left shadow-sm backdrop-blur">
-          <p className="truncate text-[10px] font-black uppercase tracking-wider text-indigo-500">{label}</p>
-          <p className="truncate text-xs font-black text-indigo-950">{player.nickname}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function IntroVideoPlayer({ src, player }: { src: string; player: any }) {
+function ArenaIntroVideo({ src, label }: { src: string; label: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [ready, setReady] = useState(false);
 
-  const forceMuted = () => {
+  useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     video.muted = true;
     video.defaultMuted = true;
     video.volume = 0;
     video.playsInline = true;
-  };
-
-  const attemptPlay = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    forceMuted();
-    const playPromise = video.play?.();
-    if (playPromise) playPromise.then(() => setReady(true)).catch(() => null);
-  };
-
-  const markReady = () => {
-    forceMuted();
-    setReady(true);
-    attemptPlay();
-  };
-
-  useEffect(() => {
-    setReady(false);
-    forceMuted();
-    videoRef.current?.load?.();
-
-    const timers = [80, 300, 700, 1200, 1800].map((delay) => window.setTimeout(attemptPlay, delay));
-    const fallback = window.setTimeout(() => setReady(true), 2200);
-
-    return () => {
-      timers.forEach((timer) => window.clearTimeout(timer));
-      window.clearTimeout(fallback);
-    };
+    const timers = [50, 220, 520, 900, 1400].map((delay) => window.setTimeout(() => video.play?.().catch(() => null), delay));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [src]);
 
   return (
-    <div className="relative flex h-[220px] md:h-[260px] items-center justify-center overflow-hidden rounded-3xl border-2 border-indigo-100 bg-white shadow-inner">
-      <div className="relative flex h-full max-h-[260px] aspect-[2/3] items-center justify-center overflow-hidden rounded-2xl bg-white">
-        <video
-          ref={videoRef}
-          src={src}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          controls={false}
-          disablePictureInPicture
-          onLoadedMetadata={markReady}
-          onVolumeChange={forceMuted}
-          onPlay={forceMuted}
-          onPlaying={() => setReady(true)}
-          onLoadedData={markReady}
-          onCanPlay={markReady}
-          onError={() => setReady(true)}
-          className="h-full w-full bg-white object-contain"
-        />
-      </div>
-
-      {!ready && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70">
-          <div className="rounded-2xl border border-indigo-100 bg-white/90 px-4 py-3 text-xs font-black uppercase text-indigo-500 shadow-sm">
-            Carregando vídeo...
-          </div>
-        </div>
-      )}
-
-      <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-2xl border border-white/70 bg-white/85 px-3 py-2 text-left shadow-sm backdrop-blur">
-        <p className="truncate text-[10px] font-black uppercase tracking-wider text-indigo-500">Vídeo de entrada</p>
-        <p className="truncate text-xs font-black text-indigo-950">{player.nickname}</p>
-      </div>
-    </div>
+    <video
+      ref={videoRef}
+      src={src}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="auto"
+      controls={false}
+      disablePictureInPicture
+      className="aspect-[3/4] w-full bg-white object-cover"
+      aria-label={label}
+    />
   );
 }
 
@@ -365,11 +240,4 @@ async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
   } finally {
     window.clearTimeout(timeout);
   }
-}
-
-function phaseLabel(phase: SequencePhase, currentVideoSrc: string) {
-  if (phase === 'before') return 'Imagem estática';
-  if (phase === 'loading') return 'Buscando vídeo';
-  if (phase === 'video') return currentVideoSrc ? 'Vídeo de 6 segundos' : 'Imagem estática';
-  return 'Imagem estática final';
 }

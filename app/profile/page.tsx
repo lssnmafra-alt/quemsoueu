@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Music, Pause, Play, Save, SlidersHorizontal, UserRound, Volume2, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Music, Pause, Play, Save, SlidersHorizontal, UserRound, Volume2, X } from 'lucide-react';
 import { moderateText } from '@/app/actions/moderate';
 import LoadingArena from '@/components/LoadingArena';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUserStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import GameTopNav from '@/components/navigation/GameTopNav';
+import { isProjectAdmin } from '@/lib/admin';
 
 type AvatarOption = { key: string; name: string; url: string };
 type MusicTrackOption = { key: string; title: string; genre: string; folder: string; url: string };
@@ -21,7 +23,7 @@ const MUSIC_BLOCKED_TRACKS_KEY = 'quemSouEu:musicBlockedTracks';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, profile, loading: authLoading, initialized: authInitialized, setSessionUser } = useUserStore();
+  const { user, profile, loading: authLoading, initialized: authInitialized, setSessionUser, logout } = useUserStore();
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewObjectUrlRef = useRef('');
 
@@ -288,55 +290,61 @@ export default function ProfilePage() {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  };
+
   if (!authInitialized || authLoading || !user) return <LoadingArena label="Carregando perfil..." />;
 
   const totalTracks = musicGroups.reduce((total, group) => total + group.tracks.length, 0);
+  const isAdminUser = isProjectAdmin(user.id);
 
   return (
-    <div className="min-h-screen bg-[#f5f6ff] text-[#1e1b4b] font-sans p-4 md:p-8 party-grid-bg">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <header className="rounded-3xl border-4 border-indigo-100 bg-white p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4 order-1">
-            <Button type="button" variant="ghost" onClick={() => router.push('/')} className="h-12 w-12 rounded-2xl border-2 border-slate-200 text-indigo-600 hover:bg-indigo-50 cursor-pointer">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <p className="text-xs font-black uppercase tracking-wider text-indigo-500">Perfil do jogador</p>
-              <h1 className="font-display text-2xl md:text-3xl font-black text-indigo-950">Avatar, nickname e musicas</h1>
-            </div>
+    <div className="min-h-screen overflow-hidden bg-[#071a64] text-white font-sans party-grid-bg">
+      <GameTopNav profile={{ ...profile, nickname, avatar_url: avatarUrl }} isAdmin={isAdminUser} onLogout={handleLogout} />
+      <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-20" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#071a64]/95 via-[#0b4fb8]/55 to-[#05091f]/95" />
+
+      <main className="relative z-10 mx-auto max-w-[1180px] px-4 pb-8 pt-28 md:px-8">
+        <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-200">Perfil do jogador</p>
+            <h1 className="mt-1 text-4xl font-black uppercase italic text-white font-display md:text-6xl">Avatar</h1>
+            <p className="mt-2 text-sm font-bold text-blue-100">Escolha seu visual, nickname e músicas do jogo.</p>
           </div>
-          <Button type="button" onClick={handleSave} disabled={saving || !nickname.trim()} className="h-12 px-6 btn-squishy-indigo text-white font-black text-xs uppercase cursor-pointer flex items-center gap-2 order-2 sm:ml-auto">
-            <Save className="h-4 w-4" /> {saving ? 'Salvando...' : 'Salvar e entrar'}
+          <Button type="button" onClick={handleSave} disabled={saving || !nickname.trim()} className="h-14 rounded-none bg-yellow-300 px-8 text-xs font-black uppercase text-slate-950 shadow-[0_6px_0_#b45309] hover:bg-yellow-200">
+            <Save className="mr-2 h-4 w-4" /> {saving ? 'Salvando...' : 'Salvar e entrar'}
           </Button>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-          <section className="rounded-3xl border-4 border-indigo-100 bg-white p-6 shadow-xl space-y-5">
-            <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-[2rem] border-4 border-indigo-100 bg-slate-50 overflow-hidden shadow-inner">
-              {avatarUrl ? <img src={avatarUrl} alt="Avatar selecionado" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : <UserRound className="h-16 w-16 text-indigo-200" />}
+        <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
+          <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-6 shadow-[0_30px_90px_rgba(0,0,0,.32)] backdrop-blur-xl space-y-5">
+            <div className="mx-auto flex h-52 w-52 items-center justify-center overflow-hidden rounded-[2.5rem] border-4 border-white bg-white shadow-2xl">
+              {avatarUrl ? <img src={avatarUrl} alt="Avatar selecionado" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : <UserRound className="h-16 w-16 text-indigo-300" />}
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-wider text-indigo-700">Seu nickname</label>
-              <Input value={nickname} maxLength={16} onChange={(event) => setNickname(event.target.value)} placeholder="Seu nome no jogo" className="h-12 rounded-xl border-2 border-indigo-100 bg-slate-50 text-center text-lg font-black text-indigo-950 focus-visible:ring-indigo-100" />
+              <label className="text-xs font-black uppercase tracking-wider text-cyan-200">Seu nickname</label>
+              <Input value={nickname} maxLength={16} onChange={(event) => setNickname(event.target.value)} placeholder="Seu nome no jogo" className="h-14 rounded-none border-2 border-cyan-200/30 bg-white/10 text-center text-lg font-black text-white placeholder:text-blue-100/70 focus-visible:ring-yellow-300" />
             </div>
 
-            {error && <div className="rounded-2xl border-2 border-rose-100 bg-rose-50 p-3 text-xs font-bold text-rose-600">{error}</div>}
+            {error && <div className="rounded-2xl border-2 border-rose-200/40 bg-rose-500/20 p-3 text-xs font-bold text-rose-100">{error}</div>}
           </section>
 
-          <section className="rounded-3xl border-4 border-indigo-100 bg-white p-6 shadow-xl space-y-6">
+          <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-6 shadow-[0_30px_90px_rgba(0,0,0,.32)] backdrop-blur-xl space-y-6">
             <div className="space-y-3">
-              <div className="flex items-center gap-2"><ImageIcon className="h-5 w-5 text-indigo-500" /><h2 className="text-xl font-black uppercase tracking-wide text-indigo-950">Avatares PNG</h2></div>
+              <div className="flex items-center gap-2"><ImageIcon className="h-5 w-5 text-cyan-200" /><h2 className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Avatares PNG</h2></div>
               {loadingOptions ? (
-                <div className="rounded-2xl border-2 border-dashed border-indigo-100 bg-indigo-50/40 p-8 text-center text-xs font-black uppercase text-indigo-400">Carregando avatares do R2...</div>
+                <EmptyPanel text="Carregando avatares do R2..." />
               ) : avatars.length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-amber-100 bg-amber-50 p-5 text-sm font-bold text-amber-700">Nenhum PNG encontrado em atuem/avatar/.</div>
+                <EmptyPanel text="Nenhum PNG encontrado em atuem/avatar/." tone="yellow" />
               ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
                   {avatars.map((avatar) => (
-                    <button key={avatar.key} type="button" onClick={() => setAvatarUrl(avatar.url)} title={avatar.name} className={cn('aspect-square overflow-hidden rounded-2xl border-4 bg-slate-50 transition-all cursor-pointer relative', avatarUrl === avatar.url ? 'border-indigo-500 shadow-lg scale-[1.03]' : 'border-slate-100 hover:border-indigo-200')}>
+                    <button key={avatar.key} type="button" onClick={() => setAvatarUrl(avatar.url)} title={avatar.name} className={cn('relative aspect-square cursor-pointer overflow-hidden rounded-2xl border-4 bg-white transition-all', avatarUrl === avatar.url ? 'border-yellow-300 shadow-xl scale-[1.03]' : 'border-white/15 hover:border-cyan-200')}>
                       <img src={avatar.url} alt={avatar.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                      {avatarUrl === avatar.url && <span className="absolute right-1.5 top-1.5 rounded-full bg-indigo-600 p-1 text-white shadow-md"><Check className="h-3.5 w-3.5" /></span>}
+                      {avatarUrl === avatar.url && <span className="absolute right-1.5 top-1.5 rounded-full bg-yellow-300 p-1 text-slate-950 shadow-md"><Check className="h-3.5 w-3.5" /></span>}
                     </button>
                   ))}
                 </div>
@@ -346,32 +354,24 @@ export default function ProfilePage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
-                  <div className="flex items-center gap-2"><Music className="h-5 w-5 text-amber-500" /><h2 className="text-xl font-black uppercase tracking-wide text-indigo-950">Musicas que voce gosta</h2></div>
-                  <p className="text-xs font-bold text-slate-500 mt-1">Abra o genero, ouca cada musica e bloqueie as faixas que nao quer ouvir.</p>
+                  <div className="flex items-center gap-2"><Music className="h-5 w-5 text-yellow-200" /><h2 className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Musicas que voce gosta</h2></div>
+                  <p className="mt-1 text-xs font-bold text-blue-100">Abra o gênero, ouça cada música e bloqueie as faixas que não quer ouvir.</p>
                 </div>
-                <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[10px] font-black uppercase text-indigo-600">{totalTracks} musicas no R2</span>
+                <span className="rounded-md border border-cyan-200/30 bg-white/10 px-3 py-1 text-[10px] font-black uppercase text-cyan-100">{totalTracks} musicas no R2</span>
               </div>
 
               {previewTrack && (
-                <div className="rounded-2xl border-2 border-amber-100 bg-amber-50 p-3 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-amber-500 border border-amber-100">
-                    <Volume2 className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-amber-600">Previa tocando</p>
-                    <p className="truncate text-sm font-black text-indigo-950">{previewTrack.title}</p>
-                    <p className="truncate text-xs font-bold text-slate-500">Categoria: {previewTrack.genre}</p>
-                  </div>
-                  <button type="button" onClick={stopPreview} className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-white text-rose-500 hover:bg-rose-50">
-                    <X className="h-4 w-4" />
-                  </button>
+                <div className="flex items-center gap-3 rounded-2xl border-2 border-yellow-200/30 bg-yellow-300/15 p-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-yellow-200/30 bg-white/10 text-yellow-200"><Volume2 className="h-5 w-5" /></div>
+                  <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-wider text-yellow-200">Previa tocando</p><p className="truncate text-sm font-black text-white">{previewTrack.title}</p><p className="truncate text-xs font-bold text-blue-100">Categoria: {previewTrack.genre}</p></div>
+                  <button type="button" onClick={stopPreview} className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200/30 bg-white/10 text-rose-100 hover:bg-rose-500/20"><X className="h-4 w-4" /></button>
                 </div>
               )}
 
               {loadingOptions ? (
-                <div className="rounded-2xl border-2 border-dashed border-indigo-100 bg-indigo-50/40 p-8 text-center text-xs font-black uppercase text-indigo-400">Carregando biblioteca de musicas...</div>
+                <EmptyPanel text="Carregando biblioteca de musicas..." />
               ) : musicGroups.length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-amber-100 bg-amber-50 p-5 text-sm font-bold text-amber-700">Nenhuma musica encontrada no R2.</div>
+                <EmptyPanel text="Nenhuma musica encontrada no R2." tone="yellow" />
               ) : (
                 <div className="space-y-3">
                   {musicGroups.map((group) => {
@@ -381,51 +381,31 @@ export default function ProfilePage() {
                     const availableCount = group.tracks.length - blockedCount;
 
                     return (
-                      <div key={group.id} className={cn('rounded-3xl border-2 p-3 transition-all', active ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-200 bg-white')}>
+                      <div key={group.id} className={cn('rounded-3xl border-2 p-3 transition-all', active ? 'border-yellow-300 bg-white/15 shadow-sm' : 'border-cyan-200/20 bg-white/10')}>
                         <div className="flex items-center justify-between gap-3">
-                          <button type="button" onClick={() => toggleGenre(group.name)} className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer">
-                            <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2', active ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-300 bg-white text-transparent')}>
-                              <Check className="h-4 w-4" />
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block truncate text-sm font-black uppercase text-indigo-950">{group.name}</span>
-                              <span className={cn('block text-[10px] font-black uppercase', active ? 'text-indigo-500' : 'text-slate-400')}>{active ? 'Vai tocar no jogo' : 'Nao tocar'} • {availableCount}/{group.tracks.length} liberadas</span>
-                            </span>
+                          <button type="button" onClick={() => toggleGenre(group.name)} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+                            <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2', active ? 'border-yellow-300 bg-yellow-300 text-slate-950' : 'border-cyan-200/40 bg-white/10 text-transparent')}><Check className="h-4 w-4" /></span>
+                            <span className="min-w-0"><span className="block truncate text-sm font-black uppercase text-white">{group.name}</span><span className={cn('block text-[10px] font-black uppercase', active ? 'text-yellow-200' : 'text-blue-100')}>{active ? 'Vai tocar no jogo' : 'Nao tocar'} • {availableCount}/{group.tracks.length} liberadas</span></span>
                           </button>
 
-                          <button type="button" onClick={() => playGenrePreview(group)} disabled={!group.tracks.length} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-amber-100 bg-amber-50 text-amber-600 hover:bg-amber-100 disabled:opacity-40">
-                            <Play className="h-4 w-4 fill-current" />
-                          </button>
-
-                          <button type="button" onClick={() => toggleExpanded(group.id)} className="flex h-10 shrink-0 items-center gap-1 rounded-xl border-2 border-slate-100 bg-white px-3 text-[10px] font-black uppercase text-slate-500 hover:bg-slate-50">
-                            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                            Lista
-                          </button>
+                          <button type="button" onClick={() => playGenrePreview(group)} disabled={!group.tracks.length} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-yellow-200/30 bg-yellow-300/15 text-yellow-200 hover:bg-yellow-300/25 disabled:opacity-40"><Play className="h-4 w-4 fill-current" /></button>
+                          <button type="button" onClick={() => toggleExpanded(group.id)} className="flex h-10 shrink-0 items-center gap-1 rounded-xl border-2 border-white/15 bg-white/10 px-3 text-[10px] font-black uppercase text-blue-100 hover:bg-white/15">{expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />} Lista</button>
                         </div>
 
                         {expanded && (
-                          <div className="mt-3 space-y-2 border-t border-indigo-100 pt-3">
+                          <div className="mt-3 space-y-2 border-t border-cyan-200/20 pt-3">
                             {group.tracks.length === 0 ? (
-                              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-center text-[10px] font-black uppercase text-slate-400">Pasta vazia no R2</div>
+                              <EmptyPanel text="Pasta vazia no R2" />
                             ) : group.tracks.map((track) => {
                               const blocked = isTrackBlocked(track.key);
                               const playing = playingTrackKey === track.key;
                               const loadingTrack = loadingTrackKey === track.key;
 
                               return (
-                                <div key={track.key} className={cn('flex items-center gap-2 rounded-2xl border p-2', blocked ? 'border-rose-100 bg-rose-50/60' : 'border-slate-100 bg-white')}>
-                                  <button type="button" onClick={() => playTrackPreview(track)} disabled={Boolean(loadingTrackKey && loadingTrackKey !== track.key)} className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 cursor-pointer disabled:opacity-50', playing ? 'border-rose-100 bg-rose-50 text-rose-600' : 'border-amber-100 bg-amber-50 text-amber-600 hover:bg-amber-100')}>
-                                    {loadingTrack ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
-                                  </button>
-
-                                  <div className="min-w-0 flex-1">
-                                    <p className={cn('truncate text-sm font-black', blocked ? 'text-rose-700 line-through' : 'text-indigo-950')}>{track.title}</p>
-                                    <p className="truncate text-[10px] font-bold text-slate-400">{track.key}</p>
-                                  </div>
-
-                                  <button type="button" onClick={() => toggleBlockedTrack(track)} className={cn('rounded-xl border px-3 py-2 text-[10px] font-black uppercase', blocked ? 'border-rose-200 bg-white text-rose-600' : 'border-emerald-100 bg-emerald-50 text-emerald-700')}>
-                                    {blocked ? 'Nao ouvir' : 'Liberada'}
-                                  </button>
+                                <div key={track.key} className={cn('flex items-center gap-2 rounded-2xl border p-2', blocked ? 'border-rose-200/30 bg-rose-500/15' : 'border-white/10 bg-white/95 text-[#1e1b4b]')}>
+                                  <button type="button" onClick={() => playTrackPreview(track)} disabled={Boolean(loadingTrackKey && loadingTrackKey !== track.key)} className={cn('flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-2 disabled:opacity-50', playing ? 'border-rose-100 bg-rose-50 text-rose-600' : 'border-yellow-100 bg-yellow-50 text-yellow-700 hover:bg-yellow-100')}>{loadingTrack ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}</button>
+                                  <div className="min-w-0 flex-1"><p className={cn('truncate text-sm font-black', blocked ? 'text-rose-100 line-through' : 'text-indigo-950')}>{track.title}</p><p className={cn('truncate text-[10px] font-bold', blocked ? 'text-rose-100/70' : 'text-slate-400')}>{track.key}</p></div>
+                                  <button type="button" onClick={() => toggleBlockedTrack(track)} className={cn('rounded-xl border px-3 py-2 text-[10px] font-black uppercase', blocked ? 'border-rose-200/30 bg-white/10 text-rose-100' : 'border-emerald-100 bg-emerald-50 text-emerald-700')}>{blocked ? 'Nao ouvir' : 'Liberada'}</button>
                                 </div>
                               );
                             })}
@@ -437,15 +417,17 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              <p className="flex items-center gap-2 text-[11px] font-bold text-slate-400">
-                <SlidersHorizontal className="h-3.5 w-3.5" /> Gêneros selecionados: {selectedGenres.length ? selectedGenres.join(', ') : 'nenhum genero.'} • Músicas bloqueadas: {blockedTrackKeys.length} {autoSavingMusic ? '• salvando...' : ''}
-              </p>
+              <p className="flex items-center gap-2 text-[11px] font-bold text-blue-100"><SlidersHorizontal className="h-3.5 w-3.5" /> Gêneros selecionados: {selectedGenres.length ? selectedGenres.join(', ') : 'nenhum genero.'} • Músicas bloqueadas: {blockedTrackKeys.length} {autoSavingMusic ? '• salvando...' : ''}</p>
             </div>
           </section>
         </div>
-      </div>
+      </main>
     </div>
   );
+}
+
+function EmptyPanel({ text, tone = 'cyan' }: { text: string; tone?: 'cyan' | 'yellow' }) {
+  return <div className={cn('rounded-2xl border-2 border-dashed p-5 text-center text-xs font-black uppercase', tone === 'yellow' ? 'border-yellow-200/30 bg-yellow-300/10 text-yellow-100' : 'border-cyan-200/25 bg-white/10 text-blue-100')}>{text}</div>;
 }
 
 function normalizeNickname(value: string) {

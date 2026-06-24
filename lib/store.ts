@@ -54,12 +54,13 @@ function persistAuth(user: any | null | undefined, profile: any | null | undefin
   }
 }
 
-async function getAuthHeaders() {
+async function getAuthHeaders(): Promise<HeadersInit> {
   if (typeof window === 'undefined') return {};
 
   try {
     const { data: { session } } = await supabaseAuth.auth.getSession();
-    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+    if (!session?.access_token) return {};
+    return { Authorization: `Bearer ${session.access_token}` };
   } catch {
     return {};
   }

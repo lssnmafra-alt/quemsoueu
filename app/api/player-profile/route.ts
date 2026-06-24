@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getPublicEnvValue } from '@/lib/publicEnv';
-import { getSupabaseGameServer, hasSupabaseGameServiceRole } from '@/lib/supabaseAdmin';
+import { getSupabaseAuthServer, hasSupabaseAuthServiceRole } from '@/lib/supabaseAdmin';
 
 const MAX_GENRES = 8;
 const MAX_BLOCKED_TRACKS = 300;
-const PROFILE_SELECT = 'id,email,nickname,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,updated_at,created_at';
+const PROFILE_SELECT = 'id,nickname,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,is_admin,updated_at,created_at';
 
 export async function GET(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get('userId')?.trim() || '';
     if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
 
-    const { data, error } = await getGameClient(req)
+    const { data, error } = await getAuthClient(req)
       .from('profiles')
       .select(PROFILE_SELECT)
       .eq('id', userId)
@@ -32,7 +32,6 @@ export async function POST(req: NextRequest) {
     const id = String(body.id || body.userId || '').trim();
     const nickname = normalizeNicknameDisplay(body.nickname).slice(0, 16);
     const avatarUrl = String(body.avatar_url || body.avatarUrl || '').trim();
-    const email = normalizeEmail(body.email || body.userEmail || body.authEmail);
     const musicGenres = normalizeGenres(body.music_genres || body.musicGenres);
     const musicBlockedTracks = normalizeBlockedTracks(body.music_blocked_tracks || body.musicBlockedTracks);
     const profileCompleted = Boolean(body.profile_completed ?? body.profileCompleted ?? true);
@@ -41,11 +40,11 @@ export async function POST(req: NextRequest) {
     if (!isUuid(id)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
     if (!nickname) return NextResponse.json({ error: 'Digite seu nickname.' }, { status: 400 });
 
-    const gameClient = getGameClient(req);
+    const authClient = getAuthClient(req);
 
-    const { data: currentProfile, error: currentProfileError } = await gameClient
+    const { data: currentProfile, error: currentProfileError } = await authClient
       .from('profiles')
-      .select('id,email,nickname')
+      .select('id,nickname,is_admin')
       .eq('id', id)
       .maybeSingle();
 
@@ -56,7 +55,7 @@ export async function POST(req: NextRequest) {
     const nicknameUnchangedForThisUser = Boolean(currentProfile?.id) && nicknameKey === currentNicknameKey;
 
     if (!nicknameUnchangedForThisUser) {
-      const { data: existingProfiles, error: duplicateError } = await gameClient
+      const { data: existingProfiles, error: duplicateError } = await authClient
         .from('profiles')
         .select('id,nickname')
         .neq('id', id)
@@ -72,7 +71,6 @@ export async function POST(req: NextRequest) {
 
     const payload: Record<string, any> = {
       id,
-      email: currentProfile?.email || email || `player_${id}@quem-sou-eu.local`,
       nickname,
       avatar_url: avatarUrl,
       music_genres: musicGenres,
@@ -82,7 +80,7 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await gameClient
+    const { data, error } = await authClient
       .from('profiles')
       .upsert(payload, { onConflict: 'id' })
       .select(PROFILE_SELECT)
@@ -90,7 +88,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       if (isGuest) {
-        return NextResponse.json({ profile: normalizeProfileResult(payload) });
+        return NextResponse.json({ profile: normalizeProfileResult({ ...payload, is_admin: Boolean(currentProfile?.is_admin) }) });
       }
       throw error;
     }
@@ -102,12 +100,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function getGameClient(req: NextRequest) {
-  if (hasSupabaseGameServiceRole()) return getSupabaseGameServer();
+function getAuthClient(req: NextRequest) {
+  if (hasSupabaseAuthServiceRole()) return getSupabaseAuthServer();
 
   const authorization = req.headers.get('authorization') || '';
-  const url = getPublicEnvValue('NEXT_PUBLIC_SUPABASE_URL_GAME');
-  const anonKey = getPublicEnvValue('NEXT_PUBLIC_SUPABASE_ANON_KEY_GAME');
+  const url = getPublicEnvValue('NEXT_PUBLIC_SUPABASE_URL_AUTH');
+  const anonKey = getPublicEnvValue('NEXT_PUBLIC_SUPABASE_ANON_KEY_AUTH');
 
   if (authorization && url && anonKey) {
     return createClient(url, anonKey, {
@@ -121,7 +119,7 @@ function getGameClient(req: NextRequest) {
     });
   }
 
-  return getSupabaseGameServer();
+  return getSupabaseAuthServer();
 }
 
 function normalizeProfileResult(profile: any) {
@@ -129,7 +127,7 @@ function normalizeProfileResult(profile: any) {
 
   return {
     ...profile,
-    nickname: normalizeNicknameDisplay(profile.nickname || profile.email?.split('@')[0] || 'Jogador'),
+    nickname: normalizeNicknameDisplay(profile.nickname || 'Jogador'),
     avatar_url: profile.avatar_url || '',
     music_genres: normalizeGenres(profile.music_genres),
     music_blocked_tracks: normalizeBlockedTracks(profile.music_blocked_tracks),
@@ -137,12 +135,8 @@ function normalizeProfileResult(profile: any) {
     played_matches: Number(profile.played_matches || 0),
     wins: Number(profile.wins || 0),
     is_guest: Boolean(profile.is_guest),
+    is_admin: Boolean(profile.is_admin),
   };
-}
-
-function normalizeEmail(value: unknown) {
-  const email = String(value || '').trim().toLowerCase();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
 }
 
 function normalizeGenres(value: unknown) {

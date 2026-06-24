@@ -110,6 +110,11 @@ export default function LoginPage() {
                 <p className="home-lobby-subtitle mt-1 text-sm font-bold text-blue-100">Lobby separado, menus rápidos e personagem animado.</p>
               </div>
 
+              <div className="home-lobby-mobile-title hidden">
+                <p>Central do jogador</p>
+                <h2>Escolha o modo</h2>
+              </div>
+
               <div className="home-lobby-actions grid gap-3">
                 <Button onClick={() => router.push('/lobby')} className="home-lobby-play h-20 justify-between rounded-none border-0 bg-yellow-300 px-6 text-2xl font-black uppercase italic text-slate-950 shadow-[0_8px_0_#b45309] hover:bg-yellow-200">
                   Encontrar partidas <Play className="h-7 w-7 fill-current" />

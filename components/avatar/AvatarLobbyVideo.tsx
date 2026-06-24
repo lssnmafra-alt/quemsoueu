@@ -15,13 +15,13 @@ type AvatarLobbyVideoProps = {
 function getHomeAvatarVideoOverride() {
   if (typeof window === 'undefined') return '';
   if (window.location.pathname !== '/') return '';
-  return getPublicEnvValue('NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL') || '';
+  return process.env.NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL || getPublicEnvValue('NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL') || '';
 }
 
 function shouldUseWhiteKey(videoUrl: string) {
   if (!videoUrl) return false;
   if (typeof window === 'undefined') return false;
-  return window.location.pathname === '/' && Boolean(getPublicEnvValue('NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL'));
+  return window.location.pathname === '/' && Boolean(process.env.NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL || getPublicEnvValue('NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL'));
 }
 
 function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; onError: () => void }) {

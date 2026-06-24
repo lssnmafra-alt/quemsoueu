@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Music, Pause, Play, Save, SlidersHorizontal, UserRound, Volume2, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Loader2, Music, Pause, Play, Save, SlidersHorizontal, Volume2, X } from 'lucide-react';
 import { moderateText } from '@/app/actions/moderate';
 import LoadingArena from '@/components/LoadingArena';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,6 @@ import { cn } from '@/lib/utils';
 import GameTopNav from '@/components/navigation/GameTopNav';
 import { isProjectAdmin } from '@/lib/admin';
 
-type AvatarOption = { key: string; name: string; url: string };
 type MusicTrackOption = { key: string; title: string; genre: string; folder: string; url: string };
 type MusicGenreGroup = { id: string; name: string; folder: string; tracks: MusicTrackOption[] };
 type PreviewTrack = { key: string; genre: string; title: string; url: string };
@@ -29,8 +28,6 @@ export default function ProfilePage() {
 
   const [nextPath, setNextPath] = useState('/');
   const [nickname, setNickname] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [avatars, setAvatars] = useState<AvatarOption[]>([]);
   const [musicGroups, setMusicGroups] = useState<MusicGenreGroup[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [blockedTrackKeys, setBlockedTrackKeys] = useState<string[]>([]);
@@ -58,7 +55,6 @@ export default function ProfilePage() {
     }
 
     setNickname(profile?.nickname || user.email?.split('@')[0] || 'Jogador');
-    setAvatarUrl(profile?.avatar_url || '');
     setSelectedGenres(Array.isArray(profile?.music_genres) ? profile.music_genres : []);
     setBlockedTrackKeys(Array.isArray(profile?.music_blocked_tracks) ? profile.music_blocked_tracks : []);
   }, [authInitialized, authLoading, router, user, profile]);
@@ -71,8 +67,7 @@ export default function ProfilePage() {
 
     async function loadOptions() {
       setLoadingOptions(true);
-      const [avatarResult, libraryResult, profileResult] = await Promise.all([
-        fetch('/api/avatar-options', { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ avatars: [] })),
+      const [libraryResult, profileResult] = await Promise.all([
         fetch('/api/audio/library', { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ genres: [] })),
         fetch(`/api/player-profile?userId=${encodeURIComponent(currentUser.id)}`, { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ profile: null })),
       ]);
@@ -80,14 +75,12 @@ export default function ProfilePage() {
       if (cancelled) return;
 
       const nextMusicGroups = Array.isArray(libraryResult.genres) ? libraryResult.genres : [];
-      setAvatars(Array.isArray(avatarResult.avatars) ? avatarResult.avatars : []);
       setMusicGroups(nextMusicGroups);
       setExpandedGenreIds((current) => current.length ? current : nextMusicGroups.filter((group: MusicGenreGroup) => group.tracks.length > 0).slice(0, 2).map((group: MusicGenreGroup) => group.id));
 
       if (profileResult.profile) {
         const savedProfile = { ...profile, ...profileResult.profile };
         setNickname(savedProfile.nickname || 'Jogador');
-        setAvatarUrl(savedProfile.avatar_url || '');
         setSelectedGenres(Array.isArray(savedProfile.music_genres) ? savedProfile.music_genres : []);
         setBlockedTrackKeys(Array.isArray(savedProfile.music_blocked_tracks) ? savedProfile.music_blocked_tracks : []);
         setSessionUser(currentUser, savedProfile);
@@ -115,7 +108,7 @@ export default function ProfilePage() {
       ...profile,
       id: user.id,
       nickname: cleanNickname,
-      avatar_url: avatarUrl,
+      avatar_url: profile?.avatar_url || '',
       music_genres: nextGenres,
       music_blocked_tracks: nextBlockedTracks,
       profile_completed: true,
@@ -250,7 +243,7 @@ export default function ProfilePage() {
       const profilePayload = {
         id: user.id,
         nickname: cleanNickname,
-        avatar_url: avatarUrl,
+        avatar_url: profile?.avatar_url || '',
         music_genres: selectedGenres,
         music_blocked_tracks: blockedTrackKeys,
         profile_completed: true,
@@ -269,7 +262,7 @@ export default function ProfilePage() {
         ...profile,
         ...(result.profile || profilePayload),
         nickname: cleanNickname,
-        avatar_url: avatarUrl,
+        avatar_url: profile?.avatar_url || result.profile?.avatar_url || '',
         music_genres: selectedGenres,
         music_blocked_tracks: blockedTrackKeys,
         profile_completed: true,
@@ -302,7 +295,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen overflow-hidden bg-[#071a64] text-white font-sans party-grid-bg">
-      <GameTopNav profile={{ ...profile, nickname, avatar_url: avatarUrl }} isAdmin={isAdminUser} onLogout={handleLogout} />
+      <GameTopNav profile={{ ...profile, nickname }} isAdmin={isAdminUser} onLogout={handleLogout} />
       <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-20" />
       <div className="absolute inset-0 bg-gradient-to-br from-[#071a64]/95 via-[#0b4fb8]/55 to-[#05091f]/95" />
 
@@ -310,8 +303,8 @@ export default function ProfilePage() {
         <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-200">Perfil do jogador</p>
-            <h1 className="mt-1 text-4xl font-black uppercase italic text-white font-display md:text-6xl">Avatar</h1>
-            <p className="mt-2 text-sm font-bold text-blue-100">Escolha seu visual, nickname e músicas do jogo.</p>
+            <h1 className="mt-1 text-4xl font-black uppercase italic text-white font-display md:text-6xl">Perfil</h1>
+            <p className="mt-2 text-sm font-bold text-blue-100">Edite seu nickname e músicas do jogo. Avatares ficam somente na loja.</p>
           </div>
           <Button type="button" onClick={handleSave} disabled={saving || !nickname.trim()} className="h-14 rounded-none bg-yellow-300 px-8 text-xs font-black uppercase text-slate-950 shadow-[0_6px_0_#b45309] hover:bg-yellow-200">
             <Save className="mr-2 h-4 w-4" /> {saving ? 'Salvando...' : 'Salvar e entrar'}
@@ -320,8 +313,12 @@ export default function ProfilePage() {
 
         <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
           <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-6 shadow-[0_30px_90px_rgba(0,0,0,.32)] backdrop-blur-xl space-y-5">
-            <div className="mx-auto flex h-52 w-52 items-center justify-center overflow-hidden rounded-[2.5rem] border-4 border-white bg-white shadow-2xl">
-              {avatarUrl ? <img src={avatarUrl} alt="Avatar selecionado" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : <UserRound className="h-16 w-16 text-indigo-300" />}
+            <div className="rounded-3xl border-2 border-cyan-200/25 bg-white/10 p-4 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200">Avatar</p>
+              <p className="mt-2 text-sm font-bold text-blue-100">Para trocar personagem ou skin, use a Loja.</p>
+              <Button type="button" onClick={() => router.push('/avatar-store')} className="mt-4 h-12 w-full rounded-none bg-fuchsia-500 text-xs font-black uppercase text-white shadow-[0_5px_0_#86198f] hover:bg-fuchsia-400">
+                Abrir loja de personagens
+              </Button>
             </div>
 
             <div className="space-y-2">
@@ -333,24 +330,6 @@ export default function ProfilePage() {
           </section>
 
           <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-6 shadow-[0_30px_90px_rgba(0,0,0,.32)] backdrop-blur-xl space-y-6">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2"><ImageIcon className="h-5 w-5 text-cyan-200" /><h2 className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Avatares PNG</h2></div>
-              {loadingOptions ? (
-                <EmptyPanel text="Carregando avatares do R2..." />
-              ) : avatars.length === 0 ? (
-                <EmptyPanel text="Nenhum PNG encontrado em atuem/avatar/." tone="yellow" />
-              ) : (
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
-                  {avatars.map((avatar) => (
-                    <button key={avatar.key} type="button" onClick={() => setAvatarUrl(avatar.url)} title={avatar.name} className={cn('relative aspect-square cursor-pointer overflow-hidden rounded-2xl border-4 bg-white transition-all', avatarUrl === avatar.url ? 'border-yellow-300 shadow-xl scale-[1.03]' : 'border-white/15 hover:border-cyan-200')}>
-                      <img src={avatar.url} alt={avatar.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                      {avatarUrl === avatar.url && <span className="absolute right-1.5 top-1.5 rounded-full bg-yellow-300 p-1 text-slate-950 shadow-md"><Check className="h-3.5 w-3.5" /></span>}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>

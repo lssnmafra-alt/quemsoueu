@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Ban, Check, Gamepad2, Search, Shield, UserPlus, Users, X } from 'lucide-react';
+import { Ban, Check, Gamepad2, Search, Shield, UserPlus, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import LoadingArena from '@/components/LoadingArena';
 import { useUserStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import GameTopNav from '@/components/navigation/GameTopNav';
+import { isProjectAdmin } from '@/lib/admin';
 
 type SocialRow = {
   id: string;
@@ -29,7 +31,7 @@ type RoomInvite = {
 
 export default function FriendsPage() {
   const router = useRouter();
-  const { user, profile, loading, initialized } = useUserStore();
+  const { user, profile, loading, initialized, logout } = useUserStore();
   const [friends, setFriends] = useState<SocialRow[]>([]);
   const [incoming, setIncoming] = useState<SocialRow[]>([]);
   const [outgoing, setOutgoing] = useState<SocialRow[]>([]);
@@ -41,6 +43,7 @@ export default function FriendsPage() {
   const [loadingList, setLoadingList] = useState(true);
 
   const userId = user?.id || profile?.id;
+  const isAdminUser = isProjectAdmin(userId);
 
   const loadFriends = async (nextSearch = search) => {
     if (!userId) return;
@@ -86,6 +89,11 @@ export default function FriendsPage() {
     return map;
   }, [friends, incoming, outgoing, blocked]);
 
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  };
+
   const action = async (targetId: string, actionName: string) => {
     if (!userId || busy) return;
     setBusy(`${actionName}:${targetId}`);
@@ -128,38 +136,28 @@ export default function FriendsPage() {
   if (!initialized || loading || !userId) return <LoadingArena label="Carregando amigos..." />;
 
   return (
-    <main className="min-h-screen bg-[#f5f6ff] party-grid-bg p-4 md:p-8 text-indigo-950">
-      <div className="mx-auto max-w-5xl space-y-5">
-        <header className="rounded-3xl border-4 border-indigo-100 bg-white p-5 shadow-xl flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <main className="min-h-screen overflow-hidden bg-[#071a64] text-white font-sans party-grid-bg">
+      <GameTopNav profile={profile} isAdmin={isAdminUser} onLogout={handleLogout} />
+      <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-20" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#071a64]/95 via-[#0b4fb8]/55 to-[#05091f]/95" />
+
+      <div className="relative z-10 mx-auto max-w-[1180px] px-4 pb-8 pt-28 md:px-8">
+        <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <button onClick={() => router.push('/lobby')} className="mb-2 inline-flex items-center gap-2 text-xs font-black uppercase text-indigo-500">
-              <ArrowLeft className="h-4 w-4" /> Voltar ao lobby
-            </button>
-            <h1 className="text-3xl md:text-5xl font-black font-display">Amigos</h1>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Busque jogadores, aceite amigos e veja convites de sala.</p>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-200">Social</p>
+            <h1 className="mt-1 text-4xl font-black uppercase italic text-white font-display md:text-6xl">Amigos</h1>
+            <p className="mt-2 text-sm font-bold text-blue-100">Busque jogadores, aceite pedidos e veja convites de sala.</p>
           </div>
-          <AvatarFigure avatarUrl={profile?.avatar_url} label={profile?.nickname || 'Jogador'} className="h-16 w-16 rounded-2xl border-4 border-indigo-200 bg-white" />
+          <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-black uppercase">
+            <StatPill label="Amigos" value={friends.length} />
+            <StatPill label="Recebidos" value={incoming.length} />
+            <StatPill label="Convites" value={roomInvites.length} />
+          </div>
         </header>
 
-        <section className="rounded-3xl border-4 border-amber-100 bg-white p-5 shadow-xl">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-black uppercase"><Gamepad2 className="h-5 w-5 text-amber-500" /> Convites para sala</h2>
-          {roomInvites.length === 0 ? (
-            <EmptyCard text="Nenhum amigo chamou você para uma sala agora." />
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2">
-              {roomInvites.map((invite) => (
-                <ProfileCard key={invite.id} profile={invite.sender} subtext={`Chamou para a sala #${invite.room?.code || 'jogo'}`}>
-                  <Button size="sm" onClick={() => roomInviteAction(invite, 'enter')} className="rounded-xl text-[10px] font-black uppercase"><Gamepad2 className="mr-1 h-3.5 w-3.5" />Entrar</Button>
-                  <Button size="sm" variant="outline" onClick={() => roomInviteAction(invite, 'decline')} className="rounded-xl text-[10px] font-black uppercase"><X className="mr-1 h-3.5 w-3.5" />Recusar</Button>
-                </ProfileCard>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-3xl border-4 border-indigo-100 bg-white p-5 shadow-xl">
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-black uppercase"><Search className="h-5 w-5 text-indigo-500" /> Procurar jogador</h2>
-          <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Digite o nickname..." className="h-12 rounded-2xl border-2 border-indigo-100 font-bold" />
+        <section className="mb-5 rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-4 shadow-[0_30px_90px_rgba(0,0,0,.32)] backdrop-blur-xl md:p-6">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-cyan-100"><Search className="h-5 w-5 text-cyan-200" /> Procurar jogador</h2>
+          <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="DIGITE O NICKNAME..." className="h-14 rounded-none border-2 border-cyan-200/30 bg-white/10 text-sm font-black uppercase text-white placeholder:text-blue-100/70 focus-visible:ring-yellow-300" />
           {search.trim().length >= 2 && (
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {loadingList ? <EmptyCard text="Buscando jogadores..." /> : searchResults.length === 0 ? <EmptyCard text="Nenhum jogador encontrado." /> : searchResults.map((item) => {
@@ -178,27 +176,36 @@ export default function FriendsPage() {
           )}
         </section>
 
+        <section className="mb-5 rounded-3xl border-4 border-amber-200/30 bg-[#082c7a]/80 p-4 shadow-[0_30px_90px_rgba(0,0,0,.32)] backdrop-blur-xl md:p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-yellow-200"><Gamepad2 className="h-5 w-5" /> Convites para sala</h2>
+          {roomInvites.length === 0 ? (
+            <EmptyCard text="Nenhum amigo chamou você para uma sala agora." />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {roomInvites.map((invite) => (
+                <ProfileCard key={invite.id} profile={invite.sender} subtext={`Chamou para a sala #${invite.room?.code || 'jogo'}`}>
+                  <Button size="sm" onClick={() => roomInviteAction(invite, 'enter')} className="rounded-xl text-[10px] font-black uppercase"><Gamepad2 className="mr-1 h-3.5 w-3.5" />Entrar</Button>
+                  <Button size="sm" variant="outline" onClick={() => roomInviteAction(invite, 'decline')} className="rounded-xl text-[10px] font-black uppercase"><X className="mr-1 h-3.5 w-3.5" />Recusar</Button>
+                </ProfileCard>
+              ))}
+            </div>
+          )}
+        </section>
+
         <div className="grid gap-5 lg:grid-cols-2">
-          <SocialSection title="Pedidos recebidos" icon={<UserPlus className="h-5 w-5 text-amber-500" />} rows={incoming} empty="Nenhum pedido recebido.">
-            {(row) => <>
-              <Button size="sm" onClick={() => action(row.other_profile_id, 'accept')} className="rounded-xl text-[10px] font-black uppercase"><Check className="mr-1 h-3.5 w-3.5" />Aceitar</Button>
-              <Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'decline')} className="rounded-xl text-[10px] font-black uppercase"><X className="mr-1 h-3.5 w-3.5" />Recusar</Button>
-            </>}
+          <SocialSection title="Pedidos recebidos" icon={<UserPlus className="h-5 w-5 text-yellow-200" />} rows={incoming} empty="Nenhum pedido recebido.">
+            {(row) => <><Button size="sm" onClick={() => action(row.other_profile_id, 'accept')} className="rounded-xl text-[10px] font-black uppercase"><Check className="mr-1 h-3.5 w-3.5" />Aceitar</Button><Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'decline')} className="rounded-xl text-[10px] font-black uppercase"><X className="mr-1 h-3.5 w-3.5" />Recusar</Button></>}
           </SocialSection>
 
-          <SocialSection title="Pedidos enviados" icon={<Users className="h-5 w-5 text-indigo-500" />} rows={outgoing} empty="Nenhum pedido enviado.">
+          <SocialSection title="Pedidos enviados" icon={<Users className="h-5 w-5 text-cyan-200" />} rows={outgoing} empty="Nenhum pedido enviado.">
             {(row) => <Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'cancel')} className="rounded-xl text-[10px] font-black uppercase">Cancelar</Button>}
           </SocialSection>
 
-          <SocialSection title="Meus amigos" icon={<Users className="h-5 w-5 text-emerald-500" />} rows={friends} empty="Você ainda não tem amigos adicionados.">
-            {(row) => <>
-              <Button size="sm" variant="outline" onClick={() => router.push(`/profile/${row.other_profile_id}`)} className="rounded-xl text-[10px] font-black uppercase">Perfil</Button>
-              <Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'remove')} className="rounded-xl text-[10px] font-black uppercase">Remover</Button>
-              <Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'block')} className="rounded-xl text-[10px] font-black uppercase text-rose-600">Bloquear</Button>
-            </>}
+          <SocialSection title="Meus amigos" icon={<Users className="h-5 w-5 text-emerald-300" />} rows={friends} empty="Você ainda não tem amigos adicionados.">
+            {(row) => <><Button size="sm" variant="outline" onClick={() => router.push(`/profile/${row.other_profile_id}`)} className="rounded-xl text-[10px] font-black uppercase">Perfil</Button><Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'remove')} className="rounded-xl text-[10px] font-black uppercase">Remover</Button><Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'block')} className="rounded-xl text-[10px] font-black uppercase text-rose-600">Bloquear</Button></>}
           </SocialSection>
 
-          <SocialSection title="Bloqueados" icon={<Shield className="h-5 w-5 text-rose-500" />} rows={blocked} empty="Nenhum usuário bloqueado.">
+          <SocialSection title="Bloqueados" icon={<Shield className="h-5 w-5 text-rose-300" />} rows={blocked} empty="Nenhum usuário bloqueado.">
             {(row) => <Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'unblock')} className="rounded-xl text-[10px] font-black uppercase">Desbloquear</Button>}
           </SocialSection>
         </div>
@@ -207,10 +214,14 @@ export default function FriendsPage() {
   );
 }
 
+function StatPill({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-xl border border-cyan-200/30 bg-white/10 px-4 py-2 text-cyan-50"><div className="text-lg text-white">{value}</div><div className="text-[9px] tracking-wider text-cyan-200">{label}</div></div>;
+}
+
 function SocialSection({ title, icon, rows, empty, children }: { title: string; icon: ReactNode; rows: SocialRow[]; empty: string; children: (row: SocialRow) => ReactNode }) {
   return (
-    <section className="rounded-3xl border-4 border-indigo-100 bg-white p-5 shadow-xl">
-      <h2 className="mb-4 flex items-center gap-2 text-lg font-black uppercase">{icon}{title}</h2>
+    <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-5 shadow-xl backdrop-blur-xl">
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-cyan-100">{icon}{title}</h2>
       <div className="space-y-3">
         {rows.length === 0 ? <EmptyCard text={empty} /> : rows.map((row) => <ProfileCard key={row.id} profile={row.other_profile} subtext={relationLabel(row)}>{children(row)}</ProfileCard>)}
       </div>
@@ -221,7 +232,7 @@ function SocialSection({ title, icon, rows, empty, children }: { title: string; 
 function ProfileCard({ profile, subtext, children }: { profile: any; subtext?: string; children?: ReactNode }) {
   if (!profile) return <EmptyCard text="Perfil indisponível." />;
   return (
-    <div className="rounded-2xl border-2 border-indigo-50 bg-indigo-50/30 p-3">
+    <div className="rounded-2xl border-2 border-cyan-200/20 bg-white/95 p-3 text-[#1e1b4b] shadow-lg">
       <div className="flex items-center gap-3">
         <AvatarFigure avatarUrl={profile.avatar_url} label={profile.nickname} className="h-14 w-14 shrink-0 rounded-2xl border-2 border-white bg-white" />
         <div className="min-w-0 flex-1">
@@ -235,7 +246,7 @@ function ProfileCard({ profile, subtext, children }: { profile: any; subtext?: s
 }
 
 function EmptyCard({ text }: { text: string }) {
-  return <div className="rounded-2xl border-2 border-dashed border-indigo-100 bg-indigo-50/40 p-4 text-center text-xs font-black uppercase text-slate-400">{text}</div>;
+  return <div className="rounded-2xl border-2 border-dashed border-cyan-200/25 bg-white/10 p-4 text-center text-xs font-black uppercase text-blue-100">{text}</div>;
 }
 
 function relationLabel(row?: SocialRow) {

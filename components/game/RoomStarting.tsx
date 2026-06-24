@@ -28,10 +28,12 @@ export default function RoomStarting({ room, players }: any) {
     return [...visiblePlayers].sort((a, b) => (a.play_order || 0) - (b.play_order || 0));
   }, [players]);
 
+  const orderedPlayersKey = useMemo(() => orderedPlayers.map((player: any) => `${player.id}:${player.play_order ?? ''}:${player.avatar_url || ''}`).join('|'), [orderedPlayers]);
+
   const stablePreloadPlayers = useMemo(() => orderedPlayers.map((player: any) => ({
     id: player.id,
     avatar_url: player.avatar_url,
-  })), [orderedPlayers.map((player: any) => `${player.id}:${player.avatar_url || ''}`).join('|')]);
+  })), [orderedPlayersKey]);
 
   const advanceToPlaying = useCallback(async () => {
     if (advancingRef.current) return;
@@ -57,9 +59,10 @@ export default function RoomStarting({ room, players }: any) {
 
     let cancelled = false;
     const cache = new Map<string, string>();
+    const playerSnapshot = orderedPlayers.map((player: any) => ({ ...player }));
 
     async function loadAllVideos() {
-      const pairs = await Promise.all(orderedPlayers.map(async (player: any) => {
+      const pairs = await Promise.all(playerSnapshot.map(async (player: any) => {
         const videoUrl = await resolveIntroVideo({
           id: String(player.id || ''),
           nickname: String(player.nickname || 'Jogador'),
@@ -89,7 +92,7 @@ export default function RoomStarting({ room, players }: any) {
       window.clearTimeout(loadingTimer);
       window.clearTimeout(playTimer);
     };
-  }, [advanceToPlaying, orderedPlayers]);
+  }, [advanceToPlaying, orderedPlayersKey]);
 
   const gridColumns = useMemo(() => {
     if (orderedPlayers.length <= 4) return 'grid-cols-2 md:grid-cols-4';

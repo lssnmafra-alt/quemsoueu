@@ -99,12 +99,23 @@ export default function AvatarStorePage() {
       const response = await fetch('/api/avatar-store/buy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, skinId: item.id }),
+        body: JSON.stringify({
+          userId: user.id,
+          skinId: item.id,
+          avatarKey: item.avatarKey,
+          displayName: item.displayName,
+          skinCode: item.skinCode,
+          skinName: item.skinName,
+          imageKey: item.imageKey,
+          priceCoins: item.priceCoins,
+          sortOrder: item.sortOrder,
+          isDefaultSkin: Boolean(item.isDefaultSkin),
+        }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Não foi possível comprar.');
       if (result.wallet) setCoins(Number(result.wallet.coins || 0));
-      setNotice('Skin desbloqueada.');
+      setNotice(result.alreadyOwned ? 'Skin já era sua.' : 'Skin desbloqueada.');
       await loadStore();
     } catch (error: any) {
       setNotice(error.message || 'Não foi possível comprar.');
@@ -315,5 +326,5 @@ function normalizeKey(value: string) {
 }
 
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return value.length === 36 && value.includes('-');
 }

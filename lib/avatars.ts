@@ -35,6 +35,17 @@ export type AvatarCatalogItem = {
 
 export const AVATAR_STATES: AvatarState[] = ['idle', 'walk', 'attack', 'defense', 'vote', 'eliminated', 'victory', 'defeat'];
 
+export const R2_AVATAR_CATALOG: AvatarCatalogItem[] = [
+  r2Avatar('Arlecchino', 10),
+  r2Avatar('Cybegirl', 20),
+  r2Avatar('Drbolhas', 30),
+  r2Avatar('Melanie', 40),
+  r2Avatar('Popboy', 50),
+  r2Avatar('Rainha traida', 60, 'Rainha traída'),
+  r2Avatar('Rayan', 70),
+  r2Avatar('Selena', 80),
+];
+
 export const AVATARS = [
   { id: 'renegado', name: 'Renegado', description: 'Um combatente veloz de arena urbana.', rarity: 'common', defaultPrimaryColor: '#EF4444', defaultSecondaryColor: '#111827', states: AVATAR_STATES },
   { id: 'falcao', name: 'Falcao', description: 'Patrulheiro agil com visor angular.', rarity: 'common', defaultPrimaryColor: '#2563EB', defaultSecondaryColor: '#F59E0B', states: AVATAR_STATES },
@@ -59,6 +70,20 @@ export const DEFAULT_AVATAR_SELECTION: AvatarSelection = {
 
 export function getAvatarById(id?: string) {
   return AVATARS.find((avatar) => avatar.id === id) || AVATARS[0];
+}
+
+export function catalogItemToSelection(item: AvatarCatalogItem): AvatarSelection {
+  return normalizeAvatarSelection({
+    avatarId: item.avatarId,
+    imageUrl: item.imageUrl,
+    imageKey: item.imageKey,
+    animationSlug: item.animationSlug,
+    avatarSetId: item.avatarSetId,
+    skinCode: item.skinCode,
+    skinName: item.skinName,
+    accessType: item.accessType,
+    displayName: item.displayName,
+  });
 }
 
 export function isMediaAvatarSelection(selection?: Partial<AvatarSelection> | null) {
@@ -123,9 +148,7 @@ export function avatarToSvg(selection: AvatarSelection, state: AvatarState = 'id
   const visorWidth = avatar.id === 'falcao' || avatar.id === 'hacker' ? 64 : 46;
   const horn = avatar.id === 'samurai-urbano' ? '<path d="M69 45 L100 24 L131 45" fill="none" stroke="#F8FAFC" stroke-width="7" stroke-linecap="round"/>' : '';
   const scrap = avatar.id === 'robo-sucata' ? '<rect x="63" y="145" width="74" height="12" rx="4" fill="#475569"/><circle cx="75" cy="151" r="4" fill="#F97316"/><circle cx="125" cy="151" r="4" fill="#F97316"/>' : '';
-  const skull = avatar.id === 'caveira' || state === 'eliminated'
-    ? '<path d="M78 88 h12 M110 88 h12 M91 114 h18" stroke="#0F172A" stroke-width="6" stroke-linecap="round"/>'
-    : '';
+  const skull = avatar.id === 'caveira' || state === 'eliminated' ? '<path d="M78 88 h12 M110 88 h12 M91 114 h18" stroke="#0F172A" stroke-width="6" stroke-linecap="round"/>' : '';
   const voteMark = state === 'vote' ? '<path d="M143 72 l14 14 l28 -32" fill="none" stroke="#16A34A" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>' : '';
   const victory = state === 'victory' ? '<path d="M49 91 C31 74 34 52 52 43" fill="none" stroke="#FACC15" stroke-width="8" stroke-linecap="round"/><path d="M151 91 C169 74 166 52 148 43" fill="none" stroke="#FACC15" stroke-width="8" stroke-linecap="round"/>' : '';
   const defeat = state === 'defeat' ? '<path d="M61 160 C82 175 118 175 139 160" fill="none" stroke="#475569" stroke-width="7" stroke-linecap="round"/>' : '';
@@ -174,3 +197,20 @@ export const defaultAvatars = AVATARS.slice(0, 5).map((avatar) => ({
   name: avatar.name,
   url: avatarSelectionToUrl(normalizeAvatarSelection({ avatarId: avatar.id })),
 }));
+
+function r2Avatar(avatarKey: string, sortOrder: number, displayName = avatarKey): AvatarCatalogItem {
+  const encodedKey = encodeURIComponent(`atuem/atuem/avatar/${avatarKey}.png`);
+  return {
+    avatarId: `${avatarKey}:skin-1`,
+    avatarKey,
+    displayName,
+    skinCode: 'skin-1',
+    skinName: 'Padrão',
+    imageUrl: `/api/r2-file?key=${encodedKey}`,
+    imageKey: `atuem/atuem/avatar/${avatarKey}.png`,
+    animationSlug: `${avatarKey}/skin-1`,
+    accessType: 'free',
+    locked: false,
+    sortOrder,
+  };
+}

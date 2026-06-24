@@ -12,6 +12,15 @@ import { isProjectAdmin } from '@/lib/admin';
 import { isOfficialDeckId } from '@/lib/officialDecks';
 import GameTopNav from '@/components/navigation/GameTopNav';
 
+const sanitizeDeckImageUrl = (value?: string | null) => {
+  const url = String(value || '').trim();
+  if (!url) return '';
+
+  if (url.includes('image.pollinations.ai') && url.includes('fallback')) return '';
+
+  return url;
+};
+
 export default function DecksPage() {
   const router = useRouter();
   const { user, profile, loading: authLoading, initialized: authInitialized } = useUserStore();
@@ -47,7 +56,12 @@ export default function DecksPage() {
 
     setDecks(nextDecks.map((deck: any) => {
       const official = Boolean(deck.is_official) || deck.creator_id === null || isOfficialDeckId(deck.id);
-      return { ...deck, is_official: official, character_count: counts.get(deck.id) || 0 };
+      return {
+        ...deck,
+        cover_url: sanitizeDeckImageUrl(deck.cover_url || deck.image_url),
+        is_official: official,
+        character_count: counts.get(deck.id) || 0,
+      };
     }));
     setLoading(false);
   };
@@ -140,14 +154,32 @@ export default function DecksPage() {
             <div className="grid gap-4 md:grid-cols-2">
               {filteredDecks.map((deck) => {
                 const canRemove = isAdminUser || (!deck.is_official && deck.creator_id === user.id);
+                const deckCoverUrl = sanitizeDeckImageUrl(deck.cover_url || deck.image_url);
                 return (
                   <div key={deck.id} className="flex items-center gap-3 rounded-2xl border-2 border-cyan-200/20 bg-white/95 p-4 text-[#1e1b4b] shadow-xl transition hover:-translate-y-1 hover:border-yellow-300">
-                    <button type="button" onClick={() => router.push(`/decks/${deck.id}`)} className="min-w-0 flex-1 text-left">
-                      <p className="truncate text-lg font-black font-display">{deck.name}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase">
-                        <span className="rounded-full bg-indigo-50 px-2 py-1 text-indigo-600">{deck.character_count || 0} personagens</span>
-                        <span className="rounded-full bg-slate-50 px-2 py-1 text-slate-500">{deck.is_public ? 'Público' : 'Privado'}</span>
-                        {deck.is_official && <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700">Oficial</span>}
+                    <button type="button" onClick={() => router.push(`/decks/${deck.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 border-indigo-100 bg-indigo-50 shadow-sm">
+                        {deckCoverUrl ? (
+                          <img
+                            src={deckCoverUrl}
+                            alt=""
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-indigo-300">
+                            <BookOpen className="h-6 w-6" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-lg font-black font-display">{deck.name}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase">
+                          <span className="rounded-full bg-indigo-50 px-2 py-1 text-indigo-600">{deck.character_count || 0} personagens</span>
+                          <span className="rounded-full bg-slate-50 px-2 py-1 text-slate-500">{deck.is_public ? 'Público' : 'Privado'}</span>
+                          {deck.is_official && <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700">Oficial</span>}
+                        </div>
                       </div>
                     </button>
                     <Button type="button" variant="outline" onClick={() => router.push(`/decks/${deck.id}`)} className="h-10 w-10 rounded-xl border-indigo-100 p-0"><Grid2X2 className="h-4 w-4" /></Button>

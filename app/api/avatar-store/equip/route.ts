@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAuth } from '@/lib/supabase';
+import { getSupabaseAuthServer } from '@/lib/supabaseAdmin';
 import { getPublicR2Url } from '@/lib/r2Storage';
 import { avatarSelectionToUrl, normalizeAvatarSelection } from '@/lib/avatars';
 
@@ -15,7 +15,8 @@ export async function POST(req: NextRequest) {
     if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
     if (!isUuid(skinId)) return NextResponse.json({ error: 'Skin invalida.' }, { status: 400 });
 
-    const { data: skin, error: skinError } = await supabaseAuth
+    const db = getSupabaseAuthServer();
+    const { data: skin, error: skinError } = await db
       .from('avatar_skins')
       .select('id,avatar_key,avatar_name,skin_code,skin_name,image_key,access_type,is_active')
       .eq('id', skinId)
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     if (!skin?.is_active) return NextResponse.json({ error: 'Skin indisponivel.' }, { status: 404 });
 
     if (skin.access_type !== 'free') {
-      const { data: unlock } = await supabaseAuth
+      const { data: unlock } = await db
         .from('user_avatar_unlocks')
         .select('avatar_skin_id,expires_at')
         .eq('user_id', userId)
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       if (!activeUnlock) return NextResponse.json({ error: 'Voce ainda nao possui essa skin.' }, { status: 403 });
     }
 
-    const { data: animationRows, error: animationError } = await supabaseAuth
+    const { data: animationRows, error: animationError } = await db
       .from('avatar_animations')
       .select('event_type,animation_key')
       .eq('avatar_skin_id', skinId)
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
       displayName: skin.avatar_name,
     }));
 
-    const { data: profile, error: profileError } = await supabaseAuth
+    const { data: profile, error: profileError } = await db
       .from('profiles')
       .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
       .eq('id', userId)
@@ -78,5 +79,5 @@ export async function POST(req: NextRequest) {
 }
 
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return value.length === 36 && value.includes('-');
 }

@@ -1,12 +1,36 @@
 import { AVATAR_FRAMES } from './avatar-colors';
 
 export type AvatarState = 'idle' | 'walk' | 'attack' | 'defense' | 'vote' | 'eliminated' | 'victory' | 'defeat';
+export type AvatarAccessType = 'free' | 'premium' | 'admin' | 'event';
 
 export type AvatarSelection = {
   avatarId: string;
   primaryColor: string;
   secondaryColor: string;
   frameId: string;
+  imageUrl?: string;
+  imageKey?: string;
+  animationSlug?: string;
+  avatarSetId?: string;
+  skinCode?: string;
+  skinName?: string;
+  accessType?: AvatarAccessType;
+  displayName?: string;
+};
+
+export type AvatarCatalogItem = {
+  avatarId: string;
+  avatarKey: string;
+  displayName: string;
+  skinCode: string;
+  skinName: string;
+  imageUrl: string;
+  imageKey?: string;
+  animationSlug: string;
+  avatarSetId?: string;
+  accessType: AvatarAccessType;
+  locked: boolean;
+  sortOrder: number;
 };
 
 export const AVATAR_STATES: AvatarState[] = ['idle', 'walk', 'attack', 'defense', 'vote', 'eliminated', 'victory', 'defeat'];
@@ -37,7 +61,28 @@ export function getAvatarById(id?: string) {
   return AVATARS.find((avatar) => avatar.id === id) || AVATARS[0];
 }
 
+export function isMediaAvatarSelection(selection?: Partial<AvatarSelection> | null) {
+  return Boolean(selection?.imageUrl || selection?.imageKey || selection?.animationSlug || selection?.avatarSetId);
+}
+
 export function normalizeAvatarSelection(selection?: Partial<AvatarSelection> | null): AvatarSelection {
+  if (isMediaAvatarSelection(selection)) {
+    return {
+      avatarId: String(selection?.avatarId || selection?.animationSlug || 'r2-avatar'),
+      primaryColor: selection?.primaryColor || '#2563EB',
+      secondaryColor: selection?.secondaryColor || '#0F172A',
+      frameId: selection?.frameId || 'none',
+      imageUrl: selection?.imageUrl || '',
+      imageKey: selection?.imageKey || '',
+      animationSlug: selection?.animationSlug || selection?.avatarId || '',
+      avatarSetId: selection?.avatarSetId || '',
+      skinCode: selection?.skinCode || 'skin-1',
+      skinName: selection?.skinName || 'Padrão',
+      accessType: selection?.accessType || 'free',
+      displayName: selection?.displayName || selection?.avatarId || 'Avatar',
+    };
+  }
+
   const avatar = getAvatarById(selection?.avatarId);
   return {
     avatarId: avatar.id,

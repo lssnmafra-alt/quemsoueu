@@ -5,6 +5,7 @@ import AdSenseGate from '@/components/AdSenseGate';
 import AudioToggle from '@/components/AudioToggle';
 import AuthBootstrap from '@/components/AuthBootstrap';
 import GameplayNoticePositioner from '@/components/game/GameplayNoticePositioner';
+import MobileLandscapeGuard from '@/components/MobileLandscapeGuard';
 import RoomInviteInbox from '@/components/RoomInviteInbox';
 import SocialQuickButton from '@/components/SocialQuickButton';
 import { getPublicRuntimeEnvScript } from '@/lib/publicEnv';
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="stylesheet" href="/mobile-fixes.css" />
         <link rel="stylesheet" href="/gameplay-polish.css" />
+        <link rel="stylesheet" href="/mobile-landscape-guard.css" />
         <script
           id="quem-sou-eu-runtime-env"
           dangerouslySetInnerHTML={{ __html: getPublicRuntimeEnvScript() }}
@@ -49,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AudioToggle />
         <RoomInviteInbox />
         <SocialQuickButton />
+        <MobileLandscapeGuard />
       </body>
     </html>
   );

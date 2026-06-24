@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { BookOpen, Coins, Gamepad2, Home, LogOut, Shield, ShoppingBag, UserRound, Users } from 'lucide-react';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
@@ -25,6 +26,22 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
   const router = useRouter();
   const pathname = usePathname() || '/';
   const nickname = profile?.nickname || 'Jogador';
+  const [coins, setCoins] = useState(0);
+
+  useEffect(() => {
+    const userId = String(profile?.id || '').trim();
+    if (!userId) return;
+
+    let cancelled = false;
+    fetch(`/api/avatar-store/wallet?userId=${encodeURIComponent(userId)}`, { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((result) => {
+        if (!cancelled) setCoins(Number(result.wallet?.coins || 0));
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [profile?.id]);
 
   return (
     <nav className="fixed left-0 right-0 top-0 z-[100] border-b-4 border-indigo-950/40 bg-[#071a64]/95 text-white shadow-[0_12px_40px_rgba(15,23,42,.35)] backdrop-blur-xl">
@@ -60,7 +77,7 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
             </span>
           )}
           <div className="hidden items-center gap-1 rounded-md border border-cyan-300/50 bg-blue-700 px-3 py-1.5 text-xs font-black text-cyan-50 shadow md:flex">
-            <Coins className="h-4 w-4 text-cyan-200" /> 100
+            <Coins className="h-4 w-4 text-cyan-200" /> {coins}
           </div>
           <button type="button" onClick={() => router.push('/profile')} className="flex items-center gap-2 rounded-xl border-2 border-white/20 bg-white/10 p-1.5 pr-3 transition hover:bg-white/20">
             <AvatarFigure avatarUrl={profile?.avatar_url} label={nickname} className="h-10 w-10 rounded-lg border-2 border-cyan-200 bg-slate-100" />

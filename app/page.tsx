@@ -103,7 +103,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="home-lobby-panel rounded-3xl border-4 border-cyan-200/30 bg-[#082c7a]/80 p-5 shadow-[0_30px_90px_rgba(0,0,0,.35)] backdrop-blur-xl md:p-7">
+            <div className="home-lobby-panel [@media_(hover:none)_and_(pointer:coarse)_and_(orientation:landscape)_and_(max-height:560px)]:mt-16 rounded-3xl border-4 border-cyan-200/30 bg-[#082c7a]/80 p-5 shadow-[0_30px_90px_rgba(0,0,0,.35)] backdrop-blur-xl md:p-7">
               <div className="home-lobby-info mb-5 rounded-2xl border border-white/15 bg-white/10 p-4">
                 <p className="home-lobby-eyebrow text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Central do jogador</p>
                 <h2 className="home-lobby-title mt-1 text-3xl font-black uppercase text-white font-display md:text-4xl">Escolha o modo</h2>

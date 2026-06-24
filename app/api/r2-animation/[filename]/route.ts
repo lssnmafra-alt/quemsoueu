@@ -140,7 +140,6 @@ function isSafeVideoKey(key: string) {
   if (!key || key.includes('..') || key.startsWith('/') || key.includes('\\')) return false;
   if (!(lower.endsWith('.webm') || lower.endsWith('.mp4'))) return false;
   if (!ALLOWED_PREFIXES.some((prefix) => key.startsWith(prefix))) return false;
-  if (key.includes('/avatar/') && !key.toLowerCase().includes('/animacao/') && !key.toLowerCase().includes('/animations/')) return false;
   return true;
 }
 

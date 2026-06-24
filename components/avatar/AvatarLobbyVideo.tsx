@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getPublicEnvValue } from '@/lib/publicEnv';
 
 type AvatarLobbyVideoProps = {
   avatarUrl?: string;
@@ -11,16 +12,10 @@ type AvatarLobbyVideoProps = {
   className?: string;
 };
 
-declare global {
-  interface Window {
-    __QUEM_SOU_EU_HOME_AVATAR_VIDEO__?: string;
-  }
-}
-
 function getHomeAvatarVideoOverride() {
   if (typeof window === 'undefined') return '';
   if (window.location.pathname !== '/') return '';
-  return window.__QUEM_SOU_EU_HOME_AVATAR_VIDEO__ || '';
+  return getPublicEnvValue('NEXT_PUBLIC_HOME_AVATAR_VIDEO_URL') || '';
 }
 
 export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', label = 'Avatar', className }: AvatarLobbyVideoProps) {

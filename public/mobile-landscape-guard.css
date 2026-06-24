@@ -1,0 +1,110 @@
+.mobile-landscape-guard {
+  display: none;
+}
+
+@keyframes qse-rotate-phone-hint {
+  0%, 100% { transform: rotate(0deg); }
+  45%, 65% { transform: rotate(90deg); }
+}
+
+@media (hover: none) and (pointer: coarse) and (max-width: 900px) and (orientation: portrait) {
+  html,
+  body {
+    overflow: hidden;
+  }
+
+  .mobile-landscape-guard {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: white;
+    background: linear-gradient(135deg, #071a64, #0b4fb8 52%, #05091f);
+  }
+
+  .mobile-landscape-guard::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: .22;
+    background-image:
+      linear-gradient(rgba(255,255,255,.10) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.10) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+
+  .mobile-landscape-card {
+    position: relative;
+    width: min(92vw, 420px);
+    border: 4px solid rgba(125, 211, 252, .45);
+    border-radius: 32px;
+    padding: 34px 24px 28px;
+    text-align: center;
+    background: rgba(8, 44, 122, .9);
+    box-shadow: 0 30px 90px rgba(0,0,0,.45);
+  }
+
+  .mobile-landscape-phone {
+    width: 82px;
+    height: 132px;
+    margin: 0 auto 22px;
+    border: 6px solid white;
+    border-radius: 22px;
+    padding: 7px;
+    background: #071a64;
+    box-shadow: 0 16px 44px rgba(0,0,0,.35), 0 0 36px rgba(34,211,238,.45);
+    animation: qse-rotate-phone-hint 2.6s infinite ease-in-out;
+    transform-origin: center;
+  }
+
+  .mobile-landscape-phone-screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #22d3ee, #2563eb 60%, #facc15);
+  }
+
+  .mobile-landscape-eyebrow {
+    margin: 0 0 8px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    color: #a5f3fc;
+  }
+
+  .mobile-landscape-card h2 {
+    margin: 0;
+    font-size: clamp(32px, 10vw, 48px);
+    font-weight: 900;
+    line-height: .95;
+    text-transform: uppercase;
+    font-style: italic;
+  }
+
+  .mobile-landscape-text {
+    margin: 14px auto 0;
+    max-width: 300px;
+    color: #dbeafe;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+
+  .mobile-landscape-arrow {
+    margin: 18px auto 0;
+    width: 56px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: #facc15;
+    color: #071a64;
+    font-size: 34px;
+    font-weight: 900;
+    box-shadow: 0 8px 0 #b45309;
+  }
+}

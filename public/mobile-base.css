@@ -23,4 +23,25 @@
   body {
     overflow-x: hidden !important;
   }
+
+  body[data-qse-route="/"] {
+    overflow: hidden !important;
+    height: 100svh !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-main {
+    min-height: 100svh !important;
+    height: 100svh !important;
+    overflow: hidden !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-section {
+    height: calc(100svh - 4.05rem) !important;
+    overflow: hidden !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-panel {
+    max-height: calc(100svh - 4.25rem) !important;
+    overflow: hidden !important;
+  }
 }

@@ -1,0 +1,42 @@
+@media (hover: none) and (pointer: coarse) and (max-width: 1024px) and (orientation: landscape) {
+  body[data-qse-route="/avatar-store"] {
+    overflow: hidden !important;
+    height: 100svh !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main {
+    height: 100svh !important;
+    max-height: 100svh !important;
+    overflow: hidden !important;
+    padding: 3.55rem .55rem .45rem !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main > div:first-child {
+    margin-bottom: .4rem !important;
+    align-items: center !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main > div:first-child h1 {
+    font-size: 1.35rem !important;
+    line-height: .95 !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main > div:nth-child(3) {
+    display: grid !important;
+    grid-template-columns: 9rem minmax(0, 1fr) 13.5rem !important;
+    gap: .45rem !important;
+    height: calc(100svh - 6rem) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section,
+  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > aside {
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    border-width: 3px !important;
+    border-radius: 1rem !important;
+    padding: .45rem !important;
+  }
+}

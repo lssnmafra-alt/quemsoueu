@@ -44,4 +44,14 @@
     max-height: calc(100svh - 4.25rem) !important;
     overflow: hidden !important;
   }
+
+  body[data-qse-route="/lobby"] .relative.min-h-screen,
+  body[data-qse-route="/decks"] .relative.min-h-screen,
+  body[data-qse-route="/profile"] .relative.min-h-screen,
+  body[data-qse-route="/friends"] .relative.min-h-screen {
+    min-height: 100svh !important;
+    height: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
 }

@@ -27,22 +27,146 @@
   body[data-qse-route="/"] {
     overflow: hidden !important;
     height: 100svh !important;
+    background: #06134a !important;
   }
 
-  body[data-qse-route="/"] .home-lobby-main {
+  body[data-qse-route="/"] .relative.min-h-screen {
     min-height: 100svh !important;
     height: 100svh !important;
     overflow: hidden !important;
   }
 
+  body[data-qse-route="/"] .home-lobby-main {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 100svh !important;
+    height: 100svh !important;
+    overflow: hidden !important;
+    padding: 4.55rem 1rem .62rem !important;
+  }
+
   body[data-qse-route="/"] .home-lobby-section {
-    height: calc(100svh - 4.05rem) !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 22.5rem !important;
+    align-items: end !important;
+    gap: 1.05rem !important;
+    width: 100% !important;
+    height: calc(100svh - 5.17rem) !important;
+    min-height: 0 !important;
     overflow: hidden !important;
   }
 
+  body[data-qse-route="/"] .home-lobby-avatar {
+    display: flex !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    align-items: end !important;
+    justify-content: center !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-avatar > div {
+    transform: scale(.72) !important;
+    transform-origin: bottom center !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-avatar > div > div:nth-child(2) {
+    height: 29rem !important;
+    width: 19rem !important;
+    border-width: 3px !important;
+    border-radius: 2.4rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-avatar > div > div:nth-child(2) > div:nth-child(1) {
+    left: 1.15rem !important;
+    right: 1.15rem !important;
+    top: 1.15rem !important;
+    bottom: 7.5rem !important;
+    border-width: 3px !important;
+    border-radius: 2rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-avatar > div > div:nth-child(2) > div:nth-child(2) {
+    margin-bottom: 1.15rem !important;
+    border-radius: 1.35rem !important;
+    padding: .9rem 1rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-avatar h1 {
+    font-size: 1.6rem !important;
+    line-height: 1 !important;
+  }
+
   body[data-qse-route="/"] .home-lobby-panel {
-    max-height: calc(100svh - 4.25rem) !important;
+    width: 100% !important;
+    max-height: 100% !important;
     overflow: hidden !important;
+    align-self: end !important;
+    border-width: 3px !important;
+    border-radius: 1.25rem !important;
+    padding: .95rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-info {
+    display: block !important;
+    margin-bottom: .82rem !important;
+    border-radius: .9rem !important;
+    padding: .82rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-info .home-lobby-eyebrow {
+    font-size: .55rem !important;
+    line-height: 1 !important;
+    letter-spacing: .22em !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-info .home-lobby-title {
+    margin-top: .18rem !important;
+    font-size: 1.7rem !important;
+    line-height: .95 !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-info .home-lobby-subtitle {
+    margin-top: .32rem !important;
+    font-size: .72rem !important;
+    line-height: 1.2 !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-mobile-title {
+    display: none !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-actions {
+    gap: .52rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-play {
+    height: 3.65rem !important;
+    min-height: 3.65rem !important;
+    padding-left: 1.05rem !important;
+    padding-right: 1.05rem !important;
+    font-size: 1.18rem !important;
+    box-shadow: 0 5px 0 #b45309 !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-play svg {
+    width: 1.45rem !important;
+    height: 1.45rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-store,
+  body[data-qse-route="/"] .home-lobby-decks,
+  body[data-qse-route="/"] .home-lobby-small-action {
+    height: 2.95rem !important;
+    min-height: 2.95rem !important;
+    font-size: .66rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-secondary {
+    gap: .52rem !important;
+  }
+
+  body[data-qse-route="/"] .fixed.bottom-4.left-4 {
+    display: none !important;
   }
 
   body[data-qse-route="/lobby"] .relative.min-h-screen,
@@ -258,6 +382,63 @@
 }
 
 @media (hover: none) and (pointer: coarse) and (max-width: 820px) and (orientation: landscape) {
+  body[data-qse-route="/"] .home-lobby-main {
+    padding: 3.62rem .45rem .42rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-section {
+    grid-template-columns: minmax(0, 1fr) 18rem !important;
+    gap: .48rem !important;
+    height: calc(100svh - 4.04rem) !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-avatar > div {
+    transform: scale(.52) !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-panel {
+    padding: .55rem !important;
+    border-width: 2px !important;
+    border-radius: .9rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-info {
+    margin-bottom: .5rem !important;
+    border-radius: .72rem !important;
+    padding: .58rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-info .home-lobby-eyebrow {
+    font-size: .4rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-info .home-lobby-title {
+    font-size: 1.15rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-info .home-lobby-subtitle {
+    font-size: .5rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-actions {
+    gap: .34rem !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-play {
+    height: 2.65rem !important;
+    min-height: 2.65rem !important;
+    font-size: .82rem !important;
+    box-shadow: 0 3px 0 #b45309 !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-store,
+  body[data-qse-route="/"] .home-lobby-decks,
+  body[data-qse-route="/"] .home-lobby-small-action {
+    height: 2.15rem !important;
+    min-height: 2.15rem !important;
+    font-size: .46rem !important;
+  }
+
   body[data-qse-route="/profile"] main {
     padding: 3.85rem .58rem .48rem !important;
   }

@@ -45,19 +45,8 @@ type StoreCategory = {
   totalCount: number;
 };
 
-const rarityLabel: Record<string, string> = {
-  common: 'COMUM',
-  rare: 'RARO',
-  epic: 'ÉPICO',
-  legendary: 'LENDÁRIO',
-  mythic: 'MÍTICO',
-};
-
-const animationLabels = [
-  { key: 'lobby', label: 'Lobby' },
-  { key: 'victory', label: 'Vitória' },
-  { key: 'defeat', label: 'Derrota' },
-] as const;
+const rarityLabel: Record<string, string> = { common: 'COMUM', rare: 'RARO', epic: 'ÉPICO', legendary: 'LENDÁRIO', mythic: 'MÍTICO' };
+const animationLabels = [{ key: 'lobby', label: 'Lobby' }, { key: 'victory', label: 'Vitória' }, { key: 'defeat', label: 'Derrota' }] as const;
 
 export default function AvatarStorePage() {
   const router = useRouter();
@@ -96,7 +85,6 @@ export default function AvatarStorePage() {
     const result = await response.json().catch(() => ({ items: [], categories: [] }));
     const nextItems = Array.isArray(result.items) ? result.items : [];
     const nextCategories = buildCategories(nextItems, Array.isArray(result.categories) ? result.categories : []);
-
     setItems(nextItems);
     setCategories(nextCategories);
     setCoins(Number(result.wallet?.coins || 0));
@@ -113,21 +101,7 @@ export default function AvatarStorePage() {
       const response = await fetch('/api/avatar-store/buy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          skinId: item.id,
-          avatarKey: item.avatarKey,
-          displayName: item.displayName,
-          skinCode: item.skinCode,
-          skinName: item.skinName,
-          imageKey: item.imageKey,
-          priceCoins: item.priceCoins,
-          sortOrder: item.sortOrder,
-          isDefaultSkin: Boolean(item.isDefaultSkin),
-          categoryId: item.categoryId,
-          categorySlug: item.categorySlug,
-          categoryName: item.categoryName,
-        }),
+        body: JSON.stringify({ userId: user.id, skinId: item.id, avatarKey: item.avatarKey, displayName: item.displayName, skinCode: item.skinCode, skinName: item.skinName, imageKey: item.imageKey, priceCoins: item.priceCoins, sortOrder: item.sortOrder, isDefaultSkin: Boolean(item.isDefaultSkin), categoryId: item.categoryId, categorySlug: item.categorySlug, categoryName: item.categoryName }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Não foi possível comprar.');
@@ -147,38 +121,16 @@ export default function AvatarStorePage() {
       await buy(item);
       return;
     }
-
     setBusyId(item.id);
     setNotice('');
     try {
-      let response = await fetch('/api/avatar-store/equip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, skinId: item.id }),
-      });
+      let response = await fetch('/api/avatar-store/equip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, skinId: item.id }) });
       let result = await response.json().catch(() => ({}));
-
       if (!response.ok && !isUuid(item.id)) {
-        const avatarUrl = avatarSelectionToUrl(normalizeAvatarSelection({
-          avatarId: item.avatarKey,
-          imageUrl: item.imageUrl,
-          imageKey: item.imageKey,
-          animationSlug: `${item.avatarKey}/${item.skinCode}`,
-          animations: item.animations || defaultAnimationMap(item),
-          skinCode: item.skinCode,
-          skinName: item.skinName,
-          accessType: item.accessType as any,
-          displayName: item.displayName,
-        }));
-
-        response = await fetch('/api/player-profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...profile, id: user.id, avatar_url: avatarUrl, nickname: profile?.nickname || user.email?.split('@')[0] || 'Jogador', profile_completed: true, is_guest: Boolean(profile?.is_guest || user.email?.includes('@guest.com')) }),
-        });
+        const avatarUrl = avatarSelectionToUrl(normalizeAvatarSelection({ avatarId: item.avatarKey, imageUrl: item.imageUrl, imageKey: item.imageKey, animationSlug: `${item.avatarKey}/${item.skinCode}`, animations: item.animations || defaultAnimationMap(item), skinCode: item.skinCode, skinName: item.skinName, accessType: item.accessType as any, displayName: item.displayName }));
+        response = await fetch('/api/player-profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...profile, id: user.id, avatar_url: avatarUrl, nickname: profile?.nickname || user.email?.split('@')[0] || 'Jogador', profile_completed: true, is_guest: Boolean(profile?.is_guest || user.email?.includes('@guest.com')) }) });
         result = await response.json().catch(() => ({}));
       }
-
       if (!response.ok) throw new Error(result.error || 'Não foi possível equipar.');
       const nextProfile = result.profile || { ...profile, avatar_url: result.avatarUrl };
       setSessionUser(user, nextProfile);
@@ -197,7 +149,6 @@ export default function AvatarStorePage() {
       <GameTopNav profile={profile} />
       <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-25" />
       <div className="absolute inset-0 bg-gradient-to-br from-[#071a64]/95 via-[#0b4fb8]/65 to-[#05091f]/95" />
-
       <main className="relative z-10 mx-auto max-w-[1500px] px-4 pb-10 pt-24 md:px-8">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -205,14 +156,9 @@ export default function AvatarStorePage() {
             <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-200">Loja de personagens</p>
             <h1 className="text-4xl font-black uppercase italic text-white md:text-6xl font-display">Avatar Store</h1>
           </div>
-          <div className="flex items-center gap-2 rounded-2xl border-4 border-yellow-300 bg-yellow-300 px-5 py-3 text-slate-950 shadow-[0_6px_0_#b45309]">
-            <Coins className="h-5 w-5" />
-            <span className="text-xl font-black">{coins}</span>
-          </div>
+          <div className="flex items-center gap-2 rounded-2xl border-4 border-yellow-300 bg-yellow-300 px-5 py-3 text-slate-950 shadow-[0_6px_0_#b45309]"><Coins className="h-5 w-5" /><span className="text-xl font-black">{coins}</span></div>
         </div>
-
         {notice && <div className="mb-4 rounded-2xl border-2 border-cyan-200/30 bg-white/10 px-4 py-3 text-sm font-black uppercase text-cyan-50">{notice}</div>}
-
         <div className="grid gap-5 lg:grid-cols-[280px_1fr_420px]">
           <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-3 shadow-2xl backdrop-blur-xl lg:sticky lg:top-24 lg:h-fit">
             <p className="mb-3 px-1 text-[10px] font-black uppercase tracking-[0.25em] text-cyan-100">Categorias</p>
@@ -220,88 +166,16 @@ export default function AvatarStorePage() {
               {categories.map((category) => {
                 const active = selectedCategory?.id === category.id;
                 const cover = category.items[0];
-                return (
-                  <button key={category.id} type="button" onClick={() => { setSelectedCategoryId(category.id); setSelectedId(category.items[0]?.id || ''); }} className={cn('relative overflow-hidden rounded-2xl border-4 bg-white text-left transition-all hover:-translate-y-1', active ? 'border-yellow-300 ring-4 ring-yellow-300/20' : 'border-white/15')}>
-                    <div className="relative aspect-square overflow-hidden bg-red-800 lg:aspect-[5/3]">
-                      {cover?.imageUrl ? <img src={cover.imageUrl} alt={category.name} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-br from-red-700 to-red-950" />}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent p-3 pt-10">
-                        <p className="truncate text-base font-black uppercase text-white">{category.name}</p>
-                        <p className="text-[10px] font-black text-yellow-200">{category.ownedCount}/{category.totalCount} liberados</p>
-                      </div>
-                    </div>
-                  </button>
-                );
+                return <button key={category.id} type="button" onClick={() => { setSelectedCategoryId(category.id); setSelectedId(category.items[0]?.id || ''); }} className={cn('relative overflow-hidden rounded-2xl border-4 bg-white text-left transition-all hover:-translate-y-1', active ? 'border-yellow-300 ring-4 ring-yellow-300/20' : 'border-white/15')}><div className="relative aspect-square overflow-hidden bg-red-800 lg:aspect-[5/3]">{cover?.imageUrl ? <img src={cover.imageUrl} alt={category.name} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-br from-red-700 to-red-950" />}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent p-3 pt-10"><p className="truncate text-base font-black uppercase text-white">{category.name}</p><p className="text-[10px] font-black text-yellow-200">{category.ownedCount}/{category.totalCount} liberados</p></div></div></button>;
               })}
             </div>
           </section>
-
           <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-4 shadow-2xl backdrop-blur-xl">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-cyan-100">Categoria</p>
-                <h2 className="text-3xl font-black uppercase italic text-white font-display">{selectedCategory?.name || 'Loja'}</h2>
-              </div>
-              <div className="rounded-2xl bg-white/10 px-3 py-2 text-xs font-black uppercase text-cyan-100"><Layers3 className="mr-1 inline h-4 w-4" /> {categoryItems.length}</div>
-            </div>
-
-            {categoryItems.length === 0 ? (
-              <div className="rounded-3xl border-2 border-dashed border-cyan-200/25 bg-white/10 p-8 text-center text-xs font-black uppercase text-cyan-100">Nenhum item ativo nesta categoria.</div>
-            ) : (
-              <div className="space-y-6">
-                <ItemGrid title="Já liberados" items={ownedItems} selectedId={selected?.id || ''} equippedAvatarUrl={equippedAvatarUrl} onSelect={setSelectedId} />
-                <ItemGrid title="Disponíveis para comprar" items={lockedItems} selectedId={selected?.id || ''} equippedAvatarUrl={equippedAvatarUrl} onSelect={setSelectedId} />
-              </div>
-            )}
+            <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.25em] text-cyan-100">Categoria</p><h2 className="text-3xl font-black uppercase italic text-white font-display">{selectedCategory?.name || 'Loja'}</h2></div><div className="rounded-2xl bg-white/10 px-3 py-2 text-xs font-black uppercase text-cyan-100"><Layers3 className="mr-1 inline h-4 w-4" /> {categoryItems.length}</div></div>
+            {categoryItems.length === 0 ? <div className="rounded-3xl border-2 border-dashed border-cyan-200/25 bg-white/10 p-8 text-center text-xs font-black uppercase text-cyan-100">Nenhum item ativo nesta categoria.</div> : <div className="space-y-6"><ItemGrid title="Já liberados" items={ownedItems} selectedId={selected?.id || ''} equippedAvatarUrl={equippedAvatarUrl} onSelect={setSelectedId} /><ItemGrid title="Disponíveis para comprar" items={lockedItems} selectedId={selected?.id || ''} equippedAvatarUrl={equippedAvatarUrl} onSelect={setSelectedId} /></div>}
           </section>
-
           <aside className="rounded-3xl border-4 border-cyan-200/25 bg-white p-5 text-slate-950 shadow-2xl lg:sticky lg:top-24 lg:h-fit">
-            {selected ? (
-              <>
-                <div className="mb-4 overflow-hidden rounded-3xl border-4 border-slate-100 bg-slate-50">
-                  <AvatarFigure selection={selectionForItem(selected)} className="aspect-[3/4] w-full border-0 rounded-none" />
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-indigo-500">{selected.categoryName || selectedCategory?.name} • {rarityLabel[selected.rarity] || selected.rarity} • {selected.skinName}</p>
-                <h2 className="text-3xl font-black uppercase text-slate-950 font-display">{selected.displayName}</h2>
-                <p className="mt-2 text-sm font-bold text-slate-500">Veja as skins e animações deste personagem.</p>
-
-                <div className="mt-4 rounded-3xl bg-slate-100 p-3">
-                  <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Skins deste personagem</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {characterSkins.map((skin) => {
-                      const active = skin.id === selected.id;
-                      const equipped = isEquipped(equippedAvatarUrl, skin);
-                      return (
-                        <button key={`${skin.id}-${skin.skinCode}`} type="button" onClick={() => setSelectedId(skin.id)} className={cn('relative overflow-hidden rounded-2xl border-3 bg-white text-left transition', active ? 'border-yellow-400 ring-2 ring-yellow-300/40' : 'border-white hover:border-slate-300')}>
-                          <div className="aspect-square overflow-hidden bg-slate-200">
-                            {skin.imageUrl ? <img src={skin.imageUrl} alt={skin.skinName} className="h-full w-full object-cover" /> : null}
-                          </div>
-                          <div className="p-2">
-                            <p className="truncate text-[10px] font-black uppercase text-slate-950">{skin.skinName}</p>
-                            <p className="truncate text-[9px] font-black uppercase text-slate-500">{equipped ? 'Equipado' : skin.locked ? `${skin.priceCoins} moedas` : 'Liberado'}</p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-3xl bg-slate-100 p-3">
-                  <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500"><Film className="h-4 w-4" /> Animações desta skin</p>
-                  <div className="space-y-3">
-                    {animationLabels.map((animation) => {
-                      const animationKey = selected.animations?.[animation.key] || defaultAnimationMap(selected)[animation.key];
-                      return <AnimationPreview key={animation.key} label={animation.label} animationKey={animationKey} />;
-                    })}
-                  </div>
-                </div>
-
-                <Button type="button" disabled={busyId === selected.id} onClick={() => equip(selected)} className="mt-5 h-14 w-full rounded-none bg-yellow-300 text-slate-950 text-sm font-black uppercase shadow-[0_6px_0_#b45309] hover:bg-yellow-200">
-                  {busyId === selected.id ? 'Aguarde...' : selected.locked ? <><ShoppingCart className="mr-2 h-5 w-5" /> Comprar {selected.priceCoins}</> : <><Check className="mr-2 h-5 w-5" /> Equipar</>}
-                </Button>
-              </>
-            ) : (
-              <div className="py-12 text-center text-sm font-bold text-slate-500">Nenhuma skin cadastrada.</div>
-            )}
+            {selected ? <><div className="mb-4 overflow-hidden rounded-3xl border-4 border-slate-100 bg-slate-50"><AvatarFigure selection={selectionForItem(selected)} className="aspect-[3/4] w-full border-0 rounded-none" /></div><p className="text-[10px] font-black uppercase tracking-wider text-indigo-500">{selected.categoryName || selectedCategory?.name} • {rarityLabel[selected.rarity] || selected.rarity} • {selected.skinName}</p><h2 className="text-3xl font-black uppercase text-slate-950 font-display">{selected.displayName}</h2><p className="mt-2 text-sm font-bold text-slate-500">Veja as skins e animações deste personagem.</p><div className="mt-4 rounded-3xl bg-slate-100 p-3"><p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Skins deste personagem</p><div className="grid grid-cols-3 gap-2">{characterSkins.map((skin) => { const active = skin.id === selected.id; const equipped = isEquipped(equippedAvatarUrl, skin); return <button key={`${skin.id}-${skin.skinCode}`} type="button" onClick={() => setSelectedId(skin.id)} className={cn('relative overflow-hidden rounded-2xl border-2 bg-white text-left transition', active ? 'border-yellow-400 ring-2 ring-yellow-300/40' : 'border-white hover:border-slate-300')}><div className="aspect-square overflow-hidden bg-slate-200">{skin.imageUrl ? <img src={skin.imageUrl} alt={skin.skinName} className="h-full w-full object-cover" /> : null}</div><div className="p-2"><p className="truncate text-[10px] font-black uppercase text-slate-950">{skin.skinName}</p><p className="truncate text-[9px] font-black uppercase text-slate-500">{equipped ? 'Equipado' : skin.locked ? `${skin.priceCoins} moedas` : 'Liberado'}</p></div></button>; })}</div></div><div className="mt-4 rounded-3xl bg-slate-100 p-3"><p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500"><Film className="h-4 w-4" /> Animações desta skin</p><div className="space-y-3">{animationLabels.map((animation) => { const animationKey = selected.animations?.[animation.key] || defaultAnimationMap(selected)[animation.key] || ''; return <AnimationPreview key={animation.key} label={animation.label} animationKey={animationKey} />; })}</div></div><Button type="button" disabled={busyId === selected.id} onClick={() => equip(selected)} className="mt-5 h-14 w-full rounded-none bg-yellow-300 text-slate-950 text-sm font-black uppercase shadow-[0_6px_0_#b45309] hover:bg-yellow-200">{busyId === selected.id ? 'Aguarde...' : selected.locked ? <><ShoppingCart className="mr-2 h-5 w-5" /> Comprar {selected.priceCoins}</> : <><Check className="mr-2 h-5 w-5" /> Equipar</>}</Button></> : <div className="py-12 text-center text-sm font-bold text-slate-500">Nenhuma skin cadastrada.</div>}
           </aside>
         </div>
       </main>
@@ -311,83 +185,18 @@ export default function AvatarStorePage() {
 
 function ItemGrid({ title, items, selectedId, equippedAvatarUrl, onSelect }: { title: string; items: StoreItem[]; selectedId: string; equippedAvatarUrl: string; onSelect: (id: string) => void }) {
   if (items.length === 0) return null;
-  return (
-    <div>
-      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100">{title}</p>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-        {items.map((item) => {
-          const active = selectedId === item.id;
-          const equipped = isEquipped(equippedAvatarUrl, item);
-          return (
-            <button key={`${item.id}-${item.skinCode}`} type="button" onClick={() => onSelect(item.id)} className={cn('relative overflow-hidden rounded-3xl border-4 bg-white text-left shadow-xl transition-all hover:-translate-y-1', active ? 'border-yellow-300 ring-4 ring-yellow-300/25' : 'border-white/15')}>
-              <div className="relative aspect-[3/4] overflow-hidden bg-red-800">
-                {item.imageUrl ? <img src={item.imageUrl} alt={`${item.displayName} ${item.skinName}`} className="h-full w-full object-cover" /> : null}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-3 pt-12">
-                  <p className="truncate text-lg font-black text-white font-display">{item.displayName}</p>
-                  <p className="truncate text-xs font-black text-white/90">{item.skinName}</p>
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-black uppercase text-yellow-200">{rarityLabel[item.rarity] || item.rarity}</span>
-                    {equipped ? <span className="rounded-full bg-emerald-400 px-2 py-1 text-[10px] font-black text-emerald-950">EQUIPADO</span> : item.locked ? <span className="flex items-center gap-1 rounded-full bg-slate-950/80 px-2 py-1 text-[10px] font-black text-white"><Lock className="h-3 w-3" /> {item.priceCoins}</span> : <span className="rounded-full bg-white/90 px-2 py-1 text-[10px] font-black text-slate-950">LIBERADO</span>}
-                  </div>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
+  return <div><p className="mb-3 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100">{title}</p><div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">{items.map((item) => { const active = selectedId === item.id; const equipped = isEquipped(equippedAvatarUrl, item); return <button key={`${item.id}-${item.skinCode}`} type="button" onClick={() => onSelect(item.id)} className={cn('relative overflow-hidden rounded-3xl border-4 bg-white text-left shadow-xl transition-all hover:-translate-y-1', active ? 'border-yellow-300 ring-4 ring-yellow-300/25' : 'border-white/15')}><div className="relative aspect-[3/4] overflow-hidden bg-red-800">{item.imageUrl ? <img src={item.imageUrl} alt={`${item.displayName} ${item.skinName}`} className="h-full w-full object-cover" /> : null}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-3 pt-12"><p className="truncate text-lg font-black text-white font-display">{item.displayName}</p><p className="truncate text-xs font-black text-white/90">{item.skinName}</p><div className="mt-1 flex items-center justify-between gap-2"><span className="text-[10px] font-black uppercase text-yellow-200">{rarityLabel[item.rarity] || item.rarity}</span>{equipped ? <span className="rounded-full bg-emerald-400 px-2 py-1 text-[10px] font-black text-emerald-950">EQUIPADO</span> : item.locked ? <span className="flex items-center gap-1 rounded-full bg-slate-950/80 px-2 py-1 text-[10px] font-black text-white"><Lock className="h-3 w-3" /> {item.priceCoins}</span> : <span className="rounded-full bg-white/90 px-2 py-1 text-[10px] font-black text-slate-950">LIBERADO</span>}</div></div></div></button>; })}</div></div>;
 }
 
 function AnimationPreview({ label, animationKey }: { label: string; animationKey: string }) {
   const src = animationUrl(animationKey);
-  return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
-        <p className="text-[10px] font-black uppercase tracking-wide text-slate-600">{label}</p>
-        <p className="truncate text-[9px] font-bold text-slate-400">{fileName(animationKey)}</p>
-      </div>
-      {src ? (
-        <video src={src} muted loop playsInline controls preload="metadata" className="h-32 w-full bg-slate-950 object-contain" />
-      ) : (
-        <div className="flex h-24 items-center justify-center text-[10px] font-black uppercase text-slate-400">Sem animação</div>
-      )}
-    </div>
-  );
+  return <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><div className="flex items-center justify-between gap-2 px-3 py-2"><p className="text-[10px] font-black uppercase tracking-wide text-slate-600">{label}</p><p className="truncate text-[9px] font-bold text-slate-400">{fileName(animationKey)}</p></div>{src ? <video src={src} muted loop playsInline controls preload="metadata" className="h-32 w-full bg-slate-950 object-contain" /> : <div className="flex h-24 items-center justify-center text-[10px] font-black uppercase text-slate-400">Sem animação</div>}</div>;
 }
 
-function selectionForItem(item: StoreItem) {
-  return normalizeAvatarSelection({ avatarId: item.avatarKey, imageUrl: item.imageUrl, imageKey: item.imageKey, animationSlug: `${item.avatarKey}/${item.skinCode}`, animations: item.animations || defaultAnimationMap(item), skinCode: item.skinCode, skinName: item.skinName, accessType: item.accessType as any, displayName: item.displayName });
-}
-
-function defaultAnimationMap(item: StoreItem): AvatarAnimationMap {
-  const imageBase = item.imageKey ? item.imageKey.replace(/\.[^.]+$/, '') : `atuem/avatar/${item.categoryName || 'Padrao'}/${item.avatarKey}/${item.skinCode}`;
-  return { home: `${imageBase}-A.mp4`, intro: `${imageBase}-A.mp4`, lobby: `${imageBase}-1.mp4`, victory: `${imageBase}-2.mp4`, defeat: `${imageBase}-3.mp4` };
-}
-
-function buildCategories(items: StoreItem[], rawCategories: any[]): StoreCategory[] {
-  const byCategory = new Map<string, StoreItem[]>();
-  for (const item of items) {
-    const keys = [item.categoryId, item.categorySlug, item.categoryName].filter(Boolean).map(String);
-    for (const key of keys) byCategory.set(key, [...(byCategory.get(key) || []), item]);
-  }
-  const categories = rawCategories.map((category: any) => {
-    const categoryItems = byCategory.get(String(category.id)) || byCategory.get(String(category.slug)) || byCategory.get(String(category.name)) || [];
-    return { id: String(category.id || category.slug), slug: String(category.slug || category.id), name: String(category.name || category.slug || 'Categoria'), description: String(category.description || ''), r2Prefix: String(category.r2Prefix || ''), sortOrder: Number(category.sortOrder || 0), items: sortItems(categoryItems), ownedCount: categoryItems.filter((item) => !item.locked).length, totalCount: categoryItems.length };
-  }).filter((category: StoreCategory) => category.totalCount > 0);
-  if (categories.length) return categories.sort((a: StoreCategory, b: StoreCategory) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-  return groupCategoriesFromItems(items);
-}
-
-function groupCategoriesFromItems(items: StoreItem[]): StoreCategory[] {
-  const map = new Map<string, StoreItem[]>();
-  for (const item of items) {
-    const key = item.categorySlug || item.categoryName || 'geral';
-    map.set(key, [...(map.get(key) || []), item]);
-  }
-  return [...map.entries()].map(([id, categoryItems]) => ({ id, slug: id, name: categoryItems[0]?.categoryName || prettyCategoryName(id), sortOrder: 0, items: sortItems(categoryItems), ownedCount: categoryItems.filter((item) => !item.locked).length, totalCount: categoryItems.length }));
-}
-
+function selectionForItem(item: StoreItem) { return normalizeAvatarSelection({ avatarId: item.avatarKey, imageUrl: item.imageUrl, imageKey: item.imageKey, animationSlug: `${item.avatarKey}/${item.skinCode}`, animations: item.animations || defaultAnimationMap(item), skinCode: item.skinCode, skinName: item.skinName, accessType: item.accessType as any, displayName: item.displayName }); }
+function defaultAnimationMap(item: StoreItem): AvatarAnimationMap { const imageBase = item.imageKey ? item.imageKey.replace(/\.[^.]+$/, '') : `atuem/avatar/${item.categoryName || 'Padrao'}/${item.avatarKey}/${item.skinCode}`; return { home: `${imageBase}-A.mp4`, intro: `${imageBase}-A.mp4`, lobby: `${imageBase}-1.mp4`, victory: `${imageBase}-2.mp4`, defeat: `${imageBase}-3.mp4` }; }
+function buildCategories(items: StoreItem[], rawCategories: any[]): StoreCategory[] { const byCategory = new Map<string, StoreItem[]>(); for (const item of items) { const keys = [item.categoryId, item.categorySlug, item.categoryName].filter(Boolean).map(String); for (const key of keys) byCategory.set(key, [...(byCategory.get(key) || []), item]); } const categories = rawCategories.map((category: any) => { const categoryItems = byCategory.get(String(category.id)) || byCategory.get(String(category.slug)) || byCategory.get(String(category.name)) || []; return { id: String(category.id || category.slug), slug: String(category.slug || category.id), name: String(category.name || category.slug || 'Categoria'), description: String(category.description || ''), r2Prefix: String(category.r2Prefix || ''), sortOrder: Number(category.sortOrder || 0), items: sortItems(categoryItems), ownedCount: categoryItems.filter((item) => !item.locked).length, totalCount: categoryItems.length }; }).filter((category: StoreCategory) => category.totalCount > 0); if (categories.length) return categories.sort((a: StoreCategory, b: StoreCategory) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)); return groupCategoriesFromItems(items); }
+function groupCategoriesFromItems(items: StoreItem[]): StoreCategory[] { const map = new Map<string, StoreItem[]>(); for (const item of items) { const key = item.categorySlug || item.categoryName || 'geral'; map.set(key, [...(map.get(key) || []), item]); } return [...map.entries()].map(([id, categoryItems]) => ({ id, slug: id, name: categoryItems[0]?.categoryName || prettyCategoryName(id), sortOrder: 0, items: sortItems(categoryItems), ownedCount: categoryItems.filter((item) => !item.locked).length, totalCount: categoryItems.length })); }
 function sameCharacter(item: StoreItem, selected: StoreItem) { return normalizeKey(item.avatarKey) === normalizeKey(selected.avatarKey) && String(item.categoryId || item.categorySlug) === String(selected.categoryId || selected.categorySlug); }
 function sortItems(items: StoreItem[]) { return [...items].sort((a, b) => Number(!a.isDefaultSkin) - Number(!b.isDefaultSkin) || a.displayName.localeCompare(b.displayName) || a.sortOrder - b.sortOrder); }
 function prettyCategoryName(value: string) { return String(value || 'Categoria').replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()); }

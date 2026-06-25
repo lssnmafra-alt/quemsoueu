@@ -1,0 +1,70 @@
+@media (hover: none) and (pointer: coarse) and (max-width: 1024px) and (orientation: landscape) {
+  body[data-qse-route="/rooms"] .gameplay-screen,
+  body[data-qse-route="/room"] .gameplay-screen {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-shell,
+  body[data-qse-route="/room"] .gameplay-shell {
+    height: 100svh !important;
+    overflow-y: auto !important;
+    gap: .35rem !important;
+    padding: .38rem .48rem .5rem !important;
+    scroll-padding-bottom: 3.4rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-hud,
+  body[data-qse-route="/room"] .gameplay-hud {
+    top: 0 !important;
+    grid-template-columns: minmax(0, 1fr) auto auto !important;
+    min-height: 2.55rem !important;
+    gap: .32rem !important;
+    border-radius: 1rem !important;
+    padding: .32rem .42rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-board,
+  body[data-qse-route="/room"] .gameplay-board {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: calc(100svh - 7.8rem) !important;
+    overflow-y: auto !important;
+    border-radius: 1.15rem !important;
+    padding: .44rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-card-grid,
+  body[data-qse-route="/room"] .gameplay-card-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: .22rem !important;
+    padding-inline: 0 !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-card-item,
+  body[data-qse-route="/room"] .gameplay-card-item {
+    max-width: 6.15rem !important;
+    min-height: 0 !important;
+    padding: .12rem .08rem .78rem !important;
+    border-radius: .78rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-card-name,
+  body[data-qse-route="/room"] .gameplay-card-name {
+    left: 10% !important;
+    right: 10% !important;
+    bottom: .38rem !important;
+    min-height: .82rem !important;
+    padding: .08rem .18rem !important;
+    font-size: .44rem !important;
+    line-height: .52rem !important;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (max-width: 820px) and (orientation: landscape) {
+  body[data-qse-route="/rooms"] .gameplay-card-grid,
+  body[data-qse-route="/room"] .gameplay-card-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+}

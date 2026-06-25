@@ -18,12 +18,12 @@ const GAMEPLAY_TIPS = [
 ];
 
 const LOADING_STEPS = [
-  'Salvando preferências locais...',
-  'Baixando imagem da tela de carregamento...',
-  'Lendo músicas do R2...',
-  'Preparando prévia de áudio...',
-  'Carregando imagens do jogo...',
-  'Sincronizando sala...',
+  'Preparando sua entrada...',
+  'Montando a arena...',
+  'Organizando as cartas...',
+  'Ajustando o som do jogo...',
+  'Carregando os personagens...',
+  'Sincronizando a partida...',
 ];
 
 export default function LoadingArena({ label = 'Carregando Quem Sou Eu...' }: LoadingArenaProps) {

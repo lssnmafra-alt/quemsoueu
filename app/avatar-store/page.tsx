@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Coins, Lock, Check, ArrowLeft, ShoppingCart, Shirt, Layers3 } from 'lucide-react';
+import { Coins, Lock, Check, ArrowLeft, ShoppingCart, Layers3, Film } from 'lucide-react';
 import GameTopNav from '@/components/navigation/GameTopNav';
 import LoadingArena from '@/components/LoadingArena';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
@@ -53,6 +53,12 @@ const rarityLabel: Record<string, string> = {
   mythic: 'MÍTICO',
 };
 
+const animationLabels = [
+  { key: 'lobby', label: 'Lobby' },
+  { key: 'victory', label: 'Vitória' },
+  { key: 'defeat', label: 'Derrota' },
+] as const;
+
 export default function AvatarStorePage() {
   const router = useRouter();
   const { user, profile, loading, initialized, setSessionUser } = useUserStore();
@@ -79,6 +85,7 @@ export default function AvatarStorePage() {
   const ownedItems = useMemo(() => categoryItems.filter((item) => !item.locked), [categoryItems]);
   const lockedItems = useMemo(() => categoryItems.filter((item) => item.locked), [categoryItems]);
   const selected = useMemo(() => categoryItems.find((item) => item.id === selectedId) || categoryItems[0] || items[0], [categoryItems, selectedId, items]);
+  const characterSkins = useMemo(() => selected ? categoryItems.filter((item) => sameCharacter(item, selected)) : [], [categoryItems, selected]);
   const equippedAvatarUrl = profile?.avatar_url || '';
 
   async function loadStore() {
@@ -255,10 +262,39 @@ export default function AvatarStorePage() {
                 </div>
                 <p className="text-[10px] font-black uppercase tracking-wider text-indigo-500">{selected.categoryName || selectedCategory?.name} • {rarityLabel[selected.rarity] || selected.rarity} • {selected.skinName}</p>
                 <h2 className="text-3xl font-black uppercase text-slate-950 font-display">{selected.displayName}</h2>
-                <p className="mt-2 text-sm font-bold text-slate-500">Esta skin controla a imagem e as animações usadas na home, lobby, sala e final da partida.</p>
-                <div className="mt-3 rounded-2xl bg-slate-100 p-3 text-xs font-black uppercase text-slate-500">
-                  Lobby: {selected.animations?.lobby ? 'ok' : 'padrão'} • Vitória: {selected.animations?.victory ? 'ok' : 'padrão'} • Derrota: {selected.animations?.defeat ? 'ok' : 'padrão'}
+                <p className="mt-2 text-sm font-bold text-slate-500">Veja as skins e animações deste personagem.</p>
+
+                <div className="mt-4 rounded-3xl bg-slate-100 p-3">
+                  <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Skins deste personagem</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {characterSkins.map((skin) => {
+                      const active = skin.id === selected.id;
+                      const equipped = isEquipped(equippedAvatarUrl, skin);
+                      return (
+                        <button key={`${skin.id}-${skin.skinCode}`} type="button" onClick={() => setSelectedId(skin.id)} className={cn('relative overflow-hidden rounded-2xl border-3 bg-white text-left transition', active ? 'border-yellow-400 ring-2 ring-yellow-300/40' : 'border-white hover:border-slate-300')}>
+                          <div className="aspect-square overflow-hidden bg-slate-200">
+                            {skin.imageUrl ? <img src={skin.imageUrl} alt={skin.skinName} className="h-full w-full object-cover" /> : null}
+                          </div>
+                          <div className="p-2">
+                            <p className="truncate text-[10px] font-black uppercase text-slate-950">{skin.skinName}</p>
+                            <p className="truncate text-[9px] font-black uppercase text-slate-500">{equipped ? 'Equipado' : skin.locked ? `${skin.priceCoins} moedas` : 'Liberado'}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                <div className="mt-4 rounded-3xl bg-slate-100 p-3">
+                  <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500"><Film className="h-4 w-4" /> Animações desta skin</p>
+                  <div className="space-y-3">
+                    {animationLabels.map((animation) => {
+                      const animationKey = selected.animations?.[animation.key] || defaultAnimationMap(selected)[animation.key];
+                      return <AnimationPreview key={animation.key} label={animation.label} animationKey={animationKey} />;
+                    })}
+                  </div>
+                </div>
+
                 <Button type="button" disabled={busyId === selected.id} onClick={() => equip(selected)} className="mt-5 h-14 w-full rounded-none bg-yellow-300 text-slate-950 text-sm font-black uppercase shadow-[0_6px_0_#b45309] hover:bg-yellow-200">
                   {busyId === selected.id ? 'Aguarde...' : selected.locked ? <><ShoppingCart className="mr-2 h-5 w-5" /> Comprar {selected.priceCoins}</> : <><Check className="mr-2 h-5 w-5" /> Equipar</>}
                 </Button>
@@ -275,7 +311,6 @@ export default function AvatarStorePage() {
 
 function ItemGrid({ title, items, selectedId, equippedAvatarUrl, onSelect }: { title: string; items: StoreItem[]; selectedId: string; equippedAvatarUrl: string; onSelect: (id: string) => void }) {
   if (items.length === 0) return null;
-
   return (
     <div>
       <p className="mb-3 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100">{title}</p>
@@ -304,29 +339,30 @@ function ItemGrid({ title, items, selectedId, equippedAvatarUrl, onSelect }: { t
   );
 }
 
+function AnimationPreview({ label, animationKey }: { label: string; animationKey: string }) {
+  const src = animationUrl(animationKey);
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <p className="text-[10px] font-black uppercase tracking-wide text-slate-600">{label}</p>
+        <p className="truncate text-[9px] font-bold text-slate-400">{fileName(animationKey)}</p>
+      </div>
+      {src ? (
+        <video src={src} muted loop playsInline controls preload="metadata" className="h-32 w-full bg-slate-950 object-contain" />
+      ) : (
+        <div className="flex h-24 items-center justify-center text-[10px] font-black uppercase text-slate-400">Sem animação</div>
+      )}
+    </div>
+  );
+}
+
 function selectionForItem(item: StoreItem) {
-  return normalizeAvatarSelection({
-    avatarId: item.avatarKey,
-    imageUrl: item.imageUrl,
-    imageKey: item.imageKey,
-    animationSlug: `${item.avatarKey}/${item.skinCode}`,
-    animations: item.animations || defaultAnimationMap(item),
-    skinCode: item.skinCode,
-    skinName: item.skinName,
-    accessType: item.accessType as any,
-    displayName: item.displayName,
-  });
+  return normalizeAvatarSelection({ avatarId: item.avatarKey, imageUrl: item.imageUrl, imageKey: item.imageKey, animationSlug: `${item.avatarKey}/${item.skinCode}`, animations: item.animations || defaultAnimationMap(item), skinCode: item.skinCode, skinName: item.skinName, accessType: item.accessType as any, displayName: item.displayName });
 }
 
 function defaultAnimationMap(item: StoreItem): AvatarAnimationMap {
   const imageBase = item.imageKey ? item.imageKey.replace(/\.[^.]+$/, '') : `atuem/avatar/${item.categoryName || 'Padrao'}/${item.avatarKey}/${item.skinCode}`;
-  return {
-    home: `${imageBase}-A.mp4`,
-    intro: `${imageBase}-A.mp4`,
-    lobby: `${imageBase}-1.mp4`,
-    victory: `${imageBase}-2.mp4`,
-    defeat: `${imageBase}-3.mp4`,
-  };
+  return { home: `${imageBase}-A.mp4`, intro: `${imageBase}-A.mp4`, lobby: `${imageBase}-1.mp4`, victory: `${imageBase}-2.mp4`, defeat: `${imageBase}-3.mp4` };
 }
 
 function buildCategories(items: StoreItem[], rawCategories: any[]): StoreCategory[] {
@@ -335,22 +371,10 @@ function buildCategories(items: StoreItem[], rawCategories: any[]): StoreCategor
     const keys = [item.categoryId, item.categorySlug, item.categoryName].filter(Boolean).map(String);
     for (const key of keys) byCategory.set(key, [...(byCategory.get(key) || []), item]);
   }
-
   const categories = rawCategories.map((category: any) => {
     const categoryItems = byCategory.get(String(category.id)) || byCategory.get(String(category.slug)) || byCategory.get(String(category.name)) || [];
-    return {
-      id: String(category.id || category.slug),
-      slug: String(category.slug || category.id),
-      name: String(category.name || category.slug || 'Categoria'),
-      description: String(category.description || ''),
-      r2Prefix: String(category.r2Prefix || ''),
-      sortOrder: Number(category.sortOrder || 0),
-      items: sortItems(categoryItems),
-      ownedCount: categoryItems.filter((item) => !item.locked).length,
-      totalCount: categoryItems.length,
-    };
+    return { id: String(category.id || category.slug), slug: String(category.slug || category.id), name: String(category.name || category.slug || 'Categoria'), description: String(category.description || ''), r2Prefix: String(category.r2Prefix || ''), sortOrder: Number(category.sortOrder || 0), items: sortItems(categoryItems), ownedCount: categoryItems.filter((item) => !item.locked).length, totalCount: categoryItems.length };
   }).filter((category: StoreCategory) => category.totalCount > 0);
-
   if (categories.length) return categories.sort((a: StoreCategory, b: StoreCategory) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   return groupCategoriesFromItems(items);
 }
@@ -364,23 +388,11 @@ function groupCategoriesFromItems(items: StoreItem[]): StoreCategory[] {
   return [...map.entries()].map(([id, categoryItems]) => ({ id, slug: id, name: categoryItems[0]?.categoryName || prettyCategoryName(id), sortOrder: 0, items: sortItems(categoryItems), ownedCount: categoryItems.filter((item) => !item.locked).length, totalCount: categoryItems.length }));
 }
 
-function sortItems(items: StoreItem[]) {
-  return [...items].sort((a, b) => Number(!a.isDefaultSkin) - Number(!b.isDefaultSkin) || a.displayName.localeCompare(b.displayName) || a.sortOrder - b.sortOrder);
-}
-
-function prettyCategoryName(value: string) {
-  return String(value || 'Categoria').replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function isEquipped(avatarUrl: string, item: StoreItem) {
-  try {
-    const parsed = avatarUrl.startsWith('avatar:') ? JSON.parse(decodeURIComponent(avatarUrl.slice(7))) : null;
-    return parsed?.avatarId === item.avatarKey && parsed?.skinCode === item.skinCode;
-  } catch {
-    return avatarUrl.includes(item.imageKey || item.avatarKey);
-  }
-}
-
-function isUuid(value: string) {
-  return value.length === 36 && value.includes('-');
-}
+function sameCharacter(item: StoreItem, selected: StoreItem) { return normalizeKey(item.avatarKey) === normalizeKey(selected.avatarKey) && String(item.categoryId || item.categorySlug) === String(selected.categoryId || selected.categorySlug); }
+function sortItems(items: StoreItem[]) { return [...items].sort((a, b) => Number(!a.isDefaultSkin) - Number(!b.isDefaultSkin) || a.displayName.localeCompare(b.displayName) || a.sortOrder - b.sortOrder); }
+function prettyCategoryName(value: string) { return String(value || 'Categoria').replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()); }
+function isEquipped(avatarUrl: string, item: StoreItem) { try { const parsed = avatarUrl.startsWith('avatar:') ? JSON.parse(decodeURIComponent(avatarUrl.slice(7))) : null; return parsed?.avatarId === item.avatarKey && parsed?.skinCode === item.skinCode; } catch { return avatarUrl.includes(item.imageKey || item.avatarKey); } }
+function animationUrl(key: string) { if (!key) return ''; const filename = fileName(key) || 'animation.mp4'; return `/api/r2-animation/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`; }
+function fileName(key: string) { return String(key || '').split('/').pop() || ''; }
+function isUuid(value: string) { return value.length === 36 && value.includes('-'); }
+function normalizeKey(value: string) { return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '').toLowerCase(); }

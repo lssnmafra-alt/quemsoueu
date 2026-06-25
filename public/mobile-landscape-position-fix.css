@@ -3,15 +3,15 @@
   .home-lobby-section,
   .home-lobby-avatar,
   .home-lobby-panel {
-    overflow: visible !important;
+    overflow: hidden !important;
   }
 
   .home-lobby-avatar {
-    margin-top: 4rem !important;
+    margin-top: 0 !important;
   }
 
   main.relative.z-10.mx-auto[class*="pt-28"],
   div.relative.z-10.mx-auto[class*="pt-28"] {
-    padding-top: 5.25rem !important;
+    padding-top: 3.35rem !important;
   }
 }

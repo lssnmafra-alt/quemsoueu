@@ -1,73 +1,66 @@
 @media (hover: none) and (pointer: coarse) and (max-width: 1024px) and (orientation: landscape) {
+  html,
+  body[data-qse-route="/avatar-store"] {
+    background: #071a64 !important;
+  }
+
   body[data-qse-route="/avatar-store"] {
     overflow: hidden !important;
     height: 100svh !important;
-  }
-
-  body[data-qse-route="/avatar-store"]::after {
-    content: "MOBILE OK";
-    position: fixed;
-    right: .55rem;
-    bottom: .45rem;
-    z-index: 99999;
-    border: 2px solid #fff;
-    border-radius: 999px;
-    background: #facc15;
-    color: #071a64;
-    padding: .22rem .48rem;
-    font-size: .52rem;
-    font-weight: 950;
-    letter-spacing: .08em;
-    box-shadow: 0 4px 0 #b45309;
-    pointer-events: none;
+    min-height: 100svh !important;
+    overscroll-behavior: none !important;
   }
 
   body[data-qse-route="/avatar-store"] main {
-    height: 100svh !important;
-    max-height: 100svh !important;
-    overflow: hidden !important;
-    padding: 3.45rem .48rem .38rem !important;
+    height: calc(100svh - 3.25rem) !important;
+    min-height: 0 !important;
+    max-height: calc(100svh - 3.25rem) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain !important;
+    padding: .32rem .48rem .48rem !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:first-child {
-    margin-bottom: .32rem !important;
+    margin-bottom: .28rem !important;
     align-items: center !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:first-child h1 {
-    font-size: 1.2rem !important;
+    font-size: 1.12rem !important;
     line-height: .95 !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:first-child p,
   body[data-qse-route="/avatar-store"] main > div:first-child button {
-    font-size: .5rem !important;
+    font-size: .48rem !important;
     line-height: 1 !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:first-child > div:last-child {
     border-width: 2px !important;
     border-radius: .82rem !important;
-    padding: .3rem .5rem !important;
+    padding: .28rem .48rem !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:nth-child(3) {
     display: grid !important;
     grid-template-columns: 8.4rem minmax(0, 1fr) 12.8rem !important;
     gap: .38rem !important;
-    height: calc(100svh - 5.65rem) !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
+    min-height: calc(100svh - 5.35rem) !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section,
   body[data-qse-route="/avatar-store"] main > div:nth-child(3) > aside {
     min-height: 0 !important;
-    max-height: 100% !important;
+    max-height: calc(100svh - 5.55rem) !important;
     overflow-y: auto !important;
     border-width: 3px !important;
     border-radius: .92rem !important;
     padding: .38rem !important;
+    overscroll-behavior: contain !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section:first-child > div {

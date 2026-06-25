@@ -11,6 +11,24 @@
     overscroll-behavior: none !important;
   }
 
+  body[data-qse-route="/avatar-store"]::after {
+    content: "MOBILE OK";
+    position: fixed;
+    top: 3.55rem;
+    right: .65rem;
+    z-index: 99999;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: #facc15;
+    color: #071a64;
+    padding: .22rem .48rem;
+    font-size: .52rem;
+    font-weight: 950;
+    letter-spacing: .08em;
+    box-shadow: 0 4px 0 #b45309;
+    pointer-events: none;
+  }
+
   body[data-qse-route="/avatar-store"] main {
     height: calc(100svh - 3.25rem) !important;
     min-height: 0 !important;

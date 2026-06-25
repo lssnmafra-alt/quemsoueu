@@ -5,7 +5,7 @@ import { getSupabaseAuthServer, hasSupabaseAuthServiceRole } from '@/lib/supabas
 
 const MAX_GENRES = 8;
 const MAX_BLOCKED_TRACKS = 300;
-const PROFILE_SELECT = 'id,nickname,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,is_admin,updated_at,created_at';
+const PROFILE_SELECT = 'id,email,nickname,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,is_admin,updated_at,created_at';
 
 export async function GET(req: NextRequest) {
   try {
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
     const musicBlockedTracks = normalizeBlockedTracks(body.music_blocked_tracks || body.musicBlockedTracks);
     const profileCompleted = Boolean(body.profile_completed ?? body.profileCompleted ?? true);
     const isGuest = Boolean(body.is_guest ?? body.isGuest);
+    const requestEmail = normalizeEmail(body.email || body.user_email || body.userEmail);
 
     if (!isUuid(id)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
     if (!nickname) return NextResponse.json({ error: 'Digite seu nickname.' }, { status: 400 });
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     const { data: currentProfile, error: currentProfileError } = await authClient
       .from('profiles')
-      .select('id,nickname,is_admin')
+      .select('id,email,nickname,is_admin')
       .eq('id', id)
       .maybeSingle();
 
@@ -69,8 +70,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const resolvedEmail = currentProfile?.email || requestEmail || buildFallbackEmail(id, isGuest);
+
     const payload: Record<string, any> = {
       id,
+      email: resolvedEmail,
       nickname,
       avatar_url: avatarUrl,
       music_genres: musicGenres,
@@ -127,6 +131,7 @@ function normalizeProfileResult(profile: any) {
 
   return {
     ...profile,
+    email: normalizeEmail(profile.email),
     nickname: normalizeNicknameDisplay(profile.nickname || 'Jogador'),
     avatar_url: profile.avatar_url || '',
     music_genres: normalizeGenres(profile.music_genres),
@@ -164,6 +169,15 @@ function normalizeNicknameForUniqueness(value: unknown) {
     .toLowerCase();
 }
 
+function normalizeEmail(value: unknown) {
+  const email = String(value || '').trim().toLowerCase();
+  return email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
+}
+
+function buildFallbackEmail(id: string, isGuest: boolean) {
+  return isGuest ? `guest_${id}@guest.com` : `player_${id}@quemsoueu.local`;
+}
+
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
 }

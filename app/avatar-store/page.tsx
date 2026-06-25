@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Coins, Lock, Check, ArrowLeft, ShoppingCart, Shirt } from 'lucide-react';
+import { Coins, Lock, Check, ArrowLeft, ShoppingCart, Shirt, Layers3 } from 'lucide-react';
 import GameTopNav from '@/components/navigation/GameTopNav';
 import LoadingArena from '@/components/LoadingArena';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
@@ -28,17 +28,21 @@ type StoreItem = {
   animations?: AvatarAnimationMap;
   animationVariants?: Record<string, string[]>;
   isDefaultSkin?: boolean;
+  categoryId?: string;
+  categorySlug?: string;
+  categoryName?: string;
 };
 
-type StoreCharacter = {
+type StoreCategory = {
   id: string;
-  avatarKey: string;
-  displayName: string;
-  imageUrl: string;
-  skinCount: number;
-  ownedCount: number;
-  skins: StoreItem[];
+  slug: string;
+  name: string;
+  description?: string;
+  r2Prefix?: string;
   sortOrder: number;
+  items: StoreItem[];
+  ownedCount: number;
+  totalCount: number;
 };
 
 const rarityLabel: Record<string, string> = {
@@ -53,9 +57,9 @@ export default function AvatarStorePage() {
   const router = useRouter();
   const { user, profile, loading, initialized, setSessionUser } = useUserStore();
   const [items, setItems] = useState<StoreItem[]>([]);
-  const [characters, setCharacters] = useState<StoreCharacter[]>([]);
+  const [categories, setCategories] = useState<StoreCategory[]>([]);
   const [coins, setCoins] = useState(0);
-  const [selectedCharacterId, setSelectedCharacterId] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [busyId, setBusyId] = useState('');
   const [notice, setNotice] = useState('');
@@ -70,9 +74,11 @@ export default function AvatarStorePage() {
     void loadStore();
   }, [initialized, loading, user?.id]);
 
-  const selectedCharacter = useMemo(() => characters.find((character) => character.id === selectedCharacterId) || characters[0], [characters, selectedCharacterId]);
-  const visibleSkins = selectedCharacter?.skins || [];
-  const selected = useMemo(() => visibleSkins.find((item) => item.id === selectedId) || visibleSkins[0] || items[0], [visibleSkins, selectedId, items]);
+  const selectedCategory = useMemo(() => categories.find((category) => category.id === selectedCategoryId) || categories[0], [categories, selectedCategoryId]);
+  const categoryItems = selectedCategory?.items || [];
+  const ownedItems = useMemo(() => categoryItems.filter((item) => !item.locked), [categoryItems]);
+  const lockedItems = useMemo(() => categoryItems.filter((item) => item.locked), [categoryItems]);
+  const selected = useMemo(() => categoryItems.find((item) => item.id === selectedId) || categoryItems[0] || items[0], [categoryItems, selectedId, items]);
   const equippedAvatarUrl = profile?.avatar_url || '';
 
   async function loadStore() {
@@ -80,14 +86,15 @@ export default function AvatarStorePage() {
     setLoadingStore(true);
     setNotice('');
     const response = await fetch(`/api/avatar-store/catalog?userId=${encodeURIComponent(user.id)}`, { cache: 'no-store' });
-    const result = await response.json().catch(() => ({ items: [], characters: [] }));
+    const result = await response.json().catch(() => ({ items: [], categories: [] }));
     const nextItems = Array.isArray(result.items) ? result.items : [];
-    const nextCharacters = Array.isArray(result.characters) ? result.characters : groupCharacters(nextItems);
+    const nextCategories = buildCategories(nextItems, Array.isArray(result.categories) ? result.categories : []);
+
     setItems(nextItems);
-    setCharacters(nextCharacters);
+    setCategories(nextCategories);
     setCoins(Number(result.wallet?.coins || 0));
-    setSelectedCharacterId((current) => current || nextCharacters[0]?.id || '');
-    setSelectedId((current) => current || nextCharacters[0]?.skins?.[0]?.id || nextItems[0]?.id || '');
+    setSelectedCategoryId((current) => current || nextCategories[0]?.id || '');
+    setSelectedId((current) => current || nextCategories[0]?.items?.[0]?.id || nextItems[0]?.id || '');
     setLoadingStore(false);
   }
 
@@ -198,17 +205,18 @@ export default function AvatarStorePage() {
 
         <div className="grid gap-5 lg:grid-cols-[280px_1fr_420px]">
           <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-3 shadow-2xl backdrop-blur-xl lg:sticky lg:top-24 lg:h-fit">
-            <p className="mb-3 px-1 text-[10px] font-black uppercase tracking-[0.25em] text-cyan-100">Personagens</p>
+            <p className="mb-3 px-1 text-[10px] font-black uppercase tracking-[0.25em] text-cyan-100">Categorias</p>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
-              {characters.map((character) => {
-                const active = selectedCharacter?.id === character.id;
+              {categories.map((category) => {
+                const active = selectedCategory?.id === category.id;
+                const cover = category.items[0];
                 return (
-                  <button key={character.id} type="button" onClick={() => { setSelectedCharacterId(character.id); setSelectedId(character.skins[0]?.id || ''); }} className={cn('relative overflow-hidden rounded-2xl border-4 bg-white text-left transition-all hover:-translate-y-1', active ? 'border-yellow-300 ring-4 ring-yellow-300/20' : 'border-white/15')}>
+                  <button key={category.id} type="button" onClick={() => { setSelectedCategoryId(category.id); setSelectedId(category.items[0]?.id || ''); }} className={cn('relative overflow-hidden rounded-2xl border-4 bg-white text-left transition-all hover:-translate-y-1', active ? 'border-yellow-300 ring-4 ring-yellow-300/20' : 'border-white/15')}>
                     <div className="relative aspect-square overflow-hidden bg-red-800 lg:aspect-[5/3]">
-                      <img src={character.imageUrl} alt={character.displayName} className="h-full w-full object-cover" />
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent p-2 pt-8">
-                        <p className="truncate text-sm font-black uppercase text-white">{character.displayName}</p>
-                        <p className="text-[10px] font-black text-yellow-200">{character.ownedCount}/{character.skinCount} skins</p>
+                      {cover?.imageUrl ? <img src={cover.imageUrl} alt={category.name} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-gradient-to-br from-red-700 to-red-950" />}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent p-3 pt-10">
+                        <p className="truncate text-base font-black uppercase text-white">{category.name}</p>
+                        <p className="text-[10px] font-black text-yellow-200">{category.ownedCount}/{category.totalCount} liberados</p>
                       </div>
                     </div>
                   </button>
@@ -220,32 +228,20 @@ export default function AvatarStorePage() {
           <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-4 shadow-2xl backdrop-blur-xl">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-cyan-100">Skins disponíveis</p>
-                <h2 className="text-3xl font-black uppercase italic text-white font-display">{selectedCharacter?.displayName || 'Avatar'}</h2>
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-cyan-100">Categoria</p>
+                <h2 className="text-3xl font-black uppercase italic text-white font-display">{selectedCategory?.name || 'Loja'}</h2>
               </div>
-              <div className="rounded-2xl bg-white/10 px-3 py-2 text-xs font-black uppercase text-cyan-100"><Shirt className="mr-1 inline h-4 w-4" /> {visibleSkins.length}</div>
+              <div className="rounded-2xl bg-white/10 px-3 py-2 text-xs font-black uppercase text-cyan-100"><Layers3 className="mr-1 inline h-4 w-4" /> {categoryItems.length}</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-              {visibleSkins.map((item) => {
-                const active = selected?.id === item.id;
-                const equipped = isEquipped(equippedAvatarUrl, item);
-                return (
-                  <button key={`${item.id}-${item.skinCode}`} type="button" onClick={() => setSelectedId(item.id)} className={cn('relative overflow-hidden rounded-3xl border-4 bg-white text-left shadow-xl transition-all hover:-translate-y-1', active ? 'border-yellow-300 ring-4 ring-yellow-300/25' : 'border-white/15')}>
-                    <div className="relative aspect-[3/4] overflow-hidden bg-red-800">
-                      <img src={item.imageUrl} alt={`${item.displayName} ${item.skinName}`} className="h-full w-full object-cover" />
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-3 pt-12">
-                        <p className="truncate text-xl font-black text-white font-display">{item.skinName}</p>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] font-black uppercase text-yellow-200">{rarityLabel[item.rarity] || item.rarity}</span>
-                          {equipped ? <span className="rounded-full bg-emerald-400 px-2 py-1 text-[10px] font-black text-emerald-950">EQUIPADO</span> : item.locked ? <span className="flex items-center gap-1 rounded-full bg-slate-950/80 px-2 py-1 text-[10px] font-black text-white"><Lock className="h-3 w-3" /> {item.priceCoins}</span> : <span className="rounded-full bg-white/90 px-2 py-1 text-[10px] font-black text-slate-950">LIBERADO</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            {categoryItems.length === 0 ? (
+              <div className="rounded-3xl border-2 border-dashed border-cyan-200/25 bg-white/10 p-8 text-center text-xs font-black uppercase text-cyan-100">Nenhum item ativo nesta categoria.</div>
+            ) : (
+              <div className="space-y-6">
+                <ItemGrid title="Já liberados" items={ownedItems} selectedId={selected?.id || ''} equippedAvatarUrl={equippedAvatarUrl} onSelect={setSelectedId} />
+                <ItemGrid title="Disponíveis para comprar" items={lockedItems} selectedId={selected?.id || ''} equippedAvatarUrl={equippedAvatarUrl} onSelect={setSelectedId} />
+              </div>
+            )}
           </section>
 
           <aside className="rounded-3xl border-4 border-cyan-200/25 bg-white p-5 text-slate-950 shadow-2xl lg:sticky lg:top-24 lg:h-fit">
@@ -254,7 +250,7 @@ export default function AvatarStorePage() {
                 <div className="mb-4 overflow-hidden rounded-3xl border-4 border-slate-100 bg-slate-50">
                   <AvatarFigure selection={selectionForItem(selected)} className="aspect-[3/4] w-full border-0 rounded-none" />
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-indigo-500">{rarityLabel[selected.rarity] || selected.rarity} • {selected.skinName}</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-indigo-500">{selected.categoryName || selectedCategory?.name} • {rarityLabel[selected.rarity] || selected.rarity} • {selected.skinName}</p>
                 <h2 className="text-3xl font-black uppercase text-slate-950 font-display">{selected.displayName}</h2>
                 <p className="mt-2 text-sm font-bold text-slate-500">Esta skin controla a imagem e as animações usadas na home, lobby, sala e final da partida.</p>
                 <div className="mt-3 rounded-2xl bg-slate-100 p-3 text-xs font-black uppercase text-slate-500">
@@ -274,6 +270,37 @@ export default function AvatarStorePage() {
   );
 }
 
+function ItemGrid({ title, items, selectedId, equippedAvatarUrl, onSelect }: { title: string; items: StoreItem[]; selectedId: string; equippedAvatarUrl: string; onSelect: (id: string) => void }) {
+  if (items.length === 0) return null;
+
+  return (
+    <div>
+      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100">{title}</p>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+        {items.map((item) => {
+          const active = selectedId === item.id;
+          const equipped = isEquipped(equippedAvatarUrl, item);
+          return (
+            <button key={`${item.id}-${item.skinCode}`} type="button" onClick={() => onSelect(item.id)} className={cn('relative overflow-hidden rounded-3xl border-4 bg-white text-left shadow-xl transition-all hover:-translate-y-1', active ? 'border-yellow-300 ring-4 ring-yellow-300/25' : 'border-white/15')}>
+              <div className="relative aspect-[3/4] overflow-hidden bg-red-800">
+                {item.imageUrl ? <img src={item.imageUrl} alt={`${item.displayName} ${item.skinName}`} className="h-full w-full object-cover" /> : null}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-3 pt-12">
+                  <p className="truncate text-lg font-black text-white font-display">{item.displayName}</p>
+                  <p className="truncate text-xs font-black text-white/90">{item.skinName}</p>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase text-yellow-200">{rarityLabel[item.rarity] || item.rarity}</span>
+                    {equipped ? <span className="rounded-full bg-emerald-400 px-2 py-1 text-[10px] font-black text-emerald-950">EQUIPADO</span> : item.locked ? <span className="flex items-center gap-1 rounded-full bg-slate-950/80 px-2 py-1 text-[10px] font-black text-white"><Lock className="h-3 w-3" /> {item.priceCoins}</span> : <span className="rounded-full bg-white/90 px-2 py-1 text-[10px] font-black text-slate-950">LIBERADO</span>}
+                  </div>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function selectionForItem(item: StoreItem) {
   return normalizeAvatarSelection({
     avatarId: item.avatarKey,
@@ -289,27 +316,67 @@ function selectionForItem(item: StoreItem) {
 }
 
 function defaultAnimationMap(item: StoreItem): AvatarAnimationMap {
-  const stem = item.skinCode || item.avatarKey;
+  const imageBase = item.imageKey ? item.imageKey.replace(/\.[^.]+$/, '') : `atuem/avatar/${item.categoryName || 'Padrao'}/${item.avatarKey}/${item.skinCode}`;
   return {
-    home: `atuem/atuem/avatar/${stem}-A.mp4`,
-    intro: `atuem/atuem/avatar/${stem}-A.mp4`,
-    lobby: `atuem/atuem/avatar/${stem}-1.mp4`,
-    victory: `atuem/atuem/avatar/${stem}-2.mp4`,
-    defeat: `atuem/atuem/avatar/${stem}-3.mp4`,
+    home: `${imageBase}-A.mp4`,
+    intro: `${imageBase}-A.mp4`,
+    lobby: `${imageBase}-1.mp4`,
+    victory: `${imageBase}-2.mp4`,
+    defeat: `${imageBase}-3.mp4`,
   };
 }
 
-function groupCharacters(items: StoreItem[]): StoreCharacter[] {
+function buildCategories(items: StoreItem[], rawCategories: any[]): StoreCategory[] {
+  const byCategory = new Map<string, StoreItem[]>();
+  for (const item of items) {
+    const key = item.categoryId || item.categorySlug || 'geral';
+    byCategory.set(key, [...(byCategory.get(key) || []), item]);
+  }
+
+  const categories = rawCategories.map((category: any) => {
+    const categoryItems = byCategory.get(String(category.id)) || byCategory.get(String(category.slug)) || [];
+    return {
+      id: String(category.id || category.slug),
+      slug: String(category.slug || category.id),
+      name: String(category.name || category.slug || 'Categoria'),
+      description: String(category.description || ''),
+      r2Prefix: String(category.r2Prefix || ''),
+      sortOrder: Number(category.sortOrder || 0),
+      items: sortItems(categoryItems),
+      ownedCount: categoryItems.filter((item) => !item.locked).length,
+      totalCount: categoryItems.length,
+    };
+  }).filter((category: StoreCategory) => category.totalCount > 0);
+
+  if (categories.length) return categories.sort((a: StoreCategory, b: StoreCategory) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+
+  return groupCategoriesFromItems(items);
+}
+
+function groupCategoriesFromItems(items: StoreItem[]): StoreCategory[] {
   const map = new Map<string, StoreItem[]>();
   for (const item of items) {
-    const key = normalizeKey(item.avatarKey);
+    const key = item.categorySlug || item.categoryName || 'geral';
     map.set(key, [...(map.get(key) || []), item]);
   }
-  return [...map.entries()].map(([id, skins]) => {
-    const sorted = skins.sort((a, b) => Number(!a.isDefaultSkin) - Number(!b.isDefaultSkin) || a.sortOrder - b.sortOrder);
-    const official = sorted.find((skin) => skin.isDefaultSkin) || sorted[0];
-    return { id, avatarKey: official.avatarKey, displayName: official.displayName, imageUrl: official.imageUrl, skinCount: sorted.length, ownedCount: sorted.filter((skin) => skin.owned).length, skins: sorted, sortOrder: official.sortOrder };
-  }).sort((a, b) => a.sortOrder - b.sortOrder || a.displayName.localeCompare(b.displayName));
+
+  return [...map.entries()].map(([id, categoryItems]) => ({
+    id,
+    slug: id,
+    name: categoryItems[0]?.categoryName || prettyCategoryName(id),
+    sortOrder: 0,
+    items: sortItems(categoryItems),
+    ownedCount: categoryItems.filter((item) => !item.locked).length,
+    totalCount: categoryItems.length,
+  }));
+}
+
+function sortItems(items: StoreItem[]) {
+  return [...items].sort((a, b) => Number(!a.isDefaultSkin) - Number(!b.isDefaultSkin) || a.displayName.localeCompare(b.displayName) || a.sortOrder - b.sortOrder);
+}
+
+function prettyCategoryName(value: string) {
+  return String(value || 'Categoria').replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function isEquipped(avatarUrl: string, item: StoreItem) {
@@ -319,10 +386,6 @@ function isEquipped(avatarUrl: string, item: StoreItem) {
   } catch {
     return avatarUrl.includes(item.imageKey || item.avatarKey);
   }
-}
-
-function normalizeKey(value: string) {
-  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '').toLowerCase();
 }
 
 function isUuid(value: string) {

@@ -11,24 +11,6 @@
     overscroll-behavior: none !important;
   }
 
-  body[data-qse-route="/avatar-store"]::after {
-    content: "MOBILE OK";
-    position: fixed;
-    top: 3.55rem;
-    right: .65rem;
-    z-index: 99999;
-    border: 2px solid #fff;
-    border-radius: 999px;
-    background: #facc15;
-    color: #071a64;
-    padding: .22rem .48rem;
-    font-size: .52rem;
-    font-weight: 950;
-    letter-spacing: .08em;
-    box-shadow: 0 4px 0 #b45309;
-    pointer-events: none;
-  }
-
   body[data-qse-route="/avatar-store"] main {
     height: calc(100svh - 3.25rem) !important;
     min-height: 0 !important;
@@ -36,54 +18,94 @@
     overflow-y: auto !important;
     overflow-x: hidden !important;
     overscroll-behavior: contain !important;
-    padding: .32rem .48rem .48rem !important;
+    padding: .28rem .48rem .42rem !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:first-child {
-    margin-bottom: .28rem !important;
+    margin-bottom: .22rem !important;
     align-items: center !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:first-child h1 {
-    font-size: 1.12rem !important;
+    font-size: 1.05rem !important;
     line-height: .95 !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:first-child p,
   body[data-qse-route="/avatar-store"] main > div:first-child button {
-    font-size: .48rem !important;
+    font-size: .46rem !important;
     line-height: 1 !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:first-child > div:last-child {
     border-width: 2px !important;
-    border-radius: .82rem !important;
-    padding: .28rem .48rem !important;
+    border-radius: .78rem !important;
+    padding: .26rem .44rem !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:nth-child(3) {
     display: grid !important;
-    grid-template-columns: 8.4rem minmax(0, 1fr) 12.8rem !important;
-    gap: .38rem !important;
-    min-height: calc(100svh - 5.35rem) !important;
+    grid-template-columns: 13.2rem minmax(0, 1fr) !important;
+    grid-template-areas:
+      "categories characters"
+      "categories preview" !important;
+    gap: .46rem !important;
+    min-height: calc(100svh - 5.15rem) !important;
     height: auto !important;
     overflow: visible !important;
+    align-items: start !important;
   }
 
-  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section,
-  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > aside {
+  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section:first-child {
+    grid-area: categories !important;
     min-height: 0 !important;
-    max-height: calc(100svh - 5.55rem) !important;
+    max-height: calc(100svh - 5.35rem) !important;
     overflow-y: auto !important;
     border-width: 3px !important;
-    border-radius: .92rem !important;
-    padding: .38rem !important;
+    border-radius: .95rem !important;
+    padding: .42rem !important;
     overscroll-behavior: contain !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section:nth-child(2) {
+    grid-area: characters !important;
+    min-height: 0 !important;
+    max-height: calc(100svh - 5.35rem) !important;
+    overflow-y: auto !important;
+    border-width: 3px !important;
+    border-radius: .95rem !important;
+    padding: .42rem !important;
+    overscroll-behavior: contain !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > aside {
+    grid-area: preview !important;
+    display: none !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section:first-child > div {
     grid-template-columns: 1fr !important;
-    gap: .32rem !important;
+    gap: .38rem !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section:first-child button {
+    border-width: 2px !important;
+    border-radius: .82rem !important;
+    min-height: 4.55rem !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section:first-child button > div {
+    aspect-ratio: 16 / 9 !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section:nth-child(2) [class*="grid-cols"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: .36rem !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section:nth-child(2) button {
+    border-width: 2px !important;
+    border-radius: .82rem !important;
   }
 
   body[data-qse-route="/avatar-store"] main > div:nth-child(3) h2 {
@@ -95,15 +117,15 @@
     font-size: .52rem !important;
     line-height: 1.05 !important;
   }
-
-  body[data-qse-route="/avatar-store"] main > div:nth-child(3) [class*="grid-cols-2"],
-  body[data-qse-route="/avatar-store"] main > div:nth-child(3) [class*="grid-cols-3"] {
-    gap: .32rem !important;
-  }
 }
 
 @media (hover: none) and (pointer: coarse) and (max-width: 820px) and (orientation: landscape) {
   body[data-qse-route="/avatar-store"] main > div:nth-child(3) {
-    grid-template-columns: 7.4rem minmax(0, 1fr) 10.8rem !important;
+    grid-template-columns: 11.2rem minmax(0, 1fr) !important;
+    gap: .34rem !important;
+  }
+
+  body[data-qse-route="/avatar-store"] main > div:nth-child(3) > section:nth-child(2) [class*="grid-cols"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }

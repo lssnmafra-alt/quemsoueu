@@ -3,6 +3,13 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
+const styleFiles = [
+  '/mobile-base.css',
+  '/mobile-nav.css',
+  '/mobile-store.css',
+  '/mobile-gameplay.css',
+];
+
 function routeKey(pathname: string) {
   if (!pathname || pathname === '/') return '/';
   const segments = pathname.split('/').filter(Boolean);
@@ -10,10 +17,21 @@ function routeKey(pathname: string) {
   return first ? `/${first}` : '/';
 }
 
+function attachStyles() {
+  for (const href of styleFiles) {
+    if (document.querySelector(`link[href="${href}"]`)) continue;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+  }
+}
+
 export default function MobileRouteScope() {
   const pathname = usePathname();
 
   useEffect(() => {
+    attachStyles();
     const key = routeKey(pathname || '/');
     document.body.dataset.qseRoute = key;
     document.documentElement.dataset.qseRoute = key;

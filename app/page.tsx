@@ -65,7 +65,7 @@ export default function LoginPage() {
   const playerName = profile?.nickname || user?.email?.split('@')[0] || 'Jogador';
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#06134a] text-white font-sans">
+    <div className="relative min-h-screen overflow-x-hidden bg-[#06134a] text-white font-sans">
       {loggedInReady && <GameTopNav profile={profile} />}
       <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-85" />
       <div className="absolute inset-0 bg-gradient-to-r from-[#05124a]/95 via-[#0b4fb8]/45 to-[#070b2d]/85" />
@@ -83,9 +83,9 @@ export default function LoginPage() {
         <span className="text-[10px] font-semibold text-rose-800 font-mono">E UM PERSONAGEM?</span>
       </motion.div>
 
-      <main className="home-lobby-main relative z-20 mx-auto flex min-h-screen max-w-[1320px] items-center justify-center px-4 pb-8 pt-24 md:px-8">
+      <main className="home-lobby-main relative z-20 mx-auto flex min-h-screen w-full max-w-[1320px] items-center justify-center overflow-x-hidden px-4 pb-8 pt-24 md:px-8">
         {loggedInReady ? (
-          <section className="home-lobby-section grid w-full items-end gap-8 lg:grid-cols-[1fr_420px]">
+          <section className="home-lobby-section grid w-full min-w-0 items-end gap-8 lg:grid-cols-[minmax(0,1fr)_420px]">
             <div className="home-lobby-avatar hidden min-h-[620px] items-end justify-center lg:flex">
               <div className="relative flex flex-col items-center">
                 <div className="absolute bottom-0 h-10 w-80 rounded-full bg-cyan-300/45 blur-xl" />
@@ -102,7 +102,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="home-lobby-panel [@media_(hover:none)_and_(pointer:coarse)_and_(orientation:landscape)_and_(max-height:560px)]:mt-16 rounded-3xl border-4 border-cyan-200/30 bg-[#082c7a]/80 p-5 shadow-[0_30px_90px_rgba(0,0,0,.35)] backdrop-blur-xl md:p-7">
+            <div className="home-lobby-panel min-w-0 max-w-full [@media_(hover:none)_and_(pointer:coarse)_and_(orientation:landscape)_and_(max-height:560px)]:mt-16 rounded-3xl border-4 border-cyan-200/30 bg-[#082c7a]/80 p-5 shadow-[0_30px_90px_rgba(0,0,0,.35)] backdrop-blur-xl md:p-7">
               <div className="home-lobby-info mb-5 rounded-2xl border border-white/15 bg-white/10 p-4">
                 <p className="home-lobby-eyebrow text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Central do jogador</p>
                 <h2 className="home-lobby-title mt-1 text-3xl font-black uppercase text-white font-display md:text-4xl">Escolha o modo</h2>
@@ -128,26 +128,26 @@ export default function LoginPage() {
             </div>
           </section>
         ) : (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6 }} className="w-full max-w-md rounded-3xl border-4 border-white/40 bg-white/95 p-6 text-[#1e1b4b] shadow-2xl backdrop-blur md:p-8">
-            <div className="mb-6 flex flex-col items-center text-center">
-              <motion.img src="/api/branding/logo" alt="Quem Sou Eu?" animate={{ scale: [1, 1.04, 1] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="mb-2 w-full max-w-[320px] drop-shadow-xl" />
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6 }} className="guest-login-card w-full max-w-md rounded-3xl border-4 border-white/40 bg-white/95 p-6 text-[#1e1b4b] shadow-2xl backdrop-blur md:p-8">
+            <div className="guest-login-brand mb-6 flex flex-col items-center text-center">
+              <motion.img src="/api/branding/logo" alt="Quem Sou Eu?" animate={{ scale: [1, 1.04, 1] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="guest-login-logo mb-2 w-full max-w-[320px] drop-shadow-xl" />
               <div className="sr-only"><Gamepad2 className="h-8 w-8" />Quem Sou Eu?</div>
-              <p className="px-4 text-sm font-black uppercase tracking-wide text-indigo-700/90">O divertido jogo de cartas e adivinhacao social!</p>
+              <p className="guest-login-subtitle px-4 text-sm font-black uppercase tracking-wide text-indigo-700/90">O divertido jogo de cartas e adivinhacao social!</p>
             </div>
-            <div className="rounded-2xl border-2 border-slate-200 bg-slate-50 p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-center text-[12px] font-black uppercase tracking-wider text-indigo-950">Qual o seu nome no jogo?</label>
-                  <Input placeholder="DIGITE SEU APELIDO..." value={nickname} maxLength={16} onChange={(e) => { setNickname(e.target.value); if (error) setError(''); }} className="h-14 rounded-xl border-2 border-indigo-200 bg-white text-center text-xl font-bold text-indigo-950 shadow-inner placeholder:text-slate-350 focus:border-indigo-500 focus-visible:ring-indigo-100" />
+            <div className="guest-login-form rounded-2xl border-2 border-slate-200 bg-slate-50 p-6">
+              <div className="guest-login-fields space-y-4">
+                <div className="guest-login-name">
+                  <label className="guest-login-label mb-2 block text-center text-[12px] font-black uppercase tracking-wider text-indigo-950">Qual o seu nome no jogo?</label>
+                  <Input placeholder="DIGITE SEU APELIDO..." value={nickname} maxLength={16} onChange={(e) => { setNickname(e.target.value); if (error) setError(''); }} className="guest-login-input h-14 rounded-xl border-2 border-indigo-200 bg-white text-center text-xl font-bold text-indigo-950 shadow-inner placeholder:text-slate-350 focus:border-indigo-500 focus-visible:ring-indigo-100" />
                   {error && <p className="mt-2.5 text-center text-xs font-semibold text-rose-500">{error}</p>}
                 </div>
-                <Button onClick={handleGuestLogin} disabled={loading || !nickname.trim()} className="flex h-14 w-full items-center justify-center gap-2 text-base font-black uppercase tracking-wider text-white btn-squishy-indigo cursor-pointer">
+                <Button onClick={handleGuestLogin} disabled={loading || !nickname.trim()} className="guest-login-play flex h-14 w-full items-center justify-center gap-2 text-base font-black uppercase tracking-wider text-white btn-squishy-indigo cursor-pointer">
                   {loading ? 'Entrando...' : 'Jogar Rápido'}
                   {!loading && <Play className="h-4 w-4 fill-white" />}
                 </Button>
               </div>
-              <div className="flex items-center gap-3 py-4"><div className="h-0.5 flex-1 bg-slate-200" /><span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ou entre com</span><div className="h-0.5 flex-1 bg-slate-200" /></div>
-              <GoogleLoginButton redirectTo="/" />
+              <div className="guest-login-divider flex items-center gap-3 py-4"><div className="h-0.5 flex-1 bg-slate-200" /><span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ou entre com</span><div className="h-0.5 flex-1 bg-slate-200" /></div>
+              <div className="guest-login-google"><GoogleLoginButton redirectTo="/" /></div>
             </div>
           </motion.div>
         )}

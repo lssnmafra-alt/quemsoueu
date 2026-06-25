@@ -109,7 +109,7 @@
   }
 }
 
-@media (hover: none) and (pointer: coarse) and (max-width: 900px) and (orientation: landscape) {
+@media (max-width: 900px) and (orientation: landscape) {
   html,
   body {
     width: 100%;
@@ -639,7 +639,7 @@
   }
 }
 
-@media (hover: none) and (pointer: coarse) and (max-width: 740px) and (orientation: landscape) {
+@media (max-width: 740px) and (orientation: landscape) {
   .gameplay-card-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   }

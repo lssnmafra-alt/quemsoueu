@@ -1,4 +1,4 @@
-@media (hover: none) and (pointer: coarse) and (orientation: landscape) and (max-height: 560px) {
+@media (orientation: landscape) and (max-height: 560px) {
   .home-lobby-main,
   .home-lobby-section,
   .home-lobby-avatar,

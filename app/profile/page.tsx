@@ -107,6 +107,7 @@ export default function ProfilePage() {
     const nextProfile = {
       ...profile,
       id: user.id,
+      email: profile?.email || user.email || '',
       nickname: cleanNickname,
       avatar_url: profile?.avatar_url || '',
       music_genres: nextGenres,
@@ -242,6 +243,7 @@ export default function ProfilePage() {
 
       const profilePayload = {
         id: user.id,
+        email: profile?.email || user.email || '',
         nickname: cleanNickname,
         avatar_url: profile?.avatar_url || '',
         music_genres: selectedGenres,
@@ -329,75 +331,85 @@ export default function ProfilePage() {
             {error && <div className="rounded-2xl border-2 border-rose-200/40 bg-rose-500/20 p-3 text-xs font-bold text-rose-100">{error}</div>}
           </section>
 
-          <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-6 shadow-[0_30px_90px_rgba(0,0,0,.32)] backdrop-blur-xl space-y-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <div className="flex items-center gap-2"><Music className="h-5 w-5 text-yellow-200" /><h2 className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Musicas que voce gosta</h2></div>
-                  <p className="mt-1 text-xs font-bold text-blue-100">Abra o gênero, ouça cada música e bloqueie as faixas que não quer ouvir.</p>
-                </div>
-                <span className="rounded-md border border-cyan-200/30 bg-white/10 px-3 py-1 text-[10px] font-black uppercase text-cyan-100">{totalTracks} musicas no R2</span>
+          <section className="rounded-3xl border-4 border-white/10 bg-white/10 p-5 shadow-[0_30px_90px_rgba(0,0,0,.28)] backdrop-blur-xl">
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-200">Músicas da partida</p>
+                <h2 className="text-2xl font-black uppercase italic font-display">Escolha o clima do jogo</h2>
+                <p className="text-xs font-bold text-blue-100">Selecione até 8 estilos e bloqueie faixas que você não quer ouvir.</p>
               </div>
-
-              {previewTrack && (
-                <div className="flex items-center gap-3 rounded-2xl border-2 border-yellow-200/30 bg-yellow-300/15 p-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-yellow-200/30 bg-white/10 text-yellow-200"><Volume2 className="h-5 w-5" /></div>
-                  <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-wider text-yellow-200">Previa tocando</p><p className="truncate text-sm font-black text-white">{previewTrack.title}</p><p className="truncate text-xs font-bold text-blue-100">Categoria: {previewTrack.genre}</p></div>
-                  <button type="button" onClick={stopPreview} className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200/30 bg-white/10 text-rose-100 hover:bg-rose-500/20"><X className="h-4 w-4" /></button>
-                </div>
-              )}
-
-              {loadingOptions ? (
-                <EmptyPanel text="Carregando biblioteca de musicas..." />
-              ) : musicGroups.length === 0 ? (
-                <EmptyPanel text="Nenhuma musica encontrada no R2." tone="yellow" />
-              ) : (
-                <div className="space-y-3">
-                  {musicGroups.map((group) => {
-                    const active = isGenreSelected(group.name);
-                    const expanded = expandedGenreIds.includes(group.id);
-                    const blockedCount = group.tracks.filter((track) => isTrackBlocked(track.key)).length;
-                    const availableCount = group.tracks.length - blockedCount;
-
-                    return (
-                      <div key={group.id} className={cn('rounded-3xl border-2 p-3 transition-all', active ? 'border-yellow-300 bg-white/15 shadow-sm' : 'border-cyan-200/20 bg-white/10')}>
-                        <div className="flex items-center justify-between gap-3">
-                          <button type="button" onClick={() => toggleGenre(group.name)} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
-                            <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2', active ? 'border-yellow-300 bg-yellow-300 text-slate-950' : 'border-cyan-200/40 bg-white/10 text-transparent')}><Check className="h-4 w-4" /></span>
-                            <span className="min-w-0"><span className="block truncate text-sm font-black uppercase text-white">{group.name}</span><span className={cn('block text-[10px] font-black uppercase', active ? 'text-yellow-200' : 'text-blue-100')}>{active ? 'Vai tocar no jogo' : 'Nao tocar'} • {availableCount}/{group.tracks.length} liberadas</span></span>
-                          </button>
-
-                          <button type="button" onClick={() => playGenrePreview(group)} disabled={!group.tracks.length} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-yellow-200/30 bg-yellow-300/15 text-yellow-200 hover:bg-yellow-300/25 disabled:opacity-40"><Play className="h-4 w-4 fill-current" /></button>
-                          <button type="button" onClick={() => toggleExpanded(group.id)} className="flex h-10 shrink-0 items-center gap-1 rounded-xl border-2 border-white/15 bg-white/10 px-3 text-[10px] font-black uppercase text-blue-100 hover:bg-white/15">{expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />} Lista</button>
-                        </div>
-
-                        {expanded && (
-                          <div className="mt-3 space-y-2 border-t border-cyan-200/20 pt-3">
-                            {group.tracks.length === 0 ? (
-                              <EmptyPanel text="Pasta vazia no R2" />
-                            ) : group.tracks.map((track) => {
-                              const blocked = isTrackBlocked(track.key);
-                              const playing = playingTrackKey === track.key;
-                              const loadingTrack = loadingTrackKey === track.key;
-
-                              return (
-                                <div key={track.key} className={cn('flex items-center gap-2 rounded-2xl border p-2', blocked ? 'border-rose-200/30 bg-rose-500/15' : 'border-white/10 bg-white/95 text-[#1e1b4b]')}>
-                                  <button type="button" onClick={() => playTrackPreview(track)} disabled={Boolean(loadingTrackKey && loadingTrackKey !== track.key)} className={cn('flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-2 disabled:opacity-50', playing ? 'border-rose-100 bg-rose-50 text-rose-600' : 'border-yellow-100 bg-yellow-50 text-yellow-700 hover:bg-yellow-100')}>{loadingTrack ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}</button>
-                                  <div className="min-w-0 flex-1"><p className={cn('truncate text-sm font-black', blocked ? 'text-rose-100 line-through' : 'text-indigo-950')}>{track.title}</p><p className={cn('truncate text-[10px] font-bold', blocked ? 'text-rose-100/70' : 'text-slate-400')}>{track.key}</p></div>
-                                  <button type="button" onClick={() => toggleBlockedTrack(track)} className={cn('rounded-xl border px-3 py-2 text-[10px] font-black uppercase', blocked ? 'border-rose-200/30 bg-white/10 text-rose-100' : 'border-emerald-100 bg-emerald-50 text-emerald-700')}>{blocked ? 'Nao ouvir' : 'Liberada'}</button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <p className="flex items-center gap-2 text-[11px] font-bold text-blue-100"><SlidersHorizontal className="h-3.5 w-3.5" /> Gêneros selecionados: {selectedGenres.length ? selectedGenres.join(', ') : 'nenhum genero.'} • Músicas bloqueadas: {blockedTrackKeys.length} {autoSavingMusic ? '• salvando...' : ''}</p>
+              <div className="flex items-center gap-2 rounded-2xl border-2 border-cyan-200/20 bg-black/20 px-3 py-2 text-xs font-black uppercase text-cyan-100">
+                {autoSavingMusic ? <Loader2 className="h-4 w-4 animate-spin" /> : <SlidersHorizontal className="h-4 w-4" />}
+                {selectedGenres.length}/8 estilos · {totalTracks} faixas
+              </div>
             </div>
+
+            {loadingOptions ? (
+              <div className="flex min-h-[260px] items-center justify-center gap-3 text-sm font-black uppercase text-cyan-100">
+                <Loader2 className="h-5 w-5 animate-spin" /> Carregando músicas...
+              </div>
+            ) : musicGroups.length === 0 ? (
+              <div className="rounded-3xl border-2 border-dashed border-white/20 bg-black/20 p-8 text-center text-sm font-bold text-blue-100">
+                Nenhuma música encontrada em public/music. Adicione arquivos MP3/WAV/OGG nas pastas de gênero.
+              </div>
+            ) : (
+              <div className="max-h-[62vh] space-y-3 overflow-y-auto pr-1">
+                {musicGroups.map((group) => {
+                  const selected = isGenreSelected(group.name);
+                  const expanded = expandedGenreIds.includes(group.id);
+                  const blockedCount = group.tracks.filter((track) => isTrackBlocked(track.key)).length;
+                  return (
+                    <article key={group.id} className={cn('rounded-3xl border-2 p-4 transition', selected ? 'border-yellow-300 bg-yellow-300/15' : 'border-white/10 bg-[#061b4d]/70')}>
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <button type="button" onClick={() => toggleGenre(group.name)} className="flex flex-1 items-center gap-3 text-left">
+                          <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border-2 text-xs font-black', selected ? 'border-yellow-200 bg-yellow-300 text-slate-950' : 'border-cyan-200/30 bg-white/10 text-cyan-100')}>
+                            {selected ? <Check className="h-4 w-4" /> : <Music className="h-4 w-4" />}
+                          </span>
+                          <span>
+                            <span className="block text-lg font-black uppercase italic text-white font-display">{group.name}</span>
+                            <span className="text-xs font-bold text-blue-100">{group.tracks.length} faixas · {blockedCount} bloqueadas</span>
+                          </span>
+                        </button>
+                        <div className="flex gap-2">
+                          <Button type="button" onClick={() => playGenrePreview(group)} disabled={!group.tracks.length || loadingTrackKey === group.tracks[0]?.key} className="h-10 rounded-none bg-cyan-300 px-3 text-[10px] font-black uppercase text-slate-950 shadow-[0_4px_0_#0e7490] hover:bg-cyan-200">
+                            {previewTrack?.genre === group.name && playingTrackKey ? <Pause className="mr-1 h-3 w-3" /> : <Play className="mr-1 h-3 w-3" />}
+                            Prévia
+                          </Button>
+                          <Button type="button" onClick={() => toggleExpanded(group.id)} className="h-10 rounded-none bg-white/10 px-3 text-[10px] font-black uppercase text-white hover:bg-white/20">
+                            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {expanded && (
+                        <div className="mt-4 grid gap-2 md:grid-cols-2">
+                          {group.tracks.map((track) => {
+                            const blocked = isTrackBlocked(track.key);
+                            const playing = playingTrackKey === track.key;
+                            return (
+                              <div key={track.key} className="flex items-center justify-between gap-2 rounded-2xl border border-white/10 bg-black/20 p-2">
+                                <button type="button" onClick={() => playTrackPreview(track)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 text-cyan-100">
+                                    {loadingTrackKey === track.key ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                                  </span>
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-xs font-black uppercase text-white">{track.title}</span>
+                                    <span className="block truncate text-[10px] font-bold text-blue-100">{track.folder}</span>
+                                  </span>
+                                </button>
+                                <button type="button" onClick={() => toggleBlockedTrack(track)} className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-xs font-black', blocked ? 'border-rose-200 bg-rose-500/30 text-rose-100' : 'border-emerald-200/40 bg-emerald-400/15 text-emerald-100')} title={blocked ? 'Liberar musica' : 'Bloquear musica'}>
+                                  {blocked ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </section>
         </div>
       </main>
@@ -405,18 +417,10 @@ export default function ProfilePage() {
   );
 }
 
-function EmptyPanel({ text, tone = 'cyan' }: { text: string; tone?: 'cyan' | 'yellow' }) {
-  return <div className={cn('rounded-2xl border-2 border-dashed p-5 text-center text-xs font-black uppercase', tone === 'yellow' ? 'border-yellow-200/30 bg-yellow-300/10 text-yellow-100' : 'border-cyan-200/25 bg-white/10 text-blue-100')}>{text}</div>;
-}
-
 function normalizeNickname(value: string) {
-  return String(value || '').trim().replace(/\s+/g, ' ');
+  return value.trim().replace(/\s+/g, ' ').slice(0, 16);
 }
 
 function normalizeId(value: string) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '')
-    .toLowerCase();
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }

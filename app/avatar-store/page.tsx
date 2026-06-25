@@ -117,6 +117,9 @@ export default function AvatarStorePage() {
           priceCoins: item.priceCoins,
           sortOrder: item.sortOrder,
           isDefaultSkin: Boolean(item.isDefaultSkin),
+          categoryId: item.categoryId,
+          categorySlug: item.categorySlug,
+          categoryName: item.categoryName,
         }),
       });
       const result = await response.json().catch(() => ({}));
@@ -329,12 +332,12 @@ function defaultAnimationMap(item: StoreItem): AvatarAnimationMap {
 function buildCategories(items: StoreItem[], rawCategories: any[]): StoreCategory[] {
   const byCategory = new Map<string, StoreItem[]>();
   for (const item of items) {
-    const key = item.categoryId || item.categorySlug || 'geral';
-    byCategory.set(key, [...(byCategory.get(key) || []), item]);
+    const keys = [item.categoryId, item.categorySlug, item.categoryName].filter(Boolean).map(String);
+    for (const key of keys) byCategory.set(key, [...(byCategory.get(key) || []), item]);
   }
 
   const categories = rawCategories.map((category: any) => {
-    const categoryItems = byCategory.get(String(category.id)) || byCategory.get(String(category.slug)) || [];
+    const categoryItems = byCategory.get(String(category.id)) || byCategory.get(String(category.slug)) || byCategory.get(String(category.name)) || [];
     return {
       id: String(category.id || category.slug),
       slug: String(category.slug || category.id),
@@ -349,7 +352,6 @@ function buildCategories(items: StoreItem[], rawCategories: any[]): StoreCategor
   }).filter((category: StoreCategory) => category.totalCount > 0);
 
   if (categories.length) return categories.sort((a: StoreCategory, b: StoreCategory) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-
   return groupCategoriesFromItems(items);
 }
 
@@ -359,16 +361,7 @@ function groupCategoriesFromItems(items: StoreItem[]): StoreCategory[] {
     const key = item.categorySlug || item.categoryName || 'geral';
     map.set(key, [...(map.get(key) || []), item]);
   }
-
-  return [...map.entries()].map(([id, categoryItems]) => ({
-    id,
-    slug: id,
-    name: categoryItems[0]?.categoryName || prettyCategoryName(id),
-    sortOrder: 0,
-    items: sortItems(categoryItems),
-    ownedCount: categoryItems.filter((item) => !item.locked).length,
-    totalCount: categoryItems.length,
-  }));
+  return [...map.entries()].map(([id, categoryItems]) => ({ id, slug: id, name: categoryItems[0]?.categoryName || prettyCategoryName(id), sortOrder: 0, items: sortItems(categoryItems), ownedCount: categoryItems.filter((item) => !item.locked).length, totalCount: categoryItems.length }));
 }
 
 function sortItems(items: StoreItem[]) {

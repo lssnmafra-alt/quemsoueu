@@ -1,0 +1,26 @@
+@media (hover: none) and (pointer: coarse) and (max-width: 640px) {
+  button,
+  [role="button"],
+  input {
+    min-height: 44px;
+  }
+
+  .fixed.right-4.top-20 {
+    right: .7rem !important;
+    bottom: 5.4rem !important;
+  }
+
+  .fixed.right-4.top-20 > * {
+    max-width: 78vw !important;
+    padding: .65rem .8rem !important;
+    border-radius: 1rem !important;
+    font-size: .68rem !important;
+    line-height: 1.15 !important;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (max-width: 1024px) and (orientation: landscape) {
+  body {
+    overflow-x: hidden !important;
+  }
+}

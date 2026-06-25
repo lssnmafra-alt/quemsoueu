@@ -6,6 +6,7 @@ import AudioToggle from '@/components/AudioToggle';
 import AuthBootstrap from '@/components/AuthBootstrap';
 import GameplayNoticePositioner from '@/components/game/GameplayNoticePositioner';
 import MobileLandscapeGuard from '@/components/MobileLandscapeGuard';
+import MobileRouteScope from '@/components/MobileRouteScope';
 import RoomInviteInbox from '@/components/RoomInviteInbox';
 import SocialQuickButton from '@/components/SocialQuickButton';
 import { getPublicRuntimeEnvScript } from '@/lib/publicEnv';
@@ -57,11 +58,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="shortcut icon" href={appIconUrl} type="image/png" />
         <link rel="apple-touch-icon" href={appIconUrl} />
         <meta name="theme-color" content="#071a64" />
-        <link rel="stylesheet" href="/mobile-fixes.css" />
         <link rel="stylesheet" href="/gameplay-polish.css" />
         <link rel="stylesheet" href="/mobile-landscape-guard.css" />
-        <link rel="stylesheet" href="/mobile-landscape-login-fix.css" />
-        <link rel="stylesheet" href="/mobile-landscape-position-fix.css" />
+        <link rel="stylesheet" href="/mobile-screens.css" />
         <script
           id="quem-sou-eu-runtime-env"
           dangerouslySetInnerHTML={{ __html: getPublicRuntimeEnvScript() }}
@@ -73,6 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="font-sans bg-[#f5f6ff] text-indigo-950" suppressHydrationWarning>
+        <MobileRouteScope />
         <AuthBootstrap />
         <AdSenseGate />
         <GameplayNoticePositioner />

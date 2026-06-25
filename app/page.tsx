@@ -67,9 +67,10 @@ export default function LoginPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#06134a] text-white font-sans">
       {loggedInReady && <GameTopNav profile={profile} />}
-      <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-85" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#05124a]/95 via-[#0b4fb8]/45 to-[#070b2d]/85" />
-      <div className="absolute inset-0 party-grid-bg opacity-20" />
+      <div className="home-bg-art absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-80" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#05124a]/92 via-[#0b4fb8]/32 to-[#070b2d]/78" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_48%_45%,rgba(255,255,255,0.06),transparent_28%),linear-gradient(90deg,rgba(5,18,74,0.26)_0%,transparent_28%,transparent_66%,rgba(7,11,45,0.42)_100%)]" />
+      <div className="absolute inset-0 party-grid-bg opacity-16" />
 
       <motion.div animate={{ y: [0, -15, 0], rotate: [4, 8, 4] }} transition={{ repeat: Infinity, duration: 5, ease: 'easeInOut' }} className="absolute left-[6%] top-[28%] z-10 hidden h-56 w-40 rotate-[-7deg] flex-col items-center justify-between rounded-2xl border-4 border-amber-400 bg-amber-300/90 p-4 shadow-2xl xl:flex">
         <span className="text-xs font-bold tracking-wider text-amber-900 font-mono">DIVERSAO</span>
@@ -89,14 +90,14 @@ export default function LoginPage() {
             <div className="home-lobby-avatar hidden min-h-[620px] items-end justify-center lg:flex">
               <div className="relative flex flex-col items-center">
                 <div className="absolute bottom-0 h-10 w-80 rounded-full bg-cyan-300/45 blur-xl" />
-                <div className="relative flex h-[560px] w-[360px] flex-col items-center justify-end overflow-hidden rounded-[3.2rem] border-4 border-cyan-200/35 bg-transparent shadow-[0_35px_100px_rgba(6,182,212,.35)]">
+                <div className="relative flex h-[560px] w-[360px] flex-col items-center justify-end overflow-hidden rounded-[3.2rem] border-4 border-cyan-200/35 bg-[#06134a]/12 shadow-[0_35px_100px_rgba(6,182,212,.35)] backdrop-blur-[1px]">
                   <div className="absolute inset-x-6 top-6 bottom-28 overflow-hidden rounded-[2.6rem] border-4 border-cyan-100/20 bg-transparent shadow-inner">
                     <AvatarLobbyVideo avatarUrl={profile?.avatar_url} eventType="home" label={playerName} className="h-full w-full rounded-[2.3rem] bg-transparent" />
                   </div>
                   <div className="relative z-20 mb-6 w-[82%] rounded-3xl border-2 border-cyan-100 bg-[#071a64] px-5 py-4 text-center shadow-2xl">
-                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Preparando</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Pronto para jogar</p>
                     <h1 className="mt-1 truncate text-3xl font-black uppercase text-white font-display">{playerName}</h1>
-                    <div className="mt-3 rounded-full border border-cyan-200/40 bg-cyan-300/20 px-5 py-2 text-xs font-black uppercase text-cyan-50">Home animation</div>
+                    <div className="mt-3 rounded-full border border-cyan-200/40 bg-cyan-300/20 px-5 py-2 text-xs font-black uppercase text-cyan-50">Personagem ativo</div>
                   </div>
                 </div>
               </div>

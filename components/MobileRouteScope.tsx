@@ -17,10 +17,12 @@ export default function MobileRouteScope() {
     const key = routeKey(pathname || '/');
     document.body.dataset.qseRoute = key;
     document.documentElement.dataset.qseRoute = key;
+    document.body.dataset.qseMobileSystem = 'split';
 
     return () => {
       delete document.body.dataset.qseRoute;
       delete document.documentElement.dataset.qseRoute;
+      delete document.body.dataset.qseMobileSystem;
     };
   }, [pathname]);
 

@@ -3,6 +3,7 @@ import { supabaseGame } from '@/lib/supabase';
 import { finishOrAdvance } from '@/lib/gameProgress';
 import { touchRoomActivity } from '@/lib/roomLifecycle';
 import { playBotTurn } from '@/lib/botTurn';
+import { applyVoteDamage } from '@/lib/voteDamage';
 
 async function logMatchEvents(events: any[]) {
   const rows = events.filter(Boolean).map((event) => ({
@@ -77,6 +78,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   const voteEvent = await getResolvedVoteEvent(room);
   if (voteEvent) {
+    await applyVoteDamage(room);
     const result = await finishOrAdvance(room, getHitPlayerIdsFromEvent(voteEvent));
     return NextResponse.json({ ok: true, resolvedVoteInsteadOfTimeout: true, ...result });
   }

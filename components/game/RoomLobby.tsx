@@ -212,10 +212,10 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
     .sort((a: any, b: any) => a.name.localeCompare(b.name));
 
   return (
-    <div className="flex h-screen overflow-hidden w-full bg-[#071a64] text-white font-sans relative party-grid-bg">
+    <div className="flex min-h-[100dvh] w-full overflow-y-auto bg-[#071a64] text-white font-sans relative party-grid-bg">
       <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-25" />
       <div className="absolute inset-0 bg-gradient-to-br from-[#071a64]/95 via-[#0b4fb8]/55 to-[#05091f]/95" />
-      <div className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative z-10 w-full max-w-[1500px] mx-auto h-full">
+      <div className="flex-1 flex flex-col p-4 md:p-6 relative z-10 w-full max-w-[1500px] mx-auto min-h-[100dvh]">
         <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-4 p-5 bg-[#082c7a]/85 border-4 border-cyan-200/25 rounded-3xl shadow-2xl shrink-0 flex items-center justify-between relative backdrop-blur-xl">
           <div>
             <div className="flex items-center gap-1.5 mb-1">
@@ -239,17 +239,23 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
           </motion.div>
         )}
 
-        <div className="grid lg:grid-cols-[1fr_420px] gap-5 items-stretch flex-1 min-h-0 mb-4">
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="flex flex-col gap-4 h-full min-h-0">
-            <div className="flex items-end justify-between border-b border-cyan-200/20 pb-3">
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_420px] gap-5 items-start mb-4">
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="flex flex-col gap-4 min-w-0">
+            <div className="flex flex-col gap-3 border-b border-cyan-200/20 pb-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Squad aguardando iniciar</p>
                 <h2 className="text-2xl md:text-3xl font-black uppercase italic text-white flex items-center gap-2"><Users className="w-6 h-6 text-cyan-200" /> Jogadores ({players.length}/{room.max_players})</h2>
               </div>
-              <span className="rounded-md border border-cyan-200/30 bg-white/10 px-3 py-1 text-[10px] font-black uppercase text-cyan-100">pose -A.mp4</span>
+              {isAdmin ? (
+                <Button type="button" onClick={handleStart} disabled={!canStart || room.status !== 'LOBBY'} className="h-12 rounded-2xl bg-yellow-300 px-5 text-xs font-black uppercase tracking-wide text-slate-950 shadow-[0_5px_0_#b45309] hover:bg-yellow-200 disabled:opacity-50">
+                  <Play className="mr-2 h-4 w-4 fill-current" /> Iniciar partida
+                </Button>
+              ) : (
+                <p className="rounded-2xl border border-cyan-200/25 bg-white/10 px-4 py-3 text-xs font-black uppercase text-cyan-100">Aguardando o dono iniciar</p>
+              )}
             </div>
 
-            <div className="flex-1 overflow-y-auto rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-4 shadow-2xl backdrop-blur-xl min-h-[360px]">
+            <div className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-4 shadow-2xl backdrop-blur-xl min-h-[520px] overflow-visible">
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                 {players.map((p: any, index: number) => {
                   const isMe = p.user_id === me.user_id;
@@ -314,9 +320,9 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="flex flex-col gap-4 h-full min-h-0">
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="flex flex-col gap-4 min-w-0">
             <h2 className="text-2xl font-black uppercase italic text-white flex items-center gap-2 border-b border-cyan-200/20 pb-2"><Settings className="w-5 h-5 text-cyan-200" /> Configurações</h2>
-            <div className="bg-[#082c7a]/80 border-4 border-cyan-200/25 rounded-3xl p-5 flex flex-col gap-5 flex-1 shadow-2xl overflow-y-auto backdrop-blur-xl">
+            <div className="bg-[#082c7a]/80 border-4 border-cyan-200/25 rounded-3xl p-5 flex flex-col gap-5 shadow-2xl backdrop-blur-xl">
               {settingsNotice && <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-xs font-black uppercase tracking-wide text-amber-700">{settingsNotice}</div>}
 
               <div>
@@ -376,13 +382,6 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
                   <p className="mt-2 text-[11px] font-bold text-blue-100">Participantes previstos: {expectedParticipants}/{room.max_players || 6}</p>
                 </div>
               </div>
-
-              {isAdmin && (
-                <Button type="button" onClick={handleStart} disabled={!canStart || room.status !== 'LOBBY'} className="h-14 rounded-none bg-yellow-300 text-slate-950 text-sm font-black uppercase tracking-wide flex items-center justify-center gap-2 disabled:opacity-50 shadow-[0_6px_0_#b45309] hover:bg-yellow-200">
-                  <Play className="w-5 h-5 fill-current" /> Iniciar partida
-                </Button>
-              )}
-              {!isAdmin && <p className="text-center text-xs font-bold text-blue-100">Aguardando o dono da sala iniciar a partida.</p>}
             </div>
           </motion.div>
         </div>

@@ -4,6 +4,24 @@
     height: 100svh !important;
   }
 
+  body[data-qse-route="/avatar-store"]::after {
+    content: "MOBILE OK";
+    position: fixed;
+    right: .55rem;
+    bottom: .45rem;
+    z-index: 99999;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: #facc15;
+    color: #071a64;
+    padding: .22rem .48rem;
+    font-size: .52rem;
+    font-weight: 950;
+    letter-spacing: .08em;
+    box-shadow: 0 4px 0 #b45309;
+    pointer-events: none;
+  }
+
   body[data-qse-route="/avatar-store"] main {
     height: 100svh !important;
     max-height: 100svh !important;

@@ -221,103 +221,7 @@ h3:has(svg.lucide-list) > span:last-child {
   white-space: normal !important;
 }
 
-@media (max-width: 640px) {
-  .party-grid-bg {
-    overflow-x: hidden;
-  }
-
-  .party-grid-bg > div:first-child {
-    padding: 0.65rem !important;
-  }
-
-  .party-grid-bg > div:first-child > header {
-    margin-bottom: 0.55rem !important;
-    padding: 0.85rem !important;
-  }
-
-  .party-grid-bg > div:first-child > header p:first-child {
-    font-size: 0.95rem !important;
-  }
-
-  .party-grid-bg > div:first-child > section:first-of-type {
-    margin-bottom: 0.55rem !important;
-    max-height: 30dvh;
-    overflow-y: auto;
-    border-radius: 1.35rem !important;
-    padding: 0.55rem !important;
-  }
-
-  .party-grid-bg > div:first-child > section:first-of-type > div:first-child {
-    margin-bottom: 0.4rem !important;
-  }
-
-  .party-grid-bg > div:first-child > section:first-of-type > div:last-child {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 0.45rem !important;
-  }
-
-  .party-grid-bg > div:first-child > section:first-of-type > div:last-child > div {
-    min-height: 4.25rem;
-    padding: 0.5rem !important;
-    border-radius: 1.05rem !important;
-  }
-
-  .party-grid-bg > div:first-child > section:first-of-type > div:last-child > div > div:first-of-type {
-    gap: 0.45rem !important;
-    padding-right: 2.1rem !important;
-  }
-
-  .party-grid-bg > div:first-child > section:first-of-type img {
-    max-width: 2.15rem !important;
-    max-height: 2.15rem !important;
-  }
-
-  .party-grid-bg > div:first-child > section:first-of-type p {
-    line-height: 1.05 !important;
-  }
-
-  .party-grid-bg > div:first-child > section:first-of-type svg {
-    width: 0.72rem !important;
-    height: 0.72rem !important;
-  }
-
-  .party-grid-bg div:has(> h3 svg.lucide-list) {
-    margin-top: 0.55rem !important;
-    max-height: none !important;
-    padding: 0.7rem !important;
-    border-radius: 1.35rem !important;
-  }
-
-  .party-grid-bg div:has(> h3 svg.lucide-list) > h3 {
-    margin-bottom: 0.55rem !important;
-    font-size: 0.78rem !important;
-  }
-
-  .party-grid-bg div:has(> h3 svg.lucide-list) > h3::after {
-    font-size: 0.48rem;
-    padding: 0.18rem 0.42rem;
-  }
-
-  .party-grid-bg div:has(> h3 svg.lucide-list) > ul {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-  }
-
-  .party-grid-bg div:has(> h3 svg.lucide-list) > ul > li {
-    border-radius: 1rem;
-    padding: 0.35rem !important;
-  }
-
-  .party-grid-bg div:has(> h3 svg.lucide-list) > ul > li > span {
-    min-height: 1.65rem;
-    font-size: 0.62rem !important;
-    line-height: 0.82rem;
-  }
-}
-
-/* Official deck editor card preview
-   The external editor card has text/buttons below the art. Keep the card editor auto-height
-   and reserve a separate vertical 2:3 preview area so actions never compress the art. */
+/* Official deck editor card preview */
 .group:has(.official-card-preview) {
   aspect-ratio: auto !important;
   overflow: visible !important;
@@ -338,8 +242,6 @@ h3:has(svg.lucide-list) > span:last-child {
   object-fit: contain !important;
 }
 
-/* Compact controls under official cards.
-   Keep the preview close to 75% of the visual card and keep actions outside the art. */
 .group:has(.official-card-preview) > div:nth-child(2) {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;

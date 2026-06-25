@@ -132,6 +132,25 @@ h3:has(svg.lucide-list) > span:last-child {
   animation: arena-glow 7s ease-in-out infinite;
 }
 
+/* Home background: keep the character readable while the art still fills the stage. */
+.home-bg-art {
+  background-position: center center;
+  filter: saturate(1.06) contrast(0.98);
+}
+
+@media (min-width: 1024px) {
+  .home-bg-art {
+    background-position: 48% center;
+  }
+}
+
+@media (max-width: 1023px) {
+  .home-bg-art {
+    background-position: center top;
+    opacity: 0.58 !important;
+  }
+}
+
 /* Live characters: make the waiting-state list feel like cards on a table. */
 .party-grid-bg div:has(> h3 svg.lucide-list) {
   position: relative;
@@ -219,6 +238,30 @@ h3:has(svg.lucide-list) > span:last-child {
   line-height: 1.05rem;
   text-align: center;
   white-space: normal !important;
+}
+
+/* Gameplay board/card sizing: avoid the oversized empty beige board on desktop and keep cards aligned on mobile. */
+@media (min-width: 1024px) {
+  .party-grid-bg section + div:has(> h3 svg.lucide-list) {
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+
+  .party-grid-bg div:has(> h3 svg.lucide-list) > ul {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 150px));
+    align-items: start;
+  }
+}
+
+@media (max-width: 768px) {
+  .party-grid-bg div:has(> h3 svg.lucide-list) {
+    max-height: none !important;
+  }
+
+  .party-grid-bg div:has(> h3 svg.lucide-list) > ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
 }
 
 /* Official deck editor card preview */

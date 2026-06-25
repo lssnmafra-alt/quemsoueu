@@ -54,4 +54,327 @@
     overflow-x: hidden !important;
     overflow-y: auto !important;
   }
+
+  body[data-qse-route="/profile"] {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+    background: #071a64 !important;
+  }
+
+  body[data-qse-route="/profile"] .min-h-screen.overflow-hidden {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    overflow: hidden !important;
+  }
+
+  body[data-qse-route="/profile"] main {
+    max-width: none !important;
+    width: 100% !important;
+    height: 100svh !important;
+    min-height: 0 !important;
+    max-height: 100svh !important;
+    overflow: hidden !important;
+    padding: 4.95rem 1.05rem .72rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > header {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-end !important;
+    justify-content: space-between !important;
+    gap: 1rem !important;
+    height: 5.25rem !important;
+    min-height: 5.25rem !important;
+    margin-bottom: 1rem !important;
+    overflow: visible !important;
+  }
+
+  body[data-qse-route="/profile"] main > header p:first-child {
+    font-size: .62rem !important;
+    line-height: 1 !important;
+    letter-spacing: .26em !important;
+  }
+
+  body[data-qse-route="/profile"] main > header h1 {
+    margin-top: .28rem !important;
+    font-size: 2.25rem !important;
+    line-height: .9 !important;
+    white-space: nowrap !important;
+  }
+
+  body[data-qse-route="/profile"] main > header p:last-child {
+    margin-top: .48rem !important;
+    max-width: 34rem !important;
+    font-size: .76rem !important;
+    line-height: 1.15 !important;
+  }
+
+  body[data-qse-route="/profile"] main > header button {
+    width: 12.5rem !important;
+    height: 3.25rem !important;
+    min-height: 3.25rem !important;
+    flex-shrink: 0 !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    font-size: .65rem !important;
+    box-shadow: 0 4px 0 #b45309 !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid {
+    display: grid !important;
+    grid-template-columns: 21rem minmax(0, 1fr) !important;
+    gap: 1rem !important;
+    height: calc(100svh - 11.92rem) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    align-items: stretch !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section {
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    border-width: 3px !important;
+    border-radius: 1.2rem !important;
+    padding: 1rem !important;
+    overscroll-behavior: contain !important;
+    scrollbar-width: thin !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child > div:first-child {
+    border-radius: 1.05rem !important;
+    padding: 1rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child > div:first-child p:first-child,
+  body[data-qse-route="/profile"] main > div.grid > section:first-child label {
+    font-size: .56rem !important;
+    line-height: 1 !important;
+    letter-spacing: .2em !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child > div:first-child p:nth-child(2) {
+    font-size: .78rem !important;
+    line-height: 1.25 !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child button {
+    height: 3rem !important;
+    min-height: 3rem !important;
+    font-size: .64rem !important;
+    box-shadow: 0 4px 0 #86198f !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child input {
+    height: 3.2rem !important;
+    min-height: 3.2rem !important;
+    font-size: 1rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) {
+    padding: 1rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) > div {
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) > div > div:first-child {
+    gap: .55rem !important;
+    margin-bottom: .6rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) h2 {
+    font-size: .72rem !important;
+    line-height: 1 !important;
+    letter-spacing: .18em !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) p {
+    font-size: .6rem !important;
+    line-height: 1.15 !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) span.rounded-md {
+    font-size: .52rem !important;
+    padding: .28rem .55rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 {
+    height: calc(100% - 4.3rem) !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    padding-right: .15rem !important;
+    scrollbar-width: thin !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 > div {
+    border-radius: 1rem !important;
+    padding: .7rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 button {
+    min-height: 2.35rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 .h-10 {
+    height: 2.35rem !important;
+    min-height: 2.35rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 .h-9 {
+    height: 2.15rem !important;
+    min-height: 2.15rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 .text-sm {
+    font-size: .7rem !important;
+    line-height: 1.05 !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 .text-\[10px\] {
+    font-size: .5rem !important;
+    line-height: 1.05 !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) > div > p:last-child {
+    display: none !important;
+  }
+
+  body[data-qse-route="/profile"] .fixed.bottom-4.left-4 {
+    display: none !important;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (max-width: 820px) and (orientation: landscape) {
+  body[data-qse-route="/profile"] main {
+    padding: 3.85rem .58rem .48rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > header {
+    height: 3.05rem !important;
+    min-height: 3.05rem !important;
+    margin-bottom: .52rem !important;
+    gap: .7rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > header p:first-child {
+    font-size: .42rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > header h1 {
+    font-size: 1.18rem !important;
+    margin-top: .14rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > header p:last-child {
+    margin-top: .22rem !important;
+    font-size: .53rem !important;
+    max-width: 28rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > header button {
+    width: 9.6rem !important;
+    height: 2.45rem !important;
+    min-height: 2.45rem !important;
+    font-size: .52rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid {
+    grid-template-columns: 10.9rem minmax(0, 1fr) !important;
+    gap: .55rem !important;
+    height: calc(100svh - 7.9rem) !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section {
+    border-width: 2px !important;
+    border-radius: .85rem !important;
+    padding: .55rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child {
+    gap: .55rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child > div:first-child {
+    border-radius: .75rem !important;
+    padding: .55rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child > div:first-child p:first-child,
+  body[data-qse-route="/profile"] main > div.grid > section:first-child label {
+    font-size: .42rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child > div:first-child p:nth-child(2) {
+    font-size: .56rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child button {
+    height: 2.15rem !important;
+    min-height: 2.15rem !important;
+    font-size: .46rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:first-child input {
+    height: 2.4rem !important;
+    min-height: 2.4rem !important;
+    font-size: .72rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) {
+    padding: .55rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) h2 {
+    font-size: .54rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) p {
+    font-size: .43rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) span.rounded-md {
+    font-size: .4rem !important;
+    padding: .2rem .42rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 {
+    height: calc(100% - 3rem) !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 > div {
+    border-radius: .75rem !important;
+    padding: .42rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 button,
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 .h-10 {
+    height: 1.65rem !important;
+    min-height: 1.65rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 .h-9 {
+    height: 1.55rem !important;
+    min-height: 1.55rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 .text-sm {
+    font-size: .5rem !important;
+  }
+
+  body[data-qse-route="/profile"] main > div.grid > section:nth-child(2) .space-y-3 .text-\[10px\] {
+    font-size: .38rem !important;
+  }
 }

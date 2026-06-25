@@ -1,4 +1,10 @@
 @media (hover: none) and (pointer: coarse) and (max-width: 1024px) and (orientation: landscape) {
+  body[data-qse-route="/rooms"],
+  body[data-qse-route="/room"] {
+    height: 100svh !important;
+    overflow: hidden !important;
+  }
+
   body[data-qse-route="/rooms"] .gameplay-screen,
   body[data-qse-route="/room"] .gameplay-screen {
     height: 100svh !important;
@@ -9,56 +15,196 @@
   body[data-qse-route="/rooms"] .gameplay-shell,
   body[data-qse-route="/room"] .gameplay-shell {
     height: 100svh !important;
-    overflow-y: auto !important;
-    gap: .35rem !important;
-    padding: .38rem .48rem .5rem !important;
-    scroll-padding-bottom: 3.4rem !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    gap: .28rem !important;
+    padding: .32rem .42rem .42rem !important;
   }
 
   body[data-qse-route="/rooms"] .gameplay-hud,
   body[data-qse-route="/room"] .gameplay-hud {
+    flex: 0 0 auto !important;
     top: 0 !important;
     grid-template-columns: minmax(0, 1fr) auto auto !important;
-    min-height: 2.55rem !important;
-    gap: .32rem !important;
-    border-radius: 1rem !important;
-    padding: .32rem .42rem !important;
+    min-height: 2.35rem !important;
+    gap: .28rem !important;
+    border-radius: .9rem !important;
+    padding: .26rem .36rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-logo-mark,
+  body[data-qse-route="/room"] .gameplay-logo-mark {
+    display: none !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-round-pill,
+  body[data-qse-route="/rooms"] .gameplay-sudden-pill,
+  body[data-qse-route="/rooms"] .gameplay-turn-pill,
+  body[data-qse-route="/rooms"] .gameplay-icon-action,
+  body[data-qse-route="/room"] .gameplay-round-pill,
+  body[data-qse-route="/room"] .gameplay-sudden-pill,
+  body[data-qse-route="/room"] .gameplay-turn-pill,
+  body[data-qse-route="/room"] .gameplay-icon-action {
+    min-width: 0 !important;
+    padding: .3rem .4rem !important;
+    font-size: .46rem !important;
+    letter-spacing: .05em !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-timer,
+  body[data-qse-route="/room"] .gameplay-timer {
+    min-width: 5.55rem !important;
+    border-radius: .82rem !important;
+    padding: .28rem .46rem !important;
+    font-size: 1.18rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-leave-button span,
+  body[data-qse-route="/room"] .gameplay-leave-button span {
+    display: none !important;
   }
 
   body[data-qse-route="/rooms"] .gameplay-board,
   body[data-qse-route="/room"] .gameplay-board {
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    max-height: calc(100svh - 7.8rem) !important;
-    overflow-y: auto !important;
-    border-radius: 1.15rem !important;
-    padding: .44rem !important;
+    max-height: none !important;
+    overflow: hidden !important;
+    border-radius: 1rem !important;
+    padding: .34rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-board-title,
+  body[data-qse-route="/room"] .gameplay-board-title {
+    margin-bottom: .28rem !important;
+    padding: 0 !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-board-title h1,
+  body[data-qse-route="/room"] .gameplay-board-title h1 {
+    font-size: .9rem !important;
+    line-height: 1 !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-board-title p,
+  body[data-qse-route="/room"] .gameplay-board-title p {
+    font-size: .42rem !important;
+    letter-spacing: .12em !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-board-actions,
+  body[data-qse-route="/room"] .gameplay-board-actions {
+    max-width: 7.2rem !important;
+    gap: .18rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-board-actions span,
+  body[data-qse-route="/rooms"] .gameplay-board-actions strong,
+  body[data-qse-route="/room"] .gameplay-board-actions span,
+  body[data-qse-route="/room"] .gameplay-board-actions strong {
+    min-height: .95rem !important;
+    padding: .14rem .28rem !important;
+    font-size: .38rem !important;
   }
 
   body[data-qse-route="/rooms"] .gameplay-card-grid,
   body[data-qse-route="/room"] .gameplay-card-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
-    gap: .22rem !important;
+    gap: .18rem !important;
     padding-inline: 0 !important;
   }
 
   body[data-qse-route="/rooms"] .gameplay-card-item,
   body[data-qse-route="/room"] .gameplay-card-item {
-    max-width: 6.15rem !important;
+    max-width: 5.75rem !important;
     min-height: 0 !important;
-    padding: .12rem .08rem .78rem !important;
-    border-radius: .78rem !important;
+    padding: .08rem .06rem .66rem !important;
+    border-radius: .68rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-card-portrait,
+  body[data-qse-route="/room"] .gameplay-card-portrait {
+    border-radius: .58rem !important;
   }
 
   body[data-qse-route="/rooms"] .gameplay-card-name,
   body[data-qse-route="/room"] .gameplay-card-name {
-    left: 10% !important;
-    right: 10% !important;
-    bottom: .38rem !important;
-    min-height: .82rem !important;
-    padding: .08rem .18rem !important;
-    font-size: .44rem !important;
-    line-height: .52rem !important;
+    left: 8% !important;
+    right: 8% !important;
+    bottom: .3rem !important;
+    min-height: .72rem !important;
+    padding: .06rem .14rem !important;
+    font-size: .38rem !important;
+    line-height: .44rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-player-scoreboard,
+  body[data-qse-route="/room"] .gameplay-player-scoreboard {
+    flex: 0 0 auto !important;
+    border-radius: .82rem !important;
+    padding: .22rem .28rem .26rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-scoreboard-head,
+  body[data-qse-route="/room"] .gameplay-scoreboard-head {
+    margin-bottom: .16rem !important;
+    font-size: .42rem !important;
+    letter-spacing: .08em !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-player-list,
+  body[data-qse-route="/room"] .gameplay-player-list {
+    gap: .24rem !important;
+    padding-bottom: 0 !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-player-chip,
+  body[data-qse-route="/rooms"] .gameplay-player-chip--active,
+  body[data-qse-route="/room"] .gameplay-player-chip,
+  body[data-qse-route="/room"] .gameplay-player-chip--active {
+    min-width: 7rem !important;
+    max-width: 7rem !important;
+    grid-template-columns: 1.28rem minmax(0, 1fr) !important;
+    gap: .24rem !important;
+    border-radius: .68rem !important;
+    padding: .18rem .22rem !important;
+    transform: none !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-player-avatar,
+  body[data-qse-route="/room"] .gameplay-player-avatar {
+    width: 1.28rem !important;
+    height: 1.28rem !important;
+    border-radius: .48rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-player-info p,
+  body[data-qse-route="/room"] .gameplay-player-info p {
+    font-size: .5rem !important;
+    line-height: .56rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-player-info span,
+  body[data-qse-route="/room"] .gameplay-player-info span {
+    font-size: .32rem !important;
+    line-height: .38rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-life-row,
+  body[data-qse-route="/room"] .gameplay-life-row {
+    margin-top: .04rem !important;
+    gap: .03rem !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-life-row::after,
+  body[data-qse-route="/room"] .gameplay-life-row::after {
+    display: none !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-life-icon,
+  body[data-qse-route="/room"] .gameplay-life-icon {
+    width: .42rem !important;
+    height: .42rem !important;
   }
 }
 
@@ -66,5 +212,10 @@
   body[data-qse-route="/rooms"] .gameplay-card-grid,
   body[data-qse-route="/room"] .gameplay-card-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-card-item,
+  body[data-qse-route="/room"] .gameplay-card-item {
+    max-width: 5.35rem !important;
   }
 }

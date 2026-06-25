@@ -286,6 +286,20 @@ h3:has(svg.lucide-list) > span:last-child {
   flex-shrink: 0 !important;
 }
 
+/* Desktop profile layout: use the same full desktop width as the other game screens. */
+@media (min-width: 1024px) {
+  .party-grid-bg > main.max-w-\[1180px\]:has(> header + .grid.lg\:grid-cols-\[340px_1fr\]) {
+    width: min(calc(100% - 64px), 1280px) !important;
+    max-width: 1280px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .party-grid-bg > main.max-w-\[1180px\] > header + .grid.lg\:grid-cols-\[340px_1fr\] {
+    grid-template-columns: 340px minmax(0, 1fr) !important;
+  }
+}
+
 /* Beautiful squishy game buttons */
 .btn-squishy-indigo {
   @apply bg-blue-600 hover:bg-blue-700 text-white border-b-4 border-blue-900 hover:border-blue-950 transition-all rounded-2xl active:border-b-0 active:translate-y-1 active:mt-1 shadow-md;

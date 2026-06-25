@@ -276,15 +276,15 @@
     height: 100svh !important;
     max-height: 100svh !important;
     overflow: hidden !important;
-    padding: 3.35rem .65rem .45rem !important;
+    padding: 3.05rem .65rem .45rem !important;
   }
 
   .qse-avatar-store-header {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) auto !important;
     align-items: end !important;
-    gap: .65rem !important;
-    margin-bottom: .45rem !important;
+    gap: .45rem !important;
+    margin-bottom: .28rem !important;
   }
 
   .qse-avatar-store-header button {
@@ -301,7 +301,7 @@
   }
 
   .qse-avatar-store-header h1 {
-    font-size: clamp(1.7rem, 5vw, 2.7rem) !important;
+    font-size: clamp(1.55rem, 4.6vw, 2.25rem) !important;
     line-height: .86 !important;
   }
 
@@ -327,7 +327,7 @@
     display: grid !important;
     grid-template-columns: 11.5rem minmax(0, 1fr) 14rem !important;
     gap: .55rem !important;
-    height: calc(100svh - 8.15rem) !important;
+    height: calc(100svh - 8.95rem) !important;
     min-height: 0 !important;
     overflow: hidden !important;
   }
@@ -498,12 +498,18 @@
     transform: none !important;
     width: 100% !important;
     height: 100% !important;
+    max-height: calc(100svh - 4.35rem) !important;
+    overflow: hidden !important;
+  }
+
+  .home-lobby-avatar > div > div:first-child {
+    display: none !important;
   }
 
   .home-lobby-avatar > div > div:nth-child(2) {
     width: 10.6rem !important;
-    height: calc(100svh - 4.25rem) !important;
-    max-height: 15.6rem !important;
+    height: calc(100svh - 4.75rem) !important;
+    max-height: 15rem !important;
     border-radius: 1.35rem !important;
     border-width: 3px !important;
   }

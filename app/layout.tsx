@@ -51,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="stylesheet" href="/gameplay-polish.css" />
         <link rel="stylesheet" href="/mobile-landscape-guard.css" />
         <link rel="stylesheet" href="/mobile-base.css" />
+        <link rel="stylesheet" href="/mobile-screens.css" />
         <link rel="stylesheet" href="/mobile-nav.css" />
         <link rel="stylesheet" href="/mobile-store.css" />
         <link rel="stylesheet" href="/mobile-gameplay.css" />

@@ -11,7 +11,7 @@ async function markEventDamageApplied(event: any, extra: Record<string, any> = {
   try {
     await supabaseGame
       .from('match_events')
-      .update({ metadata: { ...metadata, damage_applied: true, damage_applied_at: new Date().toISOString(), ...extra } })
+      .update({ metadata: { ...metadata, damage_pending: false, damage_applied: true, damage_applied_at: new Date().toISOString(), ...extra } })
       .eq('id', event.id);
   } catch (error) {
     console.warn('match_events damage_applied skipped:', error);

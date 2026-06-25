@@ -26,6 +26,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, alreadyOwned: true, skinId: skin.id });
     }
 
+    if (skin.access_type !== 'premium') {
+      return NextResponse.json({ error: 'Skin exclusiva indisponivel para compra agora.', unavailable: true, skinId: skin.id }, { status: 403 });
+    }
+
     const price = Number(skin.price_coins || DEFAULT_SKIN_PRICE);
     const currentCoins = await readCoins(db, userId);
     if (currentCoins < price) return NextResponse.json({ error: 'Moedas insuficientes.', wallet: { coins: currentCoins }, priceCoins: price }, { status: 402 });
@@ -67,23 +71,26 @@ async function ensureSkinFromPayload(db: any, body: any) {
   const skinName = String(body.skinName || 'Skin').trim();
   const imageKey = String(body.imageKey || '').trim();
   const isDefaultSkin = Boolean(body.isDefaultSkin) || skinCode === avatarKey;
+  const categoryId = String(body.categoryId || '').trim();
 
   if (!avatarKey || !skinCode || !imageKey) return null;
 
-  const payload = {
+  const payload: Record<string, any> = {
     avatar_key: avatarKey,
     avatar_name: displayName,
     skin_code: skinCode,
     skin_name: skinName,
     image_key: imageKey,
     card_image_key: imageKey,
-    r2_prefix: 'atuem/atuem/avatar/',
+    r2_prefix: imageKey.split('/').slice(0, 3).join('/') + '/',
     rarity: isDefaultSkin ? 'common' : 'rare',
     access_type: isDefaultSkin ? 'free' : 'premium',
     price_coins: isDefaultSkin ? 0 : Number(body.priceCoins || DEFAULT_SKIN_PRICE),
     is_active: true,
     sort_order: Number(body.sortOrder || 999),
   };
+
+  if (isUuid(categoryId)) payload.category_id = categoryId;
 
   const result = await db
     .from('avatar_skins')

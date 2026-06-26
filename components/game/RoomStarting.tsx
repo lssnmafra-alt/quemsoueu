@@ -4,23 +4,16 @@ import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 
-const ARENA_LOADING_MS = 1200;
-const ARENA_SHOWCASE_MS = 3800;
-const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 900;
-const INTRO_VIDEO_CACHE_PREFIX = 'quemSouEu:introVideo:v5:';
-const INTRO_EVENT_TYPES = ['intro', 'lobby', 'home'] as const;
+const ARENA_LOADING_MS = 900;
+const ARENA_SHOWCASE_MS = 4300;
 
 type ArenaPhase = 'loading' | 'showcase';
 
-type SequencePlayer = {
-  id: string;
-  nickname: string;
-  avatar_url: string;
-};
+type VideoCandidatesByPlayer = Record<string, string[]>;
 
 export default function RoomStarting({ room, players }: any) {
   const [arenaPhase, setArenaPhase] = useState<ArenaPhase>('loading');
-  const [videoByPlayerId, setVideoByPlayerId] = useState<Record<string, string>>({});
+  const [videosByPlayerId, setVideosByPlayerId] = useState<VideoCandidatesByPlayer>({});
   const advancingRef = useRef(false);
 
   const orderedPlayers = useMemo(() => {
@@ -43,7 +36,6 @@ export default function RoomStarting({ room, players }: any) {
 
   useEffect(() => {
     setArenaPhase('loading');
-    setVideoByPlayerId({});
     advancingRef.current = false;
   }, [room.id]);
 
@@ -53,50 +45,17 @@ export default function RoomStarting({ room, players }: any) {
       return;
     }
 
-    let cancelled = false;
-    const memoryCache = new Map<string, string>();
-    const playerSnapshot = orderedPlayers.map((player: any) => ({ ...player }));
+    const nextVideos: VideoCandidatesByPlayer = {};
+    orderedPlayers.forEach((player: any) => {
+      const candidates = buildIntroVideoCandidates(String(player.avatar_url || ''));
+      if (candidates.length) nextVideos[player.id] = candidates;
+    });
+    setVideosByPlayerId(nextVideos);
 
-    const primeCachedVideos = () => {
-      const cachedVideos: Record<string, string> = {};
-      playerSnapshot.forEach((player: any) => {
-        const cached = getCachedIntroVideo(String(player.avatar_url || ''));
-        if (cached) cachedVideos[player.id] = cached;
-      });
-      if (Object.keys(cachedVideos).length) setVideoByPlayerId(cachedVideos);
-    };
-
-    async function loadAllVideosTogether() {
-      const results = await Promise.all(playerSnapshot.map(async (player: any) => {
-        const videoUrl = await resolveIntroVideo({
-          id: String(player.id || ''),
-          nickname: String(player.nickname || 'Jogador'),
-          avatar_url: String(player.avatar_url || ''),
-        }, memoryCache);
-        return { playerId: player.id, videoUrl };
-      }));
-
-      if (cancelled) return;
-      const videos: Record<string, string> = {};
-      for (const result of results) {
-        if (result.videoUrl) videos[result.playerId] = result.videoUrl;
-      }
-      if (Object.keys(videos).length) {
-        setVideoByPlayerId((current) => ({ ...current, ...videos }));
-      }
-    }
-
-    primeCachedVideos();
-    void loadAllVideosTogether();
-    const loadingTimer = window.setTimeout(() => {
-      if (!cancelled) setArenaPhase('showcase');
-    }, ARENA_LOADING_MS);
-    const playTimer = window.setTimeout(() => {
-      if (!cancelled) void advanceToPlaying();
-    }, ARENA_LOADING_MS + ARENA_SHOWCASE_MS);
+    const loadingTimer = window.setTimeout(() => setArenaPhase('showcase'), ARENA_LOADING_MS);
+    const playTimer = window.setTimeout(() => void advanceToPlaying(), ARENA_LOADING_MS + ARENA_SHOWCASE_MS);
 
     return () => {
-      cancelled = true;
       window.clearTimeout(loadingTimer);
       window.clearTimeout(playTimer);
     };
@@ -109,7 +68,7 @@ export default function RoomStarting({ room, players }: any) {
   }, [orderedPlayers.length]);
 
   const statusText = arenaPhase === 'loading'
-    ? 'Carregando todos juntos...'
+    ? 'Preparando videos de todos...'
     : 'Arena pronta. Iniciando jogo.';
 
   return (
@@ -122,7 +81,7 @@ export default function RoomStarting({ room, players }: any) {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-200">Preparando partida</p>
             <h1 className="mt-1 text-4xl font-black uppercase italic text-white font-display md:text-6xl">Arena carregando</h1>
-            <p className="mt-2 text-sm font-bold text-blue-100">Todos os personagens carregam juntos. Quem não tiver vídeo rápido entra com imagem.</p>
+            <p className="mt-2 text-sm font-bold text-blue-100">Todos os personagens tentam iniciar o video juntos, sem fila de API.</p>
           </div>
           <div className="rounded-2xl border-2 border-cyan-200/30 bg-white/10 px-5 py-3 text-center shadow-xl backdrop-blur">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Status</p>
@@ -141,7 +100,7 @@ export default function RoomStarting({ room, players }: any) {
 
           <div className={cn('mt-4 grid gap-4', gridColumns)}>
             {orderedPlayers.map((player: any, index: number) => {
-              const videoUrl = videoByPlayerId[player.id] || '';
+              const videoCandidates = videosByPlayerId[player.id] || [];
               return (
                 <motion.div
                   key={player.id}
@@ -152,8 +111,8 @@ export default function RoomStarting({ room, players }: any) {
                 >
                   <div className={cn('absolute inset-x-0 top-0 h-2', player.color?.bg || 'bg-cyan-400')} />
                   <div className="relative overflow-hidden rounded-[1.55rem] bg-white">
-                    {arenaPhase === 'showcase' && videoUrl ? (
-                      <ArenaIntroVideo src={videoUrl} label={player.nickname} avatarUrl={player.avatar_url} primaryColor={player.color?.hex} />
+                    {arenaPhase === 'showcase' && videoCandidates.length ? (
+                      <ArenaIntroVideo sources={videoCandidates} label={player.nickname} avatarUrl={player.avatar_url} primaryColor={player.color?.hex} />
                     ) : (
                       <div className="flex aspect-[3/4] w-full items-center justify-center bg-white">
                         <motion.div animate={arenaPhase === 'loading' ? { scale: [1, 1.03, 1], y: [0, -3, 0] } : { scale: 1 }} transition={{ duration: 0.9, repeat: arenaPhase === 'loading' ? Infinity : 0, ease: 'easeInOut' }}>
@@ -168,7 +127,7 @@ export default function RoomStarting({ room, players }: any) {
                       <p className="truncate text-sm font-black uppercase text-white">{player.nickname}</p>
                       <span className="rounded-lg bg-yellow-300 px-2 py-1 text-[10px] font-black text-slate-950">#{index + 1}</span>
                     </div>
-                    <p className="mt-1 truncate text-[10px] font-black uppercase tracking-wider text-cyan-200">{videoUrl ? 'Entrada animada' : 'Personagem pronto'}</p>
+                    <p className="mt-1 truncate text-[10px] font-black uppercase tracking-wider text-cyan-200">{videoCandidates.length ? 'Entrada animada' : 'Personagem pronto'}</p>
                   </div>
                 </motion.div>
               );
@@ -184,13 +143,20 @@ export default function RoomStarting({ room, players }: any) {
   );
 }
 
-function ArenaIntroVideo({ src, label, avatarUrl, primaryColor }: { src: string; label: string; avatarUrl: string; primaryColor?: string }) {
+function ArenaIntroVideo({ sources, label, avatarUrl, primaryColor }: { sources: string[]; label: string; avatarUrl: string; primaryColor?: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [ready, setReady] = useState(false);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const src = sources[sourceIndex] || '';
+
+  useEffect(() => {
+    setReady(false);
+    setSourceIndex(0);
+  }, [sources.join('|')]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !src) return;
     setReady(false);
     video.muted = true;
     video.defaultMuted = true;
@@ -203,6 +169,11 @@ function ArenaIntroVideo({ src, label, avatarUrl, primaryColor }: { src: string;
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [src]);
 
+  const tryNextSource = () => {
+    setReady(false);
+    setSourceIndex((current) => current + 1 < sources.length ? current + 1 : current);
+  };
+
   return (
     <div className="relative aspect-[3/4] w-full bg-white">
       {!ready && (
@@ -210,88 +181,105 @@ function ArenaIntroVideo({ src, label, avatarUrl, primaryColor }: { src: string;
           <AvatarFigure avatarUrl={avatarUrl} label={label} primaryColor={primaryColor} className="h-32 w-32 rounded-[2rem] border-4 border-white bg-white shadow-xl" />
         </div>
       )}
-      <video
-        ref={videoRef}
-        src={src}
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-        controls={false}
-        disablePictureInPicture
-        crossOrigin="anonymous"
-        onLoadedData={() => setReady(true)}
-        onCanPlay={() => setReady(true)}
-        onPlaying={() => setReady(true)}
-        className={cn('h-full w-full bg-white object-cover transition-opacity duration-75', ready ? 'opacity-100' : 'opacity-0')}
-        aria-label={label}
-      />
+      {src && (
+        <video
+          ref={videoRef}
+          src={src}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          controls={false}
+          disablePictureInPicture
+          crossOrigin="anonymous"
+          onLoadedData={() => setReady(true)}
+          onCanPlay={() => setReady(true)}
+          onPlaying={() => setReady(true)}
+          onError={tryNextSource}
+          className={cn('h-full w-full bg-white object-cover transition-opacity duration-75', ready ? 'opacity-100' : 'opacity-0')}
+          aria-label={label}
+        />
+      )}
     </div>
   );
 }
 
-async function resolveIntroVideo(player: SequencePlayer, cache: Map<string, string>) {
-  const avatarUrl = String(player?.avatar_url || '').trim();
-  if (!avatarUrl) return '';
+function buildIntroVideoCandidates(avatarUrl: string) {
+  const candidates: string[] = [];
+  const parsed = parseAvatarSelection(avatarUrl);
 
-  const cacheKey = `${player.id}:${avatarUrl}`;
-  const cached = cache.get(cacheKey);
-  if (cached !== undefined) return cached;
-
-  const browserCached = getCachedIntroVideo(avatarUrl);
-  if (browserCached) {
-    cache.set(cacheKey, browserCached);
-    return browserCached;
+  if (parsed?.animations) {
+    [parsed.animations.intro, parsed.animations.lobby, parsed.animations.home]
+      .filter(Boolean)
+      .forEach((key: string) => candidates.push(proxyVideoUrl(key)));
   }
 
-  const results = await Promise.allSettled(INTRO_EVENT_TYPES.map((eventType) => fetchJsonWithTimeout(
-    `/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}&v=5`,
-    INTRO_VIDEO_LOOKUP_TIMEOUT_MS,
-  )));
+  const slug = cleanAvatarSlug(parsed?.animationSlug || parsed?.avatarId || slugFromAvatarUrl(avatarUrl));
+  const avatarKey = slug.split('/')[0] || slug;
+  const skinCode = slug.split('/')[1] || parsed?.skinCode || 'skin-1';
+  const skin = Math.max(1, Number(String(skinCode || '').match(/\d+/)?.[0] || 1));
+  const introNumber = String((skin - 1) * 10 + 1);
 
-  for (const result of results) {
-    if (result.status !== 'fulfilled') continue;
-    const data = result.value;
-    const url = data?.available ? String(data.directUrl || data.videoUrl || data.url || '') : '';
-    if (url) {
-      setCachedIntroVideo(avatarUrl, url);
-      cache.set(cacheKey, url);
-      return url;
-    }
+  if (avatarKey) {
+    [
+      `atuem/atuem/Animacao/${avatarKey}-${introNumber}.mp4`,
+      `atuem/atuem/Animacao/${avatarKey}-A.mp4`,
+      `atuem/atuem/Animacao/${avatarKey}-1.mp4`,
+      `atuem/Animacao/${avatarKey}-${introNumber}.mp4`,
+      `atuem/Animacao/${avatarKey}-A.mp4`,
+      `atuem/Animacao/${avatarKey}-1.mp4`,
+      `atuem/atuem/avatar/${avatarKey}/Animacao/${avatarKey}-${introNumber}.mp4`,
+      `atuem/atuem/avatar/${avatarKey}/Animacao/${avatarKey}-A.mp4`,
+      `atuem/avatar/${avatarKey}/Animacao/${avatarKey}-${introNumber}.mp4`,
+      `atuem/avatar/${avatarKey}/Animacao/${avatarKey}-A.mp4`,
+    ].forEach((key) => candidates.push(proxyVideoUrl(key)));
   }
 
-  cache.set(cacheKey, '');
-  return '';
+  return [...new Set(candidates.filter(Boolean))];
 }
 
-function getCachedIntroVideo(avatarUrl: string) {
-  if (typeof window === 'undefined' || !avatarUrl) return '';
-  try {
-    return sessionStorage.getItem(`${INTRO_VIDEO_CACHE_PREFIX}${avatarUrl}`) || localStorage.getItem(`${INTRO_VIDEO_CACHE_PREFIX}${avatarUrl}`) || '';
-  } catch {
-    return '';
-  }
+function proxyVideoUrl(key: string) {
+  if (!key || key.includes('..') || key.startsWith('/') || key.includes('\\')) return '';
+  const filename = key.split('/').pop() || 'avatar.mp4';
+  return `/api/r2-animation/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`;
 }
 
-function setCachedIntroVideo(avatarUrl: string, url: string) {
-  if (typeof window === 'undefined' || !avatarUrl || !url) return;
+function parseAvatarSelection(avatarUrl: string) {
+  if (!avatarUrl?.startsWith('avatar:')) return null;
   try {
-    sessionStorage.setItem(`${INTRO_VIDEO_CACHE_PREFIX}${avatarUrl}`, url);
-    localStorage.setItem(`${INTRO_VIDEO_CACHE_PREFIX}${avatarUrl}`, url);
-  } catch {}
-}
-
-async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { cache: 'force-cache', signal: controller.signal });
-    if (!response.ok) return null;
-    return await response.json().catch(() => null);
+    return JSON.parse(decodeURIComponent(avatarUrl.slice(7)));
   } catch {
     return null;
-  } finally {
-    window.clearTimeout(timeout);
   }
+}
+
+function slugFromAvatarUrl(avatarUrl: string) {
+  const value = String(avatarUrl || '').trim();
+  if (!value) return '';
+
+  try {
+    const decoded = decodeURIComponent(value);
+    const query = decoded.includes('?') ? decoded.split('?')[1] : '';
+    const keyParam = query.split('&').find((part) => part.startsWith('key='));
+    if (keyParam) return decodeURIComponent(keyParam.slice(4)).split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+
+    const markers = ['/atuem/atuem/avatar/', 'atuem/atuem/avatar/', '/atuem/avatar/', 'atuem/avatar/'];
+    const marker = markers.find((item) => decoded.includes(item));
+    const part = marker ? decoded.slice(decoded.indexOf(marker) + marker.length) : decoded.split('/').pop() || '';
+    return part.replace(/\.[^.]+$/, '');
+  } catch {
+    return value.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+  }
+}
+
+function cleanAvatarSlug(value: string) {
+  return String(value || '')
+    .split('..').join('')
+    .split('\\').join('/')
+    .split('/')
+    .filter(Boolean)
+    .join('/')
+    .replace(/\.[^.]+$/, '')
+    .trim();
 }

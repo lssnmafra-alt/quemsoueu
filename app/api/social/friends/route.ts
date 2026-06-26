@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseGame } from '@/lib/supabase';
 
-const PROFILE_SELECT = 'id,nickname,avatar_url,played_matches,wins,is_guest,updated_at';
+const PROFILE_SELECT = 'id,nickname,emoji,avatar_url,played_matches,wins,is_guest,updated_at';
 
 type Friendship = {
   id: string;
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       : { data: [], error: null };
     if (relatedError) throw relatedError;
 
-    const profileMap = new Map((relatedProfiles || []).map((profile: any) => [profile.id, profile]));
+    const profileMap = new Map((relatedProfiles || []).map((profile: any) => [profile.id, normalizeProfile(profile)]));
     const decorate = (row: Friendship) => {
       const otherId = row.requester_profile_id === userId ? row.receiver_profile_id : row.requester_profile_id;
       return {
@@ -49,10 +49,7 @@ export async function GET(req: NextRequest) {
     if (search.length >= 2) {
       const terms = buildSearchTerms(search);
       const orFilter = terms
-        .flatMap((term) => {
-          const escaped = escapeLike(term);
-          return [`nickname.ilike.%${escaped}%`, `email.ilike.%${escaped}%`];
-        })
+        .map((term) => `nickname.ilike.%${escapeLike(term)}%`)
         .join(',');
 
       const { data: profiles, error: searchError } = await supabaseGame
@@ -64,7 +61,7 @@ export async function GET(req: NextRequest) {
       if (searchError) throw searchError;
 
       const blockedIds = new Set(friendships.filter((row) => row.status === 'blocked').flatMap((row) => [row.requester_profile_id, row.receiver_profile_id]));
-      searchResults = dedupeProfiles(profiles || []).filter((profile: any) => !blockedIds.has(profile.id));
+      searchResults = dedupeProfiles(profiles || []).map(normalizeProfile).filter((profile: any) => !blockedIds.has(profile.id));
     }
 
     const decorated = friendships.map(decorate);
@@ -183,6 +180,20 @@ function buildSearchTerms(value: string) {
   const full = value.trim();
   const parts = full.split(/\s+/).map((part) => part.trim()).filter((part) => part.length >= 2);
   return [...new Set([full, ...parts])].slice(0, 5);
+}
+
+function normalizeProfile(profile: any) {
+  if (!profile) return null;
+  return {
+    ...profile,
+    emoji: normalizeEmoji(profile.emoji),
+    avatar_url: profile.avatar_url || '',
+  };
+}
+
+function normalizeEmoji(value: unknown) {
+  const text = String(value || '').trim();
+  return Array.from(text).slice(0, 2).join('') || '🙂';
 }
 
 function dedupeProfiles(profiles: any[]) {

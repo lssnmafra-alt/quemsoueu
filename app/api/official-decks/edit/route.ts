@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ deck: data });
     }
 
-    const canEditOfficialDeck = await isEditableOfficialDeck(deckId);
-    if (!canEditOfficialDeck) return NextResponse.json({ error: 'Deck oficial invalido.' }, { status: 403 });
+    const canEditDeck = await isEditableDeck(deckId);
+    if (!canEditDeck) return NextResponse.json({ error: 'Deck invalido.' }, { status: 403 });
 
     if (action === 'add-character') {
       const { count, error: countError } = await supabaseGame.from('characters').select('id', { count: 'exact', head: true }).eq('deck_id', deckId);
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'update-cover') {
       const coverUrl = String(body.coverUrl || '').trim();
-      const { data, error } = await supabaseGame.from('decks').update({ cover_url: coverUrl, is_official: true, is_public: true }).eq('id', deckId).select().single();
+      const { data, error } = await supabaseGame.from('decks').update({ cover_url: coverUrl }).eq('id', deckId).select().single();
       if (error) throw error;
       return NextResponse.json({ deck: data });
     }
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Acao invalida.' }, { status: 400 });
   } catch (error: any) {
     console.error('Official deck edit error:', error);
-    return NextResponse.json({ error: error.message || 'Erro ao editar deck oficial.' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Erro ao editar deck.' }, { status: 500 });
   }
 }
 
@@ -161,7 +161,7 @@ async function updateAvatarConfigField({ deckId, body, field, validate, errorMes
 
   const { data: characters, error: fetchError } = await query;
   if (fetchError) throw fetchError;
-  if (!characters?.length) return NextResponse.json({ error: 'Card oficial nao encontrado.' }, { status: 404 });
+  if (!characters?.length) return NextResponse.json({ error: 'Card nao encontrado.' }, { status: 404 });
 
   const updatedCharacters = await Promise.all(
     characters.map(async (character: any) => {
@@ -182,14 +182,14 @@ async function updateAvatarConfigField({ deckId, body, field, validate, errorMes
   return NextResponse.json({ character: updatedCharacters[0], characters: updatedCharacters });
 }
 
-async function isEditableOfficialDeck(deckId: string) {
+async function isEditableDeck(deckId: string) {
   if (!deckId) return false;
   if (isOfficialDeckId(deckId)) return true;
 
-  const { data, error } = await supabaseGame.from('decks').select('id, creator_id, is_official').eq('id', deckId).single();
+  const { data, error } = await supabaseGame.from('decks').select('id').eq('id', deckId).single();
   if (error || !data) return false;
 
-  return Boolean(data.is_official) || data.creator_id === null;
+  return true;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

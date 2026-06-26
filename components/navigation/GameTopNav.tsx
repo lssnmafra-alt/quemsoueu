@@ -26,6 +26,7 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
   const pathname = usePathname() || '/';
   const nickname = profile?.nickname || 'Jogador';
   const playerMark = String(profile?.emoji || '').trim() || 'J';
+  const avatarImageUrl = resolveAvatarImageUrl(profile?.avatar_url);
   const [coins, setCoins] = useState(0);
 
   useEffect(() => {
@@ -80,7 +81,9 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
             <Coins className="h-4 w-4 text-cyan-200" /> {coins}
           </div>
           <button type="button" onClick={() => router.push('/profile')} className="flex items-center gap-2 rounded-xl border-2 border-white/20 bg-white/10 p-1.5 pr-3 transition hover:bg-white/20">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-cyan-200 bg-white text-xl leading-none shadow-inner" aria-hidden="true">{playerMark}</span>
+            <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border-2 border-cyan-200 bg-white text-xl leading-none shadow-inner" aria-hidden="true">
+              {avatarImageUrl ? <img src={avatarImageUrl} alt="" className="h-full w-full object-cover" /> : playerMark}
+            </span>
             <span className="hidden max-w-[150px] truncate text-left text-xs font-black uppercase leading-tight md:block">{nickname}</span>
           </button>
           {onLogout && (
@@ -92,4 +95,16 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
       </div>
     </nav>
   );
+}
+
+function resolveAvatarImageUrl(avatarUrl: unknown) {
+  const value = String(avatarUrl || '').trim();
+  if (!value) return '';
+  if (!value.startsWith('avatar:')) return value;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(value.slice(7)));
+    return String(parsed.imageUrl || '').trim();
+  } catch {
+    return '';
+  }
 }

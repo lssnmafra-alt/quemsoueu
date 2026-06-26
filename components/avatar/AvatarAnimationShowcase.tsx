@@ -47,7 +47,7 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
       if (!cancelled) setSearchTimedOut(true);
-    }, 2500);
+    }, 1200);
 
     const loadAnimation = async () => {
       setLoading(true);
@@ -55,7 +55,7 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
       setVideo(null);
 
       try {
-        const response = await fetch(`/api/avatar-animation-video?slug=${encodeURIComponent(avatarSlug)}&avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}`, { cache: 'no-store', signal: controller.signal });
+        const response = await fetch(`/api/avatar-animation-video?slug=${encodeURIComponent(avatarSlug)}&avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}`, { cache: 'force-cache', signal: controller.signal });
         const result = await response.json().catch(() => null);
         if (!cancelled) setVideo(result?.available && (result.videoUrl || result.url) ? result : null);
       } catch {
@@ -99,7 +99,7 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
       </div>
 
       {loading && !searchTimedOut ? (
-        <FallbackAvatarAnimation player={player} eventType={eventType} label="Procurando vídeo..." muted />
+        <FallbackAvatarAnimation player={player} eventType={eventType} label="Preparando vídeo..." muted />
       ) : videoSrc ? (
         <AvatarVideoPlayer src={videoSrc} player={player} eventType={eventType} className={compact ? 'h-[260px]' : 'h-[360px]'} />
       ) : (
@@ -113,6 +113,7 @@ function AvatarVideoPlayer({ src, player, eventType, className }: { src: string;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [ready, setReady] = useState(false);
   const label = eventType === 'victory' ? 'Vídeo de vitória' : eventType === 'defeat' ? 'Vídeo de derrota' : 'Vídeo de entrada';
+  const poster = resolvePoster(player?.avatar_url);
 
   const forceMuted = () => {
     const video = videoRef.current;
@@ -122,15 +123,22 @@ function AvatarVideoPlayer({ src, player, eventType, className }: { src: string;
     video.volume = 0;
   };
 
-  const markReady = () => {
+  const startFast = () => {
+    const video = videoRef.current;
     forceMuted();
     setReady(true);
-    videoRef.current?.play?.().catch(() => null);
+    video?.play?.().catch(() => null);
   };
 
   useEffect(() => {
+    const video = videoRef.current;
     forceMuted();
-    const timer = window.setTimeout(() => setReady(true), 500);
+    if (video) {
+      video.preload = 'metadata';
+      video.load();
+      video.play?.().catch(() => null);
+    }
+    const timer = window.setTimeout(() => setReady(true), 300);
     return () => window.clearTimeout(timer);
   }, [src]);
 
@@ -140,18 +148,19 @@ function AvatarVideoPlayer({ src, player, eventType, className }: { src: string;
         <video
           ref={videoRef}
           src={src}
+          poster={poster || undefined}
           autoPlay
           muted
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
           controls={false}
           disablePictureInPicture
-          onLoadedMetadata={markReady}
+          onLoadedMetadata={startFast}
           onVolumeChange={forceMuted}
           onPlay={forceMuted}
-          onLoadedData={markReady}
-          onCanPlay={markReady}
+          onLoadedData={startFast}
+          onCanPlay={startFast}
           className="h-full w-full bg-white object-contain"
         />
       </div>
@@ -190,6 +199,18 @@ function FallbackAvatarAnimation({ player, eventType, label, muted = false }: { 
       </div>
     </div>
   );
+}
+
+function resolvePoster(avatarUrl: string) {
+  const value = String(avatarUrl || '').trim();
+  if (!value) return '';
+  if (!value.startsWith('avatar:')) return value;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(value.slice(7)));
+    return String(parsed.imageUrl || '').trim();
+  } catch {
+    return '';
+  }
 }
 
 function slugFromAvatarUrl(avatarUrl: string) {

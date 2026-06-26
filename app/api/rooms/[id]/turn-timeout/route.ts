@@ -99,6 +99,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const botResult: any = await playBotTurn(room.id, { expectedTurnNumber: room.current_turn_number || 0, expectedPlayerId: activePlayer.id });
     if (botResult?.ok && botResult.target) return NextResponse.json({ ...botResult, botRecoveredFromTimeout: true, revealPending: true, ok: true });
     if (botResult?.ok && hasSkippedFlag(botResult)) return NextResponse.json({ ...botResult, botRecoveredFromTimeout: true, ok: true });
+    return NextResponse.json({ ok: false, reason: botResult?.reason || 'bot-vote-not-ready' });
   }
 
   const lockUntil = new Date(now + 8_000).toISOString();

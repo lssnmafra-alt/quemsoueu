@@ -25,23 +25,36 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  body[data-qse-route="/"] .home-lobby-main:not(:has(.home-lobby-section)) {
+  body[data-qse-route="/"] {
     height: auto !important;
     min-height: 100dvh !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    align-items: flex-start !important;
-    padding-top: max(1rem, env(safe-area-inset-top)) !important;
-    padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
     -webkit-overflow-scrolling: touch;
   }
 
-  body[data-qse-route="/"] .relative.min-h-screen:has(.home-lobby-main:not(:has(.home-lobby-section))) {
+  body[data-qse-route="/"] .relative.min-h-screen,
+  body[data-qse-route="/"] .min-h-screen.overflow-hidden,
+  body[data-qse-route="/"] .home-lobby-main {
     height: auto !important;
     min-height: 100dvh !important;
+    max-height: none !important;
     overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
     -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-qse-route="/"] .home-lobby-main {
+    align-items: flex-start !important;
+    padding-top: max(1rem, env(safe-area-inset-top)) !important;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  body[data-qse-route="/"] .home-lobby-section,
+  body[data-qse-route="/"] main,
+  body[data-qse-route="/"] section {
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   body[data-qse-route] main,

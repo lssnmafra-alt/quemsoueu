@@ -1,0 +1,50 @@
+/* Force the R2 rarity frame to render on visible game cards.
+   This fixes rooms/decks that are not detected as official and therefore were showing raw images. */
+
+:root {
+  --qse-rarity-frame-common: url('/api/r2-file?key=atuem%2FMolduras%2FRaridades%2Fmoldura_comum.png');
+}
+
+.gameplay-card-portrait,
+.gameplay-reveal-card,
+.party-grid-bg [role="button"][aria-label^="Selecionar"],
+.party-grid-bg [role="button"][aria-label^="Escolhido"] {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.gameplay-card-portrait::after,
+.gameplay-reveal-card::after,
+.party-grid-bg [role="button"][aria-label^="Selecionar"]::after,
+.party-grid-bg [role="button"][aria-label^="Escolhido"]::after {
+  content: "";
+  position: absolute;
+  inset: -4.5% -5% -4.5% -5%;
+  z-index: 24;
+  pointer-events: none;
+  background-image: var(--qse-rarity-frame-common);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .22));
+}
+
+.gameplay-card-portrait > *,
+.gameplay-reveal-card > *,
+.party-grid-bg [role="button"][aria-label^="Selecionar"] > *,
+.party-grid-bg [role="button"][aria-label^="Escolhido"] > * {
+  position: relative;
+}
+
+.gameplay-card-name {
+  z-index: 34 !important;
+}
+
+.gameplay-card-target {
+  z-index: 44 !important;
+}
+
+.party-grid-bg [role="button"][aria-label^="Selecionar"] > div:not(.absolute),
+.party-grid-bg [role="button"][aria-label^="Escolhido"] > div:not(.absolute) {
+  border-radius: 1rem !important;
+}

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { BookOpen, Coins, Gamepad2, Home, LogOut, Shield, ShoppingBag, UserRound, Users } from 'lucide-react';
-import AvatarFigure from '@/components/avatar/AvatarFigure';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +25,7 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
   const router = useRouter();
   const pathname = usePathname() || '/';
   const nickname = profile?.nickname || 'Jogador';
+  const playerMark = String(profile?.emoji || '').trim() || 'J';
   const [coins, setCoins] = useState(0);
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
             <Coins className="h-4 w-4 text-cyan-200" /> {coins}
           </div>
           <button type="button" onClick={() => router.push('/profile')} className="flex items-center gap-2 rounded-xl border-2 border-white/20 bg-white/10 p-1.5 pr-3 transition hover:bg-white/20">
-            <AvatarFigure avatarUrl={profile?.avatar_url} label={nickname} className="h-10 w-10 rounded-lg border-2 border-cyan-200 bg-slate-100" />
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-cyan-200 bg-white text-xl leading-none shadow-inner" aria-hidden="true">{playerMark}</span>
             <span className="hidden max-w-[150px] truncate text-left text-xs font-black uppercase leading-tight md:block">{nickname}</span>
           </button>
           {onLogout && (

@@ -55,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="stylesheet" href="/mobile-nav.css" />
         <link rel="stylesheet" href="/mobile-store.css" />
         <link rel="stylesheet" href="/mobile-gameplay.css" />
+        <link rel="stylesheet" href="/mobile-scroll-fix.css" />
         <script
           id="quem-sou-eu-runtime-env"
           dangerouslySetInnerHTML={{ __html: getPublicRuntimeEnvScript() }}

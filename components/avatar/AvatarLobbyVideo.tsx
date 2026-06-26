@@ -14,6 +14,60 @@ type AvatarLobbyVideoProps = {
   className?: string;
 };
 
+function isBackgroundPixel(red: number, green: number, blue: number) {
+  const brightness = (red + green + blue) / 3;
+  const spread = Math.max(red, green, blue) - Math.min(red, green, blue);
+  const almostWhite = brightness > 218 && spread < 46;
+  const paleStudio = red > 198 && green > 206 && blue > 210 && spread < 58;
+  return almostWhite || paleStudio;
+}
+
+function removeConnectedBackground(frame: ImageData) {
+  const { width, height, data } = frame;
+  if (!width || !height) return;
+
+  const total = width * height;
+  const visited = new Uint8Array(total);
+  const queue = new Int32Array(total);
+  let head = 0;
+  let tail = 0;
+
+  const enqueue = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const pixel = y * width + x;
+    if (visited[pixel]) return;
+    const index = pixel * 4;
+    if (!isBackgroundPixel(data[index], data[index + 1], data[index + 2])) return;
+    visited[pixel] = 1;
+    queue[tail++] = pixel;
+  };
+
+  for (let x = 0; x < width; x += 1) {
+    enqueue(x, 0);
+    enqueue(x, height - 1);
+  }
+  for (let y = 1; y < height - 1; y += 1) {
+    enqueue(0, y);
+    enqueue(width - 1, y);
+  }
+
+  while (head < tail) {
+    const pixel = queue[head++];
+    const x = pixel % width;
+    const y = Math.floor(pixel / width);
+    enqueue(x + 1, y);
+    enqueue(x - 1, y);
+    enqueue(x, y + 1);
+    enqueue(x, y - 1);
+  }
+
+  for (let pixel = 0; pixel < total; pixel += 1) {
+    if (!visited[pixel]) continue;
+    const index = pixel * 4;
+    data[index + 3] = 0;
+  }
+}
+
 function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; onError: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -43,22 +97,7 @@ function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; on
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
           const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = frame.data;
-
-          for (let index = 0; index < data.length; index += 4) {
-            const red = data[index];
-            const green = data[index + 1];
-            const blue = data[index + 2];
-            const brightness = (red + green + blue) / 3;
-            const spread = Math.max(red, green, blue) - Math.min(red, green, blue);
-
-            if (brightness > 226 && spread < 32) {
-              data[index + 3] = 0;
-            } else if (brightness > 204 && spread < 42) {
-              data[index + 3] = Math.max(0, Math.min(255, Math.round((226 - brightness) * 12)));
-            }
-          }
-
+          removeConnectedBackground(frame);
           ctx.putImageData(frame, 0, 0);
         } catch {
           onError();

@@ -20,6 +20,22 @@ export async function POST(req: NextRequest) {
     if (!skin?.id) return NextResponse.json({ error: 'Skin invalida.' }, { status: 400 });
     if (!skin.is_active) return NextResponse.json({ error: 'Skin indisponivel.' }, { status: 404 });
 
+    const rpcPurchase = await purchaseWithRpc(db, userId, skin.id);
+    if (rpcPurchase.handled) {
+      if (!rpcPurchase.ok) {
+        const status = rpcPurchase.error === 'Moedas insuficientes.' ? 402 : 400;
+        return NextResponse.json({ error: rpcPurchase.error, wallet: { coins: rpcPurchase.coins }, priceCoins: rpcPurchase.priceCoins }, { status });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        alreadyOwned: rpcPurchase.alreadyOwned,
+        skinId: skin.id,
+        wallet: { coins: rpcPurchase.coins },
+        priceCoins: rpcPurchase.priceCoins,
+      });
+    }
+
     const alreadyOwned = await userOwnsSkin(db, userId, skin.id);
     if (alreadyOwned || skin.access_type === 'free') {
       await db.from('user_avatar_unlocks').upsert({ user_id: userId, avatar_skin_id: skin.id, source: skin.access_type === 'free' ? 'free' : 'owned' }, { onConflict: 'user_id,avatar_skin_id' });
@@ -46,7 +62,7 @@ export async function POST(req: NextRequest) {
       .upsert({ user_id: userId, avatar_skin_id: skin.id, source: 'coins', metadata: { price_coins: price } }, { onConflict: 'user_id,avatar_skin_id' });
 
     if (unlockError) throw unlockError;
-    return NextResponse.json({ ok: true, skinId: skin.id, wallet: { coins: nextCoins } });
+    return NextResponse.json({ ok: true, skinId: skin.id, wallet: { coins: nextCoins }, priceCoins: price });
   } catch (error: any) {
     console.error('Avatar buy error:', error);
     return NextResponse.json({ error: error.message || 'Nao foi possivel comprar.' }, { status: 500 });
@@ -102,6 +118,31 @@ async function ensureSkinFromPayload(db: any, body: any) {
   return result.data;
 }
 
+async function purchaseWithRpc(db: any, userId: string, skinId: string) {
+  const result = await db.rpc('purchase_avatar_skin', {
+    p_user_id: userId,
+    p_avatar_skin_id: skinId,
+  });
+
+  if (result.error) {
+    const message = String(result.error.message || '').toLowerCase();
+    if (message.includes('purchase_avatar_skin')) return { handled: false };
+    throw result.error;
+  }
+
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!row) return { handled: false };
+
+  return {
+    handled: true,
+    ok: Boolean(row.ok),
+    error: String(row.error || ''),
+    coins: Number(row.coins || 0),
+    priceCoins: Number(row.price_coins || 0),
+    alreadyOwned: Boolean(row.already_owned),
+  };
+}
+
 async function userOwnsSkin(db: any, userId: string, skinId: string) {
   const result = await db
     .from('user_avatar_unlocks')
@@ -120,5 +161,5 @@ async function readCoins(db: any, userId: string) {
 }
 
 function isUuid(value: string) {
-  return value.length === 36 && value.includes('-');
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }

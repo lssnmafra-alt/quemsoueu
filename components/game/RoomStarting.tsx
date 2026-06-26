@@ -7,8 +7,8 @@ import AvatarModelPreloader from '@/components/avatar/AvatarModelPreloader';
 
 const ARENA_LOADING_MS = 2200;
 const ARENA_SHOWCASE_MS = 7600;
-const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 1500;
-const INTRO_VIDEO_CACHE_PREFIX = 'quemSouEu:introVideo:';
+const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 1800;
+const INTRO_VIDEO_CACHE_PREFIX = 'quemSouEu:introVideo:v2:';
 
 type ArenaPhase = 'loading' | 'showcase';
 
@@ -250,15 +250,22 @@ async function resolveIntroVideo(player: SequencePlayer, cache: Map<string, stri
     return browserCached;
   }
 
-  const result = await fetchJsonWithTimeout(
-    `/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=intro`,
-    INTRO_VIDEO_LOOKUP_TIMEOUT_MS,
-  );
-  const url = result?.available ? String(result.videoUrl || result.url || '') : '';
-  if (url) setCachedIntroVideo(avatarUrl, url);
+  const eventTypes = ['intro', 'lobby', 'home'] as const;
+  for (const eventType of eventTypes) {
+    const result = await fetchJsonWithTimeout(
+      `/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}`,
+      INTRO_VIDEO_LOOKUP_TIMEOUT_MS,
+    );
+    const url = result?.available ? String(result.videoUrl || result.url || '') : '';
+    if (url) {
+      setCachedIntroVideo(avatarUrl, url);
+      cache.set(cacheKey, url);
+      return url;
+    }
+  }
 
-  cache.set(cacheKey, url);
-  return url;
+  cache.set(cacheKey, '');
+  return '';
 }
 
 function getCachedIntroVideo(avatarUrl: string) {

@@ -90,14 +90,17 @@ export async function POST(req: NextRequest) {
     const action = String(body.action || '').trim();
 
     if (!isUuid(userId) || !isUuid(targetId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
-    if (userId === targetId) return NextResponse.json({ error: 'Voce nao pode fazer isso com seu proprio perfil.' }, { status: 400 });
+    if (userId === targetId) return NextResponse.json({ error: 'Voce nao pode adicionar seu proprio perfil.' }, { status: 400 });
 
     const existing = await findFriendship(userId, targetId);
 
     if (action === 'request') {
-      if (existing?.status === 'blocked') return NextResponse.json({ error: 'Perfil bloqueado.' }, { status: 400 });
-      if (existing?.status === 'accepted') return NextResponse.json({ friendship: existing, status: 'accepted' });
-      if (existing?.status === 'pending') return NextResponse.json({ friendship: existing, status: 'pending' });
+      if (existing?.status === 'blocked') return NextResponse.json({ error: 'Perfil bloqueado.' }, { status: 409 });
+      if (existing?.status === 'accepted') return NextResponse.json({ error: 'Vocês já são amigos.' }, { status: 409 });
+      if (existing?.status === 'pending') {
+        const sentByUser = existing.requester_profile_id === userId;
+        return NextResponse.json({ error: sentByUser ? 'Pedido já enviado.' : 'Este jogador já enviou um pedido para você.' }, { status: 409 });
+      }
 
       const { data, error } = await supabaseGame
         .from('friendships')
@@ -105,7 +108,7 @@ export async function POST(req: NextRequest) {
         .select('*')
         .single();
       if (error) throw error;
-      return NextResponse.json({ friendship: data, status: 'pending' });
+      return NextResponse.json({ ok: true, friendship: data, status: 'pending' });
     }
 
     if (action === 'accept') {
@@ -205,7 +208,7 @@ function dedupeProfiles(profiles: any[]) {
 }
 
 function escapeLike(value: string) {
-  return value.replace(/[\\%_]/g, (match) => `\\${match}`);
+  return value.replace(/[\%_]/g, (match) => `\${match}`);
 }
 
 function normalizeProfileId(value: unknown) {

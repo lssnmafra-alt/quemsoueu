@@ -1,5 +1,5 @@
-/* Force the R2 rarity frame to render on visible game cards.
-   This fixes rooms/decks that are not detected as official and therefore were showing raw images. */
+/* Fallback visual frame only for raw cards.
+   When CharacterImage renders the real qse-rarity-card, this file stays out of the way. */
 
 :root {
   --qse-rarity-frame-common: url('/api/r2-file?key=atuem%2FMolduras%2FRaridades%2Fmoldura_comum.png');
@@ -13,19 +13,23 @@
   overflow: visible !important;
 }
 
-.gameplay-card-portrait::after,
-.gameplay-reveal-card::after,
-.party-grid-bg [role="button"][aria-label^="Selecionar"]::after,
-.party-grid-bg [role="button"][aria-label^="Escolhido"]::after {
+.gameplay-card-portrait:not(:has(.qse-rarity-card))::after,
+.gameplay-reveal-card:not(:has(.qse-rarity-card))::after,
+.party-grid-bg [role="button"][aria-label^="Selecionar"]:not(:has(.qse-rarity-card))::after,
+.party-grid-bg [role="button"][aria-label^="Escolhido"]:not(:has(.qse-rarity-card))::after {
   content: "";
   position: absolute;
-  inset: -4.5% -5% -4.5% -5%;
+  inset: -3.5% -4% -3.5% -4%;
   z-index: 24;
   pointer-events: none;
   background-image: var(--qse-rarity-frame-common);
   background-repeat: no-repeat;
   background-position: center;
   background-size: 100% 100%;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .22));
+}
+
+.qse-rarity-card {
   filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .22));
 }
 
@@ -37,11 +41,11 @@
 }
 
 .gameplay-card-name {
-  z-index: 34 !important;
+  z-index: 44 !important;
 }
 
 .gameplay-card-target {
-  z-index: 44 !important;
+  z-index: 54 !important;
 }
 
 .party-grid-bg [role="button"][aria-label^="Selecionar"] > div:not(.absolute),

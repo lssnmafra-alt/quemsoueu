@@ -30,6 +30,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
   const [deckLoadError, setDeckLoadError] = useState('');
   const finalizingRef = useRef(false);
   const timerRepairRef = useRef('');
+  const savingSelectionRef = useRef(false);
 
   const baseActivePlayers = useMemo(() => players.filter((p: any) => !p.is_eliminated), [players]);
   const baseIsTiebreak = currentCards.length > 0 && baseActivePlayers.length > 1 && baseActivePlayers.every((p: any) => (p.lives || 0) <= 1);
@@ -111,6 +112,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
     } else {
       setConfirmed(false);
       setSelectedChars([]);
+      savingSelectionRef.current = false;
     }
   }, [isMeEligible, myLiveCards.length, pickCount, room.id]);
 
@@ -190,19 +192,10 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
     }
   }, [allRealPlayersReady, room.turn_expires_at, room.id, safePickSeconds, finalizePicking, timeLeft]);
 
-  const toggleChar = (id: string) => {
-    if (confirmed || !isMeEligible) return;
-    setPickingNotice('');
-    if (selectedChars.includes(id)) {
-      setSelectedChars(selectedChars.filter((c) => c !== id));
-    } else if (selectedChars.length < pickCount) {
-      setSelectedChars([...selectedChars, id]);
-    }
-  };
-
-  const confirmSelection = async () => {
-    if (!isMeEligible || selectedChars.length !== pickCount) return;
-    setPickingNotice('');
+  const saveSelection = useCallback(async (ids: string[]) => {
+    if (!isMeEligible || ids.length !== pickCount || savingSelectionRef.current) return;
+    savingSelectionRef.current = true;
+    setPickingNotice('Escolha registrada.');
     setConfirmed(true);
 
     const myCurrentLiveCards = liveCards.filter((card: any) => card.player_id === me.id);
@@ -213,7 +206,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
         .in('id', myCurrentLiveCards.map((card: any) => card.id));
     }
 
-    const inserts = selectedChars.map((cid) => ({
+    const inserts = ids.map((cid) => ({
       room_id: room.id,
       player_id: me.id,
       character_id: cid,
@@ -227,6 +220,19 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
       .eq('id', me.id);
 
     await loadPickingState();
+  }, [isMeEligible, liveCards, loadPickingState, me?.id, pickCount, room.id]);
+
+  const toggleChar = (id: string) => {
+    if (confirmed || !isMeEligible || savingSelectionRef.current) return;
+    if (selectedChars.includes(id)) return;
+
+    const next = [...selectedChars, id].slice(0, pickCount);
+    setSelectedChars(next);
+    setPickingNotice(next.length === pickCount ? 'Escolha registrada.' : `Escolha mais ${pickCount - next.length}.`);
+
+    if (next.length === pickCount) {
+      void saveSelection(next);
+    }
   };
 
   const totalTime = safePickSeconds;
@@ -262,7 +268,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
         {!confirmed && isMeEligible && (
           <div className="mb-4 flex items-center justify-center">
             <p className="text-sm bg-indigo-50 border-2 border-indigo-100 px-4 py-3 text-indigo-950 font-bold tracking-wide inline-flex items-center gap-2 rounded-2xl">
-              <Lightbulb className="h-4 w-4 text-indigo-500 shrink-0" /> Toque nos cards e confirme. Se nao escolher, o jogo sorteia automaticamente.
+              <Lightbulb className="h-4 w-4 text-indigo-500 shrink-0" /> Tocou, escolheu. Nao tem botao de confirmar nem desfazer.
             </p>
           </div>
         )}
@@ -273,7 +279,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
           </p>
         ) : null}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-3 gap-y-7 sm:gap-6 mb-8 overflow-y-auto max-h-[58vh] p-2 sm:p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-3 gap-y-7 sm:gap-6 mb-2 overflow-y-auto max-h-[62vh] p-2 sm:p-4">
           {isDeckLoading && deckChars.length === 0 && (
             <div className="col-span-full flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-indigo-100 bg-indigo-50/40 p-8 text-indigo-500">
               <Loader2 className="h-8 w-8 animate-spin" />
@@ -295,7 +301,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
 
           {deckChars.map((c, i) => {
             const isSelected = selectedChars.includes(c.id);
-            const canToggle = !confirmed && isMeEligible;
+            const canToggle = !confirmed && isMeEligible && !savingSelectionRef.current;
             return (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -306,7 +312,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
                 role="button"
                 tabIndex={canToggle ? 0 : -1}
                 aria-pressed={isSelected}
-                aria-label={`${isSelected ? 'Remover' : 'Selecionar'} ${c.name}`}
+                aria-label={`${isSelected ? 'Escolhido' : 'Selecionar'} ${c.name}`}
                 onClick={() => toggleChar(c.id)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
@@ -345,22 +351,6 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
               </motion.div>
             );
           })}
-        </div>
-
-        <div className="flex justify-center">
-          <Button
-            onClick={confirmSelection}
-            disabled={selectedChars.length !== pickCount || confirmed || !isMeEligible}
-            aria-label={confirmed ? 'Selecao confirmada' : selectedChars.length === pickCount ? 'Confirmar escolha de personagens' : `Faltam ${pickCount - selectedChars.length} personagens para confirmar`}
-            className={cn(
-              'w-full md:w-96 h-14 text-sm font-black tracking-wider uppercase transition-all rounded-2xl cursor-pointer',
-              selectedChars.length === pickCount && !confirmed && isMeEligible
-                ? 'btn-squishy-green text-white'
-                : 'bg-indigo-50 text-indigo-400/80 border-2 border-indigo-100 opacity-60'
-            )}
-          >
-            {confirmed ? 'Selecao Confirmada' : (selectedChars.length === pickCount ? 'Confirmar Escolha' : `Faltam ${pickCount - selectedChars.length} ${pickCount - selectedChars.length === 1 ? 'personagem' : 'personagens'}`)}
-          </Button>
         </div>
       </motion.div>
     </div>

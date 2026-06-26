@@ -5,6 +5,7 @@ import { getSupabaseAuthServer, hasSupabaseAuthServiceRole } from '@/lib/supabas
 
 const MAX_GENRES = 8;
 const MAX_BLOCKED_TRACKS = 300;
+const DEFAULT_PLAYER_EMOJI = '🙂';
 const PROFILE_SELECT = 'id,email,nickname,emoji,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,is_admin,updated_at,created_at';
 
 export async function GET(req: NextRequest) {
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const id = normalizeProfileId(body.id || body.userId);
     const nickname = normalizeNicknameDisplay(body.nickname).slice(0, 16);
-    const avatarUrl = String(body.avatar_url || body.avatarUrl || '').trim();
+    const emoji = normalizeEmoji(body.emoji || body.playerEmoji);
     const musicGenres = normalizeGenres(body.music_genres || body.musicGenres);
     const musicBlockedTracks = normalizeBlockedTracks(body.music_blocked_tracks || body.musicBlockedTracks);
     const profileCompleted = Boolean(body.profile_completed ?? body.profileCompleted ?? true);
@@ -76,7 +77,9 @@ export async function POST(req: NextRequest) {
       id,
       email: resolvedEmail,
       nickname,
-      avatar_url: avatarUrl,
+      emoji,
+      avatar_url: null,
+      avatar_animation_set_id: null,
       music_genres: musicGenres,
       music_blocked_tracks: musicBlockedTracks,
       profile_completed: profileCompleted,
@@ -133,7 +136,8 @@ function normalizeProfileResult(profile: any) {
     ...profile,
     email: normalizeEmail(profile.email),
     nickname: normalizeNicknameDisplay(profile.nickname || 'Jogador'),
-    avatar_url: profile.avatar_url || '',
+    emoji: normalizeEmoji(profile.emoji),
+    avatar_url: '',
     music_genres: normalizeGenres(profile.music_genres),
     music_blocked_tracks: normalizeBlockedTracks(profile.music_blocked_tracks),
     profile_completed: Boolean(profile.profile_completed ?? true),
@@ -172,6 +176,11 @@ function normalizeNicknameForUniqueness(value: unknown) {
 function normalizeEmail(value: unknown) {
   const email = String(value || '').trim().toLowerCase();
   return email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
+}
+
+function normalizeEmoji(value: unknown) {
+  const emoji = String(value || '').trim();
+  return Array.from(emoji).slice(0, 2).join('') || DEFAULT_PLAYER_EMOJI;
 }
 
 function buildFallbackEmail(id: string, isGuest: boolean) {

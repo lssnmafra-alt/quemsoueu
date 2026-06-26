@@ -5,6 +5,7 @@ import AdSenseGate from '@/components/AdSenseGate';
 import AudioToggle from '@/components/AudioToggle';
 import AuthBootstrap from '@/components/AuthBootstrap';
 import GameplayNoticePositioner from '@/components/game/GameplayNoticePositioner';
+import RoomAvatarSync from '@/components/game/RoomAvatarSync';
 import MobileLandscapeGuard from '@/components/MobileLandscapeGuard';
 import MobileRouteScope from '@/components/MobileRouteScope';
 import RoomInviteInbox from '@/components/RoomInviteInbox';
@@ -72,6 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthBootstrap />
         <AdSenseGate />
         <GameplayNoticePositioner />
+        <RoomAvatarSync />
         {children}
         <AudioToggle />
         <RoomInviteInbox />

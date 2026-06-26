@@ -9,8 +9,8 @@ const PROFILE_SELECT = 'id,email,nickname,avatar_url,music_genres,music_blocked_
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get('userId')?.trim() || '';
-    if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
+    const userId = normalizeProfileId(req.nextUrl.searchParams.get('userId'));
+    if (!isUuid(userId)) return NextResponse.json({ profile: null, warning: 'Usuario invalido.' });
 
     const { data, error } = await getAuthClient(req)
       .from('profiles')
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const id = String(body.id || body.userId || '').trim();
+    const id = normalizeProfileId(body.id || body.userId);
     const nickname = normalizeNicknameDisplay(body.nickname).slice(0, 16);
     const avatarUrl = String(body.avatar_url || body.avatarUrl || '').trim();
     const musicGenres = normalizeGenres(body.music_genres || body.musicGenres);
@@ -178,6 +178,10 @@ function buildFallbackEmail(id: string, isGuest: boolean) {
   return isGuest ? `guest_${id}@guest.com` : `player_${id}@quemsoueu.local`;
 }
 
+function normalizeProfileId(value: unknown) {
+  return String(value || '').trim().toLowerCase().replace(/^profile:/, '').replace(/^user:/, '');
+}
+
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }

@@ -189,7 +189,7 @@ export default function RoomPage() {
   useEffect(() => {
     if (roomNotices.length === 0) return;
     const latest = roomNotices[roomNotices.length - 1];
-    const timer = setTimeout(() => setRoomNotices((prev) => setRoomNotices ? prev.filter((notice) => notice.id !== latest.id) : prev), 3200);
+    const timer = setTimeout(() => setRoomNotices((prev) => prev.filter((notice) => notice.id !== latest.id)), 3200);
     return () => clearTimeout(timer);
   }, [roomNotices]);
 

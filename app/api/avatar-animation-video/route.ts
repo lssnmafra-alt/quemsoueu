@@ -80,7 +80,6 @@ async function animationResponse(key: string, eventType: AnimationEventType, slu
   const filename = `${slug.split('/')[0] || 'animacao'}-${EVENT_SUFFIX[eventType]}.${extension}`;
   const proxyUrl = `/api/r2-animation/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`;
   const directUrl = await getPublicR2Url(key);
-  const fastestUrl = directUrl.startsWith('http') ? directUrl : proxyUrl;
 
   return NextResponse.json({
     available: true,
@@ -88,8 +87,8 @@ async function animationResponse(key: string, eventType: AnimationEventType, slu
     eventType,
     slug,
     key,
-    url: fastestUrl,
-    videoUrl: fastestUrl,
+    url: proxyUrl,
+    videoUrl: proxyUrl,
     proxyUrl,
     directUrl,
     ...(extra || {}),

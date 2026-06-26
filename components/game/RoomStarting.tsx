@@ -5,9 +5,10 @@ import { cn } from '@/lib/utils';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import AvatarModelPreloader from '@/components/avatar/AvatarModelPreloader';
 
-const ARENA_LOADING_MS = 3400;
-const ARENA_SHOWCASE_MS = 6800;
-const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 5200;
+const ARENA_LOADING_MS = 2200;
+const ARENA_SHOWCASE_MS = 7600;
+const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 1500;
+const INTRO_VIDEO_CACHE_PREFIX = 'quemSouEu:introVideo:';
 
 type ArenaPhase = 'loading' | 'showcase';
 
@@ -58,27 +59,38 @@ export default function RoomStarting({ room, players }: any) {
     }
 
     let cancelled = false;
-    const cache = new Map<string, string>();
+    const memoryCache = new Map<string, string>();
     const playerSnapshot = orderedPlayers.map((player: any) => ({ ...player }));
 
-    async function loadAllVideos() {
-      const pairs = await Promise.all(playerSnapshot.map(async (player: any) => {
-        const videoUrl = await resolveIntroVideo({
-          id: String(player.id || ''),
-          nickname: String(player.nickname || 'Jogador'),
-          avatar_url: String(player.avatar_url || ''),
-        }, cache);
-        return [player.id, videoUrl] as const;
-      }));
-
-      if (cancelled) return;
-      const next: Record<string, string> = {};
-      pairs.forEach(([id, url]) => {
-        if (url) next[id] = url;
+    const primeCachedVideos = () => {
+      const cachedVideos: Record<string, string> = {};
+      playerSnapshot.forEach((player: any) => {
+        const cached = getCachedIntroVideo(String(player.avatar_url || ''));
+        if (cached) cachedVideos[player.id] = cached;
       });
-      setVideoByPlayerId(next);
+      if (Object.keys(cachedVideos).length) setVideoByPlayerId(cachedVideos);
+    };
+
+    async function loadAllVideos() {
+      const queue = [...playerSnapshot];
+      const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
+        while (queue.length > 0 && !cancelled) {
+          const player = queue.shift();
+          if (!player) continue;
+          const videoUrl = await resolveIntroVideo({
+            id: String(player.id || ''),
+            nickname: String(player.nickname || 'Jogador'),
+            avatar_url: String(player.avatar_url || ''),
+          }, memoryCache);
+          if (!cancelled && videoUrl) {
+            setVideoByPlayerId((current) => current[player.id] === videoUrl ? current : { ...current, [player.id]: videoUrl });
+          }
+        }
+      });
+      await Promise.allSettled(workers);
     }
 
+    primeCachedVideos();
     void loadAllVideos();
     const loadingTimer = window.setTimeout(() => {
       if (!cancelled) setArenaPhase('showcase');
@@ -101,8 +113,8 @@ export default function RoomStarting({ room, players }: any) {
   }, [orderedPlayers.length]);
 
   const statusText = arenaPhase === 'loading'
-    ? 'Carregando arena, aguarde...'
-    : 'Ordem definida. Todos prontos para jogar.';
+    ? 'Aquecendo entradas, aguarde...'
+    : 'Entrando na arena. Todos juntos.';
 
   return (
     <div className="relative flex min-h-[100dvh] overflow-hidden bg-[#071a64] text-white font-sans party-grid-bg">
@@ -146,7 +158,7 @@ export default function RoomStarting({ room, players }: any) {
                   <div className={cn('absolute inset-x-0 top-0 h-2', player.color?.bg || 'bg-cyan-400')} />
                   <div className="relative overflow-hidden rounded-[1.55rem] bg-white">
                     {arenaPhase === 'showcase' && videoUrl ? (
-                      <ArenaIntroVideo src={videoUrl} label={player.nickname} />
+                      <ArenaIntroVideo src={videoUrl} label={player.nickname} avatarUrl={player.avatar_url} primaryColor={player.color?.hex} />
                     ) : (
                       <div className="flex aspect-[3/4] w-full items-center justify-center bg-white">
                         <motion.div animate={arenaPhase === 'loading' ? { scale: [1, 1.04, 1], y: [0, -4, 0] } : { scale: 1 }} transition={{ duration: 1.2, repeat: arenaPhase === 'loading' ? Infinity : 0, ease: 'easeInOut' }}>
@@ -155,8 +167,8 @@ export default function RoomStarting({ room, players }: any) {
                       </div>
                     )}
                     {arenaPhase === 'loading' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-white/55">
-                        <div className="rounded-2xl border border-indigo-100 bg-white/90 px-3 py-2 text-[10px] font-black uppercase text-indigo-500 shadow-sm">Carregando...</div>
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/40">
+                        <div className="rounded-2xl border border-indigo-100 bg-white/90 px-3 py-2 text-[10px] font-black uppercase text-indigo-500 shadow-sm">Preparando...</div>
                       </div>
                     )}
                   </div>
@@ -175,41 +187,52 @@ export default function RoomStarting({ room, players }: any) {
         </div>
 
         <div className="mx-auto inline-flex rounded-full border-2 border-yellow-300/50 bg-yellow-300 px-6 py-3 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_6px_0_#b45309]">
-          {arenaPhase === 'loading' ? 'Carregando arena, aguarde...' : 'Entrando no jogo...'}
+          {arenaPhase === 'loading' ? 'Preparando entrada dos jogadores...' : 'Entrando no jogo...'}
         </div>
       </div>
     </div>
   );
 }
 
-function ArenaIntroVideo({ src, label }: { src: string; label: string }) {
+function ArenaIntroVideo({ src, label, avatarUrl, primaryColor }: { src: string; label: string; avatarUrl: string; primaryColor?: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    setReady(false);
     video.muted = true;
     video.defaultMuted = true;
     video.volume = 0;
     video.playsInline = true;
-    const timers = [50, 220, 520, 900, 1400].map((delay) => window.setTimeout(() => video.play?.().catch(() => null), delay));
+    const timers = [0, 80, 220, 520, 900].map((delay) => window.setTimeout(() => video.play?.().catch(() => null), delay));
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [src]);
 
   return (
-    <video
-      ref={videoRef}
-      src={src}
-      autoPlay
-      muted
-      loop
-      playsInline
-      preload="auto"
-      controls={false}
-      disablePictureInPicture
-      className="aspect-[3/4] w-full bg-white object-cover"
-      aria-label={label}
-    />
+    <div className="relative aspect-[3/4] w-full bg-white">
+      {!ready && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+          <AvatarFigure avatarUrl={avatarUrl} label={label} primaryColor={primaryColor} className="h-32 w-32 rounded-[2rem] border-4 border-white bg-white shadow-xl" />
+        </div>
+      )}
+      <video
+        ref={videoRef}
+        src={src}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        controls={false}
+        disablePictureInPicture
+        onCanPlay={() => setReady(true)}
+        onPlaying={() => setReady(true)}
+        className={cn('h-full w-full bg-white object-cover transition-opacity duration-300', ready ? 'opacity-100' : 'opacity-0')}
+        aria-label={label}
+      />
+    </div>
   );
 }
 
@@ -221,28 +244,45 @@ async function resolveIntroVideo(player: SequencePlayer, cache: Map<string, stri
   const cached = cache.get(cacheKey);
   if (cached !== undefined) return cached;
 
-  const eventTypes = ['intro', 'lobby', 'home'] as const;
-  for (const eventType of eventTypes) {
-    const result = await fetchJsonWithTimeout(
-      `/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}`,
-      INTRO_VIDEO_LOOKUP_TIMEOUT_MS,
-    );
-    const url = result?.available ? String(result.videoUrl || result.url || '') : '';
-    if (url) {
-      cache.set(cacheKey, url);
-      return url;
-    }
+  const browserCached = getCachedIntroVideo(avatarUrl);
+  if (browserCached) {
+    cache.set(cacheKey, browserCached);
+    return browserCached;
   }
 
-  cache.set(cacheKey, '');
-  return '';
+  const result = await fetchJsonWithTimeout(
+    `/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=intro`,
+    INTRO_VIDEO_LOOKUP_TIMEOUT_MS,
+  );
+  const url = result?.available ? String(result.videoUrl || result.url || '') : '';
+  if (url) setCachedIntroVideo(avatarUrl, url);
+
+  cache.set(cacheKey, url);
+  return url;
+}
+
+function getCachedIntroVideo(avatarUrl: string) {
+  if (typeof window === 'undefined' || !avatarUrl) return '';
+  try {
+    return sessionStorage.getItem(`${INTRO_VIDEO_CACHE_PREFIX}${avatarUrl}`) || localStorage.getItem(`${INTRO_VIDEO_CACHE_PREFIX}${avatarUrl}`) || '';
+  } catch {
+    return '';
+  }
+}
+
+function setCachedIntroVideo(avatarUrl: string, url: string) {
+  if (typeof window === 'undefined' || !avatarUrl || !url) return;
+  try {
+    sessionStorage.setItem(`${INTRO_VIDEO_CACHE_PREFIX}${avatarUrl}`, url);
+    localStorage.setItem(`${INTRO_VIDEO_CACHE_PREFIX}${avatarUrl}`, url);
+  } catch {}
 }
 
 async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    const response = await fetch(url, { cache: 'force-cache', signal: controller.signal });
     if (!response.ok) return null;
     return await response.json().catch(() => null);
   } catch {

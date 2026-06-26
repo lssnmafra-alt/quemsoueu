@@ -46,6 +46,11 @@ function getHitPlayerIdsFromEvent(event: any) {
   return Array.isArray(ids) ? ids.filter((id: unknown) => typeof id === 'string') : [];
 }
 
+function getHitPlayersFromEvent(event: any) {
+  const players = event?.metadata?.hit_players;
+  return Array.isArray(players) ? players : [];
+}
+
 async function getResolvedVoteEvent(room: any) {
   const { data } = await supabaseGame
     .from('match_events')
@@ -80,7 +85,19 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (voteEvent) {
     await applyVoteDamage(room);
     const result = await finishOrAdvance(room, getHitPlayerIdsFromEvent(voteEvent));
-    return NextResponse.json({ ok: true, resolvedVoteInsteadOfTimeout: true, ...result });
+    const metadata = voteEvent.metadata || {};
+    return NextResponse.json({
+      ok: true,
+      resolvedVoteInsteadOfTimeout: true,
+      revealPending: true,
+      target: metadata.target_name || 'Personagem',
+      targetId: voteEvent.character_id,
+      voterId: voteEvent.actor_player_id,
+      voterName: metadata.voter_name || 'Jogador',
+      hitPlayerIds: getHitPlayerIdsFromEvent(voteEvent),
+      hitPlayers: getHitPlayersFromEvent(voteEvent),
+      ...result,
+    });
   }
 
   const orderedPlayers = [...(players || [])].sort((a: any, b: any) => (a.play_order || 0) - (b.play_order || 0));

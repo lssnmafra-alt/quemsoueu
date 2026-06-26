@@ -29,6 +29,11 @@ function trackForRoomStatus(status?: string) {
   return 'lobby-theme';
 }
 
+function normalizeEmoji(value: unknown) {
+  const emoji = String(value || '').trim();
+  return Array.from(emoji).slice(0, 2).join('') || '🙂';
+}
+
 export default function RoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -82,10 +87,12 @@ export default function RoomPage() {
       if (alreadyInRoom) {
         const updates: Record<string, any> = {};
         const nextNickname = profile?.nickname || user.email?.split('@')[0] || alreadyInRoom.nickname;
-        const nextAvatarUrl = profile?.avatar_url || '';
+        const nextEmoji = normalizeEmoji(profile?.emoji || alreadyInRoom.emoji);
 
         if (nextNickname && alreadyInRoom.nickname !== nextNickname) updates.nickname = nextNickname;
-        if (nextAvatarUrl && alreadyInRoom.avatar_url !== nextAvatarUrl) updates.avatar_url = nextAvatarUrl;
+        if (alreadyInRoom.emoji !== nextEmoji) updates.emoji = nextEmoji;
+        if (alreadyInRoom.avatar_url) updates.avatar_url = '';
+        if (alreadyInRoom.avatar_animation_set_id) updates.avatar_animation_set_id = null;
 
         if (Object.keys(updates).length > 0) {
           await supabaseGame.from('room_players').update(updates).eq('id', alreadyInRoom.id);
@@ -123,7 +130,9 @@ export default function RoomPage() {
           room_id: roomId,
           user_id: user.id,
           nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante',
-          avatar_url: profile?.avatar_url || '',
+          emoji: normalizeEmoji(profile?.emoji),
+          avatar_url: '',
+          avatar_animation_set_id: null,
           is_admin: rm.admin_id === user.id,
         }).select().single();
 
@@ -170,7 +179,7 @@ export default function RoomPage() {
       clearInterval(poll);
       subs1.unsubscribe();
     };
-  }, [authInitialized, authLoading, user, roomId, profile?.nickname, profile?.avatar_url, router]);
+  }, [authInitialized, authLoading, user, roomId, profile?.nickname, profile?.emoji, router]);
 
   useEffect(() => {
     if (!room?.status) return;
@@ -180,13 +189,13 @@ export default function RoomPage() {
   useEffect(() => {
     if (roomNotices.length === 0) return;
     const latest = roomNotices[roomNotices.length - 1];
-    const timer = setTimeout(() => setRoomNotices((prev) => prev.filter((notice) => notice.id !== latest.id)), 3200);
+    const timer = setTimeout(() => setRoomNotices((prev) => setRoomNotices ? prev.filter((notice) => notice.id !== latest.id) : prev), 3200);
     return () => clearTimeout(timer);
   }, [roomNotices]);
 
   const enrichedPlayers = useMemo(() => {
     const cmap = getPlayerColors(players);
-    return players.map((p) => ({ ...p, color: cmap[p.id] }));
+    return players.map((p) => ({ ...p, color: cmap[p.id], emoji: normalizeEmoji(p.emoji) }));
   }, [players]);
 
   const me = useMemo(() => {

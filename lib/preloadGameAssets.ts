@@ -18,9 +18,7 @@ export async function preloadRoomAssets({ room, players = [], profile, userId, m
   try {
     localStorage.setItem('quemSouEu:lastRoomPreloadAt', new Date().toISOString());
     localStorage.setItem('quemSouEu:lastRoomPreloadStatus', String(room?.status || 'LOBBY'));
-  } catch {
-    // Ignora navegadores que bloqueiam localStorage.
-  }
+  } catch {}
 
   tasks.push(preloadImage('/api/branding/logo'));
   tasks.push(preloadImage('/api/branding/loading?kind=image'));
@@ -37,9 +35,7 @@ async function preloadAudioLibrary(profile?: any) {
   try {
     const libraryResponse = await fetch('/api/audio/library', { cache: 'no-store' });
     const library = await libraryResponse.json().catch(() => ({ tracks: [] }));
-    try {
-      localStorage.setItem('quemSouEu:musicLibrary', JSON.stringify(library));
-    } catch {}
+    try { localStorage.setItem('quemSouEu:musicLibrary', JSON.stringify(library)); } catch {}
 
     const genres = Array.isArray(profile?.music_genres) ? profile.music_genres : [];
     const blocked = Array.isArray(profile?.music_blocked_tracks) ? profile.music_blocked_tracks : [];
@@ -53,9 +49,7 @@ async function preloadAudioLibrary(profile?: any) {
 
     const tracks = Array.isArray(library.tracks) ? library.tracks.slice(0, 8) : [];
     await Promise.allSettled(tracks.map((item: any) => item?.url ? warmCache(item.url) : Promise.resolve(null)));
-  } catch {
-    // Preload e otimizacao, nao pode bloquear o jogo por erro de rede.
-  }
+  } catch {}
 }
 
 async function preloadAvatarAnimationUrls(players: any[], userId?: string) {
@@ -69,14 +63,15 @@ async function preloadAvatarAnimationUrls(players: any[], userId?: string) {
   await Promise.allSettled(uniquePlayers.map(async (player) => {
     const events = player.user_id === userId ? ['intro', 'victory', 'defeat'] : ['intro'];
     for (const eventType of events) {
-      const response = await fetch(`/api/avatar-animation-video?avatarUrl=${encodeURIComponent(player.avatar_url)}&eventType=${eventType}`, { cache: 'no-store' }).catch(() => null);
+      const response = await fetch(`/api/avatar-animation-video?avatarUrl=${encodeURIComponent(player.avatar_url)}&eventType=${eventType}&v=central`, { cache: 'no-store' }).catch(() => null);
       const result = response ? await response.json().catch(() => null) : null;
-      const url = result?.videoUrl || result?.url;
-      if (url) urls.push(url);
+      const primary = result?.videoUrl || result?.url;
+      if (primary) urls.push(String(primary));
+      if (result?.fallbackUrl) urls.push(String(result.fallbackUrl));
     }
   }));
 
-  await Promise.allSettled([...new Set(urls)].slice(0, 10).map((url) => warmCache(url)));
+  await Promise.allSettled([...new Set(urls)].slice(0, 16).map((url) => warmCache(url)));
 }
 
 function preloadImage(src: string) {

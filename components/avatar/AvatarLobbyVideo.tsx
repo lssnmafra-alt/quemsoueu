@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabaseGame } from '@/lib/supabase';
 
 type AvatarVideoEventType = 'home' | 'lobby' | 'intro' | 'victory' | 'defeat';
+type ChromaKeyId = 'branco' | 'roxo' | 'verde' | 'azul' | 'vermelho';
 
 type AvatarLobbyVideoProps = {
   avatarUrl?: string;
@@ -14,15 +16,47 @@ type AvatarLobbyVideoProps = {
   className?: string;
 };
 
-function isBackgroundPixel(red: number, green: number, blue: number) {
-  const brightness = (red + green + blue) / 3;
-  const spread = Math.max(red, green, blue) - Math.min(red, green, blue);
-  const almostWhite = brightness > 218 && spread < 46;
-  const paleStudio = red > 198 && green > 206 && blue > 210 && spread < 58;
-  return almostWhite || paleStudio;
+const CHROMA_KEYS: Record<ChromaKeyId, { rgb: [number, number, number]; tolerance: number; spill: number }> = {
+  branco: { rgb: [255, 255, 255], tolerance: 54, spill: 42 },
+  roxo: { rgb: [124, 58, 237], tolerance: 78, spill: 44 },
+  verde: { rgb: [0, 255, 0], tolerance: 92, spill: 48 },
+  azul: { rgb: [0, 107, 255], tolerance: 86, spill: 46 },
+  vermelho: { rgb: [255, 0, 51], tolerance: 86, spill: 46 },
+};
+
+function colorDistance(red: number, green: number, blue: number, target: [number, number, number]) {
+  const dr = red - target[0];
+  const dg = green - target[1];
+  const db = blue - target[2];
+  return Math.sqrt(dr * dr + dg * dg + db * db);
 }
 
-function removeConnectedBackground(frame: ImageData) {
+function isChromaPixel(red: number, green: number, blue: number, chromaKeyId: ChromaKeyId) {
+  const key = CHROMA_KEYS[chromaKeyId] || CHROMA_KEYS.branco;
+
+  if (chromaKeyId === 'branco') {
+    const brightness = (red + green + blue) / 3;
+    const spread = Math.max(red, green, blue) - Math.min(red, green, blue);
+    const almostWhite = brightness > 218 && spread < 46;
+    const paleStudio = red > 198 && green > 206 && blue > 210 && spread < 58;
+    return almostWhite || paleStudio || colorDistance(red, green, blue, key.rgb) <= key.tolerance;
+  }
+
+  return colorDistance(red, green, blue, key.rgb) <= key.tolerance;
+}
+
+function isNearChromaPixel(red: number, green: number, blue: number, chromaKeyId: ChromaKeyId) {
+  const key = CHROMA_KEYS[chromaKeyId] || CHROMA_KEYS.branco;
+  if (chromaKeyId === 'branco') {
+    const brightness = (red + green + blue) / 3;
+    const spread = Math.max(red, green, blue) - Math.min(red, green, blue);
+    return brightness > 204 && spread < 68;
+  }
+
+  return colorDistance(red, green, blue, key.rgb) <= key.tolerance + key.spill;
+}
+
+function removeConnectedBackground(frame: ImageData, chromaKeyId: ChromaKeyId) {
   const { width, height, data } = frame;
   if (!width || !height) return;
 
@@ -37,7 +71,7 @@ function removeConnectedBackground(frame: ImageData) {
     const pixel = y * width + x;
     if (visited[pixel]) return;
     const index = pixel * 4;
-    if (!isBackgroundPixel(data[index], data[index + 1], data[index + 2])) return;
+    if (!isChromaPixel(data[index], data[index + 1], data[index + 2], chromaKeyId)) return;
     visited[pixel] = 1;
     queue[tail++] = pixel;
   };
@@ -66,9 +100,27 @@ function removeConnectedBackground(frame: ImageData) {
     const index = pixel * 4;
     data[index + 3] = 0;
   }
+
+  for (let pixel = 0; pixel < total; pixel += 1) {
+    const x = pixel % width;
+    const y = Math.floor(pixel / width);
+    const index = pixel * 4;
+    if (data[index + 3] === 0) continue;
+
+    const touchesRemoved = (
+      (x > 0 && visited[pixel - 1]) ||
+      (x < width - 1 && visited[pixel + 1]) ||
+      (y > 0 && visited[pixel - width]) ||
+      (y < height - 1 && visited[pixel + width])
+    );
+
+    if (touchesRemoved && isNearChromaPixel(data[index], data[index + 1], data[index + 2], chromaKeyId)) {
+      data[index + 3] = Math.min(data[index + 3], 55);
+    }
+  }
 }
 
-function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; onError: () => void }) {
+function KeyedVideo({ src, label, chromaKeyId, onError }: { src: string; label: string; chromaKeyId: ChromaKeyId; onError: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -97,7 +149,7 @@ function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; on
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
           const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          removeConnectedBackground(frame);
+          removeConnectedBackground(frame, chromaKeyId);
           ctx.putImageData(frame, 0, 0);
         } catch {
           onError();
@@ -124,7 +176,7 @@ function WhiteKeyVideo({ src, label, onError }: { src: string; label: string; on
       video.removeEventListener('play', render);
       video.removeEventListener('error', onError);
     };
-  }, [src, onError]);
+  }, [src, chromaKeyId, onError]);
 
   return (
     <>
@@ -139,6 +191,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
   const [isHome, setIsHome] = useState(false);
   const [videoUrl, setVideoUrl] = useState('');
   const [failed, setFailed] = useState(false);
+  const [chromaKeyId, setChromaKeyId] = useState<ChromaKeyId>('branco');
 
   useEffect(() => {
     setMounted(true);
@@ -147,8 +200,29 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
 
   const isHomeEvent = eventType === 'home' || (mounted && isHome && !eventType);
   const resolvedEventType: AvatarVideoEventType = isHomeEvent ? 'home' : eventType || 'lobby';
-  const useWhiteKey = isHomeEvent;
   const imageFallback = useMemo(() => resolveAvatarImageUrl(avatarUrl), [avatarUrl]);
+  const avatarKey = useMemo(() => resolveAvatarKey(avatarUrl), [avatarUrl]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    let cancelled = false;
+    setChromaKeyId('branco');
+
+    async function loadChromaKey() {
+      if (!avatarKey) return;
+      const { data } = await supabaseGame
+        .from('avatar_chroma_keys')
+        .select('chroma_key_id')
+        .eq('avatar_key', avatarKey)
+        .maybeSingle();
+
+      const nextKey = String(data?.chroma_key_id || 'branco') as ChromaKeyId;
+      if (!cancelled && isChromaKeyId(nextKey)) setChromaKeyId(nextKey);
+    }
+
+    void loadChromaKey();
+    return () => { cancelled = true; };
+  }, [avatarKey, mounted]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -157,7 +231,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
     setFailed(false);
     setVideoUrl('');
 
-    if (directVideoUrl && (!useWhiteKey || directVideoUrl.startsWith('/api/'))) {
+    if (directVideoUrl && directVideoUrl.startsWith('/api/')) {
       setVideoUrl(directVideoUrl);
       return;
     }
@@ -176,28 +250,12 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
 
     void loadVideo();
     return () => { cancelled = true; };
-  }, [avatarUrl, directVideoUrl, mounted, resolvedEventType, useWhiteKey]);
+  }, [avatarUrl, directVideoUrl, mounted, resolvedEventType]);
 
   return (
-    <div className={cn('relative flex items-center justify-center overflow-hidden', useWhiteKey ? 'bg-transparent' : 'bg-white', className)}>
-      {!useWhiteKey && <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,1)_0%,rgba(255,255,255,.96)_55%,rgba(226,246,255,.9)_100%)]" />}
+    <div className={cn('relative flex items-center justify-center overflow-hidden bg-transparent', className)}>
       {mounted && videoUrl && !failed ? (
-        useWhiteKey ? (
-          <WhiteKeyVideo src={videoUrl} label={label} onError={() => setFailed(true)} />
-        ) : (
-          <video
-            key={videoUrl}
-            src={videoUrl}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            onError={() => setFailed(true)}
-            className="relative z-10 h-full w-full scale-[1.08] object-cover mix-blend-normal"
-            aria-label={label}
-          />
-        )
+        <KeyedVideo src={videoUrl} label={label} chromaKeyId={chromaKeyId} onError={() => setFailed(true)} />
       ) : imageFallback ? (
         <img src={imageFallback} alt={label} referrerPolicy="no-referrer" className="relative z-10 h-full w-full object-cover" />
       ) : (
@@ -217,4 +275,33 @@ function resolveAvatarImageUrl(avatarUrl: string) {
   } catch {
     return '';
   }
+}
+
+function resolveAvatarKey(avatarUrl: string) {
+  if (!avatarUrl) return '';
+
+  if (avatarUrl.startsWith('avatar:')) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(avatarUrl.slice(7)));
+      const animationSlug = String(parsed.animationSlug || '').split('/')[0].trim();
+      if (animationSlug) return animationSlug;
+      const avatarId = String(parsed.avatarId || '').split(':')[0].trim();
+      if (avatarId) return avatarId;
+      const imageKey = String(parsed.imageKey || '').split('/').pop()?.replace(/\.[^.]+$/, '').trim() || '';
+      return imageKey;
+    } catch {
+      return '';
+    }
+  }
+
+  try {
+    const decoded = decodeURIComponent(avatarUrl);
+    return decoded.split('/').pop()?.replace(/\.[^.]+$/, '').trim() || '';
+  } catch {
+    return avatarUrl.split('/').pop()?.replace(/\.[^.]+$/, '').trim() || '';
+  }
+}
+
+function isChromaKeyId(value: string): value is ChromaKeyId {
+  return value === 'branco' || value === 'roxo' || value === 'verde' || value === 'azul' || value === 'vermelho';
 }

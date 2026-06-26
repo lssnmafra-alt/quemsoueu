@@ -8,8 +8,14 @@ const ARENA_LOADING_MS = 900;
 const ARENA_SHOWCASE_MS = 4300;
 
 type ArenaPhase = 'loading' | 'showcase';
-
 type VideoCandidatesByPlayer = Record<string, string[]>;
+
+type AnimationResult = {
+  available?: boolean;
+  videoUrl?: string;
+  url?: string;
+  fallbackUrl?: string;
+};
 
 export default function RoomStarting({ room, players }: any) {
   const [arenaPhase, setArenaPhase] = useState<ArenaPhase>('loading');
@@ -45,17 +51,26 @@ export default function RoomStarting({ room, players }: any) {
       return;
     }
 
-    const nextVideos: VideoCandidatesByPlayer = {};
-    orderedPlayers.forEach((player: any) => {
-      const candidates = buildIntroVideoCandidates(String(player.avatar_url || ''));
-      if (candidates.length) nextVideos[player.id] = candidates;
-    });
-    setVideosByPlayerId(nextVideos);
+    let cancelled = false;
+
+    async function resolveVideos() {
+      const nextVideos: VideoCandidatesByPlayer = {};
+
+      await Promise.allSettled(orderedPlayers.map(async (player: any) => {
+        const candidates = await resolveIntroVideoCandidates(String(player.avatar_url || ''));
+        if (!cancelled && candidates.length) nextVideos[player.id] = candidates;
+      }));
+
+      if (!cancelled) setVideosByPlayerId(nextVideos);
+    }
+
+    void resolveVideos();
 
     const loadingTimer = window.setTimeout(() => setArenaPhase('showcase'), ARENA_LOADING_MS);
     const playTimer = window.setTimeout(() => void advanceToPlaying(), ARENA_LOADING_MS + ARENA_SHOWCASE_MS);
 
     return () => {
+      cancelled = true;
       window.clearTimeout(loadingTimer);
       window.clearTimeout(playTimer);
     };
@@ -162,11 +177,18 @@ function ArenaIntroVideo({ sources, label, avatarUrl, primaryColor }: { sources:
     video.defaultMuted = true;
     video.volume = 0;
     video.playsInline = true;
+    video.preload = 'auto';
     const play = () => video.play?.().catch(() => null);
-    const timers = [0, 60, 160, 360].map((delay) => window.setTimeout(play, delay));
+    const timers = [0, 60, 160, 360, 800].map((delay) => window.setTimeout(play, delay));
+    const fallbackTimer = window.setTimeout(() => {
+      if (video.readyState < 2) tryNextSource();
+    }, 1500);
     video.load();
     play();
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      window.clearTimeout(fallbackTimer);
+    };
   }, [src]);
 
   const tryNextSource = () => {
@@ -184,6 +206,7 @@ function ArenaIntroVideo({ sources, label, avatarUrl, primaryColor }: { sources:
       {src && (
         <video
           ref={videoRef}
+          key={src}
           src={src}
           autoPlay
           muted
@@ -192,7 +215,6 @@ function ArenaIntroVideo({ sources, label, avatarUrl, primaryColor }: { sources:
           preload="auto"
           controls={false}
           disablePictureInPicture
-          crossOrigin="anonymous"
           onLoadedData={() => setReady(true)}
           onCanPlay={() => setReady(true)}
           onPlaying={() => setReady(true)}
@@ -205,81 +227,20 @@ function ArenaIntroVideo({ sources, label, avatarUrl, primaryColor }: { sources:
   );
 }
 
-function buildIntroVideoCandidates(avatarUrl: string) {
-  const candidates: string[] = [];
-  const parsed = parseAvatarSelection(avatarUrl);
+async function resolveIntroVideoCandidates(avatarUrl: string) {
+  if (!avatarUrl) return [];
 
-  if (parsed?.animations) {
-    [parsed.animations.intro, parsed.animations.lobby, parsed.animations.home]
-      .filter(Boolean)
-      .forEach((key: string) => candidates.push(proxyVideoUrl(key)));
+  const eventTypes: Array<'intro' | 'lobby' | 'home'> = ['intro', 'lobby', 'home'];
+  const urls: string[] = [];
+
+  for (const eventType of eventTypes) {
+    const response = await fetch(`/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}&v=central`, { cache: 'no-store' }).catch(() => null);
+    const result: AnimationResult | null = response ? await response.json().catch(() => null) : null;
+    if (result?.available) {
+      if (result.videoUrl || result.url) urls.push(String(result.videoUrl || result.url));
+      if (result.fallbackUrl) urls.push(String(result.fallbackUrl));
+    }
   }
 
-  const slug = cleanAvatarSlug(parsed?.animationSlug || parsed?.avatarId || slugFromAvatarUrl(avatarUrl));
-  const avatarKey = slug.split('/')[0] || slug;
-  const skinCode = slug.split('/')[1] || parsed?.skinCode || 'skin-1';
-  const skin = Math.max(1, Number(String(skinCode || '').match(/\d+/)?.[0] || 1));
-  const introNumber = String((skin - 1) * 10 + 1);
-
-  if (avatarKey) {
-    [
-      `atuem/atuem/Animacao/${avatarKey}-${introNumber}.mp4`,
-      `atuem/atuem/Animacao/${avatarKey}-A.mp4`,
-      `atuem/atuem/Animacao/${avatarKey}-1.mp4`,
-      `atuem/Animacao/${avatarKey}-${introNumber}.mp4`,
-      `atuem/Animacao/${avatarKey}-A.mp4`,
-      `atuem/Animacao/${avatarKey}-1.mp4`,
-      `atuem/atuem/avatar/${avatarKey}/Animacao/${avatarKey}-${introNumber}.mp4`,
-      `atuem/atuem/avatar/${avatarKey}/Animacao/${avatarKey}-A.mp4`,
-      `atuem/avatar/${avatarKey}/Animacao/${avatarKey}-${introNumber}.mp4`,
-      `atuem/avatar/${avatarKey}/Animacao/${avatarKey}-A.mp4`,
-    ].forEach((key) => candidates.push(proxyVideoUrl(key)));
-  }
-
-  return [...new Set(candidates.filter(Boolean))];
-}
-
-function proxyVideoUrl(key: string) {
-  if (!key || key.includes('..') || key.startsWith('/') || key.includes('\\')) return '';
-  const filename = key.split('/').pop() || 'avatar.mp4';
-  return `/api/r2-animation/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`;
-}
-
-function parseAvatarSelection(avatarUrl: string) {
-  if (!avatarUrl?.startsWith('avatar:')) return null;
-  try {
-    return JSON.parse(decodeURIComponent(avatarUrl.slice(7)));
-  } catch {
-    return null;
-  }
-}
-
-function slugFromAvatarUrl(avatarUrl: string) {
-  const value = String(avatarUrl || '').trim();
-  if (!value) return '';
-
-  try {
-    const decoded = decodeURIComponent(value);
-    const query = decoded.includes('?') ? decoded.split('?')[1] : '';
-    const keyParam = query.split('&').find((part) => part.startsWith('key='));
-    if (keyParam) return decodeURIComponent(keyParam.slice(4)).split('/').pop()?.replace(/\.[^.]+$/, '') || '';
-
-    const markers = ['/atuem/atuem/avatar/', 'atuem/atuem/avatar/', '/atuem/avatar/', 'atuem/avatar/'];
-    const marker = markers.find((item) => decoded.includes(item));
-    const part = marker ? decoded.slice(decoded.indexOf(marker) + marker.length) : decoded.split('/').pop() || '';
-    return part.replace(/\.[^.]+$/, '');
-  } catch {
-    return value.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
-  }
-}
-
-function cleanAvatarSlug(value: string) {
-  return String(value || '')
-    .split('..').join('')
-    .split('\\').join('/')
-    .split('/')
-    .filter(Boolean)
-    .join('/')
-    .replace(/\.[^.]+$/, '')
-    .trim();
+  return [...new Set(urls.filter(Boolean))];
 }

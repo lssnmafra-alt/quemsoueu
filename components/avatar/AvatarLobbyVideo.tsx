@@ -15,8 +15,31 @@ type AvatarLobbyVideoProps = {
 };
 
 const resolvedVideoCache = new Map<string, string>();
+const SESSION_CACHE_KEY = 'qse:avatar-video-cache:v4';
 
-function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label: string; onReady: () => void; onError: () => void }) {
+function readSessionCache() {
+  if (typeof window === 'undefined') return {} as Record<string, string>;
+  try { return JSON.parse(sessionStorage.getItem(SESSION_CACHE_KEY) || '{}') as Record<string, string>; }
+  catch { return {}; }
+}
+
+function writeSessionCache(cache: Record<string, string>) {
+  if (typeof window === 'undefined') return;
+  try { sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(cache)); } catch {}
+}
+
+function rememberVideo(cacheKey: string, url: string) {
+  resolvedVideoCache.set(cacheKey, url);
+  const cache = readSessionCache();
+  cache[cacheKey] = url;
+  writeSessionCache(cache);
+}
+
+function cachedVideo(cacheKey: string) {
+  return resolvedVideoCache.get(cacheKey) || readSessionCache()[cacheKey] || '';
+}
+
+function FastAvatarVideo({ src, poster, label, onReady, onError }: { src: string; poster?: string; label: string; onReady: () => void; onError: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -24,7 +47,7 @@ function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label:
     if (!video) return;
 
     const play = () => video.play().catch(() => null);
-    const timers = [0, 80, 220, 520, 1000].map((delay) => window.setTimeout(play, delay));
+    const timers = [0, 60, 160, 360, 800].map((delay) => window.setTimeout(play, delay));
     video.muted = true;
     video.defaultMuted = true;
     video.volume = 0;
@@ -39,6 +62,7 @@ function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label:
     <video
       ref={videoRef}
       src={src}
+      poster={poster}
       autoPlay
       muted
       loop
@@ -47,6 +71,7 @@ function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label:
       controls={false}
       disablePictureInPicture
       crossOrigin="anonymous"
+      onLoadedMetadata={onReady}
       onLoadedData={onReady}
       onCanPlay={onReady}
       onPlaying={onReady}
@@ -74,6 +99,17 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
   const imageFallback = useMemo(() => resolveAvatarImageUrl(avatarUrl), [avatarUrl]);
 
   useEffect(() => {
+    if (!mounted || !videoUrl) return;
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'video';
+    link.href = videoUrl;
+    link.crossOrigin = 'anonymous';
+    document.head.appendChild(link);
+    return () => { link.remove(); };
+  }, [mounted, videoUrl]);
+
+  useEffect(() => {
     if (!mounted) return;
 
     let cancelled = false;
@@ -81,7 +117,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
     setVideoReady(false);
     setVideoUrl('');
 
-    if (directVideoUrl && directVideoUrl.startsWith('/api/')) {
+    if (directVideoUrl) {
       setVideoUrl(directVideoUrl);
       return;
     }
@@ -92,18 +128,20 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
       const eventTypes = getEventFallbacks(resolvedEventType);
       for (const nextEventType of eventTypes) {
         const cacheKey = `${nextEventType}:${avatarUrl}`;
-        const cached = resolvedVideoCache.get(cacheKey);
+        const cached = cachedVideo(cacheKey);
         if (cached) {
           if (!cancelled) setVideoUrl(cached);
           return;
         }
 
         try {
-          const response = await fetch(`/api/avatar-animation-video?eventType=${encodeURIComponent(nextEventType)}&avatarUrl=${encodeURIComponent(avatarUrl)}&v=3`, { cache: 'force-cache' });
+          const response = await fetch(`/api/avatar-animation-video?eventType=${encodeURIComponent(nextEventType)}&avatarUrl=${encodeURIComponent(avatarUrl)}&v=4`, { cache: 'force-cache' });
           const result = await response.json().catch(() => ({}));
-          const nextUrl = result?.available && result?.videoUrl ? String(result.videoUrl) : '';
+          const direct = typeof result?.directUrl === 'string' && result.directUrl.startsWith('http') ? result.directUrl : '';
+          const proxy = result?.available && result?.videoUrl ? String(result.videoUrl) : '';
+          const nextUrl = direct || proxy;
           if (nextUrl) {
-            resolvedVideoCache.set(cacheKey, nextUrl);
+            rememberVideo(cacheKey, nextUrl);
             if (!cancelled) setVideoUrl(nextUrl);
             return;
           }
@@ -127,8 +165,8 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
     <div className={cn('relative flex items-center justify-center overflow-hidden bg-transparent', className)} suppressHydrationWarning>
       {fallbackContent}
       {mounted && videoUrl && !failed && (
-        <div className={cn('absolute inset-0 z-20 transition-opacity duration-100', videoReady ? 'opacity-100' : 'opacity-0')}>
-          <FastAvatarVideo src={videoUrl} label={label} onReady={() => setVideoReady(true)} onError={() => setFailed(true)} />
+        <div className={cn('absolute inset-0 z-20 transition-opacity duration-75', videoReady ? 'opacity-100' : 'opacity-0')}>
+          <FastAvatarVideo src={videoUrl} poster={imageFallback} label={label} onReady={() => setVideoReady(true)} onError={() => setFailed(true)} />
         </div>
       )}
       <div className="pointer-events-none absolute inset-0 z-30 rounded-[inherit] ring-1 ring-inset ring-white/70" />

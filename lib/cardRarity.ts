@@ -30,7 +30,11 @@ export function getCardRarity(value: unknown): CardRarity {
   return isCardRarity(configRarity) ? configRarity : 'comum';
 }
 
-export function getCardRarityFrameUrl(rarity: unknown) {
+export function getCardRarityFrameKey(rarity: unknown) {
   const safeRarity = getCardRarity(rarity);
-  return `/api/r2-file?key=atuem%2FMolduras%2FRaridades%2Fmoldura_${safeRarity}.png`;
+  return `atuem/atuem/Molduras/Raridades/moldura_${safeRarity}.png`;
+}
+
+export function getCardRarityFrameUrl(rarity: unknown) {
+  return `/api/r2-file?key=${encodeURIComponent(getCardRarityFrameKey(rarity))}`;
 }

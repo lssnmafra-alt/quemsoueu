@@ -112,6 +112,8 @@ export default function AvatarAnimationShowcase({ player, eventType, title, subt
 function AvatarVideoPlayer({ src, player, eventType, className }: { src: string; player?: any; eventType: AnimationEventType; className?: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [ready, setReady] = useState(false);
+  const [activeSrc, setActiveSrc] = useState(src);
+  const [fallbackUsed, setFallbackUsed] = useState(false);
   const label = eventType === 'victory' ? 'Vídeo de vitória' : eventType === 'defeat' ? 'Vídeo de derrota' : 'Vídeo de entrada';
   const poster = resolvePoster(player?.avatar_url);
 
@@ -130,30 +132,53 @@ function AvatarVideoPlayer({ src, player, eventType, className }: { src: string;
     video?.play?.().catch(() => null);
   };
 
+  const useMp4Fallback = () => {
+    if (fallbackUsed) return;
+    const fallback = mp4FallbackFor(activeSrc);
+    if (!fallback || fallback === activeSrc) return;
+    setFallbackUsed(true);
+    setReady(false);
+    setActiveSrc(fallback);
+  };
+
+  useEffect(() => {
+    setActiveSrc(src);
+    setFallbackUsed(false);
+    setReady(false);
+  }, [src]);
+
   useEffect(() => {
     const video = videoRef.current;
     forceMuted();
     if (video) {
-      video.preload = 'metadata';
+      video.preload = 'auto';
       video.load();
       video.play?.().catch(() => null);
     }
-    const timer = window.setTimeout(() => setReady(true), 300);
+    const timer = window.setTimeout(() => {
+      const current = videoRef.current;
+      if (current && current.readyState < 2 && activeSrc.toLowerCase().includes('.webm')) {
+        useMp4Fallback();
+      } else {
+        setReady(true);
+      }
+    }, 900);
     return () => window.clearTimeout(timer);
-  }, [src]);
+  }, [activeSrc]);
 
   return (
     <div className={cn('relative flex items-center justify-center overflow-hidden rounded-3xl border-4 border-indigo-100 bg-white shadow-inner', className)}>
       <div className="relative flex h-full max-h-full aspect-[2/3] items-center justify-center overflow-hidden rounded-2xl bg-white">
         <video
           ref={videoRef}
-          src={src}
+          key={activeSrc}
+          src={activeSrc}
           poster={poster || undefined}
           autoPlay
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="auto"
           controls={false}
           disablePictureInPicture
           onLoadedMetadata={startFast}
@@ -161,6 +186,7 @@ function AvatarVideoPlayer({ src, player, eventType, className }: { src: string;
           onPlay={forceMuted}
           onLoadedData={startFast}
           onCanPlay={startFast}
+          onError={useMp4Fallback}
           className="h-full w-full bg-white object-contain"
         />
       </div>
@@ -211,6 +237,12 @@ function resolvePoster(avatarUrl: string) {
   } catch {
     return '';
   }
+}
+
+function mp4FallbackFor(src: string) {
+  const value = String(src || '').trim();
+  if (!value.toLowerCase().includes('.webm')) return '';
+  return value.replace(/\.webm/gi, '.mp4');
 }
 
 function slugFromAvatarUrl(avatarUrl: string) {

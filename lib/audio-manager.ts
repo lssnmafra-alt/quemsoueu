@@ -32,6 +32,15 @@ export type CurrentMusicInfo = {
   mood?: string;
 };
 
+type AudioSession = {
+  track: MusicTrack | null;
+  info: CurrentMusicInfo | null;
+  currentTime: number;
+  paused: boolean;
+  rate: number;
+  history: CurrentMusicInfo[];
+};
+
 const DEFAULT_PREFS: AudioPrefs = {
   musicEnabled: true,
   sfxEnabled: true,
@@ -44,6 +53,7 @@ const STORAGE_KEY = 'mata-mata-audio-prefs';
 const PROFILE_STORAGE_KEY = 'quemSouEu:profile';
 const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
 const MUSIC_BLOCKED_TRACKS_KEY = 'quemSouEu:musicBlockedTracks';
+const MUSIC_SESSION_KEY = 'quemSouEu:musicSession';
 const NOW_PLAYING_EVENT = 'quemSouEu:music-track';
 const DEFAULT_MUSIC_GENRES = ['Disco', 'Kpop', 'Rock'];
 
@@ -64,13 +74,17 @@ export class AudioManager {
   private musicRequestId = 0;
   private musicPaused = false;
   private musicHistory: CurrentMusicInfo[] = [];
+  private restoredMusicTime = 0;
+  private lastSessionSaveAt = 0;
   public prefs: AudioPrefs = DEFAULT_PREFS;
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.prefs = this.loadPrefs();
+      this.restoreSession();
       this.installGestureUnlock();
       this.installButtonSfx();
+      this.installSessionPersistence();
     }
   }
 
@@ -91,6 +105,11 @@ export class AudioManager {
     this.ensureContext();
     if (this.ctx?.state === 'suspended') void this.ctx.resume();
 
+    if (this.currentMusicInfo?.url && this.prefs.musicEnabled && !this.prefs.muted && !this.music) {
+      void this.startResolvedMusic(this.currentMusicInfo, 'restored-session', this.restoredMusicTime);
+      return;
+    }
+
     if (this.activeMusicTrack && this.prefs.musicEnabled && !this.music) {
       void this.playMusic(this.activeMusicTrack);
     }
@@ -107,8 +126,8 @@ export class AudioManager {
     this.prefs.muted = false;
     this.savePrefs();
 
-    if (enabled) void this.playMusic(this.activeMusicTrack || 'lobby-theme');
-    else this.stopMusic();
+    if (enabled) this.resumeMusic();
+    else this.stopMusic(false);
   }
 
   async playMusic(track: MusicTrack, options: PlayMusicOptions = {}) {
@@ -122,13 +141,27 @@ export class AudioManager {
     const nextGenreKey = `${nextGenres.join('|')}::blocked:${excludedKeys.join('|')}`;
     this.activeMusicTrack = track;
 
-    if (this.prefs.muted || !this.prefs.musicEnabled) return;
+    if (this.prefs.muted || !this.prefs.musicEnabled) {
+      this.saveSession();
+      return;
+    }
+
+    if (!options.force) {
+      if (this.music) {
+        this.saveSession();
+        return;
+      }
+
+      if (this.currentMusicInfo?.url) {
+        await this.startResolvedMusic(this.currentMusicInfo, 'persisted-session', this.restoredMusicTime);
+        return;
+      }
+    }
+
     if (!options.force && this.music && previousTrack === track && this.music.dataset.genreKey === nextGenreKey) return;
 
     const requestId = ++this.musicRequestId;
     const previousInfo = this.currentMusicInfo;
-    this.stopHtmlMusicOnly();
-
     const trackInfo = await this.resolveLicensedTrack(track, nextGenres, excludedKeys);
     if (requestId !== this.musicRequestId || !trackInfo?.url || this.prefs.muted || !this.prefs.musicEnabled) return;
 
@@ -136,14 +169,20 @@ export class AudioManager {
       this.pushMusicHistory(previousInfo);
     }
 
-    await this.startResolvedMusic(trackInfo, nextGenreKey);
+    this.stopHtmlMusicOnly();
+    await this.startResolvedMusic(trackInfo, nextGenreKey, 0);
   }
 
   stopMusic(clearTrack = true) {
     this.musicRequestId += 1;
     this.stopHtmlMusicOnly();
     this.musicPaused = false;
-    if (clearTrack) this.activeMusicTrack = null;
+    if (clearTrack) {
+      this.activeMusicTrack = null;
+      this.currentMusicInfo = null;
+      this.restoredMusicTime = 0;
+    }
+    this.saveSession();
   }
 
   pauseMusic() {
@@ -151,6 +190,7 @@ export class AudioManager {
     if (!this.music) return;
     this.music.pause();
     this.musicPaused = true;
+    this.saveSession();
   }
 
   resumeMusic() {
@@ -162,11 +202,17 @@ export class AudioManager {
     if (this.music) {
       void this.music.play().then(() => {
         this.musicPaused = false;
+        this.saveSession();
       }).catch(() => {});
       return;
     }
 
-    void this.playMusic(this.activeMusicTrack || this.currentMusicInfo?.mood || 'lobby-theme', { force: true, pushHistory: false });
+    if (this.currentMusicInfo?.url) {
+      void this.startResolvedMusic(this.currentMusicInfo, 'resume-session', this.restoredMusicTime);
+      return;
+    }
+
+    void this.playMusic(this.activeMusicTrack || 'lobby-theme', { force: true, pushHistory: false });
   }
 
   toggleMusicPause() {
@@ -195,7 +241,7 @@ export class AudioManager {
     if (previous?.url) {
       this.musicRequestId += 1;
       this.stopHtmlMusicOnly();
-      await this.startResolvedMusic(previous, 'manual-previous');
+      await this.startResolvedMusic(previous, 'manual-previous', 0);
       return;
     }
 
@@ -203,6 +249,7 @@ export class AudioManager {
       this.music.currentTime = 0;
       await this.music.play().catch(() => {});
       this.musicPaused = false;
+      this.saveSession();
       return;
     }
 
@@ -231,6 +278,7 @@ export class AudioManager {
 
     this.musicRate = nextRate;
     if (this.music) this.music.playbackRate = nextRate;
+    this.saveSession();
   }
 
   setMusicVolume(value: number) {
@@ -248,7 +296,7 @@ export class AudioManager {
     this.initFromUserGesture();
     this.prefs.musicEnabled = enabled;
     this.savePrefs();
-    if (enabled) void this.playMusic(this.activeMusicTrack || 'lobby-theme');
+    if (enabled) this.resumeMusic();
     else this.stopMusic(false);
   }
 
@@ -260,15 +308,19 @@ export class AudioManager {
 
   muteAll() {
     this.prefs.muted = true;
-    this.stopMusic(false);
+    if (this.music) {
+      this.music.pause();
+      this.musicPaused = true;
+    }
     this.savePrefs();
+    this.saveSession();
   }
 
   unmuteAll() {
     this.initFromUserGesture();
     this.prefs.muted = false;
     this.savePrefs();
-    if (this.activeMusicTrack) void this.playMusic(this.activeMusicTrack);
+    this.resumeMusic();
   }
 
   private async resolveLicensedTrack(track: MusicTrack, genres: string[], blockedTracks: string[]): Promise<CurrentMusicInfo | null> {
@@ -293,8 +345,10 @@ export class AudioManager {
     }
   }
 
-  private async startResolvedMusic(trackInfo: CurrentMusicInfo, genreKey: string) {
+  private async startResolvedMusic(trackInfo: CurrentMusicInfo, genreKey: string, startAt = 0) {
     this.emitMusicInfo(trackInfo);
+    this.restoredMusicTime = Number.isFinite(startAt) && startAt > 0 ? startAt : 0;
+    this.saveSession();
 
     if (!this.hasUserGesture) return;
 
@@ -304,6 +358,22 @@ export class AudioManager {
     audio.playbackRate = this.musicRate;
     audio.dataset.genreKey = genreKey;
     audio.addEventListener('error', () => this.stopHtmlMusicOnly(), { once: true });
+    audio.addEventListener('timeupdate', () => this.saveSessionThrottled());
+    audio.addEventListener('pause', () => {
+      this.musicPaused = true;
+      this.saveSession();
+    });
+    audio.addEventListener('play', () => {
+      this.musicPaused = false;
+      this.saveSession();
+    });
+
+    if (this.restoredMusicTime > 0) {
+      const restoreTime = this.restoredMusicTime;
+      audio.addEventListener('loadedmetadata', () => {
+        if (Number.isFinite(audio.duration) && audio.duration > restoreTime) audio.currentTime = restoreTime;
+      }, { once: true });
+    }
 
     this.music = audio;
     this.activeMusicUrl = trackInfo.url;
@@ -311,6 +381,7 @@ export class AudioManager {
     try {
       await audio.play();
       this.musicPaused = false;
+      this.saveSession();
     } catch {
       this.stopHtmlMusicOnly();
     }
@@ -321,6 +392,7 @@ export class AudioManager {
     const last = this.musicHistory[this.musicHistory.length - 1];
     if (last?.url === info.url) return;
     this.musicHistory = [...this.musicHistory.slice(-8), info];
+    this.saveSession();
   }
 
   private getMusicGenres() {
@@ -384,7 +456,7 @@ export class AudioManager {
     if (typeof window === 'undefined') return;
     const unlock = () => {
       this.initFromUserGesture();
-      if (this.activeMusicTrack) void this.playMusic(this.activeMusicTrack);
+      if (this.activeMusicTrack && !this.currentMusicInfo?.url) void this.playMusic(this.activeMusicTrack);
     };
     window.addEventListener('pointerdown', unlock, { once: true, passive: true });
     window.addEventListener('keydown', unlock, { once: true });
@@ -404,6 +476,13 @@ export class AudioManager {
     );
   }
 
+  private installSessionPersistence() {
+    if (typeof window === 'undefined') return;
+    window.addEventListener('pagehide', () => this.saveSession());
+    window.addEventListener('beforeunload', () => this.saveSession());
+    document.addEventListener('visibilitychange', () => this.saveSession());
+  }
+
   private ensureContext() {
     if (this.ctx || typeof window === 'undefined') return;
     try {
@@ -415,10 +494,67 @@ export class AudioManager {
 
   private stopHtmlMusicOnly() {
     if (this.music) {
+      this.restoredMusicTime = this.getMusicCurrentTime();
       this.music.pause();
       this.music.src = '';
       this.music = null;
       this.activeMusicUrl = '';
+    }
+  }
+
+  private getMusicCurrentTime() {
+    if (!this.music) return this.restoredMusicTime;
+    const time = this.music.currentTime;
+    return Number.isFinite(time) && time >= 0 ? time : 0;
+  }
+
+  private saveSessionThrottled() {
+    const now = Date.now();
+    if (now - this.lastSessionSaveAt < 1500) return;
+    this.lastSessionSaveAt = now;
+    this.saveSession();
+  }
+
+  private saveSession() {
+    if (typeof window === 'undefined') return;
+
+    const info = this.currentMusicInfo;
+    if (!info?.url) {
+      window.localStorage.removeItem(MUSIC_SESSION_KEY);
+      return;
+    }
+
+    const session: AudioSession = {
+      track: this.activeMusicTrack || info.mood || 'lobby-theme',
+      info,
+      currentTime: this.getMusicCurrentTime(),
+      paused: this.musicPaused,
+      rate: this.musicRate,
+      history: this.musicHistory.slice(-8),
+    };
+
+    try {
+      window.localStorage.setItem(MUSIC_SESSION_KEY, JSON.stringify(session));
+    } catch {}
+  }
+
+  private restoreSession() {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const raw = window.localStorage.getItem(MUSIC_SESSION_KEY);
+      if (!raw) return;
+      const session = JSON.parse(raw) as Partial<AudioSession>;
+      if (!session?.info?.url) return;
+
+      this.currentMusicInfo = session.info;
+      this.activeMusicTrack = session.track || session.info.mood || 'lobby-theme';
+      this.restoredMusicTime = Number.isFinite(session.currentTime) ? Math.max(0, Number(session.currentTime)) : 0;
+      this.musicPaused = Boolean(session.paused);
+      this.musicRate = Number.isFinite(session.rate) ? Math.max(0.75, Math.min(1.35, Number(session.rate))) : 1;
+      this.musicHistory = Array.isArray(session.history) ? session.history.filter((item) => item?.url).slice(-8) : [];
+    } catch {
+      window.localStorage.removeItem(MUSIC_SESSION_KEY);
     }
   }
 

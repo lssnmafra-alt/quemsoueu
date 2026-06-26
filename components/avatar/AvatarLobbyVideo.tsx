@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabaseGame } from '@/lib/supabase';
@@ -23,6 +23,8 @@ const CHROMA_KEYS: Record<ChromaKeyId, { rgb: [number, number, number]; toleranc
   azul: { rgb: [0, 107, 255], tolerance: 86, spill: 46 },
   vermelho: { rgb: [255, 0, 51], tolerance: 86, spill: 46 },
 };
+
+const resolvedVideoCache = new Map<string, string>();
 
 function colorDistance(red: number, green: number, blue: number, target: [number, number, number]) {
   const dr = red - target[0];
@@ -120,9 +122,10 @@ function removeConnectedBackground(frame: ImageData, chromaKeyId: ChromaKeyId) {
   }
 }
 
-function KeyedVideo({ src, label, chromaKeyId, onError }: { src: string; label: string; chromaKeyId: ChromaKeyId; onError: () => void }) {
+function KeyedVideo({ src, label, chromaKeyId, onError, onReady }: { src: string; label: string; chromaKeyId: ChromaKeyId; onError: () => void; onReady: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const readyRef = useRef(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -134,8 +137,9 @@ function KeyedVideo({ src, label, chromaKeyId, onError }: { src: string; label: 
 
     let animationFrame = 0;
     let stopped = false;
+    let firstFrameRendered = false;
 
-    const render = () => {
+    const paint = () => {
       if (stopped) return;
 
       if (video.videoWidth && video.videoHeight) {
@@ -147,40 +151,51 @@ function KeyedVideo({ src, label, chromaKeyId, onError }: { src: string; label: 
         try {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
           const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
           removeConnectedBackground(frame, chromaKeyId);
           ctx.putImageData(frame, 0, 0);
+          if (!firstFrameRendered) {
+            firstFrameRendered = true;
+            readyRef.current = true;
+            onReady();
+          }
         } catch {
           onError();
           return;
         }
       }
 
-      animationFrame = requestAnimationFrame(render);
+      animationFrame = requestAnimationFrame(paint);
     };
 
     const start = () => {
-      video.play().catch(() => {});
-      render();
+      video.play().catch(() => null);
+      paint();
     };
 
+    const timers = [0, 120, 360, 800, 1400].map((delay) => window.setTimeout(start, delay));
+    video.addEventListener('loadedmetadata', start);
     video.addEventListener('loadeddata', start);
-    video.addEventListener('play', render);
+    video.addEventListener('canplay', start);
+    video.addEventListener('playing', start);
     video.addEventListener('error', onError);
+    video.load();
 
     return () => {
       stopped = true;
       cancelAnimationFrame(animationFrame);
+      timers.forEach((timer) => window.clearTimeout(timer));
+      video.removeEventListener('loadedmetadata', start);
       video.removeEventListener('loadeddata', start);
-      video.removeEventListener('play', render);
+      video.removeEventListener('canplay', start);
+      video.removeEventListener('playing', start);
       video.removeEventListener('error', onError);
     };
-  }, [src, chromaKeyId, onError]);
+  }, [src, chromaKeyId, onError, onReady]);
 
   return (
     <>
-      <video ref={videoRef} src={src} autoPlay loop muted playsInline preload="auto" crossOrigin="anonymous" className="hidden" aria-hidden="true" />
+      <video ref={videoRef} src={src} autoPlay loop muted playsInline preload="auto" crossOrigin="anonymous" className="pointer-events-none absolute h-px w-px opacity-0" aria-hidden="true" />
       <canvas ref={canvasRef} aria-label={label} className="relative z-10 h-full w-full scale-[1.08] object-cover" />
     </>
   );
@@ -191,6 +206,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
   const [isHome, setIsHome] = useState(false);
   const [videoUrl, setVideoUrl] = useState('');
   const [failed, setFailed] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
   const [chromaKeyId, setChromaKeyId] = useState<ChromaKeyId>('branco');
 
   useEffect(() => {
@@ -229,6 +245,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
 
     let cancelled = false;
     setFailed(false);
+    setVideoReady(false);
     setVideoUrl('');
 
     if (directVideoUrl && directVideoUrl.startsWith('/api/')) {
@@ -239,18 +256,38 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
     if (!avatarUrl) return;
 
     async function loadVideo() {
-      try {
-        const response = await fetch(`/api/avatar-animation-video?eventType=${encodeURIComponent(resolvedEventType)}&avatarUrl=${encodeURIComponent(avatarUrl)}`, { cache: 'no-store' });
-        const result = await response.json().catch(() => ({}));
-        if (!cancelled && result?.available && result?.videoUrl) setVideoUrl(result.videoUrl);
-      } catch {
-        if (!cancelled) setFailed(true);
+      const eventTypes = getEventFallbacks(resolvedEventType);
+      for (const nextEventType of eventTypes) {
+        const cacheKey = `${nextEventType}:${avatarUrl}`;
+        const cached = resolvedVideoCache.get(cacheKey);
+        if (cached) {
+          if (!cancelled) setVideoUrl(cached);
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/avatar-animation-video?eventType=${encodeURIComponent(nextEventType)}&avatarUrl=${encodeURIComponent(avatarUrl)}&v=2`, { cache: 'force-cache' });
+          const result = await response.json().catch(() => ({}));
+          const nextUrl = result?.available && result?.videoUrl ? String(result.videoUrl) : '';
+          if (nextUrl) {
+            resolvedVideoCache.set(cacheKey, nextUrl);
+            if (!cancelled) setVideoUrl(nextUrl);
+            return;
+          }
+        } catch {}
       }
+
+      if (!cancelled) setFailed(true);
     }
 
     void loadVideo();
     return () => { cancelled = true; };
   }, [avatarUrl, directVideoUrl, mounted, resolvedEventType]);
+
+  const handleVideoError = useCallback(() => {
+    setFailed(true);
+    setVideoReady(false);
+  }, []);
 
   const fallbackContent = imageFallback ? (
     <img src={imageFallback} alt={label} referrerPolicy="no-referrer" className="relative z-10 h-full w-full object-cover" suppressHydrationWarning />
@@ -260,12 +297,22 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
 
   return (
     <div className={cn('relative flex items-center justify-center overflow-hidden bg-transparent', className)} suppressHydrationWarning>
-      {mounted && videoUrl && !failed ? (
-        <KeyedVideo src={videoUrl} label={label} chromaKeyId={chromaKeyId} onError={() => setFailed(true)} />
-      ) : fallbackContent}
-      <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/70" />
+      {fallbackContent}
+      {mounted && videoUrl && !failed && (
+        <div className={cn('absolute inset-0 z-20 transition-opacity duration-200', videoReady ? 'opacity-100' : 'opacity-0')}>
+          <KeyedVideo src={videoUrl} label={label} chromaKeyId={chromaKeyId} onError={handleVideoError} onReady={() => setVideoReady(true)} />
+        </div>
+      )}
+      <div className="pointer-events-none absolute inset-0 z-30 rounded-[inherit] ring-1 ring-inset ring-white/70" />
     </div>
   );
+}
+
+function getEventFallbacks(eventType: AvatarVideoEventType): AvatarVideoEventType[] {
+  if (eventType === 'home') return ['home', 'lobby', 'intro'];
+  if (eventType === 'lobby') return ['lobby', 'home', 'intro'];
+  if (eventType === 'intro') return ['intro', 'lobby', 'home'];
+  return [eventType];
 }
 
 function resolveAvatarImageUrl(avatarUrl: string) {

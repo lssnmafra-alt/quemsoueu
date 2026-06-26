@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAuthServer } from '@/lib/supabaseAdmin';
+import { isProjectAdmin } from '@/lib/admin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -9,19 +10,25 @@ const DEFAULT_SKIN_PRICE = 100;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const userId = String(body.userId || '').trim();
+    const userId = String(body.userId || body.targetUserId || '').trim();
+    const adminId = String(body.adminId || body.requestedBy || '').trim();
     const skinId = String(body.skinId || '').trim();
-    const source = String(body.source || 'reward').trim() || 'reward';
+    const source = String(body.source || 'admin').trim() || 'admin';
+
+    if (!isProjectAdmin(adminId)) {
+      return NextResponse.json({ error: 'Apenas ADM pode liberar skins manualmente.' }, { status: 403 });
+    }
 
     if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
 
     const db = getSupabaseAuthServer();
     const skin = isUuid(skinId) ? await readSkinById(db, skinId) : await ensureSkinFromPayload(db, body);
     if (!skin?.id) return NextResponse.json({ error: 'Skin invalida.' }, { status: 400 });
+    if (skin.is_active === false) return NextResponse.json({ error: 'Skin indisponivel.' }, { status: 404 });
 
     const result = await db
       .from('user_avatar_unlocks')
-      .upsert({ user_id: userId, avatar_skin_id: skin.id, source, metadata: { granted_by_api: true } }, { onConflict: 'user_id,avatar_skin_id' })
+      .upsert({ user_id: userId, avatar_skin_id: skin.id, source, metadata: { granted_by_admin: adminId } }, { onConflict: 'user_id,avatar_skin_id' })
       .select('avatar_skin_id')
       .maybeSingle();
 
@@ -73,5 +80,5 @@ async function ensureSkinFromPayload(db: any, body: any) {
 }
 
 function isUuid(value: string) {
-  return value.length === 36 && value.includes('-');
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }

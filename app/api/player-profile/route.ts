@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getPublicEnvValue } from '@/lib/publicEnv';
-import { getSupabaseAuthServer, hasSupabaseAuthServiceRole } from '@/lib/supabaseAdmin';
+import { getSupabaseAuthServer, getSupabaseGameServer, hasSupabaseAuthServiceRole } from '@/lib/supabaseAdmin';
 
 const DEFAULT_PLAYER_EMOJI = '🙂';
 
@@ -10,6 +10,9 @@ const PROFILE_SELECT_SAFE =
 
 const PROFILE_SELECT_WITH_AVATAR_SET =
   'id,email,nickname,emoji,avatar_url,avatar_animation_set_id,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,is_admin,updated_at,created_at';
+
+const GAME_PROFILE_SELECT =
+  'id,nickname,emoji,avatar_url,avatar_animation_set_id,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,is_admin,updated_at';
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,7 +23,7 @@ export async function GET(req: NextRequest) {
     }
 
     const db = client(req);
-    const profile = await readProfile(db, userId);
+    const profile = (await readProfile(db, userId)) || (await readGameProfile(userId));
 
     return NextResponse.json({ profile: normalizeProfile(profile) });
   } catch (error: any) {
@@ -46,7 +49,7 @@ export async function POST(req: NextRequest) {
     }
 
     const db = client(req);
-    const current = await readProfile(db, id);
+    const current = (await readProfile(db, id)) || (await readGameProfile(id));
 
     const wantedNick = nickKey(nickname);
 
@@ -75,7 +78,7 @@ export async function POST(req: NextRequest) {
       cleanText(body.avatar_animation_set_id || body.avatarAnimationSetId) ||
       cleanText(current?.avatar_animation_set_id);
 
-    const isGuest = Boolean(body.is_guest ?? body.isGuest);
+    const isGuest = Boolean(body.is_guest ?? body.isGuest ?? current?.is_guest);
 
     const wantsCompleted = Boolean(body.profile_completed ?? body.profileCompleted ?? true);
     const profileCompleted = Boolean(wantsCompleted && nickname && avatarUrl);
@@ -87,24 +90,27 @@ export async function POST(req: NextRequest) {
         cleanEmail(body.email || body.user_email || body.userEmail) ||
         (isGuest ? `guest_${id}@guest.com` : `player_${id}@quemsoueu.local`),
       nickname,
-      emoji: cleanEmoji(body.emoji || body.playerEmoji),
+      emoji: cleanEmoji(body.emoji || body.playerEmoji || current?.emoji),
       avatar_url: avatarUrl || null,
       avatar_animation_set_id: avatarSetId || null,
-      music_genres: cleanList(body.music_genres || body.musicGenres, 8),
-      music_blocked_tracks: cleanList(body.music_blocked_tracks || body.musicBlockedTracks, 300),
+      music_genres: cleanList(body.music_genres || body.musicGenres || current?.music_genres, 8),
+      music_blocked_tracks: cleanList(body.music_blocked_tracks || body.musicBlockedTracks || current?.music_blocked_tracks, 300),
       profile_completed: profileCompleted,
       is_guest: isGuest,
       updated_at: new Date().toISOString(),
     };
 
     const data = await upsertProfile(db, payload);
-
-    return NextResponse.json({
-      profile: normalizeProfile({
-        ...data,
-        avatar_animation_set_id: data?.avatar_animation_set_id || avatarSetId || null,
-      }),
+    const normalized = normalizeProfile({
+      ...data,
+      avatar_animation_set_id: data?.avatar_animation_set_id || avatarSetId || null,
     });
+
+    await syncGameProfile(normalized).catch((error) => {
+      console.warn('Game profile sync skipped:', error?.message || error);
+    });
+
+    return NextResponse.json({ profile: normalized });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Nao foi possivel salvar o perfil.' },
@@ -139,6 +145,18 @@ async function readProfile(db: any, id: string) {
   };
 }
 
+async function readGameProfile(id: string) {
+  try {
+    const db = getSupabaseGameServer();
+    const { data, error } = await db.from('profiles').select(GAME_PROFILE_SELECT).eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data ? { ...data, email: '', created_at: data.updated_at || null } : null;
+  } catch (error) {
+    console.warn('Game profile read skipped:', error);
+    return null;
+  }
+}
+
 async function upsertProfile(db: any, payload: any) {
   const withAvatarSet = await db
     .from('profiles')
@@ -166,6 +184,27 @@ async function upsertProfile(db: any, payload: any) {
     ...(safe.data || {}),
     avatar_animation_set_id: payload.avatar_animation_set_id || null,
   };
+}
+
+async function syncGameProfile(profile: any) {
+  if (!profile?.id || !isUuid(profile.id)) return;
+
+  const db = getSupabaseGameServer();
+  const payload = {
+    id: profile.id,
+    nickname: cleanText(profile.nickname || 'Jogador').slice(0, 16) || 'Jogador',
+    emoji: cleanEmoji(profile.emoji),
+    avatar_url: cleanAvatar(profile.avatar_url) || null,
+    avatar_animation_set_id: cleanText(profile.avatar_animation_set_id) || null,
+    music_genres: cleanList(profile.music_genres, 8),
+    music_blocked_tracks: cleanList(profile.music_blocked_tracks, 300),
+    profile_completed: Boolean(profile.profile_completed && profile.avatar_url),
+    is_guest: Boolean(profile.is_guest),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await db.from('profiles').upsert(payload, { onConflict: 'id' });
+  if (error) throw error;
 }
 
 function client(req: NextRequest) {
@@ -213,7 +252,7 @@ function normalizeProfile(profile: any) {
 
 function isAvatarSetSchemaError(error: any) {
   const message = String(error?.message || error?.details || '').toLowerCase();
-  return Boolean(error) && message.includes('avatar_animation_set_id') && message.includes('schema');
+  return Boolean(error) && message.includes('avatar_animation_set_id') && (message.includes('schema') || message.includes('column'));
 }
 
 function cleanList(value: unknown, max: number) {
@@ -262,5 +301,5 @@ function cleanId(value: unknown) {
 }
 
 function isUuid(value: string) {
-  return value.length === 36 && value.includes('-');
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }

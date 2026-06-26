@@ -9,6 +9,9 @@ export const revalidate = 0;
 const PROFILE_SELECT_SAFE =
   'id,email,nickname,emoji,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,is_admin,updated_at,created_at';
 
+const PROFILE_SELECT_WITH_AVATAR_SET =
+  'id,email,nickname,emoji,avatar_url,avatar_animation_set_id,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,is_admin,updated_at,created_at';
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -88,7 +91,7 @@ export async function POST(req: NextRequest) {
       }),
     );
 
-    const profile = await setProfileAvatar(db, userId, avatarUrl, skinId);
+    const profile = await persistProfileAvatar(db, userId, avatarUrl, skinId);
 
     return NextResponse.json({
       ok: true,
@@ -97,6 +100,7 @@ export async function POST(req: NextRequest) {
         ...(profile || {}),
         avatar_url: avatarUrl,
         avatar_animation_set_id: skinId,
+        profile_completed: true,
       },
     });
   } catch (error: any) {
@@ -109,36 +113,76 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function setProfileAvatar(db: any, userId: string, avatarUrl: string, skinId: string) {
-  const rpc = await db.rpc('set_profile_avatar', {
-    p_user_id: userId,
-    p_avatar_url: avatarUrl,
-    p_avatar_animation_set_id: skinId,
-  });
+async function persistProfileAvatar(db: any, userId: string, avatarUrl: string, skinId: string) {
+  const payload = {
+    avatar_url: avatarUrl,
+    avatar_animation_set_id: skinId,
+    profile_completed: true,
+    updated_at: new Date().toISOString(),
+  };
 
-  if (!rpc.error && rpc.data) {
-    return Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
-  }
-
-  const safe = await db
+  const updated = await db
     .from('profiles')
-    .update({
-      avatar_url: avatarUrl,
-      profile_completed: true,
-      updated_at: new Date().toISOString(),
-    })
+    .update(payload)
+    .eq('id', userId)
+    .select(PROFILE_SELECT_WITH_AVATAR_SET)
+    .maybeSingle();
+
+  if (!updated.error && updated.data) return updated.data;
+  if (updated.error && !isAvatarSetSchemaError(updated.error)) throw updated.error;
+
+  const safePayload = { ...payload } as any;
+  delete safePayload.avatar_animation_set_id;
+
+  const safeUpdated = await db
+    .from('profiles')
+    .update(safePayload)
     .eq('id', userId)
     .select(PROFILE_SELECT_SAFE)
     .maybeSingle();
 
-  if (safe.error) throw safe.error;
+  if (!safeUpdated.error && safeUpdated.data) {
+    return { ...safeUpdated.data, avatar_animation_set_id: skinId };
+  }
 
-  return {
-    ...(safe.data || {}),
-    avatar_animation_set_id: skinId,
+  if (safeUpdated.error) throw safeUpdated.error;
+
+  const createPayload = {
+    id: userId,
+    email: `player_${userId}@quemsoueu.local`,
+    nickname: 'Jogador',
+    emoji: '🙂',
+    is_guest: true,
+    ...payload,
   };
+
+  const inserted = await db
+    .from('profiles')
+    .upsert(createPayload, { onConflict: 'id' })
+    .select(PROFILE_SELECT_WITH_AVATAR_SET)
+    .maybeSingle();
+
+  if (!inserted.error) return inserted.data;
+  if (!isAvatarSetSchemaError(inserted.error)) throw inserted.error;
+
+  const safeCreatePayload = { ...createPayload } as any;
+  delete safeCreatePayload.avatar_animation_set_id;
+
+  const safeInserted = await db
+    .from('profiles')
+    .upsert(safeCreatePayload, { onConflict: 'id' })
+    .select(PROFILE_SELECT_SAFE)
+    .maybeSingle();
+
+  if (safeInserted.error) throw safeInserted.error;
+  return { ...(safeInserted.data || {}), avatar_animation_set_id: skinId };
+}
+
+function isAvatarSetSchemaError(error: any) {
+  const message = String(error?.message || error?.details || '').toLowerCase();
+  return Boolean(error) && message.includes('avatar_animation_set_id') && (message.includes('schema') || message.includes('column'));
 }
 
 function isUuid(value: string) {
-  return value.length === 36 && value.includes('-');
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }

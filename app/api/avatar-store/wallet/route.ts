@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAuthServer } from '@/lib/supabaseAdmin';
+import { isProjectAdmin } from '@/lib/admin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -20,11 +21,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const userId = String(body.userId || '').trim();
+    const userId = String(body.userId || body.targetUserId || '').trim();
+    const adminId = String(body.adminId || body.requestedBy || '').trim();
     const amount = Number(body.amount || 0);
 
+    if (!isProjectAdmin(adminId)) {
+      return NextResponse.json({ error: 'Apenas ADM pode alterar moedas.' }, { status: 403 });
+    }
+
     if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
-    if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: 'Quantidade invalida.' }, { status: 400 });
+    if (!Number.isFinite(amount) || amount === 0) return NextResponse.json({ error: 'Quantidade invalida.' }, { status: 400 });
 
     const db = getSupabaseAuthServer();
     const current = await db.from('user_wallets').select('coins').eq('user_id', userId).maybeSingle();
@@ -40,10 +46,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, wallet: { coins: Number(result.data?.coins || coins) } });
   } catch (error: any) {
     console.error('Avatar wallet error:', error);
-    return NextResponse.json({ error: error.message || 'Nao foi possivel inserir moedas.' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Nao foi possivel alterar moedas.' }, { status: 500 });
   }
 }
 
 function isUuid(value: string) {
-  return value.length === 36 && value.includes('-');
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }

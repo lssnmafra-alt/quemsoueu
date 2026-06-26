@@ -13,13 +13,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ filenam
     const originalKey = decodeURIComponent(req.nextUrl.searchParams.get('key') || '').trim();
 
     if (!isSafeVideoKey(originalKey)) {
-      return NextResponse.json({ error: 'Animacao nao permitida.' }, { status: 400 });
+      return missingAnimationResponse(originalKey, [], filename, 'invalid-key');
     }
 
     const resolved = await resolveR2VideoObject(originalKey);
 
     if (!resolved.object?.body) {
-      return NextResponse.json({ error: 'Animacao nao encontrada no R2.', key: originalKey, checked: resolved.checked }, { status: 404 });
+      return missingAnimationResponse(originalKey, resolved.checked, filename, 'not-found');
     }
 
     const resolvedKey = resolved.key;
@@ -121,7 +121,9 @@ function keyCandidates(key: string) {
   if (oppositeExt) variants.push(oppositeExt);
 
   if (key.startsWith('atuem/avatar/')) variants.push(key.replace(/^atuem\/avatar\//, 'atuem/atuem/avatar/'));
+  if (key.startsWith('atuem/atuem/avatar/')) variants.push(key.replace(/^atuem\/atuem\/avatar\//, 'atuem/avatar/'));
   if (oppositeExt.startsWith('atuem/avatar/')) variants.push(oppositeExt.replace(/^atuem\/avatar\//, 'atuem/atuem/avatar/'));
+  if (oppositeExt.startsWith('atuem/atuem/avatar/')) variants.push(oppositeExt.replace(/^atuem\/atuem\/avatar\//, 'atuem/avatar/'));
 
   const avatarMatch = key.match(/^atuem\/(?:atuem\/)?avatar\/([^/]+)\/([^/]+\.(?:mp4|webm))$/i);
   if (avatarMatch) {
@@ -134,6 +136,19 @@ function keyCandidates(key: string) {
   }
 
   return [...new Set(variants.filter(Boolean))];
+}
+
+function missingAnimationResponse(key: string, checked: string[], filename: string, reason: string) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Cache-Control': 'public, max-age=60',
+      'Access-Control-Allow-Origin': '*',
+      'X-QSE-R2-Missing': reason,
+      'X-QSE-R2-Key': key || filename || '',
+      'X-QSE-R2-Checked': checked.slice(0, 8).join(','),
+    },
+  });
 }
 
 function parseRange(range: string, size: number) {

@@ -6,10 +6,21 @@ export const revalidate = 0;
 
 const PREFIXES = ['atuem/atuem/avatar/', 'atuem/avatar/', 'atuem/atuem/Animacao/', 'atuem/Animacao/'];
 const VIDEO_EXTENSIONS = ['.webm', '.mp4'];
-const LOOKUP_CACHE_TTL_MS = 1000 * 60 * 10;
-const RESPONSE_HEADERS = { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' };
+const LOOKUP_CACHE_TTL_MS = 1000 * 60 * 30;
+const RESPONSE_HEADERS = { 'Cache-Control': 'public, max-age=1800, stale-while-revalidate=86400' };
 
 type AnimationEventType = 'home' | 'lobby' | 'intro' | 'victory' | 'defeat';
+
+type VideoSearchResult = {
+  key: string;
+  candidates: string[];
+  checkedKeys: number;
+  matches: Array<{ key: string; score: number }>;
+  ambiguous: boolean;
+};
+
+type CacheEntry = { expiresAt: number; search: VideoSearchResult };
+const lookupCache = new Map<string, CacheEntry>();
 
 const EVENT_SUFFIX: Record<AnimationEventType, string> = {
   home: 'A',
@@ -26,17 +37,6 @@ const EVENT_ALIASES: Record<AnimationEventType, string[]> = {
   victory: ['2', 'victory', 'vitoria', 'venceu', 'win'],
   defeat: ['3', 'defeat', 'derrota', 'perdeu', 'loss'],
 };
-
-type VideoSearchResult = {
-  key: string;
-  candidates: string[];
-  checkedKeys: number;
-  matches: Array<{ key: string; score: number }>;
-  ambiguous: boolean;
-};
-
-type CacheEntry = { expiresAt: number; search: VideoSearchResult };
-const lookupCache = new Map<string, CacheEntry>();
 
 export async function GET(req: NextRequest) {
   try {
@@ -80,6 +80,8 @@ async function animationResponse(key: string, eventType: AnimationEventType, slu
   const filename = `${slug.split('/')[0] || 'animacao'}-${EVENT_SUFFIX[eventType]}.${extension}`;
   const proxyUrl = `/api/r2-animation/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`;
   const directUrl = await getPublicR2Url(key);
+  const directIsPublic = /^https?:\/\//i.test(directUrl);
+  const videoUrl = directIsPublic ? directUrl : proxyUrl;
 
   return NextResponse.json({
     available: true,
@@ -87,10 +89,11 @@ async function animationResponse(key: string, eventType: AnimationEventType, slu
     eventType,
     slug,
     key,
-    url: proxyUrl,
-    videoUrl: proxyUrl,
+    url: videoUrl,
+    videoUrl,
     proxyUrl,
     directUrl,
+    direct: directIsPublic,
     ...(extra || {}),
   }, { headers: RESPONSE_HEADERS });
 }
@@ -206,6 +209,7 @@ function scoreVideoKey(key: string, prefix: string, slug: string, eventType: Ani
   if (subjectComparable === slugComparable) score += 30;
   if (subjectComparable.startsWith(slugComparable)) score += 20;
   if (hasWantedEvent) score += 25;
+  if (lower.endsWith('.webm')) score += 4;
   if (lower.endsWith('.mp4')) score += 2;
   if (key.includes('/avatar/')) score += 6;
   return score;

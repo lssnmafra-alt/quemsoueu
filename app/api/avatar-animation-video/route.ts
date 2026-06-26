@@ -6,6 +6,9 @@ export const revalidate = 0;
 
 const PREFIXES = ['atuem/atuem/avatar/', 'atuem/avatar/', 'atuem/atuem/Animacao/', 'atuem/Animacao/'];
 const VIDEO_EXTENSIONS = ['.webm', '.mp4'];
+const LOOKUP_CACHE_TTL_MS = 1000 * 60 * 10;
+const RESPONSE_HEADERS = { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' };
+
 type AnimationEventType = 'home' | 'lobby' | 'intro' | 'victory' | 'defeat';
 
 const EVENT_SUFFIX: Record<AnimationEventType, string> = {
@@ -32,6 +35,9 @@ type VideoSearchResult = {
   ambiguous: boolean;
 };
 
+type CacheEntry = { expiresAt: number; search: VideoSearchResult };
+const lookupCache = new Map<string, CacheEntry>();
+
 export async function GET(req: NextRequest) {
   try {
     const avatarUrl = req.nextUrl.searchParams.get('avatarUrl') || '';
@@ -47,7 +53,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (!slug) {
-      return NextResponse.json({ available: false, reason: 'avatar-sem-slug', eventType }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ available: false, reason: 'avatar-sem-slug', eventType }, { headers: RESPONSE_HEADERS });
     }
 
     const search = await findVideoKey(slug, eventType);
@@ -59,13 +65,13 @@ export async function GET(req: NextRequest) {
         expected: search.candidates,
         reason: search.ambiguous ? 'video-ambiguo' : 'video-nao-encontrado',
         ...(debug ? diagnosticPayload(avatarUrl, slug, search) : {}),
-      }, { headers: { 'Cache-Control': 'no-store' } });
+      }, { headers: RESPONSE_HEADERS });
     }
 
     return animationResponse(search.key, eventType, slug, debug ? diagnosticPayload(avatarUrl, slug, search) : undefined);
   } catch (error: any) {
     console.error('Avatar animation video error:', error);
-    return NextResponse.json({ available: false, error: error.message || 'Nao foi possivel resolver o video.' }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ available: false, error: error.message || 'Nao foi possivel resolver o video.' }, { status: 200, headers: RESPONSE_HEADERS });
   }
 }
 
@@ -73,6 +79,8 @@ async function animationResponse(key: string, eventType: AnimationEventType, slu
   const extension = key.split('.').pop() || 'mp4';
   const filename = `${slug.split('/')[0] || 'animacao'}-${EVENT_SUFFIX[eventType]}.${extension}`;
   const proxyUrl = `/api/r2-animation/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`;
+  const directUrl = await getPublicR2Url(key);
+  const fastestUrl = directUrl.startsWith('http') ? directUrl : proxyUrl;
 
   return NextResponse.json({
     available: true,
@@ -80,15 +88,19 @@ async function animationResponse(key: string, eventType: AnimationEventType, slu
     eventType,
     slug,
     key,
-    url: proxyUrl,
-    videoUrl: proxyUrl,
+    url: fastestUrl,
+    videoUrl: fastestUrl,
     proxyUrl,
-    directUrl: await getPublicR2Url(key),
+    directUrl,
     ...(extra || {}),
-  }, { headers: { 'Cache-Control': 'no-store' } });
+  }, { headers: RESPONSE_HEADERS });
 }
 
 async function findVideoKey(slug: string, eventType: AnimationEventType) {
+  const cacheKey = `${normalizeComparable(slug)}:${eventType}`;
+  const cached = lookupCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.search;
+
   const candidates = expectedNames(slug, eventType);
   const normalizedCandidates = candidates.map(normalizeComparable);
   const matches: VideoSearchResult['matches'] = [];
@@ -105,7 +117,7 @@ async function findVideoKey(slug: string, eventType: AnimationEventType) {
       const base = filename.replace(/\.[^.]+$/, '');
       return VIDEO_EXTENSIONS.some((ext) => lower.endsWith(ext)) && normalizedCandidates.includes(normalizeComparable(base));
     });
-    if (exact) return { key: exact, candidates, checkedKeys, matches: [{ key: exact, score: 100 }], ambiguous: false };
+    if (exact) return cacheSearch(cacheKey, { key: exact, candidates, checkedKeys, matches: [{ key: exact, score: 100 }], ambiguous: false });
 
     for (const key of keys) {
       const score = scoreVideoKey(key, prefix, slug, eventType);
@@ -119,10 +131,15 @@ async function findVideoKey(slug: string, eventType: AnimationEventType) {
   const second = uniqueMatches[1];
 
   if (best && (!second || best.score > second.score)) {
-    return { key: best.key, candidates, checkedKeys, matches: uniqueMatches.slice(0, 10), ambiguous: false };
+    return cacheSearch(cacheKey, { key: best.key, candidates, checkedKeys, matches: uniqueMatches.slice(0, 10), ambiguous: false });
   }
 
-  return { key: '', candidates, checkedKeys, matches: uniqueMatches.slice(0, 10), ambiguous: Boolean(best) };
+  return cacheSearch(cacheKey, { key: '', candidates, checkedKeys, matches: uniqueMatches.slice(0, 10), ambiguous: Boolean(best) });
+}
+
+function cacheSearch(cacheKey: string, search: VideoSearchResult) {
+  lookupCache.set(cacheKey, { search, expiresAt: Date.now() + LOOKUP_CACHE_TTL_MS });
+  return search;
 }
 
 function prefixesForSlug(slug: string) {
@@ -243,7 +260,8 @@ function animationKeyFromSelection(selection: any, eventType: AnimationEventType
 
 function isSafeAnimationKey(key: string) {
   const lower = key.toLowerCase();
-  return key && !key.includes('..') && !key.startsWith('/') && !key.includes('\\') && VIDEO_EXTENSIONS.some((ext) => lower.endsWith(ext));
+  if (!key || key.includes('..') || key.startsWith('/') || key.includes('\\')) return false;
+  return VIDEO_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
 function slugFromAvatarUrl(avatarUrl: string) {

@@ -37,7 +37,7 @@ export default function HomeLobby() {
   useEffect(() => {
     if (!authInitialized || authLoading || !user || !profileCompleted) return;
     void audioManager.playMusic('lobby-theme');
-  }, [authInitialized, authLoading, user?.id, profileCompleted, profile?.music_genres, profile?.music_blocked_tracks]);
+  }, [authInitialized, authLoading, user?.id, profileCompleted]);
 
   const fetchRooms = async () => {
     const response = await fetch('/api/rooms/public', { cache: 'no-store' }).catch(() => null);

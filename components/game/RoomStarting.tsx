@@ -4,10 +4,11 @@ import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 
-const ARENA_LOADING_MS = 800;
-const ARENA_SHOWCASE_MS = 3600;
-const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 850;
-const INTRO_VIDEO_CACHE_PREFIX = 'quemSouEu:introVideo:v4:';
+const ARENA_LOADING_MS = 1200;
+const ARENA_SHOWCASE_MS = 3800;
+const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 900;
+const INTRO_VIDEO_CACHE_PREFIX = 'quemSouEu:introVideo:v5:';
+const INTRO_EVENT_TYPES = ['intro', 'lobby', 'home'] as const;
 
 type ArenaPhase = 'loading' | 'showcase';
 
@@ -65,27 +66,28 @@ export default function RoomStarting({ room, players }: any) {
       if (Object.keys(cachedVideos).length) setVideoByPlayerId(cachedVideos);
     };
 
-    async function loadAllVideos() {
-      const queue = [...playerSnapshot];
-      const workers = Array.from({ length: Math.min(6, queue.length) }, async () => {
-        while (queue.length > 0 && !cancelled) {
-          const player = queue.shift();
-          if (!player) continue;
-          const videoUrl = await resolveIntroVideo({
-            id: String(player.id || ''),
-            nickname: String(player.nickname || 'Jogador'),
-            avatar_url: String(player.avatar_url || ''),
-          }, memoryCache);
-          if (!cancelled && videoUrl) {
-            setVideoByPlayerId((current) => current[player.id] === videoUrl ? current : { ...current, [player.id]: videoUrl });
-          }
-        }
-      });
-      await Promise.allSettled(workers);
+    async function loadAllVideosTogether() {
+      const results = await Promise.all(playerSnapshot.map(async (player: any) => {
+        const videoUrl = await resolveIntroVideo({
+          id: String(player.id || ''),
+          nickname: String(player.nickname || 'Jogador'),
+          avatar_url: String(player.avatar_url || ''),
+        }, memoryCache);
+        return { playerId: player.id, videoUrl };
+      }));
+
+      if (cancelled) return;
+      const videos: Record<string, string> = {};
+      for (const result of results) {
+        if (result.videoUrl) videos[result.playerId] = result.videoUrl;
+      }
+      if (Object.keys(videos).length) {
+        setVideoByPlayerId((current) => ({ ...current, ...videos }));
+      }
     }
 
     primeCachedVideos();
-    void loadAllVideos();
+    void loadAllVideosTogether();
     const loadingTimer = window.setTimeout(() => {
       if (!cancelled) setArenaPhase('showcase');
     }, ARENA_LOADING_MS);
@@ -107,7 +109,7 @@ export default function RoomStarting({ room, players }: any) {
   }, [orderedPlayers.length]);
 
   const statusText = arenaPhase === 'loading'
-    ? 'Entrando rapido...'
+    ? 'Carregando todos juntos...'
     : 'Arena pronta. Iniciando jogo.';
 
   return (
@@ -120,7 +122,7 @@ export default function RoomStarting({ room, players }: any) {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-200">Preparando partida</p>
             <h1 className="mt-1 text-4xl font-black uppercase italic text-white font-display md:text-6xl">Arena carregando</h1>
-            <p className="mt-2 text-sm font-bold text-blue-100">Entrada rápida. O jogo começa sem esperar todos os vídeos.</p>
+            <p className="mt-2 text-sm font-bold text-blue-100">Todos os personagens carregam juntos. Quem não tiver vídeo rápido entra com imagem.</p>
           </div>
           <div className="rounded-2xl border-2 border-cyan-200/30 bg-white/10 px-5 py-3 text-center shadow-xl backdrop-blur">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Status</p>
@@ -134,7 +136,7 @@ export default function RoomStarting({ room, players }: any) {
               <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Galeria da ordem</p>
               <h2 className="text-2xl font-black uppercase italic text-white">{orderedPlayers.length} jogadores prontos</h2>
             </div>
-            <span className="rounded-md border border-yellow-300/60 bg-yellow-300 px-3 py-1 text-[10px] font-black uppercase text-slate-950">Entrada rápida</span>
+            <span className="rounded-md border border-yellow-300/60 bg-yellow-300 px-3 py-1 text-[10px] font-black uppercase text-slate-950">Todos juntos</span>
           </div>
 
           <div className={cn('mt-4 grid gap-4', gridColumns)}>
@@ -145,7 +147,7 @@ export default function RoomStarting({ room, players }: any) {
                   key={player.id}
                   initial={{ opacity: 0, y: 18, scale: 0.94 }}
                   animate={{ opacity: 1, y: 0, scale: arenaPhase === 'showcase' ? 1 : 0.98 }}
-                  transition={{ delay: Math.min(index * 0.05, 0.25), type: 'spring', stiffness: 260, damping: 24 }}
+                  transition={{ delay: Math.min(index * 0.04, 0.2), type: 'spring', stiffness: 260, damping: 24 }}
                   className={cn('relative overflow-hidden rounded-[2rem] border-4 bg-white p-2 text-center shadow-2xl', player.color?.border || 'border-cyan-200/40')}
                 >
                   <div className={cn('absolute inset-x-0 top-0 h-2', player.color?.bg || 'bg-cyan-400')} />
@@ -175,7 +177,7 @@ export default function RoomStarting({ room, players }: any) {
         </div>
 
         <div className="mx-auto inline-flex rounded-full border-2 border-yellow-300/50 bg-yellow-300 px-6 py-3 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_6px_0_#b45309]">
-          {arenaPhase === 'loading' ? 'Entrando rapido...' : 'Iniciando jogo...'}
+          {arenaPhase === 'loading' ? 'Carregando todos...' : 'Iniciando jogo...'}
         </div>
       </div>
     </div>
@@ -195,7 +197,7 @@ function ArenaIntroVideo({ src, label, avatarUrl, primaryColor }: { src: string;
     video.volume = 0;
     video.playsInline = true;
     const play = () => video.play?.().catch(() => null);
-    const timers = [0, 80, 200, 420].map((delay) => window.setTimeout(play, delay));
+    const timers = [0, 60, 160, 360].map((delay) => window.setTimeout(play, delay));
     video.load();
     play();
     return () => timers.forEach((timer) => window.clearTimeout(timer));
@@ -222,7 +224,7 @@ function ArenaIntroVideo({ src, label, avatarUrl, primaryColor }: { src: string;
         onLoadedData={() => setReady(true)}
         onCanPlay={() => setReady(true)}
         onPlaying={() => setReady(true)}
-        className={cn('h-full w-full bg-white object-cover transition-opacity duration-100', ready ? 'opacity-100' : 'opacity-0')}
+        className={cn('h-full w-full bg-white object-cover transition-opacity duration-75', ready ? 'opacity-100' : 'opacity-0')}
         aria-label={label}
       />
     </div>
@@ -243,13 +245,15 @@ async function resolveIntroVideo(player: SequencePlayer, cache: Map<string, stri
     return browserCached;
   }
 
-  const eventTypes = ['intro', 'lobby', 'home'] as const;
-  for (const eventType of eventTypes) {
-    const result = await fetchJsonWithTimeout(
-      `/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}&v=4`,
-      INTRO_VIDEO_LOOKUP_TIMEOUT_MS,
-    );
-    const url = result?.available ? String(result.directUrl || result.videoUrl || result.url || '') : '';
+  const results = await Promise.allSettled(INTRO_EVENT_TYPES.map((eventType) => fetchJsonWithTimeout(
+    `/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}&v=5`,
+    INTRO_VIDEO_LOOKUP_TIMEOUT_MS,
+  )));
+
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue;
+    const data = result.value;
+    const url = data?.available ? String(data.directUrl || data.videoUrl || data.url || '') : '';
     if (url) {
       setCachedIntroVideo(avatarUrl, url);
       cache.set(cacheKey, url);

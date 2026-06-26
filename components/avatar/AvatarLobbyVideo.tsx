@@ -252,15 +252,17 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
     return () => { cancelled = true; };
   }, [avatarUrl, directVideoUrl, mounted, resolvedEventType]);
 
+  const fallbackContent = imageFallback ? (
+    <img src={imageFallback} alt={label} referrerPolicy="no-referrer" className="relative z-10 h-full w-full object-cover" suppressHydrationWarning />
+  ) : (
+    <UserRound className="relative z-10 h-20 w-20 text-indigo-400" />
+  );
+
   return (
-    <div className={cn('relative flex items-center justify-center overflow-hidden bg-transparent', className)}>
+    <div className={cn('relative flex items-center justify-center overflow-hidden bg-transparent', className)} suppressHydrationWarning>
       {mounted && videoUrl && !failed ? (
         <KeyedVideo src={videoUrl} label={label} chromaKeyId={chromaKeyId} onError={() => setFailed(true)} />
-      ) : imageFallback ? (
-        <img src={imageFallback} alt={label} referrerPolicy="no-referrer" className="relative z-10 h-full w-full object-cover" />
-      ) : (
-        <UserRound className="relative z-10 h-20 w-20 text-indigo-400" />
-      )}
+      ) : fallbackContent}
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/70" />
     </div>
   );

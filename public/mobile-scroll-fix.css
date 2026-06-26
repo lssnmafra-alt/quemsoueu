@@ -25,36 +25,26 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  body[data-qse-route="/"] {
-    height: auto !important;
-    min-height: 100dvh !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  body[data-qse-route="/"] .relative.min-h-screen,
-  body[data-qse-route="/"] .min-h-screen.overflow-hidden,
-  body[data-qse-route="/"] .home-lobby-main {
+  /* Login only: route / without the real home lobby section */
+  body[data-qse-route="/"] .home-lobby-main:not(:has(.home-lobby-section)) {
     height: auto !important;
     min-height: 100dvh !important;
     max-height: none !important;
     overflow-x: hidden !important;
-    overflow-y: visible !important;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  body[data-qse-route="/"] .home-lobby-main {
+    overflow-y: auto !important;
     align-items: flex-start !important;
     padding-top: max(1rem, env(safe-area-inset-top)) !important;
     padding-bottom: max(1.25rem, env(safe-area-inset-bottom)) !important;
+    -webkit-overflow-scrolling: touch;
   }
 
-  body[data-qse-route="/"] .home-lobby-section,
-  body[data-qse-route="/"] main,
-  body[data-qse-route="/"] section {
+  body[data-qse-route="/"] .relative.min-h-screen:has(.home-lobby-main:not(:has(.home-lobby-section))) {
+    height: auto !important;
+    min-height: 100dvh !important;
     max-height: none !important;
-    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   body[data-qse-route] main,
@@ -100,6 +90,28 @@
     scrollbar-width: thin;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* STARTING: avatar showcase before game starts */
+  body[data-qse-route="/rooms"] .party-grid-bg > .relative.z-10,
+  body[data-qse-route="/room"] .party-grid-bg > .relative.z-10 {
+    max-height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-qse-route="/rooms"] .party-grid-bg .grid,
+  body[data-qse-route="/room"] .party-grid-bg .grid {
+    min-height: 0 !important;
+  }
+
+  /* PICKING: card selection screen */
+  body[data-qse-route="/rooms"] [class*="grid-cols"],
+  body[data-qse-route="/room"] [class*="grid-cols"] {
+    min-height: 0 !important;
+    scrollbar-width: thin;
+  }
 }
 
 @media (hover: none) and (pointer: coarse) and (max-width: 640px) and (orientation: portrait) {
@@ -128,6 +140,14 @@
   body[data-qse-route="/room"] .gameplay-board,
   body[data-qse-route="/rooms"] .gameplay-card-grid,
   body[data-qse-route="/room"] .gameplay-card-grid {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-qse-route="/rooms"] .party-grid-bg > .relative.z-10,
+  body[data-qse-route="/room"] .party-grid-bg > .relative.z-10 {
+    max-height: none !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;

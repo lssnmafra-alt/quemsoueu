@@ -1,0 +1,103 @@
+/* Mobile scroll safety net
+   Keeps the game compact, but prevents content from being trapped off-screen on phones. */
+
+@media (hover: none) and (pointer: coarse) and (max-width: 1024px) {
+  html,
+  body {
+    overflow-x: hidden !important;
+  }
+
+  body[data-qse-route]:not([data-qse-route="/"]):not([data-qse-route="/room"]):not([data-qse-route="/rooms"]) {
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-qse-route]:not([data-qse-route="/"]):not([data-qse-route="/room"]):not([data-qse-route="/rooms"]) .min-h-screen.overflow-hidden,
+  body[data-qse-route]:not([data-qse-route="/"]):not([data-qse-route="/room"]):not([data-qse-route="/rooms"]) .relative.min-h-screen {
+    height: auto !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-qse-route] main,
+  body[data-qse-route] section,
+  body[data-qse-route] .space-y-3,
+  body[data-qse-route] .grid {
+    scrollbar-width: thin;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (max-width: 1024px) and (orientation: landscape) {
+  body[data-qse-route="/rooms"] .gameplay-shell,
+  body[data-qse-route="/room"] .gameplay-shell {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-board,
+  body[data-qse-route="/room"] .gameplay-board {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-card-grid,
+  body[data-qse-route="/room"] .gameplay-card-grid {
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding-bottom: .55rem !important;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-player-list,
+  body[data-qse-route="/room"] .gameplay-player-list {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding-bottom: .16rem !important;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (max-width: 640px) and (orientation: portrait) {
+  body[data-qse-route="/rooms"],
+  body[data-qse-route="/room"] {
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-screen,
+  body[data-qse-route="/room"] .gameplay-screen,
+  body[data-qse-route="/rooms"] .gameplay-shell,
+  body[data-qse-route="/room"] .gameplay-shell {
+    height: auto !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-qse-route="/rooms"] .gameplay-board,
+  body[data-qse-route="/room"] .gameplay-board,
+  body[data-qse-route="/rooms"] .gameplay-card-grid,
+  body[data-qse-route="/room"] .gameplay-card-grid {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}

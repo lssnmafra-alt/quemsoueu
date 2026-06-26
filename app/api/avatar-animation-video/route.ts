@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPublicR2Url, listR2Objects } from '@/lib/r2Storage';
+import { listR2Objects } from '@/lib/r2Storage';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const PREFIXES = ['atuem/atuem/avatar/', 'atuem/avatar/', 'atuem/atuem/Animacao/', 'atuem/Animacao/'];
 const VIDEO_EXTENSIONS = ['.webm', '.mp4'];
-const LOOKUP_CACHE_TTL_MS = 1000 * 60 * 30;
-const RESPONSE_HEADERS = { 'Cache-Control': 'public, max-age=1800, stale-while-revalidate=86400' };
+const LOOKUP_CACHE_TTL_MS = 1000 * 60 * 3;
+const RESPONSE_HEADERS = { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' };
 
 type AnimationEventType = 'home' | 'lobby' | 'intro' | 'victory' | 'defeat';
 
@@ -75,13 +75,16 @@ export async function GET(req: NextRequest) {
   }
 }
 
-async function animationResponse(key: string, eventType: AnimationEventType, slug: string, extra?: any) {
+function proxiedVideoUrl(key: string, slug: string, eventType: AnimationEventType) {
   const extension = key.split('.').pop() || 'mp4';
   const filename = `${slug.split('/')[0] || 'animacao'}-${EVENT_SUFFIX[eventType]}.${extension}`;
-  const proxyUrl = `/api/r2-animation/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}`;
-  const directUrl = await getPublicR2Url(key);
-  const directIsPublic = /^https?:\/\//i.test(directUrl);
-  const videoUrl = directIsPublic ? directUrl : proxyUrl;
+  return `/api/r2-animation/${encodeURIComponent(filename)}?key=${encodeURIComponent(key)}&v=${encodeURIComponent(String(Date.now()).slice(0, -4))}`;
+}
+
+async function animationResponse(key: string, eventType: AnimationEventType, slug: string, extra?: any) {
+  const videoUrl = proxiedVideoUrl(key, slug, eventType);
+  const mp4FallbackKey = key.toLowerCase().endsWith('.webm') ? key.replace(/\.webm$/i, '.mp4') : '';
+  const mp4FallbackUrl = mp4FallbackKey ? proxiedVideoUrl(mp4FallbackKey, slug, eventType) : '';
 
   return NextResponse.json({
     available: true,
@@ -91,9 +94,10 @@ async function animationResponse(key: string, eventType: AnimationEventType, slu
     key,
     url: videoUrl,
     videoUrl,
-    proxyUrl,
-    directUrl,
-    direct: directIsPublic,
+    proxyUrl: videoUrl,
+    fallbackUrl: mp4FallbackUrl,
+    fallbackKey: mp4FallbackKey,
+    direct: false,
     ...(extra || {}),
   }, { headers: RESPONSE_HEADERS });
 }
@@ -147,9 +151,13 @@ function cacheSearch(cacheKey: string, search: VideoSearchResult) {
 function prefixesForSlug(slug: string) {
   const avatarKey = slug.split('/')[0] || slug;
   return [
+    `atuem/atuem/avatar/Padrao/${avatarKey}/`,
+    `atuem/atuem/avatar/${avatarKey}/`,
     `atuem/atuem/avatar/${avatarKey}/Animacao/`,
     `atuem/atuem/avatar/${avatarKey}/animacao/`,
     `atuem/atuem/avatar/${avatarKey}/animations/`,
+    `atuem/avatar/Padrao/${avatarKey}/`,
+    `atuem/avatar/${avatarKey}/`,
     `atuem/avatar/${avatarKey}/Animacao/`,
     'atuem/atuem/Animacao/',
     'atuem/Animacao/',
@@ -211,6 +219,7 @@ function scoreVideoKey(key: string, prefix: string, slug: string, eventType: Ani
   if (hasWantedEvent) score += 25;
   if (lower.endsWith('.webm')) score += 4;
   if (lower.endsWith('.mp4')) score += 2;
+  if (key.includes('/atuem/atuem/avatar/')) score += 8;
   if (key.includes('/avatar/')) score += 6;
   return score;
 }

@@ -4,12 +4,6 @@ const PROFILE_STORAGE_KEY = 'quemSouEu:profile';
 const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
 const MUSIC_BLOCKED_TRACKS_KEY = 'quemSouEu:musicBlockedTracks';
 
-type PlayMusicOptions = {
-  force?: boolean;
-  excludeKeys?: string[];
-  pushHistory?: boolean;
-};
-
 function normalize(value: unknown) {
   return String(value || '').trim().toLowerCase();
 }
@@ -50,7 +44,7 @@ function preferenceKey(genres: string[], blocked: string[]) {
 class FilterAwareAudioManager extends BaseAudioManager {
   private lastPreferenceKey = '';
 
-  async playMusic(track: string, options: PlayMusicOptions = {}) {
+  async playMusic(track: any, options: any = {}) {
     const genres = readArray(MUSIC_GENRES_KEY);
     const blocked = [...readArray(MUSIC_BLOCKED_TRACKS_KEY), ...readProfileArray('music_blocked_tracks')];
     const effectiveGenres = genres.length ? genres : readProfileArray('music_genres');

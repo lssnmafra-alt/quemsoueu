@@ -15,7 +15,7 @@ type AvatarLobbyVideoProps = {
 };
 
 const resolvedVideoCache = new Map<string, string>();
-const SESSION_CACHE_KEY = 'qse:avatar-video-cache:v4';
+const SESSION_CACHE_KEY = 'qse:avatar-video-cache:v6';
 
 function readSessionCache() {
   if (typeof window === 'undefined') return {} as Record<string, string>;
@@ -39,8 +39,35 @@ function cachedVideo(cacheKey: string) {
   return resolvedVideoCache.get(cacheKey) || readSessionCache()[cacheKey] || '';
 }
 
+function mp4FallbackFor(src: string) {
+  const value = String(src || '').trim();
+  if (!value.toLowerCase().includes('.webm')) return '';
+  return value.replace(/\.webm/gi, '.mp4');
+}
+
 function FastAvatarVideo({ src, poster, label, onReady, onError }: { src: string; poster?: string; label: string; onReady: () => void; onError: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [activeSrc, setActiveSrc] = useState(src);
+  const [fallbackUsed, setFallbackUsed] = useState(false);
+
+  const tryFallback = () => {
+    if (fallbackUsed) {
+      onError();
+      return;
+    }
+    const fallback = mp4FallbackFor(activeSrc);
+    if (!fallback || fallback === activeSrc) {
+      onError();
+      return;
+    }
+    setFallbackUsed(true);
+    setActiveSrc(fallback);
+  };
+
+  useEffect(() => {
+    setActiveSrc(src);
+    setFallbackUsed(false);
+  }, [src]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -48,20 +75,29 @@ function FastAvatarVideo({ src, poster, label, onReady, onError }: { src: string
 
     const play = () => video.play().catch(() => null);
     const timers = [0, 60, 160, 360, 800].map((delay) => window.setTimeout(play, delay));
+    const fallbackTimer = window.setTimeout(() => {
+      if (video.readyState < 2 && activeSrc.toLowerCase().includes('.webm')) tryFallback();
+    }, 1400);
+
     video.muted = true;
     video.defaultMuted = true;
     video.volume = 0;
     video.playsInline = true;
+    video.preload = 'auto';
     video.load();
     play();
 
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [src]);
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [activeSrc]);
 
   return (
     <video
+      key={activeSrc}
       ref={videoRef}
-      src={src}
+      src={activeSrc}
       poster={poster}
       autoPlay
       muted
@@ -70,12 +106,11 @@ function FastAvatarVideo({ src, poster, label, onReady, onError }: { src: string
       preload="auto"
       controls={false}
       disablePictureInPicture
-      crossOrigin="anonymous"
       onLoadedMetadata={onReady}
       onLoadedData={onReady}
       onCanPlay={onReady}
       onPlaying={onReady}
-      onError={onError}
+      onError={tryFallback}
       className="h-full w-full object-cover"
       aria-label={label}
     />
@@ -104,7 +139,6 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
     link.rel = 'preload';
     link.as = 'video';
     link.href = videoUrl;
-    link.crossOrigin = 'anonymous';
     document.head.appendChild(link);
     return () => { link.remove(); };
   }, [mounted, videoUrl]);
@@ -135,11 +169,11 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
         }
 
         try {
-          const response = await fetch(`/api/avatar-animation-video?eventType=${encodeURIComponent(nextEventType)}&avatarUrl=${encodeURIComponent(avatarUrl)}&v=4`, { cache: 'force-cache' });
+          const response = await fetch(`/api/avatar-animation-video?eventType=${encodeURIComponent(nextEventType)}&avatarUrl=${encodeURIComponent(avatarUrl)}&v=6`, { cache: 'no-store' });
           const result = await response.json().catch(() => ({}));
-          const direct = typeof result?.directUrl === 'string' && result.directUrl.startsWith('http') ? result.directUrl : '';
           const proxy = result?.available && result?.videoUrl ? String(result.videoUrl) : '';
-          const nextUrl = direct || proxy;
+          const fallback = result?.available && result?.fallbackUrl ? String(result.fallbackUrl) : '';
+          const nextUrl = proxy || fallback;
           if (nextUrl) {
             rememberVideo(cacheKey, nextUrl);
             if (!cancelled) setVideoUrl(nextUrl);

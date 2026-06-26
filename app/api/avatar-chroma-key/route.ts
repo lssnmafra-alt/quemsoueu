@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAuthServer } from '@/lib/supabaseAdmin';
+import { getSupabaseGameServer } from '@/lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const db = getSupabaseAuthServer();
+    const db = getSupabaseGameServer();
 
     for (const candidate of candidates) {
       const { data: chromaRule, error: chromaRuleError } = await db

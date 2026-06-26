@@ -19,6 +19,7 @@ type PreviewTrack = { key: string; genre: string; title: string; url: string };
 const PROFILE_STORAGE_KEY = 'quemSouEu:profile';
 const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
 const MUSIC_BLOCKED_TRACKS_KEY = 'quemSouEu:musicBlockedTracks';
+const PLAYER_EMOJIS = ['🙂', '😎', '🤠', '😺', '🐸', '🦊', '🐼', '👽', '🤖', '🔥', '⚡', '🎮'];
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function ProfilePage() {
 
   const [nextPath, setNextPath] = useState('/');
   const [nickname, setNickname] = useState('');
+  const [emoji, setEmoji] = useState('🙂');
   const [musicGroups, setMusicGroups] = useState<MusicGenreGroup[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [blockedTrackKeys, setBlockedTrackKeys] = useState<string[]>([]);
@@ -55,6 +57,7 @@ export default function ProfilePage() {
     }
 
     setNickname(profile?.nickname || user.email?.split('@')[0] || 'Jogador');
+    setEmoji(normalizeEmoji(profile?.emoji));
     setSelectedGenres(Array.isArray(profile?.music_genres) ? profile.music_genres : []);
     setBlockedTrackKeys(Array.isArray(profile?.music_blocked_tracks) ? profile.music_blocked_tracks : []);
   }, [authInitialized, authLoading, router, user, profile]);
@@ -79,8 +82,9 @@ export default function ProfilePage() {
       setExpandedGenreIds((current) => current.length ? current : nextMusicGroups.filter((group: MusicGenreGroup) => group.tracks.length > 0).slice(0, 2).map((group: MusicGenreGroup) => group.id));
 
       if (profileResult.profile) {
-        const savedProfile = { ...profile, ...profileResult.profile };
+        const savedProfile = { ...profile, ...profileResult.profile, avatar_url: '', avatar_animation_set_id: null };
         setNickname(savedProfile.nickname || 'Jogador');
+        setEmoji(normalizeEmoji(savedProfile.emoji));
         setSelectedGenres(Array.isArray(savedProfile.music_genres) ? savedProfile.music_genres : []);
         setBlockedTrackKeys(Array.isArray(savedProfile.music_blocked_tracks) ? savedProfile.music_blocked_tracks : []);
         setSessionUser(currentUser, savedProfile);
@@ -109,7 +113,9 @@ export default function ProfilePage() {
       id: user.id,
       email: profile?.email || user.email || '',
       nickname: cleanNickname,
-      avatar_url: profile?.avatar_url || '',
+      emoji: normalizeEmoji(emoji),
+      avatar_url: '',
+      avatar_animation_set_id: null,
       music_genres: nextGenres,
       music_blocked_tracks: nextBlockedTracks,
       profile_completed: true,
@@ -225,6 +231,7 @@ export default function ProfilePage() {
     if (!user?.id || saving) return;
 
     const cleanNickname = normalizeNickname(nickname);
+    const cleanEmoji = normalizeEmoji(emoji);
     setError('');
 
     if (!cleanNickname) {
@@ -245,7 +252,9 @@ export default function ProfilePage() {
         id: user.id,
         email: profile?.email || user.email || '',
         nickname: cleanNickname,
-        avatar_url: profile?.avatar_url || '',
+        emoji: cleanEmoji,
+        avatar_url: '',
+        avatar_animation_set_id: null,
         music_genres: selectedGenres,
         music_blocked_tracks: blockedTrackKeys,
         profile_completed: true,
@@ -264,7 +273,9 @@ export default function ProfilePage() {
         ...profile,
         ...(result.profile || profilePayload),
         nickname: cleanNickname,
-        avatar_url: profile?.avatar_url || result.profile?.avatar_url || '',
+        emoji: cleanEmoji,
+        avatar_url: '',
+        avatar_animation_set_id: null,
         music_genres: selectedGenres,
         music_blocked_tracks: blockedTrackKeys,
         profile_completed: true,
@@ -294,10 +305,11 @@ export default function ProfilePage() {
 
   const totalTracks = musicGroups.reduce((total, group) => total + group.tracks.length, 0);
   const isAdminUser = isProjectAdmin(user.id);
+  const safeEmoji = normalizeEmoji(emoji);
 
   return (
     <div className="min-h-screen overflow-hidden bg-[#071a64] text-white font-sans party-grid-bg">
-      <GameTopNav profile={{ ...profile, nickname }} isAdmin={isAdminUser} onLogout={handleLogout} />
+      <GameTopNav profile={{ ...profile, nickname, emoji: safeEmoji, avatar_url: '' }} isAdmin={isAdminUser} onLogout={handleLogout} />
       <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-20" />
       <div className="absolute inset-0 bg-gradient-to-br from-[#071a64]/95 via-[#0b4fb8]/55 to-[#05091f]/95" />
 
@@ -306,7 +318,7 @@ export default function ProfilePage() {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-200">Perfil do jogador</p>
             <h1 className="mt-1 text-4xl font-black uppercase italic text-white font-display md:text-6xl">Perfil</h1>
-            <p className="mt-2 text-sm font-bold text-blue-100">Edite seu nickname e músicas do jogo. Avatares ficam somente na loja.</p>
+            <p className="mt-2 text-sm font-bold text-blue-100">Escolha seu nome, emoji e músicas do jogo.</p>
           </div>
           <Button type="button" onClick={handleSave} disabled={saving || !nickname.trim()} className="h-14 rounded-none bg-yellow-300 px-8 text-xs font-black uppercase text-slate-950 shadow-[0_6px_0_#b45309] hover:bg-yellow-200">
             <Save className="mr-2 h-4 w-4" /> {saving ? 'Salvando...' : 'Salvar e entrar'}
@@ -316,11 +328,26 @@ export default function ProfilePage() {
         <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
           <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-6 shadow-[0_30px_90px_rgba(0,0,0,.32)] backdrop-blur-xl space-y-5">
             <div className="rounded-3xl border-2 border-cyan-200/25 bg-white/10 p-4 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200">Avatar</p>
-              <p className="mt-2 text-sm font-bold text-blue-100">Para trocar personagem ou skin, use a Loja.</p>
-              <Button type="button" onClick={() => router.push('/avatar-store')} className="mt-4 h-12 w-full rounded-none bg-fuchsia-500 text-xs font-black uppercase text-white shadow-[0_5px_0_#86198f] hover:bg-fuchsia-400">
-                Abrir loja de personagens
-              </Button>
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200">Seu emoji</p>
+              <div className="mx-auto mt-3 flex h-24 w-24 items-center justify-center rounded-3xl border-4 border-cyan-200/30 bg-white text-5xl shadow-inner">
+                {safeEmoji}
+              </div>
+              <div className="mt-4 grid grid-cols-4 gap-2">
+                {PLAYER_EMOJIS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setEmoji(option)}
+                    className={cn(
+                      'flex h-12 items-center justify-center rounded-2xl border-2 bg-white/10 text-2xl transition hover:bg-white/20',
+                      safeEmoji === option ? 'border-yellow-300 bg-yellow-300/20 shadow-[0_0_0_2px_rgba(250,204,21,.25)]' : 'border-cyan-200/20',
+                    )}
+                    aria-label={`Usar emoji ${option}`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -423,4 +450,9 @@ function normalizeNickname(value: string) {
 
 function normalizeId(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function normalizeEmoji(value: unknown) {
+  const emoji = String(value || '').trim();
+  return Array.from(emoji).slice(0, 2).join('') || '🙂';
 }

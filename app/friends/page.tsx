@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Ban, Check, Gamepad2, Search, Shield, UserPlus, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import AvatarFigure from '@/components/avatar/AvatarFigure';
 import LoadingArena from '@/components/LoadingArena';
 import { useUserStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
@@ -231,10 +230,11 @@ function SocialSection({ title, icon, rows, empty, children }: { title: string; 
 
 function ProfileCard({ profile, subtext, children }: { profile: any; subtext?: string; children?: ReactNode }) {
   if (!profile) return <EmptyCard text="Perfil indisponível." />;
+  const mark = String(profile.emoji || '').trim() || String(profile.nickname || 'J').trim().charAt(0).toUpperCase() || 'J';
   return (
     <div className="rounded-2xl border-2 border-cyan-200/20 bg-white/95 p-3 text-[#1e1b4b] shadow-lg">
       <div className="flex items-center gap-3">
-        <AvatarFigure avatarUrl={profile.avatar_url} label={profile.nickname} className="h-14 w-14 shrink-0 rounded-2xl border-2 border-white bg-white" />
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-white bg-indigo-50 text-2xl font-black text-indigo-950 shadow-inner" aria-hidden="true">{mark}</div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-black leading-tight text-indigo-950">{profile.nickname || 'Jogador'}</p>
           <p className="truncate text-[11px] font-black uppercase text-slate-500">{subtext || `${profile.wins || 0} vitórias · ${profile.played_matches || 0} partidas`}</p>

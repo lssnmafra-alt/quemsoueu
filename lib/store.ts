@@ -18,6 +18,22 @@ const APP_USER_KEY = 'quemSouEu:user';
 const APP_PROFILE_KEY = 'quemSouEu:profile';
 const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
 const MUSIC_BLOCKED_TRACKS_KEY = 'quemSouEu:musicBlockedTracks';
+const DEFAULT_PLAYER_EMOJI = '🙂';
+
+function normalizeEmoji(value: unknown) {
+  const emoji = String(value || '').trim();
+  return Array.from(emoji).slice(0, 2).join('') || DEFAULT_PLAYER_EMOJI;
+}
+
+function normalizeProfile(profile: any | null | undefined) {
+  if (!profile) return profile;
+  return {
+    ...profile,
+    emoji: normalizeEmoji(profile.emoji),
+    avatar_url: '',
+    avatar_animation_set_id: null,
+  };
+}
 
 function readJson(key: string) {
   if (typeof window === 'undefined') return null;
@@ -38,13 +54,14 @@ function persistAuth(user: any | null | undefined, profile: any | null | undefin
   }
 
   if (profile !== undefined) {
-    if (profile) {
-      localStorage.setItem(APP_PROFILE_KEY, JSON.stringify(profile));
-      if (Array.isArray(profile.music_genres)) {
-        localStorage.setItem(MUSIC_GENRES_KEY, JSON.stringify(profile.music_genres));
+    const safeProfile = normalizeProfile(profile);
+    if (safeProfile) {
+      localStorage.setItem(APP_PROFILE_KEY, JSON.stringify(safeProfile));
+      if (Array.isArray(safeProfile.music_genres)) {
+        localStorage.setItem(MUSIC_GENRES_KEY, JSON.stringify(safeProfile.music_genres));
       }
-      if (Array.isArray(profile.music_blocked_tracks)) {
-        localStorage.setItem(MUSIC_BLOCKED_TRACKS_KEY, JSON.stringify(profile.music_blocked_tracks));
+      if (Array.isArray(safeProfile.music_blocked_tracks)) {
+        localStorage.setItem(MUSIC_BLOCKED_TRACKS_KEY, JSON.stringify(safeProfile.music_blocked_tracks));
       }
     } else {
       localStorage.removeItem(APP_PROFILE_KEY);
@@ -74,7 +91,7 @@ async function loadServerProfile(userId: string) {
       headers: await getAuthHeaders(),
     });
     const result = await response.json().catch(() => ({}));
-    return response.ok && result.profile ? result.profile : null;
+    return response.ok && result.profile ? normalizeProfile(result.profile) : null;
   } catch {
     return null;
   }
@@ -83,6 +100,7 @@ async function loadServerProfile(userId: string) {
 async function saveServerProfile(profile: any) {
   if (typeof window === 'undefined' || !profile?.id) return null;
   const currentUser = useUserStore.getState().user;
+  const safeProfile = normalizeProfile(profile);
   const response = await fetch('/api/player-profile', {
     method: 'POST',
     headers: {
@@ -90,32 +108,32 @@ async function saveServerProfile(profile: any) {
       ...(await getAuthHeaders()),
     },
     body: JSON.stringify({
-      ...profile,
-      email: profile.email || currentUser?.email || '',
+      ...safeProfile,
+      email: safeProfile.email || currentUser?.email || '',
     }),
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || 'Nao foi possivel salvar o perfil.');
-  return result.profile || profile;
+  return normalizeProfile(result.profile || safeProfile);
 }
 
 function getStoredGuest() {
   if (typeof window === 'undefined') return { user: null, profile: null };
   const guestId = localStorage.getItem('guestId');
-  const storedProfile = readJson(APP_PROFILE_KEY);
+  const storedProfile = normalizeProfile(readJson(APP_PROFILE_KEY));
   const nickname = localStorage.getItem('guestNickname') || storedProfile?.nickname;
   if (!guestId || !nickname) return { user: null, profile: null };
 
-  const baseProfile = { id: guestId, nickname, is_guest: true, played_matches: 0, wins: 0, profile_completed: true };
+  const baseProfile = { id: guestId, nickname, emoji: storedProfile?.emoji || DEFAULT_PLAYER_EMOJI, is_guest: true, played_matches: 0, wins: 0, profile_completed: true, avatar_url: '' };
   return {
     user: { id: guestId, email: `guest_${guestId}@guest.com` },
-    profile: { ...baseProfile, ...(storedProfile || {}), id: guestId, nickname, is_guest: true, profile_completed: true }
+    profile: normalizeProfile({ ...baseProfile, ...(storedProfile || {}), id: guestId, nickname, is_guest: true, profile_completed: true })
   };
 }
 
 function getStoredAppAuth() {
   const user = readJson(APP_USER_KEY);
-  const profile = readJson(APP_PROFILE_KEY);
+  const profile = normalizeProfile(readJson(APP_PROFILE_KEY));
   if (!user?.id) return getStoredGuest();
 
   return {
@@ -123,6 +141,8 @@ function getStoredAppAuth() {
     profile: profile || {
       id: user.id,
       nickname: user.email?.split('@')[0] || 'Jogador',
+      emoji: DEFAULT_PLAYER_EMOJI,
+      avatar_url: '',
       played_matches: 0,
       wins: 0,
     },
@@ -131,9 +151,11 @@ function getStoredAppAuth() {
 
 function fallbackProfileFor(user: any, storedProfile: any = null) {
   if (!user?.id) return null;
-  return storedProfile || {
+  return normalizeProfile(storedProfile) || {
     id: user.id,
     nickname: user.email?.split('@')[0] || 'Jogador',
+    emoji: DEFAULT_PLAYER_EMOJI,
+    avatar_url: '',
     played_matches: 0,
     wins: 0,
   };
@@ -146,7 +168,7 @@ export const useUserStore = create<UserState>((set) => ({
   setUser: (user) => set({ user, loading: false, initialized: true }),
   setSessionUser: (user, profile = null) => {
     const existingProfile = useUserStore.getState().profile;
-    const resolvedProfile = profile || existingProfile;
+    const resolvedProfile = normalizeProfile(profile || existingProfile);
     persistAuth(user, resolvedProfile);
     set({ user, profile: resolvedProfile, loading: false, initialized: true });
   },
@@ -157,7 +179,7 @@ export const useUserStore = create<UserState>((set) => ({
       set({ ...storedAppAuth, loading: false, initialized: true });
       const serverProfile = await loadServerProfile(storedAppAuth.user.id);
       if (serverProfile) {
-        const mergedProfile = { ...(storedAppAuth.profile || {}), ...serverProfile };
+        const mergedProfile = normalizeProfile({ ...(storedAppAuth.profile || {}), ...serverProfile });
         persistAuth(storedAppAuth.user, mergedProfile);
         set({ user: storedAppAuth.user, profile: mergedProfile, loading: false, initialized: true });
       }
@@ -167,7 +189,7 @@ export const useUserStore = create<UserState>((set) => ({
       const { data: { session } } = await supabaseAuth.auth.getSession();
       if (session?.user) {
         const serverProfile = await loadServerProfile(session.user.id);
-        const profile = serverProfile || fallbackProfileFor(session.user, storedAppAuth.profile);
+        const profile = normalizeProfile(serverProfile || fallbackProfileFor(session.user, storedAppAuth.profile));
         persistAuth(session.user, profile);
         set({ user: session.user, profile, loading: false, initialized: true });
         return;
@@ -188,28 +210,30 @@ export const useUserStore = create<UserState>((set) => ({
   fetchProfile: async (uid: string) => {
     const currentUser = useUserStore.getState().user;
     const serverProfile = await loadServerProfile(uid);
-    const profile = serverProfile || readJson(APP_PROFILE_KEY) || fallbackProfileFor(currentUser);
+    const profile = normalizeProfile(serverProfile || readJson(APP_PROFILE_KEY) || fallbackProfileFor(currentUser));
     persistAuth(currentUser, profile);
     set({ profile, loading: false, initialized: true });
   },
   loginGuest: async (nickname: string) => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('guestId') : null;
-    const storedProfile = readJson(APP_PROFILE_KEY);
+    const storedProfile = normalizeProfile(readJson(APP_PROFILE_KEY));
     const guestId = stored || crypto.randomUUID();
 
     const guestUser = { id: guestId, email: `guest_${guestId}@guest.com` };
-    const guestProfile = {
+    const guestProfile = normalizeProfile({
       ...(storedProfile || {}),
       id: guestId,
       nickname,
+      emoji: storedProfile?.emoji || DEFAULT_PLAYER_EMOJI,
       is_guest: true,
-      avatar_url: storedProfile?.avatar_url || '',
+      avatar_url: '',
+      avatar_animation_set_id: null,
       music_genres: Array.isArray(storedProfile?.music_genres) ? storedProfile.music_genres : [],
       music_blocked_tracks: Array.isArray(storedProfile?.music_blocked_tracks) ? storedProfile.music_blocked_tracks : [],
       profile_completed: true,
       played_matches: storedProfile?.played_matches || 0,
       wins: storedProfile?.wins || 0,
-    };
+    });
 
     const savedProfile = await saveServerProfile(guestProfile);
 

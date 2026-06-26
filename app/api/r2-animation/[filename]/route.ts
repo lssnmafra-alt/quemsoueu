@@ -10,31 +10,38 @@ const CONTENT_TYPES: Record<string, string> = {
 export async function GET(req: NextRequest, context: { params: Promise<{ filename: string }> }) {
   try {
     const { filename } = await context.params;
-    const key = decodeURIComponent(req.nextUrl.searchParams.get('key') || '').trim();
-    const extension = String(filename || '').split('.').pop()?.toLowerCase() || '';
+    const originalKey = decodeURIComponent(req.nextUrl.searchParams.get('key') || '').trim();
 
-    if (!isSafeVideoKey(key) || !CONTENT_TYPES[extension]) {
+    if (!isSafeVideoKey(originalKey)) {
       return NextResponse.json({ error: 'Animacao nao permitida.' }, { status: 400 });
     }
 
-    const object = await getR2Object(key);
+    const resolved = await resolveR2VideoObject(originalKey);
 
-    if (!object?.body) {
-      return NextResponse.json({ error: 'Animacao nao encontrada no R2.', key }, { status: 404 });
+    if (!resolved.object?.body) {
+      return NextResponse.json({ error: 'Animacao nao encontrada no R2.', key: originalKey, checked: resolved.checked }, { status: 404 });
     }
 
-    const bytes = await bodyToBytes(object.body);
+    const resolvedKey = resolved.key;
+    const extension = String(resolvedKey || filename || '').split('.').pop()?.toLowerCase() || '';
+
+    if (!CONTENT_TYPES[extension]) {
+      return NextResponse.json({ error: 'Tipo de animacao nao permitido.' }, { status: 400 });
+    }
+
+    const bytes = await bodyToBytes(resolved.object.body);
     const size = bytes.length;
     const range = req.headers.get('range');
     const commonHeaders = {
       'Content-Type': CONTENT_TYPES[extension],
-      'Content-Disposition': `inline; filename="${safeFilename(filename)}"`,
+      'Content-Disposition': `inline; filename="${safeFilename(resolvedKey.split('/').pop() || filename)}"`,
       'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
       'Cross-Origin-Resource-Policy': 'cross-origin',
       'X-Content-Type-Options': 'nosniff',
       'Accept-Ranges': 'bytes',
+      'X-QSE-R2-Key': resolvedKey,
     };
 
     if (range) {
@@ -88,6 +95,45 @@ export async function OPTIONS() {
       'Access-Control-Max-Age': '86400',
     },
   });
+}
+
+async function resolveR2VideoObject(key: string) {
+  const checked: string[] = [];
+
+  for (const candidate of keyCandidates(key)) {
+    if (!isSafeVideoKey(candidate) || checked.includes(candidate)) continue;
+    checked.push(candidate);
+    const object = await getR2Object(candidate).catch(() => null);
+    if (object?.body) return { key: candidate, object, checked };
+  }
+
+  return { key, object: null, checked };
+}
+
+function keyCandidates(key: string) {
+  const variants = [key];
+  const oppositeExt = key.toLowerCase().endsWith('.webm')
+    ? key.replace(/\.webm$/i, '.mp4')
+    : key.toLowerCase().endsWith('.mp4')
+      ? key.replace(/\.mp4$/i, '.webm')
+      : '';
+
+  if (oppositeExt) variants.push(oppositeExt);
+
+  if (key.startsWith('atuem/avatar/')) variants.push(key.replace(/^atuem\/avatar\//, 'atuem/atuem/avatar/'));
+  if (oppositeExt.startsWith('atuem/avatar/')) variants.push(oppositeExt.replace(/^atuem\/avatar\//, 'atuem/atuem/avatar/'));
+
+  const avatarMatch = key.match(/^atuem\/(?:atuem\/)?avatar\/([^/]+)\/([^/]+\.(?:mp4|webm))$/i);
+  if (avatarMatch) {
+    const [, avatarKey, file] = avatarMatch;
+    variants.push(`atuem/atuem/avatar/Padrao/${avatarKey}/${file}`);
+    variants.push(`atuem/avatar/Padrao/${avatarKey}/${file}`);
+    const altFile = file.toLowerCase().endsWith('.webm') ? file.replace(/\.webm$/i, '.mp4') : file.replace(/\.mp4$/i, '.webm');
+    variants.push(`atuem/atuem/avatar/Padrao/${avatarKey}/${altFile}`);
+    variants.push(`atuem/avatar/Padrao/${avatarKey}/${altFile}`);
+  }
+
+  return [...new Set(variants.filter(Boolean))];
 }
 
 function parseRange(range: string, size: number) {

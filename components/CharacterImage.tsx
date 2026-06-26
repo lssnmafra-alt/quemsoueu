@@ -170,7 +170,13 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   }
 
   if (!src) {
-    if (!isOfficial) return <AvatarRenderer config={avatarConfig} name={name} className={className} />;
+    if (!isOfficial) {
+      return (
+        <div className={cn('flex h-full w-full items-center justify-center rounded-xl border-2 border-indigo-100 bg-indigo-50 p-3 text-center shadow-inner', className, placeholderClassName)} title={name}>
+          <span className="line-clamp-4 text-sm font-black uppercase leading-tight text-indigo-950">{name || 'Personagem'}</span>
+        </div>
+      );
+    }
     return (
       <div className={cn('official-card-preview relative aspect-[2/3] overflow-hidden rounded-[1.35rem] border-[3px] shadow-xl', theme.border, theme.base, className, placeholderClassName)}>
         <div className="absolute inset-[0.22rem] rounded-[0.95rem] bg-slate-900" />

@@ -32,6 +32,8 @@ function publicPlayerSnapshot(player: any) {
     lives: player.lives || 0,
     is_eliminated: Boolean(player.is_eliminated),
     is_bot: Boolean(player.is_bot),
+    avatar_url: player.avatar_url || '',
+    avatar_animation_set_id: player.avatar_animation_set_id || null,
   };
 }
 
@@ -143,12 +145,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .map((player: any) => player.id),
   );
   const liveCardsInPlay = (liveCards || []).filter((card: any) => latestActivePlayerIds.has(card.player_id));
-  const liveCharacterIds = new Set(liveCardsInPlay.map((card: any) => card.character_id));
-
-  if (!liveCharacterIds.has(targetCharId)) {
-    await restoreTurnLock();
-    return NextResponse.json({ ok: false, reason: 'character-not-live' }, { status: 400 });
-  }
 
   await supabaseGame.from('room_players').update({ missed_turns: 0 }).eq('id', activePlayer.id);
 
@@ -175,6 +171,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   const hitPlayerIds = [...new Set(hits.map((hit: any) => hit.player_id))];
   const hitPlayerSnapshots = hitPlayers.map(publicPlayerSnapshot).filter(Boolean);
+  const isDecoyMiss = hits.length === 0;
 
   await logMatchEvents([
     {
@@ -186,7 +183,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       message: hits.length > 0
         ? `${activePlayer.nickname} acertou ${targetChar.name}.`
         : `${activePlayer.nickname} errou ${targetChar.name}.`,
-      metadata: { source: 'human', target_name: targetChar.name, hit_count: hits.length, hit_player_ids: hitPlayerIds, hit_players: hitPlayerSnapshots, reveal_until: lockUntil, damage_pending: true },
+      metadata: {
+        source: 'human',
+        target_name: targetChar.name,
+        hit_count: hits.length,
+        hit_player_ids: hitPlayerIds,
+        hit_players: hitPlayerSnapshots,
+        reveal_until: lockUntil,
+        damage_pending: true,
+        decoy_miss: isDecoyMiss,
+      },
     },
     ...eliminatedPlayers.map((player: any) => ({
       roomId: room.id,
@@ -212,5 +218,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     hitPlayers,
     hits: hits.length,
     revealPending: true,
+    decoyMiss: isDecoyMiss,
   });
 }

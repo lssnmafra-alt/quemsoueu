@@ -11,7 +11,7 @@ type AvatarModelPreloaderProps = {
 };
 
 const loadedUrls = new Set<string>();
-const resolvedUrlCache = new Map<string, string>();
+const resolvedUrlCache = new Map<string, string[]>();
 
 export default function AvatarModelPreloader({ players, max = 12, eventType = 'intro', onProgress, onDone }: AvatarModelPreloaderProps) {
   useEffect(() => {
@@ -37,18 +37,20 @@ export default function AvatarModelPreloader({ players, max = 12, eventType = 'i
 
     emit();
 
-    const resolveAnimationUrl = async (avatarUrl: string, controller: AbortController) => {
+    const resolveAnimationUrls = async (avatarUrl: string, controller: AbortController) => {
       const cacheKey = `${eventType}:${avatarUrl}`;
-      if (resolvedUrlCache.has(cacheKey)) return resolvedUrlCache.get(cacheKey) || '';
+      if (resolvedUrlCache.has(cacheKey)) return resolvedUrlCache.get(cacheKey) || [];
 
-      const videoResponse = await fetch(`/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}`, {
-        cache: 'force-cache',
+      const videoResponse = await fetch(`/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}&v=central`, {
+        cache: 'no-store',
         signal: controller.signal,
       });
       const video = await videoResponse.json().catch(() => null);
-      const resolved = video?.available && (video.videoUrl || video.url) ? String(video.videoUrl || video.url) : '';
-      resolvedUrlCache.set(cacheKey, resolved);
-      return resolved;
+      const urls = [video?.videoUrl || video?.url, video?.fallbackUrl]
+        .map((url) => String(url || '').trim())
+        .filter(Boolean);
+      resolvedUrlCache.set(cacheKey, urls);
+      return urls;
     };
 
     const loadOne = async (avatarUrl: string) => {
@@ -56,15 +58,17 @@ export default function AvatarModelPreloader({ players, max = 12, eventType = 'i
       controllers.push(controller);
 
       try {
-        const url = await resolveAnimationUrl(avatarUrl, controller);
-        if (!url || cancelled) {
+        const urls = await resolveAnimationUrls(avatarUrl, controller);
+        if (!urls.length || cancelled) {
           progress.unavailable += 1;
           return;
         }
 
-        if (!loadedUrls.has(url)) {
-          await warmVideoStart(url, controller);
-          loadedUrls.add(url);
+        for (const url of urls) {
+          if (!loadedUrls.has(url)) {
+            await warmVideoStart(url, controller);
+            loadedUrls.add(url);
+          }
         }
 
         progress.loaded += 1;

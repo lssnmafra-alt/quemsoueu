@@ -5,7 +5,7 @@ import { getSupabaseAuthServer, hasSupabaseAuthServiceRole } from '@/lib/supabas
 
 const MAX_GENRES = 8;
 const MAX_BLOCKED_TRACKS = 300;
-const PROFILE_SELECT = 'id,email,nickname,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,is_admin,updated_at,created_at';
+const PROFILE_SELECT = 'id,email,nickname,emoji,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,is_admin,updated_at,created_at';
 
 export async function GET(req: NextRequest) {
   try {

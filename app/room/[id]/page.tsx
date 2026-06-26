@@ -34,6 +34,34 @@ function normalizeEmoji(value: unknown) {
   return Array.from(emoji).slice(0, 2).join('') || '🙂';
 }
 
+function isUuid(value: unknown) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ''));
+}
+
+async function getProfileName(profileId: string) {
+  if (!isUuid(profileId)) return 'Jogador';
+  const { data } = await supabaseGame.from('profiles').select('nickname').eq('id', profileId).maybeSingle();
+  return data?.nickname || 'Jogador';
+}
+
+async function ensureJoinFriendRequest(roomOwnerId: string, visitorId: string) {
+  if (!isUuid(roomOwnerId) || !isUuid(visitorId) || roomOwnerId === visitorId) return;
+
+  const { data: existing } = await supabaseGame
+    .from('friendships')
+    .select('id,status')
+    .or(`and(requester_profile_id.eq.${roomOwnerId},receiver_profile_id.eq.${visitorId}),and(requester_profile_id.eq.${visitorId},receiver_profile_id.eq.${roomOwnerId})`)
+    .maybeSingle();
+
+  if (existing) return;
+
+  await supabaseGame.from('friendships').insert({
+    requester_profile_id: roomOwnerId,
+    receiver_profile_id: visitorId,
+    status: 'pending',
+  }).catch(() => {});
+}
+
 export default function RoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -128,6 +156,19 @@ export default function RoomPage() {
           return;
         }
 
+        if (rm.admin_id !== user.id && typeof window !== 'undefined') {
+          const confirmKey = `room-link-confirmed:${roomId}:${user.id}`;
+          if (!sessionStorage.getItem(confirmKey)) {
+            const ownerName = await getProfileName(rm.admin_id);
+            const allowed = window.confirm(`${ownerName} convidou você para uma partida.\n\nEntrar na sala como ${profile?.nickname || user.email?.split('@')[0] || 'convidado'}?`);
+            if (!allowed) {
+              router.push('/');
+              return;
+            }
+            sessionStorage.setItem(confirmKey, '1');
+          }
+        }
+
         const { data: newP } = await supabaseGame.from('room_players').insert({
           room_id: roomId,
           user_id: user.id,
@@ -139,6 +180,7 @@ export default function RoomPage() {
         }).select().single();
 
         if (newP) {
+          await ensureJoinFriendRequest(rm.admin_id, user.id);
           setPlayers([...normalizedPlayers, newP]);
           setRoomNotices((prev) => [...prev.slice(-2), { id: crypto.randomUUID(), text: `${newP.nickname} entrou na sala` }]);
           requestAdvance(true);

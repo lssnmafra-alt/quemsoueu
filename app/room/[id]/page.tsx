@@ -55,11 +55,13 @@ async function ensureJoinFriendRequest(roomOwnerId: string, visitorId: string) {
 
   if (existing) return;
 
-  await supabaseGame.from('friendships').insert({
-    requester_profile_id: roomOwnerId,
-    receiver_profile_id: visitorId,
-    status: 'pending',
-  }).catch(() => {});
+  try {
+    await supabaseGame.from('friendships').insert({
+      requester_profile_id: roomOwnerId,
+      receiver_profile_id: visitorId,
+      status: 'pending',
+    });
+  } catch {}
 }
 
 export default function RoomPage() {

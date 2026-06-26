@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ImgHTMLAttributes, type ReactNode, type SyntheticEvent } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useUserStore } from '@/lib/store';
 import AvatarRenderer from '@/components/avatar/AvatarRenderer';
 import OfficialFrame, { getOfficialFrameTheme, type OfficialCardTheme } from '@/components/cards/OfficialFrame';
 import OfficialName from '@/components/cards/OfficialName';
@@ -40,6 +41,8 @@ const RARITY_STYLE: Record<CardRarity, CSSProperties> = {
 };
 
 export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficial = false, officialFrameTheme, alt, className, placeholderClassName, hideOfficialName = false, showRarityFrame = false, cardRarity, onError, referrerPolicy = 'no-referrer', ...props }: CharacterImageProps) {
+  const { user } = useUserStore();
+  const requesterId = String(user?.id || '').trim();
   const sources = useMemo(() => {
     const savedImage = sanitizeImageUrl(imageUrl);
     return savedImage ? [savedImage] : [];
@@ -60,21 +63,22 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   const src = sources.find((candidate) => !brokenUrls[candidate]);
   const classText = String(className || '');
   const shouldHideOfficialName = hideOfficialName || classText.includes('w-12 h-14');
-  const shouldUseRarityFrame = Boolean(showRarityFrame);
-  const showOfficialFrameThemePicker = Boolean(isOfficial && officialDeckEditorId && !shouldHideOfficialName && !shouldUseRarityFrame);
-  const showRarityPicker = Boolean(isOfficial && officialDeckEditorId && !shouldHideOfficialName && shouldUseRarityFrame);
+  const looksLikeGameCard = classText.includes('object-cover') && classText.includes('w-full') && classText.includes('h-full');
+  const shouldUseRarityFrame = Boolean(showRarityFrame || (!shouldHideOfficialName && looksLikeGameCard));
+  const showOfficialFrameThemePicker = Boolean(isOfficial && officialDeckEditorId && requesterId && !shouldHideOfficialName && !shouldUseRarityFrame);
+  const showRarityPicker = Boolean(officialDeckEditorId && requesterId && !shouldHideOfficialName && shouldUseRarityFrame);
   const showRarityBadge = rarity !== 'comum' && !shouldHideOfficialName;
 
   useEffect(() => { setManualFrameTheme(storedOfficialFrameTheme); }, [storedOfficialFrameTheme, name]);
   useEffect(() => { setManualCardRarity(storedCardRarity); setBrokenFrame(false); }, [storedCardRarity, name]);
   useEffect(() => {
-    if (!isOfficial || typeof window === 'undefined') {
+    if (typeof window === 'undefined') {
       setOfficialDeckEditorId('');
       return;
     }
     const match = window.location.pathname.match(/^\/decks\/([0-9a-f-]{36})(?:\/)?$/i);
     setOfficialDeckEditorId(match?.[1] || '');
-  }, [isOfficial]);
+  }, []);
 
   const handleError = (event: SyntheticEvent<HTMLImageElement>) => {
     if (src) setBrokenUrls((current) => ({ ...current, [src]: true }));
@@ -82,7 +86,7 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   };
 
   const handleOfficialFrameThemeChange = async (nextTheme: OfficialCardTheme) => {
-    if (!officialDeckEditorId || savingFrameTheme) return;
+    if (!officialDeckEditorId || savingFrameTheme || !requesterId) return;
     const previousTheme = frameTheme;
     setManualFrameTheme(nextTheme);
     setSavingFrameTheme(true);
@@ -90,7 +94,7 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
       const response = await fetch('/api/official-decks/edit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update-frame-theme', deckId: officialDeckEditorId, name, imageUrl: sanitizeImageUrl(imageUrl) || '', frameTheme: nextTheme }),
+        body: JSON.stringify({ action: 'update-frame-theme', deckId: officialDeckEditorId, userId: requesterId, name, imageUrl: sanitizeImageUrl(imageUrl) || '', frameTheme: nextTheme }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Nao foi possivel salvar a cor da moldura.');
@@ -103,7 +107,7 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   };
 
   const handleCardRarityChange = async (nextRarity: CardRarity) => {
-    if (!officialDeckEditorId || savingRarity) return;
+    if (!officialDeckEditorId || savingRarity || !requesterId) return;
     const previousRarity = rarity;
     setManualCardRarity(nextRarity);
     setSavingRarity(true);
@@ -111,7 +115,7 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
       const response = await fetch('/api/official-decks/edit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update-rarity', deckId: officialDeckEditorId, name, imageUrl: sanitizeImageUrl(imageUrl) || '', rarity: nextRarity }),
+        body: JSON.stringify({ action: 'update-rarity', deckId: officialDeckEditorId, userId: requesterId, name, imageUrl: sanitizeImageUrl(imageUrl) || '', rarity: nextRarity }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Nao foi possivel salvar a raridade.');
@@ -133,8 +137,8 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   ) : null;
 
   const rarityPicker = showRarityPicker ? (
-    <label className="absolute left-2 top-2 z-30 rounded-xl border border-white/25 bg-slate-950/75 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-lg backdrop-blur">
-      <span className="mb-0.5 block opacity-70">Raridade</span>
+    <label className="absolute left-2 top-2 z-50 rounded-xl border border-white/25 bg-slate-950/82 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-lg backdrop-blur">
+      <span className="mb-0.5 block opacity-70">Cor</span>
       <select value={rarity} disabled={savingRarity} onChange={(event) => handleCardRarityChange(event.target.value as CardRarity)} className="pointer-events-auto w-full cursor-pointer rounded-lg border border-white/15 bg-white/95 px-1 py-0.5 text-[10px] font-black text-slate-900 outline-none disabled:cursor-not-allowed disabled:opacity-60">
         {CARD_RARITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
@@ -143,12 +147,12 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
 
   const renderRarityFrame = (children: ReactNode) => (
     <div className={cn('qse-rarity-card relative aspect-[2/3] overflow-visible', className)} data-rarity={rarity} style={RARITY_STYLE[rarity]} title={`${name} - ${CARD_RARITY_LABELS[rarity]}`}>
-      <div className="absolute inset-[6.5%_8%_13.5%_8%] z-10 overflow-hidden rounded-[0.9rem] bg-slate-950 shadow-[0_0_18px_var(--rarity-glow)]">
+      <div className="absolute inset-[7.5%_9%_14.5%_9%] z-10 overflow-hidden rounded-[0.82rem] bg-slate-950 shadow-[0_0_18px_var(--rarity-glow)]">
         {children}
       </div>
-      <div className="pointer-events-none absolute inset-[6.5%_8%_13.5%_8%] z-20 rounded-[0.9rem] bg-gradient-to-t from-slate-950/10 via-transparent to-white/5" />
+      <div className="pointer-events-none absolute inset-[7.5%_9%_14.5%_9%] z-20 rounded-[0.82rem] bg-gradient-to-t from-slate-950/10 via-transparent to-white/5" />
       {!brokenFrame ? (
-        <img src={getCardRarityFrameUrl(rarity)} alt="" aria-hidden="true" onError={() => setBrokenFrame(true)} className="pointer-events-none absolute inset-0 z-30 h-full w-full object-fill drop-shadow-xl" referrerPolicy="no-referrer" />
+        <img src={getCardRarityFrameUrl(rarity)} alt="" aria-hidden="true" onError={() => setBrokenFrame(true)} className="pointer-events-none absolute inset-0 z-30 h-full w-full object-fill drop-shadow-[0_10px_14px_rgba(0,0,0,.24)]" referrerPolicy="no-referrer" />
       ) : (
         <div className="pointer-events-none absolute inset-0 z-30 rounded-[1.25rem] border-[0.45rem] border-[color:var(--rarity-a)] shadow-[0_0_18px_var(--rarity-glow),inset_0_0_0_2px_rgba(255,255,255,.6)]" />
       )}

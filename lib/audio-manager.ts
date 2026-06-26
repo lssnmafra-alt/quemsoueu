@@ -105,12 +105,12 @@ export class AudioManager {
     this.ensureContext();
     if (this.ctx?.state === 'suspended') void this.ctx.resume();
 
-    if (this.currentMusicInfo?.url && this.prefs.musicEnabled && !this.prefs.muted && !this.music) {
+    if (this.currentMusicInfo?.url && this.prefs.musicEnabled && !this.prefs.muted && !this.music && !this.musicPaused) {
       void this.startResolvedMusic(this.currentMusicInfo, 'restored-session', this.restoredMusicTime);
       return;
     }
 
-    if (this.activeMusicTrack && this.prefs.musicEnabled && !this.music) {
+    if (this.activeMusicTrack && this.prefs.musicEnabled && !this.music && !this.musicPaused) {
       void this.playMusic(this.activeMusicTrack);
     }
   }
@@ -153,7 +153,7 @@ export class AudioManager {
       }
 
       if (this.currentMusicInfo?.url) {
-        await this.startResolvedMusic(this.currentMusicInfo, 'persisted-session', this.restoredMusicTime);
+        if (!this.musicPaused) await this.startResolvedMusic(this.currentMusicInfo, 'persisted-session', this.restoredMusicTime);
         return;
       }
     }
@@ -208,6 +208,7 @@ export class AudioManager {
     }
 
     if (this.currentMusicInfo?.url) {
+      this.musicPaused = false;
       void this.startResolvedMusic(this.currentMusicInfo, 'resume-session', this.restoredMusicTime);
       return;
     }
@@ -456,7 +457,7 @@ export class AudioManager {
     if (typeof window === 'undefined') return;
     const unlock = () => {
       this.initFromUserGesture();
-      if (this.activeMusicTrack && !this.currentMusicInfo?.url) void this.playMusic(this.activeMusicTrack);
+      if (this.activeMusicTrack && !this.currentMusicInfo?.url && !this.musicPaused) void this.playMusic(this.activeMusicTrack);
     };
     window.addEventListener('pointerdown', unlock, { once: true, passive: true });
     window.addEventListener('keydown', unlock, { once: true });

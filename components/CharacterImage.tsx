@@ -65,8 +65,8 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   const src = sources.find((candidate) => !brokenUrls[candidate]);
   const classText = String(className || '');
   const shouldHideOfficialName = hideOfficialName || classText.includes('w-12 h-14');
-  const looksLikeGameCard = classText.includes('object-cover') && classText.includes('w-full') && classText.includes('h-full');
-  const shouldUseRarityFrame = Boolean(showRarityFrame || (!shouldHideOfficialName && looksLikeGameCard));
+  const looksLikeFullCard = classText.includes('w-full') && classText.includes('h-full');
+  const shouldUseRarityFrame = Boolean(showRarityFrame || (!shouldHideOfficialName && looksLikeFullCard));
   const showOfficialFrameThemePicker = Boolean(isAdmin && isOfficial && officialDeckEditorId && !shouldHideOfficialName && !shouldUseRarityFrame);
   const showRarityPicker = Boolean(isAdmin && officialDeckEditorId && !shouldHideOfficialName && shouldUseRarityFrame);
   const showRarityBadge = rarity !== 'comum' && !shouldHideOfficialName;
@@ -159,6 +159,7 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
         <div className="pointer-events-none absolute inset-0 z-30 rounded-[1.25rem] border-[0.45rem] border-[color:var(--rarity-a)] shadow-[0_0_18px_var(--rarity-glow),inset_0_0_0_2px_rgba(255,255,255,.6)]" />
       )}
       {showRarityBadge && <span className="pointer-events-none absolute left-[17%] right-[17%] top-[7.5%] z-40 truncate rounded-full bg-slate-950/72 px-2 py-0.5 text-center text-[9px] font-black uppercase tracking-[0.16em] text-white shadow-lg">{CARD_RARITY_LABELS[rarity]}</span>}
+      {!shouldHideOfficialName && <span className="qse-rarity-card-name pointer-events-none absolute left-[18%] right-[18%] bottom-[7.6%] z-40 truncate rounded-[0.42rem] bg-[linear-gradient(180deg,rgba(73,22,91,.98),rgba(43,12,65,.98))] px-1 py-[0.08rem] text-center text-[clamp(.5rem,.72vw,.64rem)] font-black leading-[0.82rem] text-[#fff7d6] shadow-[0_4px_10px_rgba(0,0,0,.28)]">{name}</span>}
       {rarityPicker}
     </div>
   );

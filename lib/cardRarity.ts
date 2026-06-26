@@ -32,7 +32,7 @@ export function getCardRarity(value: unknown): CardRarity {
 
 export function getCardRarityFrameKey(rarity: unknown) {
   const safeRarity = getCardRarity(rarity);
-  return `atuem/atuem/Molduras/Raridades/moldura_${safeRarity}.png`;
+  return `atuem/Molduras/Raridades/moldura_${safeRarity}.png`;
 }
 
 export function getCardRarityFrameUrl(rarity: unknown) {

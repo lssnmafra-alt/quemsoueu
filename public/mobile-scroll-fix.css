@@ -25,6 +25,25 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  body[data-qse-route="/"] .home-lobby-main:not(:has(.home-lobby-section)) {
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    align-items: flex-start !important;
+    padding-top: max(1rem, env(safe-area-inset-top)) !important;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-qse-route="/"] .relative.min-h-screen:has(.home-lobby-main:not(:has(.home-lobby-section))) {
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
   body[data-qse-route] main,
   body[data-qse-route] section,
   body[data-qse-route] .space-y-3,

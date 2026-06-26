@@ -7,14 +7,40 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 const NOW_PLAYING_EVENT = 'quemSouEu:music-track';
+const AUDIO_TOGGLE_OWNER_EVENT = 'quemSouEu:audio-toggle-owner';
+const AUDIO_TOGGLE_OWNER_KEY = '__quemSouEuAudioToggleOwner';
 
 export default function AudioToggle() {
+  const [instanceId] = useState(() => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`));
+  const [isPrimary, setIsPrimary] = useState(true);
   const [open, setOpen] = useState(false);
   const [prefs, setPrefs] = useState({ ...audioManager.prefs });
   const [currentTrack, setCurrentTrack] = useState<CurrentMusicInfo | null>(() => audioManager.getCurrentMusicInfo());
   const [toastTrack, setToastTrack] = useState<CurrentMusicInfo | null>(null);
   const [musicPaused, setMusicPaused] = useState(() => audioManager.isMusicPaused());
   const [switchingTrack, setSwitchingTrack] = useState(false);
+
+  useEffect(() => {
+    const setOwner = () => {
+      (window as any)[AUDIO_TOGGLE_OWNER_KEY] = instanceId;
+      window.dispatchEvent(new CustomEvent(AUDIO_TOGGLE_OWNER_EVENT, { detail: instanceId }));
+    };
+
+    const onOwnerChange = (event: Event) => {
+      setIsPrimary((event as CustomEvent<string>).detail === instanceId);
+    };
+
+    window.addEventListener(AUDIO_TOGGLE_OWNER_EVENT, onOwnerChange as EventListener);
+    setOwner();
+
+    return () => {
+      window.removeEventListener(AUDIO_TOGGLE_OWNER_EVENT, onOwnerChange as EventListener);
+      if ((window as any)[AUDIO_TOGGLE_OWNER_KEY] === instanceId) {
+        delete (window as any)[AUDIO_TOGGLE_OWNER_KEY];
+        window.dispatchEvent(new CustomEvent(AUDIO_TOGGLE_OWNER_EVENT, { detail: '' }));
+      }
+    };
+  }, [instanceId]);
 
   useEffect(() => {
     let toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -82,6 +108,8 @@ export default function AudioToggle() {
   };
 
   const musicControlsDisabled = prefs.muted || !prefs.musicEnabled || switchingTrack;
+
+  if (!isPrimary) return null;
 
   return (
     <>

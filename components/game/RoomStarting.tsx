@@ -5,9 +5,9 @@ import { cn } from '@/lib/utils';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import AvatarModelPreloader from '@/components/avatar/AvatarModelPreloader';
 
-const ARENA_LOADING_MS = 3000;
-const ARENA_SHOWCASE_MS = 6200;
-const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 2600;
+const ARENA_LOADING_MS = 3400;
+const ARENA_SHOWCASE_MS = 6800;
+const INTRO_VIDEO_LOOKUP_TIMEOUT_MS = 5200;
 
 type ArenaPhase = 'loading' | 'showcase';
 
@@ -129,7 +129,7 @@ export default function RoomStarting({ room, players }: any) {
               <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Galeria da ordem</p>
               <h2 className="text-2xl font-black uppercase italic text-white">{orderedPlayers.length} jogadores prontos</h2>
             </div>
-            <span className="rounded-md border border-yellow-300/60 bg-yellow-300 px-3 py-1 text-[10px] font-black uppercase text-slate-950">vídeos -A.mp4</span>
+            <span className="rounded-md border border-yellow-300/60 bg-yellow-300 px-3 py-1 text-[10px] font-black uppercase text-slate-950">Entradas animadas</span>
           </div>
 
           <div className={cn('mt-4 grid gap-4', gridColumns)}>
@@ -166,7 +166,7 @@ export default function RoomStarting({ room, players }: any) {
                       <p className="truncate text-sm font-black uppercase text-white">{player.nickname}</p>
                       <span className="rounded-lg bg-yellow-300 px-2 py-1 text-[10px] font-black text-slate-950">#{index + 1}</span>
                     </div>
-                    <p className="mt-1 truncate text-[10px] font-black uppercase tracking-wider text-cyan-200">{arenaPhase === 'loading' ? 'Preparando pose' : videoUrl ? 'Pose simultânea' : 'Imagem estática'}</p>
+                    <p className="mt-1 truncate text-[10px] font-black uppercase tracking-wider text-cyan-200">{arenaPhase === 'loading' ? 'Preparando entrada' : videoUrl ? 'Entrada animada' : 'Personagem pronto'}</p>
                   </div>
                 </motion.div>
               );
@@ -221,14 +221,21 @@ async function resolveIntroVideo(player: SequencePlayer, cache: Map<string, stri
   const cached = cache.get(cacheKey);
   if (cached !== undefined) return cached;
 
-  const result = await fetchJsonWithTimeout(
-    `/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=intro`,
-    INTRO_VIDEO_LOOKUP_TIMEOUT_MS,
-  );
-  const url = result?.available ? String(result.videoUrl || result.url || '') : '';
+  const eventTypes = ['intro', 'lobby', 'home'] as const;
+  for (const eventType of eventTypes) {
+    const result = await fetchJsonWithTimeout(
+      `/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}`,
+      INTRO_VIDEO_LOOKUP_TIMEOUT_MS,
+    );
+    const url = result?.available ? String(result.videoUrl || result.url || '') : '';
+    if (url) {
+      cache.set(cacheKey, url);
+      return url;
+    }
+  }
 
-  cache.set(cacheKey, url || '');
-  return url || '';
+  cache.set(cacheKey, '');
+  return '';
 }
 
 async function fetchJsonWithTimeout(url: string, timeoutMs: number) {

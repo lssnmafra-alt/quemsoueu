@@ -1,66 +1,10 @@
-/* Fallback visual frame only for raw gameplay cards.
-   Do not touch the picking screen children: it can hide images while assets are loading. */
-
-:root {
-  --qse-rarity-frame-common: url('/api/r2-file?key=atuem%2FMolduras%2FRaridades%2Fmoldura_comum.png');
-}
-
-.gameplay-card-portrait,
-.gameplay-reveal-card {
-  position: relative !important;
-  overflow: visible !important;
-}
-
-.gameplay-card-portrait:not(:has(.qse-rarity-card))::after,
-.gameplay-reveal-card:not(:has(.qse-rarity-card))::after {
-  content: "";
-  position: absolute;
-  inset: -3.5% -4% -3.5% -4%;
-  z-index: 24;
-  pointer-events: none;
-  background-image: var(--qse-rarity-frame-common);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 100% 100%;
-  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .22));
-}
-
-.qse-rarity-card {
-  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .22));
-}
-
-.gameplay-card-name {
-  z-index: 44 !important;
-  left: 16.5% !important;
-  right: 16.5% !important;
-  bottom: 1.18rem !important;
-  min-height: 1.08rem !important;
-  height: 1.12rem !important;
-  max-height: 1.12rem !important;
-  padding: .1rem .28rem !important;
-  border-radius: .5rem !important;
-  overflow: hidden !important;
-  white-space: nowrap !important;
-  text-overflow: ellipsis !important;
-  font-size: clamp(.54rem, .78vw, .68rem) !important;
-  line-height: .88rem !important;
-  letter-spacing: 0 !important;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .16) !important;
-}
-
-.gameplay-card-target {
-  z-index: 54 !important;
-}
-
-@media (max-width: 760px) {
-  .gameplay-card-name {
-    left: 16% !important;
-    right: 16% !important;
-    bottom: .95rem !important;
-    height: 1rem !important;
-    min-height: 1rem !important;
-    max-height: 1rem !important;
-    font-size: .52rem !important;
-    line-height: .8rem !important;
-  }
-}
+/* Gameplay card frame fallback. */
+:root{--qse-rarity-frame-common:url('/api/r2-file?key=atuem%2FMolduras%2FRaridades%2Fmoldura_comum.png')}
+.gameplay-card-portrait,.gameplay-reveal-card{position:relative!important;overflow:visible!important}
+.gameplay-card-portrait:not(:has(.qse-rarity-card))::after,.gameplay-reveal-card:not(:has(.qse-rarity-card))::after{content:"";position:absolute;inset:-3.5% -4%;z-index:24;pointer-events:none;background-image:var(--qse-rarity-frame-common);background-repeat:no-repeat;background-position:center;background-size:100% 100%;filter:drop-shadow(0 10px 14px rgba(0,0,0,.22))}
+.qse-rarity-card{filter:drop-shadow(0 10px 14px rgba(0,0,0,.22))}
+.gameplay-card-name{z-index:44!important;left:17.5%!important;right:17.5%!important;bottom:2.18rem!important;min-height:.92rem!important;height:.96rem!important;max-height:.96rem!important;padding:.04rem .24rem!important;border-radius:.42rem!important;overflow:hidden!important;white-space:nowrap!important;text-overflow:ellipsis!important;font-size:clamp(.48rem,.68vw,.6rem)!important;line-height:.74rem!important;letter-spacing:0!important;box-shadow:0 3px 8px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.16)!important}
+.gameplay-card-target{pointer-events:none!important;position:absolute!important;inset:auto!important;top:.15rem!important;left:50%!important;right:auto!important;bottom:auto!important;z-index:54!important;width:auto!important;min-width:6.2rem!important;height:1.45rem!important;transform:translateX(-50%)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:.28rem!important;border-radius:999px!important;border:2px solid rgba(255,245,201,.85)!important;background:rgba(55,18,82,.82)!important;color:#fff7d6!important;opacity:0!important;padding:0 .55rem!important;font-size:.62rem!important;font-weight:950!important;text-transform:uppercase!important;letter-spacing:.08em!important;box-shadow:0 8px 16px rgba(0,0,0,.24)!important}
+.gameplay-card-target svg{width:1rem!important;height:1rem!important}
+.gameplay-card-item--button:hover .gameplay-card-target,.gameplay-card-item--button:focus-visible .gameplay-card-target,.gameplay-card-item--selected .gameplay-card-target{opacity:1!important}
+@media(max-width:760px){.gameplay-card-name{left:16.5%!important;right:16.5%!important;bottom:1.88rem!important;height:.88rem!important;min-height:.88rem!important;max-height:.88rem!important;font-size:.48rem!important;line-height:.68rem!important}.gameplay-card-target{min-width:5.5rem!important;height:1.25rem!important;font-size:.54rem!important}}

@@ -15,9 +15,9 @@ type Friendship = {
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get('userId')?.trim() || '';
+    const userId = normalizeProfileId(req.nextUrl.searchParams.get('userId'));
     const search = (req.nextUrl.searchParams.get('search') || req.nextUrl.searchParams.get('q') || '').trim();
-    if (!isUuid(userId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
+    if (!isUuid(userId)) return NextResponse.json({ friends: [], incoming: [], outgoing: [], blocked: [], all: [], searchResults: [], received: [], sent: [], results: [] });
 
     const { data: rows, error } = await supabaseGame
       .from('friendships')
@@ -88,8 +88,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const userId = String(body.userId || body.profileId || '').trim();
-    const targetId = String(body.targetId || body.targetProfileId || '').trim();
+    const userId = normalizeProfileId(body.userId || body.profileId);
+    const targetId = normalizeProfileId(body.targetId || body.targetProfileId);
     const action = String(body.action || '').trim();
 
     if (!isUuid(userId) || !isUuid(targetId)) return NextResponse.json({ error: 'Usuario invalido.' }, { status: 400 });
@@ -197,6 +197,10 @@ function escapeLike(value: string) {
   return value.replace(/[\\%_]/g, (match) => `\\${match}`);
 }
 
+function normalizeProfileId(value: unknown) {
+  return String(value || '').trim().toLowerCase().replace(/^profile:/, '').replace(/^user:/, '');
+}
+
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }

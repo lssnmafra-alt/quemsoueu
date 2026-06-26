@@ -42,6 +42,21 @@
 
 .gameplay-card-name {
   z-index: 44 !important;
+  left: 18.5% !important;
+  right: 18.5% !important;
+  bottom: 1.72rem !important;
+  min-height: 1.02rem !important;
+  height: 1.08rem !important;
+  max-height: 1.08rem !important;
+  padding: .08rem .3rem !important;
+  border-radius: .42rem !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  font-size: clamp(.54rem, .78vw, .68rem) !important;
+  line-height: .86rem !important;
+  letter-spacing: 0 !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .16) !important;
 }
 
 .gameplay-card-target {
@@ -50,5 +65,44 @@
 
 .party-grid-bg [role="button"][aria-label^="Selecionar"] > div:not(.absolute),
 .party-grid-bg [role="button"][aria-label^="Escolhido"] > div:not(.absolute) {
-  border-radius: 1rem !important;
+  position: absolute !important;
+  left: 18.5% !important;
+  right: 18.5% !important;
+  bottom: 8.4% !important;
+  z-index: 35 !important;
+  height: 1.12rem !important;
+  min-height: 1.12rem !important;
+  padding: 0 .3rem !important;
+  border: 0 !important;
+  border-radius: .42rem !important;
+  background: linear-gradient(180deg, rgba(73, 22, 91, .96), rgba(43, 12, 65, .98)) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .16) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.party-grid-bg [role="button"][aria-label^="Selecionar"] > div:not(.absolute) p,
+.party-grid-bg [role="button"][aria-label^="Escolhido"] > div:not(.absolute) p {
+  color: #fff7d6 !important;
+  font-size: clamp(.54rem, .78vw, .68rem) !important;
+  line-height: .86rem !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .55) !important;
+}
+
+@media (max-width: 760px) {
+  .gameplay-card-name {
+    left: 17% !important;
+    right: 17% !important;
+    bottom: 1.42rem !important;
+    height: .98rem !important;
+    min-height: .98rem !important;
+    max-height: .98rem !important;
+    font-size: .52rem !important;
+    line-height: .78rem !important;
+  }
 }

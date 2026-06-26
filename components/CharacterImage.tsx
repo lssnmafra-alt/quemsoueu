@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type ImgHTMLAttribute
 import { Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUserStore } from '@/lib/store';
+import { isProjectAdmin } from '@/lib/admin';
 import AvatarRenderer from '@/components/avatar/AvatarRenderer';
 import OfficialFrame, { getOfficialFrameTheme, type OfficialCardTheme } from '@/components/cards/OfficialFrame';
 import OfficialName from '@/components/cards/OfficialName';
@@ -43,6 +44,7 @@ const RARITY_STYLE: Record<CardRarity, CSSProperties> = {
 export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficial = false, officialFrameTheme, alt, className, placeholderClassName, hideOfficialName = false, showRarityFrame = false, cardRarity, onError, referrerPolicy = 'no-referrer', ...props }: CharacterImageProps) {
   const { user } = useUserStore();
   const requesterId = String(user?.id || '').trim();
+  const isAdmin = isProjectAdmin(requesterId);
   const sources = useMemo(() => {
     const savedImage = sanitizeImageUrl(imageUrl);
     return savedImage ? [savedImage] : [];
@@ -65,8 +67,8 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   const shouldHideOfficialName = hideOfficialName || classText.includes('w-12 h-14');
   const looksLikeGameCard = classText.includes('object-cover') && classText.includes('w-full') && classText.includes('h-full');
   const shouldUseRarityFrame = Boolean(showRarityFrame || (!shouldHideOfficialName && looksLikeGameCard));
-  const showOfficialFrameThemePicker = Boolean(isOfficial && officialDeckEditorId && requesterId && !shouldHideOfficialName && !shouldUseRarityFrame);
-  const showRarityPicker = Boolean(officialDeckEditorId && requesterId && !shouldHideOfficialName && shouldUseRarityFrame);
+  const showOfficialFrameThemePicker = Boolean(isAdmin && isOfficial && officialDeckEditorId && !shouldHideOfficialName && !shouldUseRarityFrame);
+  const showRarityPicker = Boolean(isAdmin && officialDeckEditorId && !shouldHideOfficialName && shouldUseRarityFrame);
   const showRarityBadge = rarity !== 'comum' && !shouldHideOfficialName;
 
   useEffect(() => { setManualFrameTheme(storedOfficialFrameTheme); }, [storedOfficialFrameTheme, name]);
@@ -86,7 +88,7 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   };
 
   const handleOfficialFrameThemeChange = async (nextTheme: OfficialCardTheme) => {
-    if (!officialDeckEditorId || savingFrameTheme || !requesterId) return;
+    if (!officialDeckEditorId || savingFrameTheme || !isAdmin) return;
     const previousTheme = frameTheme;
     setManualFrameTheme(nextTheme);
     setSavingFrameTheme(true);
@@ -107,7 +109,7 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   };
 
   const handleCardRarityChange = async (nextRarity: CardRarity) => {
-    if (!officialDeckEditorId || savingRarity || !requesterId) return;
+    if (!officialDeckEditorId || savingRarity || !isAdmin) return;
     const previousRarity = rarity;
     setManualCardRarity(nextRarity);
     setSavingRarity(true);

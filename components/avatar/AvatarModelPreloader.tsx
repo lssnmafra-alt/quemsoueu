@@ -11,6 +11,7 @@ type AvatarModelPreloaderProps = {
 };
 
 const loadedUrls = new Set<string>();
+const resolvedUrlCache = new Map<string, string>();
 
 export default function AvatarModelPreloader({ players, max = 12, eventType = 'intro', onProgress, onDone }: AvatarModelPreloaderProps) {
   useEffect(() => {
@@ -37,13 +38,17 @@ export default function AvatarModelPreloader({ players, max = 12, eventType = 'i
     emit();
 
     const resolveAnimationUrl = async (avatarUrl: string, controller: AbortController) => {
+      const cacheKey = `${eventType}:${avatarUrl}`;
+      if (resolvedUrlCache.has(cacheKey)) return resolvedUrlCache.get(cacheKey) || '';
+
       const videoResponse = await fetch(`/api/avatar-animation-video?avatarUrl=${encodeURIComponent(avatarUrl)}&eventType=${eventType}`, {
-        cache: 'no-store',
+        cache: 'force-cache',
         signal: controller.signal,
       });
       const video = await videoResponse.json().catch(() => null);
-      if (video?.available && (video.videoUrl || video.url)) return String(video.videoUrl || video.url);
-      return '';
+      const resolved = video?.available && (video.videoUrl || video.url) ? String(video.videoUrl || video.url) : '';
+      resolvedUrlCache.set(cacheKey, resolved);
+      return resolved;
     };
 
     const loadOne = async (avatarUrl: string) => {
@@ -58,12 +63,7 @@ export default function AvatarModelPreloader({ players, max = 12, eventType = 'i
         }
 
         if (!loadedUrls.has(url)) {
-          const mediaResponse = await fetch(url, {
-            cache: 'force-cache',
-            signal: controller.signal,
-          });
-          if (!mediaResponse.ok) throw new Error(`Animacao ${mediaResponse.status}`);
-          await mediaResponse.arrayBuffer();
+          await warmVideoStart(url, controller);
           loadedUrls.add(url);
         }
 
@@ -78,7 +78,7 @@ export default function AvatarModelPreloader({ players, max = 12, eventType = 'i
 
     const run = async () => {
       const queue = [...avatarUrls];
-      const workers = Array.from({ length: Math.min(3, queue.length) }, async () => {
+      const workers = Array.from({ length: Math.min(2, queue.length) }, async () => {
         while (queue.length > 0 && !cancelled) {
           const next = queue.shift();
           if (next) await loadOne(next);
@@ -98,4 +98,32 @@ export default function AvatarModelPreloader({ players, max = 12, eventType = 'i
   }, [players, max, eventType, onProgress, onDone]);
 
   return null;
+}
+
+async function warmVideoStart(url: string, controller: AbortController) {
+  const response = await fetch(url, {
+    cache: 'force-cache',
+    signal: controller.signal,
+    headers: { Range: 'bytes=0-65535' },
+  }).catch(() => null);
+
+  if (response?.ok || response?.status === 206) return;
+
+  await new Promise<void>((resolve) => {
+    const video = document.createElement('video');
+    const done = () => resolve();
+    const timeout = window.setTimeout(done, 1200);
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.onloadedmetadata = () => {
+      window.clearTimeout(timeout);
+      done();
+    };
+    video.onerror = () => {
+      window.clearTimeout(timeout);
+      done();
+    };
+    video.src = url;
+  });
 }

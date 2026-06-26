@@ -1,22 +1,18 @@
-/* Fallback visual frame only for raw cards.
-   When CharacterImage renders the real qse-rarity-card, this file stays out of the way. */
+/* Fallback visual frame only for raw gameplay cards.
+   Do not touch the picking screen children: it can hide images while assets are loading. */
 
 :root {
   --qse-rarity-frame-common: url('/api/r2-file?key=atuem%2FMolduras%2FRaridades%2Fmoldura_comum.png');
 }
 
 .gameplay-card-portrait,
-.gameplay-reveal-card,
-.party-grid-bg [role="button"][aria-label^="Selecionar"],
-.party-grid-bg [role="button"][aria-label^="Escolhido"] {
+.gameplay-reveal-card {
   position: relative !important;
   overflow: visible !important;
 }
 
 .gameplay-card-portrait:not(:has(.qse-rarity-card))::after,
-.gameplay-reveal-card:not(:has(.qse-rarity-card))::after,
-.party-grid-bg [role="button"][aria-label^="Selecionar"]:not(:has(.qse-rarity-card))::after,
-.party-grid-bg [role="button"][aria-label^="Escolhido"]:not(:has(.qse-rarity-card))::after {
+.gameplay-reveal-card:not(:has(.qse-rarity-card))::after {
   content: "";
   position: absolute;
   inset: -3.5% -4% -3.5% -4%;
@@ -33,28 +29,21 @@
   filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .22));
 }
 
-.gameplay-card-portrait > *,
-.gameplay-reveal-card > *,
-.party-grid-bg [role="button"][aria-label^="Selecionar"] > *,
-.party-grid-bg [role="button"][aria-label^="Escolhido"] > * {
-  position: relative;
-}
-
 .gameplay-card-name {
   z-index: 44 !important;
-  left: 18.5% !important;
-  right: 18.5% !important;
-  bottom: 1.72rem !important;
-  min-height: 1.02rem !important;
-  height: 1.08rem !important;
-  max-height: 1.08rem !important;
-  padding: .08rem .3rem !important;
-  border-radius: .42rem !important;
+  left: 16.5% !important;
+  right: 16.5% !important;
+  bottom: 1.18rem !important;
+  min-height: 1.08rem !important;
+  height: 1.12rem !important;
+  max-height: 1.12rem !important;
+  padding: .1rem .28rem !important;
+  border-radius: .5rem !important;
   overflow: hidden !important;
   white-space: nowrap !important;
   text-overflow: ellipsis !important;
   font-size: clamp(.54rem, .78vw, .68rem) !important;
-  line-height: .86rem !important;
+  line-height: .88rem !important;
   letter-spacing: 0 !important;
   box-shadow: 0 4px 10px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .16) !important;
 }
@@ -63,46 +52,15 @@
   z-index: 54 !important;
 }
 
-.party-grid-bg [role="button"][aria-label^="Selecionar"] > div:not(.absolute),
-.party-grid-bg [role="button"][aria-label^="Escolhido"] > div:not(.absolute) {
-  position: absolute !important;
-  left: 18.5% !important;
-  right: 18.5% !important;
-  bottom: 8.4% !important;
-  z-index: 35 !important;
-  height: 1.12rem !important;
-  min-height: 1.12rem !important;
-  padding: 0 .3rem !important;
-  border: 0 !important;
-  border-radius: .42rem !important;
-  background: linear-gradient(180deg, rgba(73, 22, 91, .96), rgba(43, 12, 65, .98)) !important;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .16) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-.party-grid-bg [role="button"][aria-label^="Selecionar"] > div:not(.absolute) p,
-.party-grid-bg [role="button"][aria-label^="Escolhido"] > div:not(.absolute) p {
-  color: #fff7d6 !important;
-  font-size: clamp(.54rem, .78vw, .68rem) !important;
-  line-height: .86rem !important;
-  max-width: 100% !important;
-  overflow: hidden !important;
-  white-space: nowrap !important;
-  text-overflow: ellipsis !important;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, .55) !important;
-}
-
 @media (max-width: 760px) {
   .gameplay-card-name {
-    left: 17% !important;
-    right: 17% !important;
-    bottom: 1.42rem !important;
-    height: .98rem !important;
-    min-height: .98rem !important;
-    max-height: .98rem !important;
+    left: 16% !important;
+    right: 16% !important;
+    bottom: .95rem !important;
+    height: 1rem !important;
+    min-height: 1rem !important;
+    max-height: 1rem !important;
     font-size: .52rem !important;
-    line-height: .78rem !important;
+    line-height: .8rem !important;
   }
 }

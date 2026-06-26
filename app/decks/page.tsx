@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookOpen, Crown, Grid2X2, Plus, Search, Trash2 } from 'lucide-react';
+import { BookOpen, Crown, Grid2X2, Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import LoadingArena from '@/components/LoadingArena';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ export default function DecksPage() {
   const [newDeckName, setNewDeckName] = useState('');
   const [creatingDeck, setCreatingDeck] = useState(false);
   const [deletingDeckId, setDeletingDeckId] = useState('');
+  const [notice, setNotice] = useState('');
 
   const isAdminUser = isProjectAdmin(user?.id);
 
@@ -81,16 +82,22 @@ export default function DecksPage() {
     if (!user?.id || !name || creatingDeck) return;
 
     setCreatingDeck(true);
-    const { data, error } = await supabaseGame.from('decks').insert({ name, creator_id: user.id, is_public: false, cover_url: '' }).select().single();
-    setCreatingDeck(false);
+    setNotice('Criando deck...');
 
-    if (error) {
-      alert('Não foi possível criar o baralho agora.');
-      return;
+    try {
+      const { data, error } = await supabaseGame.from('decks').insert({ name, creator_id: user.id, is_public: false, cover_url: '' }).select().single();
+
+      if (error) throw error;
+
+      setNewDeckName('');
+      setNotice('Deck criado. Abrindo editor...');
+      if (data) router.push(`/decks/${data.id}`);
+    } catch (error: any) {
+      setNotice('Não foi possível criar o deck agora. Tente novamente.');
+      alert(error.message || 'Não foi possível criar o baralho agora.');
+    } finally {
+      setCreatingDeck(false);
     }
-
-    setNewDeckName('');
-    if (data) router.push(`/decks/${data.id}`);
   };
 
   const handleRemoveDeck = async (deck: any) => {
@@ -131,14 +138,36 @@ export default function DecksPage() {
         </header>
 
         <section className="rounded-3xl border-4 border-cyan-200/25 bg-[#082c7a]/80 p-4 shadow-[0_30px_90px_rgba(0,0,0,.32)] backdrop-blur-xl md:p-6">
-          <div className="mb-4 grid gap-3 md:grid-cols-[1fr_auto]">
-            <Input value={newDeckName} onChange={(event) => setNewDeckName(event.target.value)} placeholder="NOME DO NOVO DECK..." className="h-14 rounded-none border-2 border-cyan-200/30 bg-white/10 text-sm font-black uppercase text-white placeholder:text-blue-100/70 focus-visible:ring-yellow-300" />
-            <Button onClick={handleCreateDeck} disabled={!newDeckName.trim() || creatingDeck} className="h-14 rounded-none bg-yellow-300 px-8 text-xs font-black uppercase text-slate-950 shadow-[0_6px_0_#b45309] hover:bg-yellow-200"><Plus className="mr-2 h-4 w-4" /> Criar deck</Button>
-          </div>
+          {notice && <div className="mb-4 rounded-2xl border-2 border-cyan-200/20 bg-white/10 px-4 py-3 text-xs font-black uppercase text-cyan-100">{notice}</div>}
 
-          <div className="relative mb-5">
-            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-cyan-200" />
-            <Input value={deckSearch} onChange={(event) => setDeckSearch(event.target.value)} placeholder="PESQUISAR DECKS..." className="h-14 rounded-none border-2 border-cyan-200/30 bg-white/10 pl-12 text-sm font-black uppercase text-white placeholder:text-blue-100/70 focus-visible:ring-yellow-300" />
+          <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <div className="rounded-2xl border-2 border-yellow-200/30 bg-yellow-300/10 p-4">
+              <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-yellow-100">
+                <Plus className="h-4 w-4" /> Criar deck
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                <Input
+                  value={newDeckName}
+                  onChange={(event) => { setNewDeckName(event.target.value); if (notice) setNotice(''); }}
+                  onKeyDown={(event) => { if (event.key === 'Enter') void handleCreateDeck(); }}
+                  placeholder="NOME DO NOVO DECK..."
+                  className="h-14 rounded-none border-2 border-yellow-200/30 bg-white/10 text-sm font-black uppercase text-white placeholder:text-blue-100/70 focus-visible:ring-yellow-300"
+                />
+                <Button onClick={handleCreateDeck} disabled={!newDeckName.trim() || creatingDeck} className="h-14 rounded-none bg-yellow-300 px-8 text-xs font-black uppercase text-slate-950 shadow-[0_6px_0_#b45309] hover:bg-yellow-200 disabled:opacity-60">
+                  {creatingDeck ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Criando</> : <><Plus className="mr-2 h-4 w-4" /> Criar</>}
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border-2 border-cyan-200/20 bg-white/10 p-4">
+              <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-100">
+                <Search className="h-4 w-4" /> Pesquisar decks existentes
+              </div>
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-cyan-200" />
+                <Input value={deckSearch} onChange={(event) => setDeckSearch(event.target.value)} placeholder="DIGITE PARA FILTRAR A LISTA..." className="h-14 rounded-none border-2 border-cyan-200/30 bg-white/10 pl-12 text-sm font-black uppercase text-white placeholder:text-blue-100/70 focus-visible:ring-yellow-300" />
+              </div>
+            </div>
           </div>
 
           <div className="mb-4 flex items-center gap-2 border-b border-cyan-200/20 pb-3">

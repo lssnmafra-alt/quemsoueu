@@ -88,11 +88,13 @@ export default function RoomPage() {
         const updates: Record<string, any> = {};
         const nextNickname = profile?.nickname || user.email?.split('@')[0] || alreadyInRoom.nickname;
         const nextEmoji = normalizeEmoji(profile?.emoji || alreadyInRoom.emoji);
+        const nextAvatarUrl = profile?.avatar_url || alreadyInRoom.avatar_url || '';
+        const nextAvatarSetId = profile?.avatar_animation_set_id || alreadyInRoom.avatar_animation_set_id || null;
 
         if (nextNickname && alreadyInRoom.nickname !== nextNickname) updates.nickname = nextNickname;
         if (alreadyInRoom.emoji !== nextEmoji) updates.emoji = nextEmoji;
-        if (alreadyInRoom.avatar_url) updates.avatar_url = '';
-        if (alreadyInRoom.avatar_animation_set_id) updates.avatar_animation_set_id = null;
+        if ((alreadyInRoom.avatar_url || '') !== nextAvatarUrl) updates.avatar_url = nextAvatarUrl;
+        if ((alreadyInRoom.avatar_animation_set_id || null) !== nextAvatarSetId) updates.avatar_animation_set_id = nextAvatarSetId;
 
         if (Object.keys(updates).length > 0) {
           await supabaseGame.from('room_players').update(updates).eq('id', alreadyInRoom.id);
@@ -131,8 +133,8 @@ export default function RoomPage() {
           user_id: user.id,
           nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante',
           emoji: normalizeEmoji(profile?.emoji),
-          avatar_url: '',
-          avatar_animation_set_id: null,
+          avatar_url: profile?.avatar_url || '',
+          avatar_animation_set_id: profile?.avatar_animation_set_id || null,
           is_admin: rm.admin_id === user.id,
         }).select().single();
 
@@ -179,7 +181,7 @@ export default function RoomPage() {
       clearInterval(poll);
       subs1.unsubscribe();
     };
-  }, [authInitialized, authLoading, user, roomId, profile?.nickname, profile?.emoji, router]);
+  }, [authInitialized, authLoading, user, roomId, profile?.nickname, profile?.emoji, profile?.avatar_url, profile?.avatar_animation_set_id, router]);
 
   useEffect(() => {
     if (!room?.status) return;

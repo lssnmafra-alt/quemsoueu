@@ -6,6 +6,7 @@ import { Ban, Check, Gamepad2, Search, Shield, UserPlus, Users, X } from 'lucide
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import LoadingArena from '@/components/LoadingArena';
+import AvatarFigure from '@/components/avatar/AvatarFigure';
 import { useUserStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import GameTopNav from '@/components/navigation/GameTopNav';
@@ -149,8 +150,8 @@ export default function FriendsPage() {
           </div>
           <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-black uppercase">
             <StatPill label="Amigos" value={friends.length} />
-            <StatPill label="Recebidos" value={incoming.length} />
-            <StatPill label="Convites" value={roomInvites.length} />
+            <StatPill label="Pedidos recebidos" value={incoming.length} highlight={incoming.length > 0} />
+            <StatPill label="Convites de sala" value={roomInvites.length} highlight={roomInvites.length > 0} />
           </div>
         </header>
 
@@ -213,8 +214,8 @@ export default function FriendsPage() {
   );
 }
 
-function StatPill({ label, value }: { label: string; value: number }) {
-  return <div className="rounded-xl border border-cyan-200/30 bg-white/10 px-4 py-2 text-cyan-50"><div className="text-lg text-white">{value}</div><div className="text-[9px] tracking-wider text-cyan-200">{label}</div></div>;
+function StatPill({ label, value, highlight = false }: { label: string; value: number; highlight?: boolean }) {
+  return <div className={cn('rounded-xl border px-4 py-2 text-cyan-50', highlight ? 'border-yellow-200/70 bg-yellow-300 text-slate-950 shadow-[0_0_0_3px_rgba(250,204,21,.18)]' : 'border-cyan-200/30 bg-white/10')}><div className="text-lg font-black">{value}</div><div className={cn('text-[9px] tracking-wider', highlight ? 'text-slate-950' : 'text-cyan-200')}>{label}</div></div>;
 }
 
 function SocialSection({ title, icon, rows, empty, children }: { title: string; icon: ReactNode; rows: SocialRow[]; empty: string; children: (row: SocialRow) => ReactNode }) {
@@ -230,11 +231,11 @@ function SocialSection({ title, icon, rows, empty, children }: { title: string; 
 
 function ProfileCard({ profile, subtext, children }: { profile: any; subtext?: string; children?: ReactNode }) {
   if (!profile) return <EmptyCard text="Perfil indisponível." />;
-  const mark = String(profile.emoji || '').trim() || String(profile.nickname || 'J').trim().charAt(0).toUpperCase() || 'J';
+  const fallback = String(profile.nickname || 'J').trim().charAt(0).toUpperCase() || 'J';
   return (
     <div className="rounded-2xl border-2 border-cyan-200/20 bg-white/95 p-3 text-[#1e1b4b] shadow-lg">
       <div className="flex items-center gap-3">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-white bg-indigo-50 text-2xl font-black text-indigo-950 shadow-inner" aria-hidden="true">{mark}</div>
+        <AvatarFigure avatarUrl={profile.avatar_url} label={profile.nickname || fallback} className="h-14 w-14 shrink-0 rounded-2xl border-2 border-white bg-indigo-50 shadow-inner" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-black leading-tight text-indigo-950">{profile.nickname || 'Jogador'}</p>
           <p className="truncate text-[11px] font-black uppercase text-slate-500">{subtext || `${profile.wins || 0} vitórias · ${profile.played_matches || 0} partidas`}</p>

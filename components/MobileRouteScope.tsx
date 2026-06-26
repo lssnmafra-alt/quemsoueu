@@ -8,6 +8,7 @@ const styleFiles = [
   '/mobile-nav.css',
   '/mobile-store.css',
   '/mobile-gameplay.css',
+  '/mobile-scroll-fix.css',
 ];
 
 function routeKey(pathname: string) {

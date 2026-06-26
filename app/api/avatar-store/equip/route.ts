@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const db = getSupabaseAuthServer();
     const { data: skin, error: skinError } = await db
       .from('avatar_skins')
-      .select('id,avatar_key,avatar_name,skin_code,skin_name,image_key,access_type,is_active')
+      .select('id,avatar_key,avatar_name,skin_code,skin_name,image_key,card_image_key,access_type,is_active')
       .eq('id', skinId)
       .maybeSingle();
 
@@ -49,11 +49,12 @@ export async function POST(req: NextRequest) {
       .map((row: any) => [String(row.event_type || '').trim(), String(row.animation_key || '').trim()])
       .filter(([eventType, key]) => eventType && key));
 
-    const imageUrl = await getPublicR2Url(skin.image_key);
+    const imageKey = String(skin.card_image_key || skin.image_key || '').trim();
+    const imageUrl = await getPublicR2Url(imageKey);
     const avatarUrl = avatarSelectionToUrl(normalizeAvatarSelection({
       avatarId: skin.avatar_key,
       imageUrl,
-      imageKey: skin.image_key,
+      imageKey,
       animationSlug: `${skin.avatar_key}/${skin.skin_code}`,
       animations,
       avatarSetId: skin.id,
@@ -65,9 +66,9 @@ export async function POST(req: NextRequest) {
 
     const { data: profile, error: profileError } = await db
       .from('profiles')
-      .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+      .update({ avatar_url: avatarUrl, avatar_animation_set_id: skinId, updated_at: new Date().toISOString() })
       .eq('id', userId)
-      .select('id,nickname,avatar_url,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,updated_at')
+      .select('id,email,nickname,emoji,avatar_url,avatar_animation_set_id,music_genres,music_blocked_tracks,profile_completed,played_matches,wins,is_guest,is_admin,updated_at,created_at')
       .maybeSingle();
 
     if (profileError) throw profileError;

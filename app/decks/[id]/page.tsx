@@ -19,6 +19,13 @@ type CharacterDraft = { name: string; imageUrl: string; avatarConfig: AvatarConf
 
 const PLAYER_DECK_EMOJIS = ['😀', '😎', '🤠', '🧙', '🦸', '🕵️', '🤖', '👻', '🐸', '🦊', '🐼', '🐲', '⭐', '🔥', '⚡', '🎮'];
 
+const COMMON_EMOJI_OPTIONS = [
+  '\u{1F600}', '\u{1F60E}', '\u{1F913}', '\u{1F9D0}', '\u{1F607}', '\u{1F608}', '\u{1F451}', '\u{1F9D9}\u200D\u2642\uFE0F', '\u{1F9D9}\u200D\u2640\uFE0F', '\u{1F9B8}\u200D\u2642\uFE0F', '\u{1F9B8}\u200D\u2640\uFE0F', '\u{1F575}\uFE0F', '\u{1F46E}\u200D\u2642\uFE0F', '\u{1F46E}\u200D\u2640\uFE0F', '\u{1F468}\u200D\u{1F680}', '\u{1F469}\u200D\u{1F680}', '\u{1F468}\u200D\u{1F3A4}', '\u{1F469}\u200D\u{1F3A4}', '\u{1F468}\u200D\u{1F373}', '\u{1F469}\u200D\u{1F373}', '\u{1F468}\u200D\u{1F3EB}', '\u{1F469}\u200D\u{1F3EB}',
+  '\u{1F436}', '\u{1F431}', '\u{1F98A}', '\u{1F43B}', '\u{1F43C}', '\u{1F981}', '\u{1F42F}', '\u{1F435}', '\u{1F438}', '\u{1F427}', '\u{1F989}', '\u{1F43A}', '\u{1F432}', '\u{1F996}', '\u{1F995}', '\u{1F984}',
+  '\u{1F47B}', '\u{1F916}', '\u{1F47D}', '\u{1F480}', '\u{1F383}', '\u{1F9DB}\u200D\u2642\uFE0F', '\u{1F9DB}\u200D\u2640\uFE0F', '\u{1F9DF}\u200D\u2642\uFE0F', '\u{1F9DF}\u200D\u2640\uFE0F', '\u{1F9DE}\u200D\u2642\uFE0F', '\u{1F9DE}\u200D\u2640\uFE0F', '\u{1F9DA}\u200D\u2642\uFE0F', '\u{1F9DA}\u200D\u2640\uFE0F', '\u26A1', '\u{1F525}', '\u2744\uFE0F', '\u{1F319}', '\u2B50', '\u{1F48E}', '\u{1F3AD}', '\u{1F3A9}', '\u{1FA84}', '\u{1F5E1}\uFE0F', '\u{1F6E1}\uFE0F',
+  '\u{1F355}', '\u{1F354}', '\u{1F35F}', '\u{1F369}', '\u{1F36D}', '\u{1F36B}', '\u{1F9C1}', '\u{1F353}', '\u{1F349}', '\u{1F34C}', '\u{1F9C3}', '\u{1F3AE}', '\u{1F3B2}', '\u{1F3AF}', '\u{1F3C6}', '\u26BD', '\u{1F3C0}',
+];
+
 export default function DeckEditorPage() {
   const router = useRouter();
   const params = useParams();
@@ -33,6 +40,7 @@ export default function DeckEditorPage() {
   const [updatingDeck, setUpdatingDeck] = useState(false);
   const [uploadingDeckImage, setUploadingDeckImage] = useState(false);
   const [charName, setCharName] = useState('');
+  const [selectedCommonEmoji, setSelectedCommonEmoji] = useState('');
   const [adding, setAdding] = useState(false);
   const [errorChart, setErrorChart] = useState('');
   const [editingCharacterId, setEditingCharacterId] = useState('');
@@ -143,6 +151,10 @@ export default function DeckEditorPage() {
         return;
       }
 
+      const commonAvatarConfig = selectedCommonEmoji
+        ? { ...randomAvatarConfig(), commonEmoji: selectedCommonEmoji }
+        : randomAvatarConfig();
+
       const data = isTemporaryOfficialEditor
         ? await fetch('/api/official-decks/edit', {
             method: 'POST',
@@ -153,13 +165,14 @@ export default function DeckEditorPage() {
             if (!res.ok) throw new Error(result.error || 'Não foi possível inserir o personagem oficial.');
             return result.character;
           })
-        : (await supabaseGame.from('characters').insert({ deck_id: deckId, name: cleanName, image_url: '', avatar_config: randomAvatarConfig() }).select().single()).data;
+        : (await supabaseGame.from('characters').insert({ deck_id: deckId, name: cleanName, image_url: '', avatar_config: commonAvatarConfig }).select().single()).data;
 
       if (data) {
         const nextCharacter = { ...data, image_url: isTemporaryOfficialEditor ? sanitizeStoredCharacterImageUrl(data.image_url) : '', avatar_config: data.avatar_config || DEFAULT_AVATAR_CONFIG };
         setCharacters((current) => [...current, nextCharacter]);
         setCharacterDrafts((current) => ({ ...current, [nextCharacter.id]: { name: nextCharacter.name || '', imageUrl: nextCharacter.image_url || '', avatarConfig: nextCharacter.avatar_config || DEFAULT_AVATAR_CONFIG } }));
         setCharName('');
+        setSelectedCommonEmoji('');
       }
     } catch (error: any) {
       setErrorChart(error.message || 'Não foi possível inserir o personagem.');
@@ -377,6 +390,18 @@ export default function DeckEditorPage() {
               <div className="w-full space-y-1 md:max-w-md"><Input placeholder="NOME DO PERSONAGEM..." value={charName} maxLength={35} onChange={(event) => { setCharName(event.target.value); if (errorChart) setErrorChart(''); }} onKeyDown={(event) => { if (event.key === 'Enter') void handleAddChar(); }} className="h-12 rounded-xl border-2 border-slate-200 bg-slate-50 text-sm font-bold text-[#1e1b4b]" />{errorChart && <p className="mt-2 rounded-xl border border-rose-100 bg-rose-50 p-2 text-xs font-bold text-rose-500">{errorChart}</p>}</div>
               <Button onClick={handleAddChar} disabled={adding || !charName.trim() || characters.length >= MAX_CHARACTERS_PER_DECK} className="h-12 w-full shrink-0 px-6 btn-squishy-green text-xs font-black uppercase text-white md:w-auto"><Plus className="mr-1.5 h-4 w-4" />{adding ? 'Inserindo...' : 'Inserir personagem'}</Button>
             </div>
+            {!isOfficialDeck && (
+              <div className="mt-4 rounded-2xl border-2 border-indigo-50 bg-indigo-50/45 p-4">
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-amber-200 bg-white text-3xl shadow-sm">{selectedCommonEmoji || emojiForName(charName)}</div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-indigo-950">Emoji do personagem</p>
+                    <p className="text-[11px] font-bold text-slate-500">Escolha um emoji ou deixe o jogo sugerir pelo nome.</p>
+                  </div>
+                </div>
+                <CommonEmojiPicker selectedEmoji={selectedCommonEmoji || emojiForName(charName)} onSelect={setSelectedCommonEmoji} />
+              </div>
+            )}
             <p className="mt-3 text-[11px] font-bold italic text-slate-400">{canUseImages ? 'Deck oficial: imagens podem ser anexadas nos cards.' : 'Deck comum: personagens usam card simples com emoji. Imagem fica disponível apenas para deck oficial.'}</p>
           </section>
         )}
@@ -397,20 +422,64 @@ export default function DeckEditorPage() {
 
 function CharacterCard({ char, index, canEditDeck, canUseImages, isOfficialDeck, canDeleteCharacters, characterDrafts, setCharacterDrafts, uploadingCharacterId, editingCharacterId, deletingCharacterId, onAttach, onRemoveImage, onSave, onDelete }: any) {
   const draft = characterDrafts[char.id] || { name: char.name || '', imageUrl: char.image_url || '', avatarConfig: char.avatar_config || DEFAULT_AVATAR_CONFIG };
+  const commonEmoji = getCommonEmoji(draft.avatarConfig) || getCommonEmoji(char.avatar_config) || emojiForName(draft.name || char.name);
+
+  const updateDraft = (patch: Partial<CharacterDraft>) => {
+    setCharacterDrafts((current: Record<string, CharacterDraft>) => ({
+      ...current,
+      [char.id]: {
+        name: current[char.id]?.name ?? char.name ?? '',
+        imageUrl: current[char.id]?.imageUrl ?? char.image_url ?? '',
+        avatarConfig: current[char.id]?.avatarConfig ?? char.avatar_config ?? DEFAULT_AVATAR_CONFIG,
+        ...patch,
+      },
+    }));
+  };
+
+  const updateCommonEmoji = (emoji: string) => {
+    const avatarConfig = {
+      ...(draft.avatarConfig || char.avatar_config || DEFAULT_AVATAR_CONFIG),
+      commonEmoji: emoji,
+    };
+    updateDraft({ avatarConfig });
+  };
+
   return (
     <div className="group relative flex aspect-[2/3] flex-col overflow-hidden rounded-2xl border-4 border-slate-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-indigo-400" style={{ animationDelay: `${index * 35}ms` }}>
       <div className="relative flex w-full flex-1 items-center justify-center overflow-hidden bg-slate-50/50 p-2">
-        {isOfficialDeck ? <CharacterImage name={char.name} imageUrl={sanitizeStoredCharacterImageUrl(char.image_url)} avatarConfig={char.avatar_config} isOfficial={isOfficialDeck} className="h-full w-full rounded-xl object-cover shadow-inner transition-transform duration-500 group-hover:scale-105" placeholderClassName="text-slate-300" /> : <EmojiCharacterPreview name={char.name} />}
+        <CharacterImage
+          name={char.name}
+          imageUrl={isOfficialDeck ? sanitizeStoredCharacterImageUrl(char.image_url) : ''}
+          avatarConfig={isOfficialDeck ? char.avatar_config : draft.avatarConfig || char.avatar_config}
+          isOfficial={isOfficialDeck}
+          className="h-full w-full rounded-xl object-cover shadow-inner transition-transform duration-500 group-hover:scale-105"
+          placeholderClassName="text-slate-300"
+        />
       </div>
-      <div className="border-t-2 border-slate-50 bg-white p-3"><span className="block truncate text-center text-sm font-black text-[#1e1b4b]">{char.name}</span>{canUseImages && <label className="mt-2 flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-indigo-100 bg-indigo-50 text-[10px] font-black uppercase text-indigo-700 hover:bg-indigo-100"><ImagePlus className="h-3.5 w-3.5" />{uploadingCharacterId === char.id ? 'Salvando...' : char.image_url ? 'Trocar imagem' : 'Anexar imagem'}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={uploadingCharacterId === char.id} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void onAttach(char, file); }} /></label>}{canUseImages && char.image_url && <button type="button" onClick={() => onRemoveImage(char)} disabled={uploadingCharacterId === char.id} className="mt-2 flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 text-[10px] font-black uppercase text-rose-600 hover:bg-rose-100 disabled:opacity-60"><ImageOff className="h-3.5 w-3.5" /> Remover imagem</button>}</div>
+      <div className="border-t-2 border-slate-50 bg-white p-3">
+        <span className="block truncate text-center text-sm font-black text-[#1e1b4b]">{char.name}</span>
+        {canUseImages && <label className="mt-2 flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-indigo-100 bg-indigo-50 text-[10px] font-black uppercase text-indigo-700 hover:bg-indigo-100"><ImagePlus className="h-3.5 w-3.5" />{uploadingCharacterId === char.id ? 'Salvando...' : char.image_url ? 'Trocar imagem' : 'Anexar imagem'}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={uploadingCharacterId === char.id} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void onAttach(char, file); }} /></label>}
+        {canUseImages && char.image_url && <button type="button" onClick={() => onRemoveImage(char)} disabled={uploadingCharacterId === char.id} className="mt-2 flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 text-[10px] font-black uppercase text-rose-600 hover:bg-rose-100 disabled:opacity-60"><ImageOff className="h-3.5 w-3.5" /> Remover imagem</button>}
+      </div>
       {canDeleteCharacters && <button type="button" onClick={() => onDelete(char.id)} disabled={deletingCharacterId === char.id} className="absolute right-2.5 top-2.5 z-30 rounded-xl border border-rose-200 bg-rose-50 p-2 text-rose-500 shadow-md transition-all hover:border-rose-500 hover:bg-rose-500 hover:text-white disabled:opacity-60" title="Excluir personagem"><Trash2 className="h-3.5 w-3.5" /></button>}
-      {canEditDeck && <div className="absolute inset-x-2 bottom-[52px] z-20 space-y-1 rounded-xl border border-indigo-100 bg-white/95 p-2 opacity-0 shadow-lg backdrop-blur transition-all group-hover:opacity-100"><Input value={draft.name} onChange={(event) => setCharacterDrafts((current: Record<string, CharacterDraft>) => ({ ...current, [char.id]: { name: event.target.value, imageUrl: current[char.id]?.imageUrl ?? char.image_url ?? '', avatarConfig: current[char.id]?.avatarConfig ?? char.avatar_config ?? DEFAULT_AVATAR_CONFIG } }))} className="h-8 border-slate-200 text-[11px] font-bold" placeholder="Nome" />{canUseImages && <Input value={draft.imageUrl} onChange={(event) => setCharacterDrafts((current: Record<string, CharacterDraft>) => ({ ...current, [char.id]: { name: current[char.id]?.name ?? char.name ?? '', imageUrl: event.target.value, avatarConfig: current[char.id]?.avatarConfig ?? char.avatar_config ?? DEFAULT_AVATAR_CONFIG } }))} className="h-8 border-slate-200 text-[11px] font-semibold" placeholder="URL da imagem" />}<Button onClick={() => onSave(char)} disabled={editingCharacterId === char.id} className="h-8 w-full btn-squishy-indigo text-[10px] font-black uppercase text-white">{editingCharacterId === char.id ? 'Salvando...' : 'Salvar'}</Button></div>}
+      {canEditDeck && (
+        <div className="absolute inset-x-2 bottom-[52px] z-20 space-y-2 rounded-xl border border-indigo-100 bg-white/95 p-2 opacity-0 shadow-lg backdrop-blur transition-all group-hover:opacity-100 group-focus-within:opacity-100">
+          <Input value={draft.name} onChange={(event) => updateDraft({ name: event.target.value })} className="h-8 border-slate-200 text-[11px] font-bold" placeholder="Nome do personagem" />
+          {canUseImages && <Input value={draft.imageUrl} onChange={(event) => updateDraft({ imageUrl: event.target.value })} className="h-8 border-slate-200 text-[11px] font-semibold" placeholder="URL da imagem" />}
+          {!isOfficialDeck && (
+            <div className="rounded-xl border border-indigo-50 bg-indigo-50/70 p-2">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-[9px] font-black uppercase tracking-wide text-indigo-950">Emoji do personagem</span>
+                <span className="text-xl leading-none">{commonEmoji}</span>
+              </div>
+              <CommonEmojiPicker selectedEmoji={commonEmoji} onSelect={updateCommonEmoji} compact />
+            </div>
+          )}
+          <Button onClick={() => onSave(char)} disabled={editingCharacterId === char.id} className="h-8 w-full btn-squishy-indigo text-[10px] font-black uppercase text-white">{editingCharacterId === char.id ? 'Salvando...' : 'Salvar'}</Button>
+        </div>
+      )}
     </div>
   );
-}
-
-function EmojiCharacterPreview({ name }: { name: string }) {
-  return <div className="flex h-full w-full flex-col items-center justify-center rounded-xl border-2 border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-yellow-50 p-3 text-center shadow-inner"><span className="mb-3 text-5xl drop-shadow-sm">{emojiForName(name)}</span><span className="line-clamp-3 text-sm font-black uppercase leading-tight text-indigo-950">{name || 'Personagem'}</span></div>;
 }
 
 function emojiForName(name: string) {
@@ -423,6 +492,37 @@ function emojiForName(name: string) {
   if (/(monstro|monster|fera|drag)/.test(normalized)) return '🐲';
   const hash = normalized.split('').reduce((total, char) => total + char.charCodeAt(0), 0);
   return PLAYER_DECK_EMOJIS[hash % PLAYER_DECK_EMOJIS.length];
+}
+
+function CommonEmojiPicker({ selectedEmoji, onSelect, compact = false }: { selectedEmoji: string; onSelect: (emoji: string) => void; compact?: boolean }) {
+  return (
+    <div className={cn('grid gap-1.5', compact ? 'max-h-28 grid-cols-7 overflow-y-auto pr-1' : 'grid-cols-8 sm:grid-cols-10 md:grid-cols-12')}>
+      {COMMON_EMOJI_OPTIONS.map((emoji) => {
+        const active = selectedEmoji === emoji;
+        return (
+          <button
+            key={emoji}
+            type="button"
+            onClick={() => onSelect(emoji)}
+            className={cn(
+              'flex aspect-square min-h-8 items-center justify-center rounded-xl border bg-white text-lg leading-none shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-50',
+              active ? 'border-amber-400 bg-amber-100 ring-2 ring-amber-200' : 'border-indigo-100',
+              compact && 'min-h-7 rounded-lg text-base',
+            )}
+            aria-label={`Usar emoji ${emoji}`}
+            aria-pressed={active}
+          >
+            {emoji}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function getCommonEmoji(avatarConfig?: AvatarConfig | null) {
+  const emoji = String((avatarConfig as any)?.commonEmoji || '').trim();
+  return emoji ? Array.from(emoji).slice(0, 3).join('') : '';
 }
 
 function sanitizeGeneratedImageUrl(value?: string | null) {

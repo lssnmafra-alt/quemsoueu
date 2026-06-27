@@ -150,9 +150,10 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   ) : null;
 
   if (!isOfficial) {
+    const commonEmoji = getCommonCharacterEmoji(avatarConfig) || emojiForName(name);
     return (
       <div className={cn('flex h-full w-full flex-col items-center justify-center rounded-xl border-2 border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-yellow-50 p-3 text-center shadow-inner', className, placeholderClassName)} title={name}>
-        <span className="mb-2 text-4xl leading-none drop-shadow-sm" aria-hidden="true">{emojiForName(name)}</span>
+        <span className="mb-2 text-4xl leading-none drop-shadow-sm" aria-hidden="true">{commonEmoji}</span>
         <span className="line-clamp-4 text-sm font-black uppercase leading-tight text-indigo-950">{name || 'Personagem'}</span>
       </div>
     );
@@ -234,6 +235,11 @@ function emojiForName(name: string) {
   if (/(monstro|monster|fera|drag)/.test(normalized)) return '\u{1F432}';
   const hash = normalized.split('').reduce((total, char) => total + char.charCodeAt(0), 0);
   return COMMON_CHARACTER_EMOJIS[hash % COMMON_CHARACTER_EMOJIS.length];
+}
+
+function getCommonCharacterEmoji(avatarConfig?: AvatarConfig | null) {
+  const emoji = String((avatarConfig as any)?.commonEmoji || '').trim();
+  return emoji ? Array.from(emoji).slice(0, 3).join('') : '';
 }
 
 function getStoredOfficialFrameTheme(avatarConfig?: AvatarConfig | null): OfficialCardTheme | undefined {

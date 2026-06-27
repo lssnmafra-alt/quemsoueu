@@ -1,6 +1,7 @@
 export type AvatarKind = 'male' | 'female' | 'creature';
 
 export type AvatarConfig = {
+  commonEmoji?: string;
   kind: AvatarKind;
   skin: string;
   face: string;

@@ -15,7 +15,7 @@ type AvatarLobbyVideoProps = {
 };
 
 const resolvedVideoCache = new Map<string, string>();
-const SESSION_CACHE_KEY = 'qse:avatar-video-cache:v6';
+const SESSION_CACHE_KEY = 'qse:avatar-video-cache:v7';
 
 function readSessionCache() {
   if (typeof window === 'undefined') return {} as Record<string, string>;
@@ -28,7 +28,13 @@ function writeSessionCache(cache: Record<string, string>) {
   try { sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(cache)); } catch {}
 }
 
+function isUsableVideoUrl(url: string) {
+  const value = String(url || '').trim();
+  return Boolean(value) && !/\.mp4(?:[?#]|$)/i.test(value);
+}
+
 function rememberVideo(cacheKey: string, url: string) {
+  if (!isUsableVideoUrl(url)) return;
   resolvedVideoCache.set(cacheKey, url);
   const cache = readSessionCache();
   cache[cacheKey] = url;
@@ -36,7 +42,8 @@ function rememberVideo(cacheKey: string, url: string) {
 }
 
 function cachedVideo(cacheKey: string) {
-  return resolvedVideoCache.get(cacheKey) || readSessionCache()[cacheKey] || '';
+  const cached = resolvedVideoCache.get(cacheKey) || readSessionCache()[cacheKey] || '';
+  return isUsableVideoUrl(cached) ? cached : '';
 }
 
 function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label: string; onReady: () => void; onError: () => void }) {
@@ -95,6 +102,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
   const [videoUrl, setVideoUrl] = useState('');
   const [failed, setFailed] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -104,7 +112,12 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
   const isHomeEvent = eventType === 'home' || (mounted && isHome && !eventType);
   const resolvedEventType: AvatarVideoEventType = isHomeEvent ? 'home' : eventType || 'lobby';
   const imageFallback = useMemo(() => resolveAvatarImageUrl(avatarUrl), [avatarUrl]);
+  const canShowImageFallback = Boolean(imageFallback && !imageFailed);
   const shouldHideFallback = Boolean(mounted && videoUrl && !failed && videoReady);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [imageFallback]);
 
   useEffect(() => {
     if (!mounted || !videoUrl) return;
@@ -124,7 +137,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
     setVideoReady(false);
     setVideoUrl('');
 
-    if (directVideoUrl) {
+    if (directVideoUrl && isUsableVideoUrl(directVideoUrl)) {
       setVideoUrl(directVideoUrl);
       return;
     }
@@ -142,11 +155,11 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
         }
 
         try {
-          const response = await fetch(`/api/avatar-animation-video?eventType=${encodeURIComponent(nextEventType)}&avatarUrl=${encodeURIComponent(avatarUrl)}&v=6`, { cache: 'no-store' });
+          const response = await fetch(`/api/avatar-animation-video?eventType=${encodeURIComponent(nextEventType)}&avatarUrl=${encodeURIComponent(avatarUrl)}&v=7`, { cache: 'no-store' });
           const result = await response.json().catch(() => ({}));
           const proxy = result?.available && result?.videoUrl ? String(result.videoUrl) : '';
           const fallback = result?.available && result?.fallbackUrl ? String(result.fallbackUrl) : '';
-          const nextUrl = proxy || fallback;
+          const nextUrl = [proxy, fallback].find(isUsableVideoUrl) || '';
           if (nextUrl) {
             rememberVideo(cacheKey, nextUrl);
             if (!cancelled) setVideoUrl(nextUrl);
@@ -162,11 +175,12 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
     return () => { cancelled = true; };
   }, [avatarUrl, directVideoUrl, mounted, resolvedEventType]);
 
-  const fallbackContent = imageFallback ? (
+  const fallbackContent = canShowImageFallback ? (
     <img
       src={imageFallback}
-      alt={label}
+      alt=""
       referrerPolicy="no-referrer"
+      onError={() => setImageFailed(true)}
       className={cn(
         'absolute inset-0 h-full w-full object-cover transition-opacity duration-100',
         shouldHideFallback ? 'opacity-0' : 'opacity-100',
@@ -174,7 +188,9 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
       suppressHydrationWarning
     />
   ) : (
-    <UserRound className={cn('relative z-10 h-20 w-20 text-indigo-400 transition-opacity duration-100', shouldHideFallback ? 'opacity-0' : 'opacity-100')} />
+    <div className={cn('relative z-10 flex h-full w-full items-center justify-center transition-opacity duration-100', shouldHideFallback ? 'opacity-0' : 'opacity-100')}>
+      <UserRound className="h-20 w-20 text-indigo-300" aria-label={label} />
+    </div>
   );
 
   return (

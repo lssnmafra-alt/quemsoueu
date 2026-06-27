@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
 
     const allTracks = (await listAllTracks(scanErrors)).filter((track) => !excludedKeys.has(track.key));
     const matchedTracks = genres.length ? findTracksForGenres(allTracks, genres) : allTracks;
-    const tracks = matchedTracks.length > 0 ? matchedTracks : allTracks;
+    const tracks = matchedTracks.length > 0 ? matchedTracks : (genres.length > 0 ? [] : allTracks);
 
     if (tracks.length > 0) {
       const track = tracks[pickIndex(`${mood}:${genres.join('|')}:${excludedKeys.size}:${Date.now()}`, tracks.length)];
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
         selectedGenres: genres,
         matchedCount: matchedTracks.length,
         totalTracks: allTracks.length,
-        fallbackToAnyGenre: matchedTracks.length === 0 && genres.length > 0,
+        fallbackToAnyGenre: false,
         scanErrors,
       });
     }

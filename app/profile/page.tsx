@@ -25,6 +25,7 @@ import { useUserStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import GameTopNav from '@/components/navigation/GameTopNav';
 import { isProjectAdmin } from '@/lib/admin';
+import { audioManager } from '@/lib/audioManager';
 
 type MusicTrackOption = {
   key: string;
@@ -65,6 +66,7 @@ export default function ProfilePage() {
 
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewObjectUrlRef = useRef('');
+  const previewPausedMusicRef = useRef(false);
 
   const [nextPath, setNextPath] = useState('/');
   const [nickname, setNickname] = useState('');
@@ -125,14 +127,7 @@ export default function ProfilePage() {
       const nextMusicGroups = Array.isArray(libraryResult.genres) ? libraryResult.genres : [];
 
       setMusicGroups(nextMusicGroups);
-      setExpandedGenreIds((current) =>
-        current.length
-          ? current
-          : nextMusicGroups
-              .filter((group: MusicGenreGroup) => group.tracks.length > 0)
-              .slice(0, 2)
-              .map((group: MusicGenreGroup) => group.id),
-      );
+      setExpandedGenreIds([]);
 
       if (profileResult.profile) {
         const savedProfile = {
@@ -196,6 +191,7 @@ export default function ProfilePage() {
     localStorage.setItem(MUSIC_BLOCKED_TRACKS_KEY, JSON.stringify(nextBlockedTracks));
 
     setSessionUser(user, nextProfile);
+    audioManager.refreshMusicPreferences();
 
     setAutoSavingMusic(true);
 
@@ -265,6 +261,11 @@ export default function ProfilePage() {
     setPlayingTrackKey('');
     setLoadingTrackKey('');
     setPreviewTrack(null);
+
+    if (previewPausedMusicRef.current) {
+      previewPausedMusicRef.current = false;
+      audioManager.resumeMusic();
+    }
   };
 
   const playTrackPreview = async (track: MusicTrackOption) => {
@@ -276,6 +277,8 @@ export default function ProfilePage() {
     stopPreview();
     setError('');
     setLoadingTrackKey(track.key);
+    previewPausedMusicRef.current = !audioManager.isMusicPaused();
+    if (previewPausedMusicRef.current) audioManager.pauseMusic();
 
     try {
       const response = await fetch(track.url, { cache: 'no-store' });

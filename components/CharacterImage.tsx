@@ -32,6 +32,8 @@ const OFFICIAL_FRAME_THEME_OPTIONS: Array<{ value: OfficialCardTheme; label: str
   { value: 'shadow', label: 'Sombria' },
 ];
 
+const COMMON_CHARACTER_EMOJIS = ['\u{1F600}', '\u{1F60E}', '\u{1F920}', '\u{1F9D9}', '\u{1F9B8}', '\u{1F575}\uFE0F', '\u{1F916}', '\u{1F47B}', '\u{1F438}', '\u{1F98A}', '\u{1F43C}', '\u{1F432}', '\u2B50', '\u{1F525}', '\u26A1', '\u{1F3AE}'];
+
 const RARITY_STYLE: Record<CardRarity, CSSProperties> = {
   comum: { '--rarity-a': '#efe5d0', '--rarity-b': '#9f927e', '--rarity-glow': 'rgba(239,229,208,.34)' } as CSSProperties,
   rara: { '--rarity-a': '#4aaeff', '--rarity-b': '#2452b4', '--rarity-glow': 'rgba(74,174,255,.5)' } as CSSProperties,
@@ -147,6 +149,15 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
     </label>
   ) : null;
 
+  if (!isOfficial) {
+    return (
+      <div className={cn('flex h-full w-full flex-col items-center justify-center rounded-xl border-2 border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-yellow-50 p-3 text-center shadow-inner', className, placeholderClassName)} title={name}>
+        <span className="mb-2 text-4xl leading-none drop-shadow-sm" aria-hidden="true">{emojiForName(name)}</span>
+        <span className="line-clamp-4 text-sm font-black uppercase leading-tight text-indigo-950">{name || 'Personagem'}</span>
+      </div>
+    );
+  }
+
   const renderRarityFrame = (children: ReactNode) => (
     <div className={cn('qse-rarity-card relative aspect-[2/3] overflow-visible', className)} data-rarity={rarity} style={RARITY_STYLE[rarity]} title={`${name} - ${CARD_RARITY_LABELS[rarity]}`}>
       <div className="absolute inset-[7.5%_9%_14.5%_9%] z-10 overflow-hidden rounded-[0.82rem] bg-slate-950 shadow-[0_0_18px_var(--rarity-glow)]">
@@ -170,13 +181,6 @@ export default function CharacterImage({ name, imageUrl, avatarConfig, isOfficia
   }
 
   if (!src) {
-    if (!isOfficial) {
-      return (
-        <div className={cn('flex h-full w-full items-center justify-center rounded-xl border-2 border-indigo-100 bg-indigo-50 p-3 text-center shadow-inner', className, placeholderClassName)} title={name}>
-          <span className="line-clamp-4 text-sm font-black uppercase leading-tight text-indigo-950">{name || 'Personagem'}</span>
-        </div>
-      );
-    }
     return (
       <div className={cn('official-card-preview relative aspect-[2/3] overflow-hidden rounded-[1.35rem] border-[3px] shadow-xl', theme.border, theme.base, className, placeholderClassName)}>
         <div className="absolute inset-[0.22rem] rounded-[0.95rem] bg-slate-900" />
@@ -218,6 +222,18 @@ function includesAny(value: string, terms: string[]) {
 
 function normalizeThemeText(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function emojiForName(name: string) {
+  const normalized = normalizeThemeText(name);
+  if (/(bruxa|mago|feitic|wizard|witch)/.test(normalized)) return '\u{1F9D9}';
+  if (/(robo|bot|cyber|android)/.test(normalized)) return '\u{1F916}';
+  if (/(fantasma|ghost|assombra)/.test(normalized)) return '\u{1F47B}';
+  if (/(heroi|hero|super)/.test(normalized)) return '\u{1F9B8}';
+  if (/(rei|rainha|king|queen)/.test(normalized)) return '\u{1F451}';
+  if (/(monstro|monster|fera|drag)/.test(normalized)) return '\u{1F432}';
+  const hash = normalized.split('').reduce((total, char) => total + char.charCodeAt(0), 0);
+  return COMMON_CHARACTER_EMOJIS[hash % COMMON_CHARACTER_EMOJIS.length];
 }
 
 function getStoredOfficialFrameTheme(avatarConfig?: AvatarConfig | null): OfficialCardTheme | undefined {

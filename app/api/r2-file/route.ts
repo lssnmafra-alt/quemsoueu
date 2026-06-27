@@ -53,7 +53,63 @@ function alternateKeys(key: string) {
   if (key.includes('/Padrao/')) keys.push(key.replace('/Padrao/', '/Padrão/'));
   if (key.includes('/Padrão/')) keys.push(key.replace('/Padrão/', '/Padrao/'));
 
+  if (isAvatarImageKey(key)) keys.push(...avatarImageKeyVariants(key));
+
   return keys;
+}
+
+function isAvatarImageKey(key: string) {
+  const lower = key.toLowerCase();
+  return lower.includes('/avatar/') && ['.png', '.jpg', '.jpeg', '.webp'].some((extension) => lower.endsWith(extension));
+}
+
+function avatarImageKeyVariants(key: string) {
+  const parts = key.split('/');
+  const file = parts.pop() || '';
+  const extension = file.match(/\.[^.]+$/)?.[0] || '';
+  const fileStem = file.replace(/\.[^.]+$/, '');
+  const folderIndex = parts.length - 1;
+  const folder = parts[folderIndex] || '';
+  const folderVariants = textVariants(folder);
+  const fileVariants = textVariants(fileStem);
+  const extensions = uniqueKeys([extension, '.png', '.webp', '.jpg', '.jpeg']).filter(Boolean);
+  const output: string[] = [];
+
+  for (const nextFolder of folderVariants) {
+    for (const nextFile of fileVariants) {
+      for (const nextExtension of extensions) {
+        const nextParts = [...parts];
+        nextParts[folderIndex] = nextFolder;
+        output.push([...nextParts, `${nextFile}${nextExtension}`].join('/'));
+      }
+    }
+  }
+
+  return output;
+}
+
+function textVariants(value: string) {
+  const clean = String(value || '').trim();
+  const withoutAccents = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const aliases: Record<string, string[]> = {
+    'Rainha traida': ['Rainha traida', 'Rainha Traida', 'Rainha traída', 'Rainha Traída', 'Rainha-traida', 'Rainha-traída', 'Rainhatraida', 'Rainhatraída'],
+  };
+
+  return uniqueKeys([
+    clean,
+    withoutAccents,
+    titleCase(clean),
+    titleCase(withoutAccents),
+    clean.replace(/\s+/g, '-'),
+    withoutAccents.replace(/\s+/g, '-'),
+    clean.replace(/\s+/g, ''),
+    withoutAccents.replace(/\s+/g, ''),
+    ...(aliases[withoutAccents] || []),
+  ]);
+}
+
+function titleCase(value: string) {
+  return String(value || '').replace(/\b\p{L}/gu, (letter) => letter.toUpperCase());
 }
 
 function uniqueKeys(keys: string[]) {

@@ -4,6 +4,7 @@
   const TOLERANCE = 96;
   const SOFT_EDGE = 38;
   const observerStates = new WeakMap();
+  const resizeObservers = new WeakMap();
 
   function normalizeComparable(value) {
     return String(value || '')
@@ -123,7 +124,7 @@
     const canvas = document.createElement('canvas');
     canvas.className = video.className || '';
     canvas.setAttribute('aria-hidden', 'true');
-    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;background:transparent;';
+    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;background:transparent;z-index:2;';
 
     const parent = video.parentElement;
     if (parent) {
@@ -134,9 +135,41 @@
 
     video.style.opacity = '0';
     video.style.backgroundColor = 'transparent';
+    video.style.position = video.style.position || 'absolute';
     video.dataset.qseChromaCanvas = '1';
 
     return canvas;
+  }
+
+  function hasUsableRect(video) {
+    const rect = video.getBoundingClientRect();
+    return rect.width >= 8 && rect.height >= 8;
+  }
+
+  function retryWhenSized(video) {
+    if (resizeObservers.has(video)) return;
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.setTimeout(() => apply(video), 350);
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (!document.contains(video)) {
+        observer.disconnect();
+        resizeObservers.delete(video);
+        return;
+      }
+
+      if (hasUsableRect(video)) {
+        observer.disconnect();
+        resizeObservers.delete(video);
+        window.setTimeout(() => apply(video), 30);
+      }
+    });
+
+    resizeObservers.set(video, observer);
+    observer.observe(video);
   }
 
   function resizeCanvas(video, canvas) {
@@ -236,12 +269,23 @@
 
   async function apply(video) {
     if (!video) return;
-    if (video.dataset.qseDisableChroma === '1') return;
+    const previous = processed.get(video);
+    if (video.dataset.qseDisableChroma === '1') {
+      if (previous && previous.cleanup) previous.cleanup();
+      processed.delete(video);
+      video.style.filter = '';
+      video.style.opacity = '';
+      video.dataset.qseChromaCanvas = '';
+      return;
+    }
 
     const src = video.currentSrc || video.src || '';
     if (!src || (!src.includes('/api/r2-animation/') && !src.includes('/Animacao/') && !src.includes('/avatar/'))) return;
+    if (!hasUsableRect(video)) {
+      retryWhenSized(video);
+      return;
+    }
 
-    const previous = processed.get(video);
     if (previous && previous.src === src) return;
     if (previous && previous.cleanup) previous.cleanup();
     processed.set(video, { src, cleanup: null });
@@ -282,8 +326,16 @@
     scan();
   }
 
+  window.addEventListener('load', scan);
+  window.addEventListener('qse:avatar-chroma-refresh', scan);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) scan();
+  });
+
   new MutationObserver(scan).observe(document.documentElement, {
     childList: true,
     subtree: true,
+    attributes: true,
+    attributeFilter: ['src', 'class', 'style', 'data-qse-disable-chroma'],
   });
 })();

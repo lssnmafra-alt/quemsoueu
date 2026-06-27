@@ -74,7 +74,7 @@ export default function RoomInviteInbox() {
         </div>
       </div>
 
-      <Button type="button" onClick={() => router.push(`/room/${invite.room_id}`)} className="mt-3 h-11 w-full rounded-2xl btn-squishy-indigo text-xs font-black uppercase text-white flex items-center justify-center gap-2">
+      <Button type="button" onClick={() => router.push(`/invite/${invite.id}`)} className="mt-3 h-11 w-full rounded-2xl btn-squishy-indigo text-xs font-black uppercase text-white flex items-center justify-center gap-2">
         <Gamepad2 className="h-4 w-4" /> Entrar na sala
       </Button>
     </aside>

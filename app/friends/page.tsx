@@ -116,7 +116,7 @@ export default function FriendsPage() {
   const roomInviteAction = async (invite: RoomInvite, actionName: 'decline' | 'enter') => {
     if (!userId || busy) return;
     if (actionName === 'enter') {
-      router.push(`/room/${invite.room_id}`);
+      router.push(`/invite/${invite.id}`);
       return;
     }
 

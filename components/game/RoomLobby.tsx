@@ -34,6 +34,7 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [settingsNotice, setSettingsNotice] = useState('');
   const [shareNotice, setShareNotice] = useState('');
+  const [roomInviteLink, setRoomInviteLink] = useState('');
   const [acceptedFriends, setAcceptedFriends] = useState<any[]>([]);
   const [friendInviteNotice, setFriendInviteNotice] = useState('');
   const [busyFriendId, setBusyFriendId] = useState('');
@@ -48,12 +49,16 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
   const canStart = expectedParticipants >= MIN_PLAYERS_TO_START;
   const myAvatarSelection = useMemo(() => selectionFromAvatarUrl(me?.avatar_url), [me?.avatar_url]);
 
-  const roomInviteLink = useMemo(() => {
+  const directRoomLink = useMemo(() => {
     if (typeof window === 'undefined') return '';
     return `${window.location.origin}/room/${room.id}`;
   }, [room.id]);
 
   const inviteText = useMemo(() => `Entre na minha sala do Quem Sou Eu? Sala #${room.code}: ${roomInviteLink}`, [room.code, roomInviteLink]);
+
+  useEffect(() => {
+    setRoomInviteLink(directRoomLink);
+  }, [directRoomLink]);
 
   useEffect(() => {
     const fetchDecks = async () => {
@@ -143,10 +148,28 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
     await fetch(`/api/rooms/${room.id}/tick`, { method: 'POST' }).catch(() => {});
   };
 
+  const ensureRealInviteLink = async () => {
+    if (!directRoomLink || !me?.user_id) return directRoomLink;
+    if (roomInviteLink.includes('/invite/')) return roomInviteLink;
+
+    const response = await fetch('/api/social/room-invites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: me.user_id, roomId: room.id, action: 'link', message: `Convite para a sala #${room.code}` }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.invite?.id) throw new Error(result.error || 'Nao foi possivel criar link de convite.');
+
+    const link = `${window.location.origin}/invite/${result.invite.id}`;
+    setRoomInviteLink(link);
+    return link;
+  };
+
   const copyInviteLink = async () => {
-    if (!roomInviteLink) return;
+    if (!directRoomLink) return;
     try {
-      await navigator.clipboard.writeText(roomInviteLink);
+      const link = await ensureRealInviteLink();
+      await navigator.clipboard.writeText(link);
       setShareNotice('Link copiado!');
     } catch {
       setShareNotice('Copie o link manualmente.');
@@ -154,9 +177,10 @@ export default function RoomLobby({ room, players, me, isAdmin, leaveRoom }: any
     setTimeout(() => setShareNotice(''), 2500);
   };
 
-  const shareOnWhatsApp = () => {
-    if (!roomInviteLink) return;
-    window.open(`https://wa.me/?text=${encodeURIComponent(inviteText)}`, '_blank', 'noopener,noreferrer');
+  const shareOnWhatsApp = async () => {
+    if (!directRoomLink) return;
+    const link = await ensureRealInviteLink().catch(() => directRoomLink);
+    window.open(`https://wa.me/?text=${encodeURIComponent(`Entre na minha sala do Quem Sou Eu? Sala #${room.code}: ${link}`)}`, '_blank', 'noopener,noreferrer');
   };
 
   const inviteFriendToRoom = async (friendProfileId: string) => {

@@ -139,6 +139,9 @@ export class AudioManager {
     const nextGenres = selectedGenres.length > 0 ? selectedGenres : DEFAULT_MUSIC_GENRES;
     const excludedKeys = [...blockedTracks, ...(options.excludeKeys || [])].filter(Boolean);
     const nextGenreKey = `${nextGenres.join('|')}::blocked:${excludedKeys.join('|')}`;
+    const currentStillAllowed = this.currentMusicInfo
+      ? !this.shouldReplaceCurrentMusic(this.currentMusicInfo, selectedGenres, blockedTracks)
+      : false;
     this.activeMusicTrack = track;
 
     if (this.prefs.muted || !this.prefs.musicEnabled) {
@@ -148,12 +151,22 @@ export class AudioManager {
 
     if (!options.force) {
       if (this.music) {
-        this.saveSession();
-        return;
+        if (previousTrack === track && this.music.dataset.genreKey === nextGenreKey && currentStillAllowed) {
+          this.saveSession();
+          return;
+        }
+
+        if (currentStillAllowed) {
+          this.saveSession();
+          return;
+        }
       }
 
-      if (this.currentMusicInfo?.url) {
-        if (!this.musicPaused) await this.startResolvedMusic(this.currentMusicInfo, 'persisted-session', this.restoredMusicTime);
+      if (this.currentMusicInfo?.url && currentStillAllowed) {
+        if (!this.musicPaused && !this.music) {
+          await this.startResolvedMusic(this.currentMusicInfo, 'persisted-session', this.restoredMusicTime);
+        }
+        this.saveSession();
         return;
       }
     }
@@ -163,7 +176,11 @@ export class AudioManager {
     const requestId = ++this.musicRequestId;
     const previousInfo = this.currentMusicInfo;
     const trackInfo = await this.resolveLicensedTrack(track, nextGenres, excludedKeys);
-    if (requestId !== this.musicRequestId || !trackInfo?.url || this.prefs.muted || !this.prefs.musicEnabled) return;
+    if (requestId !== this.musicRequestId || this.prefs.muted || !this.prefs.musicEnabled) return;
+    if (!trackInfo?.url) {
+      if (options.force || !currentStillAllowed) this.stopMusic();
+      return;
+    }
 
     if (options.pushHistory !== false && previousInfo?.url && previousInfo.url !== trackInfo.url) {
       this.pushMusicHistory(previousInfo);
@@ -255,6 +272,25 @@ export class AudioManager {
     }
 
     await this.playMusic(this.activeMusicTrack || this.currentMusicInfo?.mood || 'lobby-theme', { force: true, pushHistory: false });
+  }
+
+  refreshMusicPreferences() {
+    if (typeof window === 'undefined') return;
+
+    const selectedGenres = this.getMusicGenres();
+    const blockedTracks = this.getMusicBlockedTracks();
+    const current = this.currentMusicInfo;
+
+    if (!current?.url || !this.shouldReplaceCurrentMusic(current, selectedGenres, blockedTracks)) {
+      this.saveSession();
+      return;
+    }
+
+    void this.playMusic(this.activeMusicTrack || current.mood || 'lobby-theme', {
+      force: true,
+      excludeKeys: current.key ? [current.key] : [],
+      pushHistory: false,
+    });
   }
 
   playSfx(effect: SfxEffect) {
@@ -426,6 +462,29 @@ export class AudioManager {
     } catch {
       return [];
     }
+  }
+
+  private shouldReplaceCurrentMusic(
+    info: CurrentMusicInfo,
+    selectedGenres: string[] = this.getMusicGenres(),
+    blockedTracks: string[] = this.getMusicBlockedTracks(),
+  ) {
+    if (info.key && blockedTracks.includes(info.key)) return true;
+    if (selectedGenres.length === 0) return false;
+    if (!info.genre) return true;
+    return !selectedGenres.some((genre) => this.sameGenre(genre, info.genre || ''));
+  }
+
+  private sameGenre(left: string, right: string) {
+    return this.normalizeComparable(left) === this.normalizeComparable(right);
+  }
+
+  private normalizeComparable(value: string) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '')
+      .toLowerCase();
   }
 
   private emitMusicInfo(info: CurrentMusicInfo) {

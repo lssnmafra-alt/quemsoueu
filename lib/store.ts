@@ -247,7 +247,8 @@ function fallbackProfileFor(user: any, storedProfile: any = null) {
 }
 
 export const useUserStore = create<UserState>((set) => ({
-  ...getStoredAppAuth(),
+  user: null,
+  profile: null,
   loading: true,
   initialized: false,
 

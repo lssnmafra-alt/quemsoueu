@@ -64,6 +64,71 @@ function mergeRoomPlayer(list: any[], nextPlayer: any) {
   return merged;
 }
 
+function roomJoinErrorDetails(error: any) {
+  if (!error) return { message: 'Erro desconhecido.' };
+  if (error instanceof Error) return { message: error.message, name: error.name, stack: error.stack };
+  return {
+    message: error?.message,
+    code: error?.code,
+    details: error?.details,
+    hint: error?.hint,
+    status: error?.status,
+    raw: error,
+  };
+}
+
+function roomJoinErrorMessage(error: any) {
+  const message = String(error?.message || error?.details || '');
+  if (/no unique|on conflict|constraint/i.test(message)) {
+    return 'A configuracao de entrada da sala precisa ser ajustada. Tente novamente em instantes.';
+  }
+  if (/permission|rls|policy|not authorized|forbidden/i.test(message)) {
+    return 'Seu perfil nao tem permissao para entrar nesta sala agora.';
+  }
+  return 'Algo impediu sua entrada. Tente novamente ou volte ao lobby.';
+}
+
+async function saveRoomPlayer(playerPayload: any) {
+  const { data: existing, error: findError } = await supabaseGame
+    .from('room_players')
+    .select('*')
+    .eq('room_id', playerPayload.room_id)
+    .eq('user_id', playerPayload.user_id)
+    .maybeSingle();
+
+  if (findError) return { data: null, error: findError, stage: 'find-existing-player' };
+
+  if (existing) {
+    const { data, error } = await supabaseGame
+      .from('room_players')
+      .update(playerPayload)
+      .eq('id', existing.id)
+      .select()
+      .single();
+
+    return { data: data || { ...existing, ...playerPayload }, error, stage: 'update-existing-player' };
+  }
+
+  const { data, error } = await supabaseGame
+    .from('room_players')
+    .insert(playerPayload)
+    .select()
+    .single();
+
+  if (error?.code === '23505') {
+    const { data: current, error: refetchError } = await supabaseGame
+      .from('room_players')
+      .select('*')
+      .eq('room_id', playerPayload.room_id)
+      .eq('user_id', playerPayload.user_id)
+      .maybeSingle();
+
+    return { data: current, error: refetchError, stage: 'refetch-after-conflict' };
+  }
+
+  return { data, error, stage: 'insert-new-player' };
+}
+
 function isUuid(value: unknown) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ''));
 }
@@ -93,6 +158,8 @@ export default function RoomPage() {
   const [room, setRoom] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinRetryNonce, setJoinRetryNonce] = useState(0);
   const [roomNotices, setRoomNotices] = useState<{ id: string; text: string }[]>([]);
   const [broadcastVote, setBroadcastVote] = useState<any>(null);
   const pickingFinalizeAttemptAtRef = useRef(0);
@@ -102,6 +169,7 @@ export default function RoomPage() {
   useEffect(() => {
     if (!authInitialized || authLoading) return;
     if (!user) { router.push('/'); return; }
+    setJoinError(null);
 
     const requestAdvance = (humanJoined = false) => fetch(`/api/rooms/${roomId}/tick`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ humanJoined }) }).catch(() => {});
 
@@ -164,15 +232,14 @@ export default function RoomPage() {
           is_admin: rm.admin_id === user.id,
         };
 
-        const { data: newP, error } = await supabaseGame
-          .from('room_players')
-          .upsert(playerPayload, { onConflict: 'room_id,user_id' })
-          .select()
-          .single();
+        const { data: newP, error, stage } = await saveRoomPlayer(playerPayload);
 
         if (error) {
           joinedRef.current = false;
-          console.error('Erro ao entrar na sala:', error);
+          console.error('Erro ao entrar na sala:', { stage, ...roomJoinErrorDetails(error) });
+          setJoinError(roomJoinErrorMessage(error));
+          setLoading(false);
+          return;
         }
 
         if (newP) {
@@ -206,7 +273,7 @@ export default function RoomPage() {
       }).subscribe();
 
     return () => { clearInterval(poll); subs1.unsubscribe(); };
-  }, [authInitialized, authLoading, user, roomId, profile?.nickname, profile?.emoji, profile?.avatar_url, profile?.avatar_animation_set_id, router]);
+  }, [authInitialized, authLoading, user, roomId, profile?.nickname, profile?.emoji, profile?.avatar_url, profile?.avatar_animation_set_id, router, joinRetryNonce]);
 
   useEffect(() => { if (room?.status) void audioManager.playMusic(trackForRoomStatus(room.status)); }, [room?.status]);
 
@@ -261,6 +328,41 @@ export default function RoomPage() {
 
   if (!authInitialized || authLoading || loading || !room) return <LoadingArena label="Carregando sala..." />;
   if (!user) return null;
+  if (joinError && !me) {
+    return (
+      <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-50">
+        <AudioToggle />
+        <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center">
+          <div className="w-full rounded-[2rem] border-4 border-sky-300/60 bg-[#08206f]/95 p-6 text-center shadow-2xl">
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-100">Sala</p>
+            <h1 className="mt-3 text-3xl font-black uppercase font-display">Nao foi possivel entrar na sala</h1>
+            <p className="mt-3 text-sm font-bold text-blue-100">{joinError}</p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  joinedRef.current = false;
+                  setJoinError(null);
+                  setLoading(true);
+                  setJoinRetryNonce((value) => value + 1);
+                }}
+                className="rounded-2xl border-2 border-yellow-200 bg-yellow-300 px-5 py-4 text-sm font-black uppercase text-slate-950 shadow-lg"
+              >
+                Tentar novamente
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/lobby')}
+                className="rounded-2xl border-2 border-white/25 bg-white/10 px-5 py-4 text-sm font-black uppercase text-white shadow-lg"
+              >
+                Voltar ao lobby
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!me) return <LoadingArena label="Entrando na sala..." />;
   if (isPrePickLoading) return <LoadingArena label="Preparando partida..." />;
 

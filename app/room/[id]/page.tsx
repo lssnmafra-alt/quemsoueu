@@ -21,6 +21,11 @@ import { AnimatePresence, motion } from 'motion/react';
 function wait(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 function uid() { return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2); }
 
+type RoomJoinErrorState = {
+  message: string;
+  details?: string;
+};
+
 function trackForRoomStatus(status?: string) {
   if (status === 'LOBBY' || status === 'PICKING') return 'lobby-theme';
   if (status === 'STARTING' || status === 'PLAYING') return 'game-theme';
@@ -31,6 +36,37 @@ function trackForRoomStatus(status?: string) {
 function normalizeEmoji(value: unknown) {
   const emoji = String(value || '').trim();
   return Array.from(emoji).slice(0, 2).join('') || '🙂';
+}
+
+function describeRoomJoinError(error: any) {
+  const safeError = {
+    message: error?.message || (typeof error === 'string' ? error : 'Erro desconhecido'),
+    code: error?.code,
+    details: error?.details,
+    hint: error?.hint,
+    status: error?.status,
+    name: error?.name,
+    raw: error,
+  };
+
+  return safeError;
+}
+
+function logRoomJoinError(error: any, context?: Record<string, unknown>) {
+  console.error('Erro ao entrar na sala:', {
+    ...describeRoomJoinError(error),
+    context,
+  });
+}
+
+function roomJoinErrorState(error: any): RoomJoinErrorState {
+  const safeError = describeRoomJoinError(error);
+  const technical = [safeError.code, safeError.message, safeError.details || safeError.hint].filter(Boolean).join(' — ');
+
+  return {
+    message: 'Algo impediu sua entrada. Tente novamente ou volte ao lobby.',
+    details: technical || 'Erro sem detalhes técnicos retornados.',
+  };
 }
 
 function dedupeRoomPlayers(list: any[]) {
@@ -93,6 +129,8 @@ export default function RoomPage() {
   const [room, setRoom] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [joinError, setJoinError] = useState<RoomJoinErrorState | null>(null);
+  const [joinRetryKey, setJoinRetryKey] = useState(0);
   const [roomNotices, setRoomNotices] = useState<{ id: string; text: string }[]>([]);
   const [broadcastVote, setBroadcastVote] = useState<any>(null);
   const pickingFinalizeAttemptAtRef = useRef(0);
@@ -105,86 +143,146 @@ export default function RoomPage() {
 
     const requestAdvance = (humanJoined = false) => fetch(`/api/rooms/${roomId}/tick`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ humanJoined }) }).catch(() => {});
 
-    const syncRoomState = async (shouldAutoJoin = false) => {
-      let rm: any = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const { data } = await supabaseGame.from('rooms').select('*').eq('id', roomId).maybeSingle();
-        if (data) { rm = data; break; }
-        if (attempt < 2) await wait(300 + attempt * 200);
-      }
+    const joinCurrentUser = async (rm: any) => {
+      const playerPayload = {
+        room_id: roomId,
+        user_id: user.id,
+        nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante',
+        emoji: normalizeEmoji(profile?.emoji),
+        avatar_url: profile?.avatar_url || '',
+        avatar_animation_set_id: profile?.avatar_animation_set_id || null,
+        is_admin: rm.admin_id === user.id,
+      };
 
-      if (!rm) { router.push('/lobby'); return; }
+      const { data: existingPlayer, error: existingError } = await supabaseGame
+        .from('room_players')
+        .select('*')
+        .eq('room_id', roomId)
+        .eq('user_id', user.id)
+        .order('joined_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
 
-      const { data: pls } = await supabaseGame.from('room_players').select('*').eq('room_id', roomId);
-      const currentPlayers = pls || [];
-      let normalizedPlayers = dedupeRoomPlayers(currentPlayers);
-      const alreadyInRoom = normalizedPlayers.find((p: any) => p.user_id === user.id);
+      if (existingError) throw existingError;
 
-      if (alreadyInRoom) {
-        joinedRef.current = true;
-        const updates: Record<string, any> = {};
-        const nextNickname = profile?.nickname || user.email?.split('@')[0] || alreadyInRoom.nickname;
-        const nextEmoji = normalizeEmoji(profile?.emoji || alreadyInRoom.emoji);
-        const nextAvatarUrl = profile?.avatar_url || alreadyInRoom.avatar_url || '';
-        const nextAvatarSetId = profile?.avatar_animation_set_id || alreadyInRoom.avatar_animation_set_id || null;
-        if (nextNickname && alreadyInRoom.nickname !== nextNickname) updates.nickname = nextNickname;
-        if (alreadyInRoom.emoji !== nextEmoji) updates.emoji = nextEmoji;
-        if ((alreadyInRoom.avatar_url || '') !== nextAvatarUrl) updates.avatar_url = nextAvatarUrl;
-        if ((alreadyInRoom.avatar_animation_set_id || null) !== nextAvatarSetId) updates.avatar_animation_set_id = nextAvatarSetId;
-        if (Object.keys(updates).length > 0) {
-          await supabaseGame.from('room_players').update(updates).eq('id', alreadyInRoom.id);
-          normalizedPlayers = normalizedPlayers.map((player: any) => player.id === alreadyInRoom.id ? { ...player, ...updates } : player);
-        }
-      }
-
-      setRoom(rm);
-      setPlayers(normalizedPlayers);
-
-      if (rm.status === 'PICKING' && (!rm.turn_expires_at || new Date(rm.turn_expires_at).getTime() <= Date.now())) {
-        const now = Date.now();
-        if (now - pickingFinalizeAttemptAtRef.current > 5000) {
-          pickingFinalizeAttemptAtRef.current = now;
-          fetch(`/api/rooms/${roomId}/finalize-picking`, { method: 'POST' }).catch(() => { pickingFinalizeAttemptAtRef.current = 0; });
-        }
-      }
-
-      if (shouldAutoJoin && !alreadyInRoom) {
-        if (joinedRef.current) return;
-        if (rm.status !== 'LOBBY') { alert('Essa sala não aceita novos jogadores no momento. Escolha uma sala aguardando jogadores.'); router.push('/lobby'); return; }
-        if (rm.status === 'LOBBY' && normalizedPlayers.length >= (rm.max_players || 6)) { alert('Sala cheia.'); router.push('/lobby'); return; }
-
-        joinedRef.current = true;
-        const playerPayload = {
-          room_id: roomId,
-          user_id: user.id,
-          nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante',
-          emoji: normalizeEmoji(profile?.emoji),
-          avatar_url: profile?.avatar_url || '',
-          avatar_animation_set_id: profile?.avatar_animation_set_id || null,
-          is_admin: rm.admin_id === user.id,
-        };
-
-        const { data: newP, error } = await supabaseGame
+      if (existingPlayer) {
+        const { data: updatedPlayer, error: updateError } = await supabaseGame
           .from('room_players')
-          .upsert(playerPayload, { onConflict: 'room_id,user_id' })
+          .update({
+            nickname: playerPayload.nickname,
+            emoji: playerPayload.emoji,
+            avatar_url: playerPayload.avatar_url,
+            avatar_animation_set_id: playerPayload.avatar_animation_set_id,
+            is_admin: playerPayload.is_admin,
+            connection_status: 'online',
+            last_seen_at: new Date().toISOString(),
+          })
+          .eq('id', existingPlayer.id)
           .select()
           .single();
 
-        if (error) {
-          joinedRef.current = false;
-          console.error('Erro ao entrar na sala:', error);
-        }
-
-        if (newP) {
-          setPlayers((prev) => mergeRoomPlayer(dedupeRoomPlayers(prev.length > 0 ? prev : normalizedPlayers), newP));
-          setRoomNotices((prev) => [...prev.slice(-2), { id: uid(), text: `${newP.nickname} entrou na sala` }]);
-          requestAdvance(true);
-          setTimeout(() => requestAdvance(false), 1200);
-          setTimeout(() => requestAdvance(false), 5200);
-        }
+        if (updateError) throw updateError;
+        return updatedPlayer || { ...existingPlayer, ...playerPayload };
       }
 
-      setLoading(false);
+      const { data: insertedPlayer, error: insertError } = await supabaseGame
+        .from('room_players')
+        .insert(playerPayload)
+        .select()
+        .single();
+
+      if (!insertError) return insertedPlayer;
+
+      const { data: retryExistingPlayer } = await supabaseGame
+        .from('room_players')
+        .select('*')
+        .eq('room_id', roomId)
+        .eq('user_id', user.id)
+        .order('joined_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (retryExistingPlayer) return retryExistingPlayer;
+      throw insertError;
+    };
+
+    const syncRoomState = async (shouldAutoJoin = false) => {
+      try {
+        let rm: any = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const { data, error } = await supabaseGame.from('rooms').select('*').eq('id', roomId).maybeSingle();
+          if (error) throw error;
+          if (data) { rm = data; break; }
+          if (attempt < 2) await wait(300 + attempt * 200);
+        }
+
+        if (!rm) { router.push('/lobby'); return; }
+
+        const { data: pls, error: playersError } = await supabaseGame.from('room_players').select('*').eq('room_id', roomId);
+        if (playersError) throw playersError;
+        const currentPlayers = pls || [];
+        let normalizedPlayers = dedupeRoomPlayers(currentPlayers);
+        const alreadyInRoom = normalizedPlayers.find((p: any) => p.user_id === user.id);
+
+        if (alreadyInRoom) {
+          joinedRef.current = true;
+          setJoinError(null);
+          const updates: Record<string, any> = {};
+          const nextNickname = profile?.nickname || user.email?.split('@')[0] || alreadyInRoom.nickname;
+          const nextEmoji = normalizeEmoji(profile?.emoji || alreadyInRoom.emoji);
+          const nextAvatarUrl = profile?.avatar_url || alreadyInRoom.avatar_url || '';
+          const nextAvatarSetId = profile?.avatar_animation_set_id || alreadyInRoom.avatar_animation_set_id || null;
+          if (nextNickname && alreadyInRoom.nickname !== nextNickname) updates.nickname = nextNickname;
+          if (alreadyInRoom.emoji !== nextEmoji) updates.emoji = nextEmoji;
+          if ((alreadyInRoom.avatar_url || '') !== nextAvatarUrl) updates.avatar_url = nextAvatarUrl;
+          if ((alreadyInRoom.avatar_animation_set_id || null) !== nextAvatarSetId) updates.avatar_animation_set_id = nextAvatarSetId;
+          if (Object.keys(updates).length > 0) {
+            const { error: updateError } = await supabaseGame.from('room_players').update(updates).eq('id', alreadyInRoom.id);
+            if (updateError) logRoomJoinError(updateError, { roomId, userId: user.id, step: 'refresh-existing-player' });
+            else normalizedPlayers = normalizedPlayers.map((player: any) => player.id === alreadyInRoom.id ? { ...player, ...updates } : player);
+          }
+        }
+
+        setRoom(rm);
+        setPlayers(normalizedPlayers);
+
+        if (rm.status === 'PICKING' && (!rm.turn_expires_at || new Date(rm.turn_expires_at).getTime() <= Date.now())) {
+          const now = Date.now();
+          if (now - pickingFinalizeAttemptAtRef.current > 5000) {
+            pickingFinalizeAttemptAtRef.current = now;
+            fetch(`/api/rooms/${roomId}/finalize-picking`, { method: 'POST' }).catch(() => { pickingFinalizeAttemptAtRef.current = 0; });
+          }
+        }
+
+        if (shouldAutoJoin && !alreadyInRoom) {
+          if (joinedRef.current) return;
+          if (rm.status !== 'LOBBY') { alert('Essa sala não aceita novos jogadores no momento. Escolha uma sala aguardando jogadores.'); router.push('/lobby'); return; }
+          if (rm.status === 'LOBBY' && normalizedPlayers.length >= (rm.max_players || 6)) { alert('Sala cheia.'); router.push('/lobby'); return; }
+
+          joinedRef.current = true;
+
+          try {
+            const newP = await joinCurrentUser(rm);
+            setJoinError(null);
+            setPlayers((prev) => mergeRoomPlayer(dedupeRoomPlayers(prev.length > 0 ? prev : normalizedPlayers), newP));
+            setRoomNotices((prev) => [...prev.slice(-2), { id: uid(), text: `${newP.nickname} entrou na sala` }]);
+            requestAdvance(true);
+            setTimeout(() => requestAdvance(false), 1200);
+            setTimeout(() => requestAdvance(false), 5200);
+          } catch (error: any) {
+            joinedRef.current = false;
+            logRoomJoinError(error, { roomId, userId: user.id, step: 'join-current-user' });
+            setJoinError(roomJoinErrorState(error));
+          }
+        }
+
+        setLoading(false);
+      } catch (error: any) {
+        joinedRef.current = false;
+        logRoomJoinError(error, { roomId, userId: user.id, step: 'sync-room-state' });
+        setJoinError(roomJoinErrorState(error));
+        setLoading(false);
+      }
     };
 
     syncRoomState(true);
@@ -206,7 +304,7 @@ export default function RoomPage() {
       }).subscribe();
 
     return () => { clearInterval(poll); subs1.unsubscribe(); };
-  }, [authInitialized, authLoading, user, roomId, profile?.nickname, profile?.emoji, profile?.avatar_url, profile?.avatar_animation_set_id, router]);
+  }, [authInitialized, authLoading, user, roomId, profile?.nickname, profile?.emoji, profile?.avatar_url, profile?.avatar_animation_set_id, router, joinRetryKey]);
 
   useEffect(() => { if (room?.status) void audioManager.playMusic(trackForRoomStatus(room.status)); }, [room?.status]);
 
@@ -259,8 +357,17 @@ export default function RoomPage() {
     router.push('/lobby');
   };
 
-  if (!authInitialized || authLoading || loading || !room) return <LoadingArena label="Carregando sala..." />;
+  const retryJoin = () => {
+    joinedRef.current = false;
+    setJoinError(null);
+    setLoading(true);
+    setJoinRetryKey((current) => current + 1);
+  };
+
+  if (!authInitialized || authLoading || loading) return <LoadingArena label="Carregando sala..." />;
   if (!user) return null;
+  if (joinError) return <RoomJoinErrorView details={joinError.details} onRetry={retryJoin} onBack={() => router.push('/lobby')} />;
+  if (!room) return <LoadingArena label="Carregando sala..." />;
   if (!me) return <LoadingArena label="Entrando na sala..." />;
   if (isPrePickLoading) return <LoadingArena label="Preparando partida..." />;
 
@@ -282,6 +389,25 @@ export default function RoomPage() {
           </motion.div>
         </AnimatePresence>
       </GameErrorBoundary>
+    </div>
+  );
+}
+
+function RoomJoinErrorView({ details, onRetry, onBack }: { details?: string; onRetry: () => void; onBack: () => void }) {
+  return (
+    <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-50 font-sans">
+      <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center text-center">
+        <div className="rounded-[2rem] border-2 border-rose-300/30 bg-white/10 p-7 shadow-2xl backdrop-blur-md">
+          <p className="text-xs font-black uppercase tracking-[0.28em] text-rose-200">Erro de entrada</p>
+          <h1 className="mt-3 text-3xl font-black uppercase font-display">Não foi possível entrar na sala</h1>
+          <p className="mt-4 text-sm font-bold text-slate-200">Algo impediu sua entrada. Tente novamente ou volte ao lobby.</p>
+          {details && <p className="mt-4 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-left text-xs font-semibold text-slate-300">Detalhe técnico: {details}</p>}
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <button type="button" onClick={onRetry} className="rounded-2xl bg-emerald-400 px-5 py-3 text-xs font-black uppercase tracking-wide text-emerald-950 shadow-lg transition hover:scale-[1.02]">Tentar novamente</button>
+            <button type="button" onClick={onBack} className="rounded-2xl border-2 border-white/20 bg-white/10 px-5 py-3 text-xs font-black uppercase tracking-wide text-white transition hover:bg-white/15">Voltar ao lobby</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

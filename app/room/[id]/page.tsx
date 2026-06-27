@@ -176,7 +176,6 @@ export default function RoomPage() {
         }
 
         if (newP) {
-          await ensureJoinFriendRequest(rm.admin_id, user.id);
           setPlayers((prev) => mergeRoomPlayer(dedupeRoomPlayers(prev.length > 0 ? prev : normalizedPlayers), newP));
           setRoomNotices((prev) => [...prev.slice(-2), { id: uid(), text: `${newP.nickname} entrou na sala` }]);
           requestAdvance(true);

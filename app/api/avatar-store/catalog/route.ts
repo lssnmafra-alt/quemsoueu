@@ -168,7 +168,7 @@ function normalizeAnimationBundle(rows: any[]) {
   const animationVariants: Record<string, string[]> = {};
   for (const row of rows) {
     const eventType = String(row.event_type || '').trim();
-    const animationKey = String(row.animation_key || '').trim();
+    const animationKey = normalizeAnimationKey(row.animation_key);
     if (!eventType || !animationKey) continue;
     const variants = animationVariants[eventType] || [];
     if (!variants.includes(animationKey)) variants.push(animationKey);
@@ -176,6 +176,17 @@ function normalizeAnimationBundle(rows: any[]) {
     if (!animations[eventType] || String(row.variant_code || '') === 'default') animations[eventType] = animationKey;
   }
   return { animations, animationVariants };
+}
+
+function normalizeAnimationKey(key: string) {
+  const value = String(key || '').trim();
+  if (!value) return '';
+  return isAvatarAnimationKey(value) ? value.replace(/\.mp4$/i, '.webm') : value;
+}
+
+function isAvatarAnimationKey(key: string) {
+  const normalized = key.replace(/\\/g, '/').toLowerCase();
+  return normalized.includes('/avatar/') || normalized.includes('/animacao/');
 }
 
 function groupCharacters(items: StoreItem[]) {

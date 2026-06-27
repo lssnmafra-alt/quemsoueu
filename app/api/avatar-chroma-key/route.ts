@@ -11,43 +11,53 @@ const RESPONSE_HEADERS = {
 export async function GET(req: NextRequest) {
   try {
     const avatarUrl = req.nextUrl.searchParams.get('avatarUrl') || '';
-    const explicitKey = cleanAvatarKey(
-      req.nextUrl.searchParams.get('avatarKey') ||
-      req.nextUrl.searchParams.get('key') ||
-      ''
-    );
+    const explicitKey = cleanAvatarKey(req.nextUrl.searchParams.get('avatarKey') || req.nextUrl.searchParams.get('key') || '');
 
     const parsed = parseAvatarSelection(avatarUrl);
+    const urlCandidates = candidatesFromAvatarUrl(avatarUrl);
 
     const candidates = unique([
       explicitKey,
+      cleanAvatarKey(req.nextUrl.searchParams.get('avatarId')),
+      cleanAvatarKey(req.nextUrl.searchParams.get('displayName')),
+      cleanAvatarKey(req.nextUrl.searchParams.get('skinName')),
+      cleanAvatarKey(req.nextUrl.searchParams.get('slug')),
       cleanAvatarKey(parsed?.avatarKey),
       cleanAvatarKey(parsed?.avatarId),
       cleanAvatarKey(parsed?.displayName),
+      cleanAvatarKey(parsed?.skinName),
+      cleanAvatarKey(parsed?.imageKey),
+      cleanAvatarKey(parsed?.animationSlug),
       cleanAvatarKey(parsed?.animationSlug?.split('/')?.[0]),
-      cleanAvatarKey(slugFromAvatarUrl(avatarUrl).split('/')?.[0]),
+      ...urlCandidates,
     ]).filter(Boolean);
 
     if (!candidates.length) {
       return NextResponse.json(
-        { available: false, reason: 'avatar-sem-chave' },
+        { available: false, enabled: false, reason: 'avatar-sem-chave' },
         { headers: RESPONSE_HEADERS }
       );
     }
 
     const db = getSupabaseGameServer();
+    const normalizedCandidates = expandNormalizedAliases(candidates.map(normalizeComparable));
 
-    for (const candidate of candidates) {
-      const { data: chromaRule, error: chromaRuleError } = await db
-        .from('avatar_chroma_keys')
-        .select('avatar_key,chroma_key_id,notes')
-        .ilike('avatar_key', candidate)
-        .maybeSingle();
+    const { data: chromaRules, error: chromaRuleError } = await db
+      .from('avatar_chroma_keys')
+      .select('avatar_key,chroma_key_id,notes');
 
-      if (chromaRuleError) throw chromaRuleError;
+    if (chromaRuleError) throw chromaRuleError;
 
-      if (!chromaRule?.chroma_key_id) continue;
+    const chromaRule = (chromaRules || []).find((rule: any) => {
+      const ruleCandidates = expandNormalizedAliases([
+        normalizeComparable(rule?.avatar_key),
+        ...String(rule?.avatar_key || '').split('/').map(normalizeComparable),
+      ]);
 
+      return ruleCandidates.some((ruleKey) => normalizedCandidates.includes(ruleKey));
+    });
+
+    if (chromaRule?.chroma_key_id) {
       const { data: chromaOption, error: chromaOptionError } = await db
         .from('chroma_key_options')
         .select('id,label,hex_color,sort_order')
@@ -56,14 +66,18 @@ export async function GET(req: NextRequest) {
 
       if (chromaOptionError) throw chromaOptionError;
 
-      if (chromaOption?.hex_color) {
+      const hexColor = normalizeHexColor(chromaOption?.hex_color);
+
+      if (hexColor) {
         return NextResponse.json(
           {
             available: true,
+            enabled: true,
             avatarKey: chromaRule.avatar_key,
             chromaKeyId: chromaRule.chroma_key_id,
-            label: chromaOption.label,
-            hexColor: chromaOption.hex_color,
+            label: chromaOption?.label || '',
+            hexColor,
+            matchedBy: matchReason(chromaRule.avatar_key, normalizedCandidates),
             notes: chromaRule.notes || '',
           },
           { headers: RESPONSE_HEADERS }
@@ -74,6 +88,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         available: false,
+        enabled: false,
         reason: 'regra-nao-encontrada',
         candidates,
       },
@@ -85,6 +100,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         available: false,
+        enabled: false,
         error: error.message || 'Nao foi possivel carregar chroma key.',
       },
       {
@@ -105,20 +121,19 @@ function parseAvatarSelection(avatarUrl: string) {
   }
 }
 
-function slugFromAvatarUrl(avatarUrl: string) {
+function candidatesFromAvatarUrl(avatarUrl: string) {
   const value = String(avatarUrl || '').trim();
-  if (!value) return '';
+  if (!value) return [];
 
   try {
     const decoded = decodeURIComponent(value);
     const query = decoded.includes('?') ? decoded.split('?')[1] : '';
     const keyParam = query.split('&').find((part) => part.startsWith('key='));
+    const output: string[] = [];
 
     if (keyParam) {
-      return decodeURIComponent(keyParam.slice(4))
-        .split('/')
-        .pop()
-        ?.replace(/\.[^.]+$/, '') || '';
+      const key = cleanAvatarKey(decodeURIComponent(keyParam.slice(4)));
+      output.push(key, ...key.split('/'));
     }
 
     const markers = [
@@ -133,9 +148,12 @@ function slugFromAvatarUrl(avatarUrl: string) {
       ? decoded.slice(decoded.indexOf(marker) + marker.length)
       : decoded.split('/').pop() || '';
 
-    return part.replace(/\.[^.]+$/, '');
+    const cleaned = cleanAvatarKey(part);
+    output.push(cleaned, ...cleaned.split('/'));
+
+    return unique(output);
   } catch {
-    return value.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+    return [cleanAvatarKey(value.split('/').pop()?.replace(/\.[^.]+$/, '') || '')].filter(Boolean);
   }
 }
 
@@ -151,6 +169,46 @@ function cleanAvatarKey(value: unknown) {
     .replace(/:\s*skin.*$/i, '')
     .replace(/:skin.*$/i, '')
     .trim();
+}
+
+function normalizeComparable(value: unknown) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/doutor/g, 'dr')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function expandNormalizedAliases(values: string[]) {
+  const aliases: Record<string, string[]> = {
+    doutorbolhas: ['drbolhas'],
+    drbolhas: ['doutorbolhas'],
+  };
+
+  return unique(values.flatMap((value) => [value, ...(aliases[value] || [])])).filter(Boolean);
+}
+
+function normalizeHexColor(value: unknown) {
+  const raw = String(value || '').trim();
+  const hex = raw.startsWith('#') ? raw : `#${raw}`;
+
+  if (/^#[0-9a-fA-F]{6}$/.test(hex)) return hex.toLowerCase();
+  if (/^#[0-9a-fA-F]{3}$/.test(hex)) {
+    return `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`.toLowerCase();
+  }
+
+  return '';
+}
+
+function matchReason(ruleKey: string, normalizedCandidates: string[]) {
+  const ruleCandidates = expandNormalizedAliases([
+    normalizeComparable(ruleKey),
+    ...String(ruleKey || '').split('/').map(normalizeComparable),
+  ]);
+  const matched = ruleCandidates.find((candidate) => normalizedCandidates.includes(candidate));
+
+  return matched || 'normalized';
 }
 
 function unique(values: string[]) {

@@ -194,7 +194,7 @@ export default function HomeLobby() {
 }
 
 function roomStatusLabel(status: string) {
-  if (status === 'LOBBY') return 'Pronto para jogar';
+  if (status === 'LOBBY') return 'Aguardando jogadores';
   if (status === 'PICKING') return 'Escolhendo cartas';
   if (status === 'STARTING') return 'Iniciando';
   if (status === 'PLAYING') return 'Em jogo';

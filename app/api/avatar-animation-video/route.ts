@@ -266,8 +266,20 @@ function parseAvatarSelection(avatarUrl: string) {
 
 function animationKeyFromSelection(selection: any, eventType: AnimationEventType) {
   const animations = selection?.animations || {};
-  const key = animations[eventType] || (eventType === 'home' ? animations.intro : '') || (eventType === 'intro' ? animations.home : '');
+  const rawKey = animations[eventType] || (eventType === 'home' ? animations.intro : '') || (eventType === 'intro' ? animations.home : '');
+  const key = normalizeAnimationKey(rawKey);
   return typeof key === 'string' && isSafeAnimationKey(key) ? key : '';
+}
+
+function normalizeAnimationKey(key: string) {
+  const value = String(key || '').trim();
+  if (!value) return '';
+  return isAvatarAnimationKey(value) ? value.replace(/\.mp4$/i, '.webm') : value;
+}
+
+function isAvatarAnimationKey(key: string) {
+  const normalized = key.replace(/\\/g, '/').toLowerCase();
+  return normalized.includes('/avatar/') || normalized.includes('/animacao/');
 }
 
 function isSafeAnimationKey(key: string) {

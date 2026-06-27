@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
   AvatarSelection,
@@ -21,8 +22,13 @@ type AvatarFigureProps = {
 export default function AvatarFigure({ avatarUrl, selection, label, className, imageClassName }: AvatarFigureProps) {
   const selected = selection || selectionFromAvatarUrl(avatarUrl);
   const source = selected?.imageUrl || (avatarUrl && !avatarUrl.startsWith('avatar:') ? safePublicUrl(avatarUrl) : '');
+  const [imageFailed, setImageFailed] = useState(false);
 
-  if (!source) {
+  useEffect(() => {
+    setImageFailed(false);
+  }, [source]);
+
+  if (!source || imageFailed) {
     return (
       <div
         className={cn(
@@ -46,6 +52,7 @@ export default function AvatarFigure({ avatarUrl, selection, label, className, i
         alt={label || selected?.displayName || 'Avatar'}
         referrerPolicy="no-referrer"
         className={cn('w-full h-full object-contain', imageClassName)}
+        onError={() => setImageFailed(true)}
       />
     </div>
   );

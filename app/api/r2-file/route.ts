@@ -53,9 +53,6 @@ function alternateKeys(key: string) {
   if (key.includes('/Padrao/')) keys.push(key.replace('/Padrao/', '/Padrão/'));
   if (key.includes('/Padrão/')) keys.push(key.replace('/Padrão/', '/Padrao/'));
 
-  if (key.endsWith('.webm')) keys.push(key.replace(/\.webm$/i, '.mp4'));
-  if (key.endsWith('.mp4')) keys.push(key.replace(/\.mp4$/i, '.webm'));
-
   return keys;
 }
 

@@ -3,6 +3,7 @@
   const processed = new WeakMap();
   const TOLERANCE = 96;
   const SOFT_EDGE = 38;
+  const observerStates = new WeakMap();
 
   function normalizeComparable(value) {
     return String(value || '')
@@ -140,7 +141,7 @@
 
   function resizeCanvas(video, canvas) {
     const rect = video.getBoundingClientRect();
-    const ratio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const ratio = chromaQuality(video);
     const width = Math.max(1, Math.round(rect.width * ratio));
     const height = Math.max(1, Math.round(rect.height * ratio));
 
@@ -150,6 +151,9 @@
 
   function drawFrame(video, canvas, target) {
     if (!video.videoWidth || !video.videoHeight || video.readyState < 2) return;
+    if (video.paused || video.ended || video.hidden) return;
+    const state = observerStates.get(video);
+    if (state && !state.visible) return;
 
     resizeCanvas(video, canvas);
 
@@ -185,14 +189,29 @@
 
     const canvas = prepareCanvas(video);
     let stopped = false;
+    let lastFrameAt = 0;
+    const minFrameMs = isGreenTarget(target) ? 1000 / 24 : 1000 / 30;
+    const observer = typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver((entries) => {
+          observerStates.set(video, { visible: Boolean(entries[0]?.isIntersecting) });
+        }, { threshold: 0.01 })
+      : null;
 
-    const render = () => {
+    observerStates.set(video, { visible: true });
+    observer?.observe(video);
+
+    const render = (timestamp) => {
       if (stopped || !document.contains(video)) {
         canvas.remove();
+        observer?.disconnect();
+        observerStates.delete(video);
         return;
       }
 
-      drawFrame(video, canvas, target);
+      if (!lastFrameAt || timestamp - lastFrameAt >= minFrameMs) {
+        drawFrame(video, canvas, target);
+        lastFrameAt = timestamp;
+      }
       window.requestAnimationFrame(render);
     };
 
@@ -208,6 +227,8 @@
 
     return () => {
       stopped = true;
+      observer?.disconnect();
+      observerStates.delete(video);
       canvas.remove();
       video.style.opacity = '';
     };
@@ -215,6 +236,7 @@
 
   async function apply(video) {
     if (!video) return;
+    if (video.dataset.qseDisableChroma === '1') return;
 
     const src = video.currentSrc || video.src || '';
     if (!src || (!src.includes('/api/r2-animation/') && !src.includes('/Animacao/') && !src.includes('/avatar/'))) return;
@@ -238,6 +260,20 @@
 
   function scan() {
     document.querySelectorAll('video').forEach(apply);
+  }
+
+  function chromaQuality(video) {
+    const rect = video.getBoundingClientRect();
+    const area = rect.width * rect.height;
+    const deviceRatio = window.devicePixelRatio || 1;
+    const cappedRatio = Math.max(0.5, Math.min(1.25, deviceRatio));
+    if (area < 90000) return 0.5;
+    if (area < 180000) return Math.min(0.75, cappedRatio);
+    return Math.min(1, cappedRatio);
+  }
+
+  function isGreenTarget(target) {
+    return target.g > target.r + 35 && target.g > target.b + 35;
   }
 
   if (document.readyState === 'loading') {

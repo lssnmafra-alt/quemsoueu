@@ -7,7 +7,7 @@ export const revalidate = 0;
 
 const DEFAULT_SKIN_PRICE = 100;
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
-const VIDEO_EXTENSIONS = ['.mp4', '.webm'];
+const VIDEO_EXTENSIONS = ['.webm', '.mp4'];
 
 type StoreItem = {
   id: string;
@@ -144,7 +144,7 @@ function r2Animations(prefix: string, avatarKey: string, skinCode: string, video
     const variants = animationVariants[eventType] || [];
     if (!variants.includes(key)) variants.push(key);
     animationVariants[eventType] = variants.sort(naturalCompare);
-    if (!animations[eventType] || suffix.length === 1 || suffix.toLowerCase() === 'a') animations[eventType] = key;
+    if (!animations[eventType] || shouldPreferAnimation(key, animations[eventType], suffix)) animations[eventType] = key;
     if (eventType === 'home') animations.intro = key;
   }
   return { animations, animationVariants };
@@ -196,6 +196,13 @@ function imageProxyUrl(key: string) { return `/api/r2-file?key=${encodeURICompon
 function normalizePrefix(value: string) { const clean = String(value || '').trim().replace(/^\/+/, ''); return clean.endsWith('/') ? clean : `${clean}/`; }
 function isImageKey(key: string) { const lower = key.toLowerCase(); return IMAGE_EXTENSIONS.some((ext) => lower.endsWith(ext)); }
 function isVideoKey(key: string) { const lower = key.toLowerCase(); return VIDEO_EXTENSIONS.some((ext) => lower.endsWith(ext)); }
+function shouldPreferAnimation(nextKey: string, currentKey: string, suffix: string) {
+  const nextLower = nextKey.toLowerCase();
+  const currentLower = currentKey.toLowerCase();
+  if (nextLower.endsWith('.webm') && !currentLower.endsWith('.webm')) return true;
+  if (!nextLower.endsWith('.webm') && currentLower.endsWith('.webm')) return false;
+  return suffix.length === 1 || suffix.toLowerCase() === 'a';
+}
 function cleanName(value: string) { return String(value || '').replace(/[-_]+$/g, '').trim(); }
 function prettyName(value: string) { return String(value || '').trim().replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()); }
 function sortHash(value: string) { return normalizeKey(value).split('').reduce((total, char) => total + char.charCodeAt(0), 0); }

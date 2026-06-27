@@ -187,7 +187,7 @@ export default function RoomPage() {
     handledActionRef.current = action.id;
     setBroadcastVote(action);
     audioManager.playSFX('vote');
-    const timer = setTimeout(() => setBroadcastVote((current) => current?.id === action.id ? null : current), 8500);
+    const timer = setTimeout(() => setBroadcastVote((current: any) => current?.id === action.id ? null : current), 8500);
     return () => clearTimeout(timer);
   }, [room?.last_action_payload?.id, room?.status]);
 

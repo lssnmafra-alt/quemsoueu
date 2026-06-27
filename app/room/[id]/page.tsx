@@ -364,9 +364,10 @@ export default function RoomPage() {
     setJoinRetryKey((current) => current + 1);
   };
 
-  if (!authInitialized || authLoading || loading || !room) return <LoadingArena label="Carregando sala..." />;
+  if (!authInitialized || authLoading || loading) return <LoadingArena label="Carregando sala..." />;
   if (!user) return null;
   if (joinError) return <RoomJoinErrorView details={joinError.details} onRetry={retryJoin} onBack={() => router.push('/lobby')} />;
+  if (!room) return <LoadingArena label="Carregando sala..." />;
   if (!me) return <LoadingArena label="Entrando na sala..." />;
   if (isPrePickLoading) return <LoadingArena label="Preparando partida..." />;
 

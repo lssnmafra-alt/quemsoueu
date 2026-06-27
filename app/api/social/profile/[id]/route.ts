@@ -20,8 +20,22 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       .order('unlocked_at', { ascending: false });
 
     const friendship = viewerId && isUuid(viewerId) && viewerId !== id ? await findFriendship(viewerId, id) : null;
+    const [friendCount, decksCreatedCount, favoriteDecksCount] = await Promise.all([
+      countAcceptedFriends(id),
+      countCreatedDecks(id),
+      countFavoriteDecks(id),
+    ]);
 
-    return NextResponse.json({ profile, trophies: trophyRows || [], friendship });
+    return NextResponse.json({
+      profile: {
+        ...profile,
+        friend_count: friendCount,
+        decks_created_count: decksCreatedCount,
+        favorite_decks_count: favoriteDecksCount,
+      },
+      trophies: trophyRows || [],
+      friendship,
+    });
   } catch (error: any) {
     console.error('Public profile read error:', error);
     return NextResponse.json({ error: error.message || 'Nao foi possivel carregar perfil.' }, { status: 500 });
@@ -61,6 +75,52 @@ async function findFriendship(userId: string, targetId: string) {
     .maybeSingle();
   if (error) throw error;
   return data || null;
+}
+
+async function countAcceptedFriends(profileId: string) {
+  try {
+    const { count, error } = await supabaseGame
+      .from('friendships')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'accepted')
+      .or(`requester_profile_id.eq.${profileId},receiver_profile_id.eq.${profileId}`);
+
+    if (error) throw error;
+    return count || 0;
+  } catch (error) {
+    console.warn('Friend count unavailable:', error);
+    return 0;
+  }
+}
+
+async function countCreatedDecks(profileId: string) {
+  try {
+    const { count, error } = await supabaseGame
+      .from('decks')
+      .select('id', { count: 'exact', head: true })
+      .eq('creator_id', profileId);
+
+    if (error) throw error;
+    return count || 0;
+  } catch (error) {
+    console.warn('Created deck count unavailable:', error);
+    return 0;
+  }
+}
+
+async function countFavoriteDecks(profileId: string) {
+  try {
+    const { count, error } = await supabaseGame
+      .from('deck_favorites')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', profileId);
+
+    if (error) throw error;
+    return count || 0;
+  } catch (error) {
+    console.warn('Favorite deck count unavailable:', error);
+    return 0;
+  }
 }
 
 function normalizeReason(value: unknown) {

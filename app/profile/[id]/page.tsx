@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Ban, Flag, Shield, Trophy, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Ban, BookOpen, Flag, Shield, Star, Trophy, UserPlus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import LoadingArena from '@/components/LoadingArena';
@@ -124,7 +124,10 @@ export default function PublicProfilePage() {
               <h1 className="truncate text-4xl font-black uppercase italic text-white font-display md:text-6xl">{profile?.nickname || 'Jogador'}</h1>
               <div className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
                 <Badge icon={<Trophy className="h-4 w-4" />} text={`${profile?.wins || 0} vitórias`} />
-                <Badge icon={<Users className="h-4 w-4" />} text={`${profile?.played_matches || 0} partidas`} />
+                <Badge icon={<Shield className="h-4 w-4" />} text={`${profile?.played_matches || 0} partidas`} />
+                <Badge icon={<Users className="h-4 w-4" />} text={`${profile?.friend_count || 0} amigos`} />
+                <Badge icon={<BookOpen className="h-4 w-4" />} text={`${profile?.decks_created_count || 0} decks criados`} />
+                <Badge icon={<Star className="h-4 w-4" />} text={`${profile?.favorite_decks_count || 0} favoritos`} />
                 <Badge icon={<Shield className="h-4 w-4" />} text={relation} />
               </div>
             </div>

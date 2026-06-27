@@ -18,12 +18,12 @@ type AvatarFigureProps = {
   secondaryColor?: string;
 };
 
-export default function AvatarFigure({ avatarUrl, label, className, imageClassName }: AvatarFigureProps) {
-  const selected = selectionFromAvatarUrl(avatarUrl);
+export default function AvatarFigure({ avatarUrl, selection, label, className, imageClassName }: AvatarFigureProps) {
+  const selected = selection || selectionFromAvatarUrl(avatarUrl);
   const source = selected?.imageUrl || (avatarUrl && !avatarUrl.startsWith('avatar:') ? safePublicUrl(avatarUrl) : '');
 
   if (!source) {
-    const fallback = String(label || 'Jogador').trim().charAt(0).toUpperCase() || 'J';
+    const fallback = String(label || selected?.displayName || 'Jogador').trim().charAt(0).toUpperCase() || 'J';
     return (
       <div className={cn('relative flex items-center justify-center overflow-hidden rounded-xl bg-white text-lg font-black text-indigo-900 border border-slate-200', className)}>
         {fallback}
@@ -34,10 +34,10 @@ export default function AvatarFigure({ avatarUrl, label, className, imageClassNa
   return (
     <div className={cn('relative overflow-hidden rounded-xl bg-slate-100 border border-slate-200', className)}>
       <img
-        src={source}
+        src={safePublicUrl(source) || source}
         alt={label || selected?.displayName || 'Avatar'}
         referrerPolicy="no-referrer"
-        className={cn('w-full h-full object-cover', imageClassName)}
+        className={cn('w-full h-full object-contain', imageClassName)}
       />
     </div>
   );

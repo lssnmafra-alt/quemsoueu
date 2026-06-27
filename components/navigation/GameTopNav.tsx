@@ -37,6 +37,11 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
   const nickname = profile?.nickname || 'Jogador';
   const avatarImageUrl = resolveAvatarImageUrl(profile?.avatar_url);
   const [coins, setCoins] = useState(0);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarImageUrl]);
 
   useEffect(() => {
     const userId = String(profile?.id || '').trim();
@@ -114,8 +119,8 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
               className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border-2 border-cyan-200 bg-white text-indigo-700 leading-none shadow-inner"
               aria-hidden="true"
             >
-              {avatarImageUrl ? (
-                <img src={avatarImageUrl} alt="" className="h-full w-full object-cover" />
+              {avatarImageUrl && !avatarFailed ? (
+                <img src={avatarImageUrl} alt="" className="h-full w-full object-cover" onError={() => setAvatarFailed(true)} />
               ) : (
                 <UserRound className="h-6 w-6" />
               )}

@@ -9,18 +9,35 @@ import { cn } from '@/lib/utils';
 const NOW_PLAYING_EVENT = 'quemSouEu:music-track';
 const AUDIO_TOGGLE_OWNER_EVENT = 'quemSouEu:audio-toggle-owner';
 const AUDIO_TOGGLE_OWNER_KEY = '__quemSouEuAudioToggleOwner';
+const INITIAL_PREFS = {
+  musicEnabled: true,
+  sfxEnabled: true,
+  musicVolume: 0.2,
+  sfxVolume: 0.72,
+  muted: false,
+};
 
 export default function AudioToggle() {
-  const [instanceId] = useState(() => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`));
+  const [instanceId, setInstanceId] = useState('');
   const [isPrimary, setIsPrimary] = useState(true);
   const [open, setOpen] = useState(false);
-  const [prefs, setPrefs] = useState({ ...audioManager.prefs });
-  const [currentTrack, setCurrentTrack] = useState<CurrentMusicInfo | null>(() => audioManager.getCurrentMusicInfo());
+  const [prefs, setPrefs] = useState(INITIAL_PREFS);
+  const [currentTrack, setCurrentTrack] = useState<CurrentMusicInfo | null>(null);
   const [toastTrack, setToastTrack] = useState<CurrentMusicInfo | null>(null);
-  const [musicPaused, setMusicPaused] = useState(() => audioManager.isMusicPaused());
+  const [musicPaused, setMusicPaused] = useState(false);
   const [switchingTrack, setSwitchingTrack] = useState(false);
 
   useEffect(() => {
+    setInstanceId(
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`,
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!instanceId) return;
+
     const setOwner = () => {
       (window as any)[AUDIO_TOGGLE_OWNER_KEY] = instanceId;
       window.dispatchEvent(new CustomEvent(AUDIO_TOGGLE_OWNER_EVENT, { detail: instanceId }));
@@ -60,6 +77,8 @@ export default function AudioToggle() {
 
     window.addEventListener(NOW_PLAYING_EVENT, onTrack as EventListener);
     const current = audioManager.getCurrentMusicInfo();
+    setPrefs({ ...audioManager.prefs });
+    setMusicPaused(audioManager.isMusicPaused());
     if (current?.url) showTrack(current);
 
     return () => {

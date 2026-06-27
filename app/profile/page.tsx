@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { moderateText } from '@/app/actions/moderate';
 import LoadingArena from '@/components/LoadingArena';
+import AvatarFigure from '@/components/avatar/AvatarFigure';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUserStore } from '@/lib/store';
@@ -51,8 +52,6 @@ const PROFILE_STORAGE_KEY = 'quemSouEu:profile';
 const MUSIC_GENRES_KEY = 'quemSouEu:musicGenres';
 const MUSIC_BLOCKED_TRACKS_KEY = 'quemSouEu:musicBlockedTracks';
 
-const PLAYER_EMOJIS = ['🙂', '😎', '🤠', '😺', '🐸', '🦊', '🐼', '👽', '🤖', '🔥', '⚡', '🎮'];
-
 export default function ProfilePage() {
   const router = useRouter();
   const {
@@ -69,7 +68,6 @@ export default function ProfilePage() {
 
   const [nextPath, setNextPath] = useState('/');
   const [nickname, setNickname] = useState('');
-  const [emoji, setEmoji] = useState('🙂');
   const [musicGroups, setMusicGroups] = useState<MusicGenreGroup[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [blockedTrackKeys, setBlockedTrackKeys] = useState<string[]>([]);
@@ -100,7 +98,6 @@ export default function ProfilePage() {
     }
 
     setNickname(profile?.nickname || user.email?.split('@')[0] || 'Jogador');
-    setEmoji(normalizeEmoji(profile?.emoji));
     setSelectedGenres(Array.isArray(profile?.music_genres) ? profile.music_genres : []);
     setBlockedTrackKeys(Array.isArray(profile?.music_blocked_tracks) ? profile.music_blocked_tracks : []);
   }, [authInitialized, authLoading, router, user, profile]);
@@ -149,7 +146,6 @@ export default function ProfilePage() {
         };
 
         setNickname(savedProfile.nickname || 'Jogador');
-        setEmoji(normalizeEmoji(savedProfile.emoji));
         setSelectedGenres(Array.isArray(savedProfile.music_genres) ? savedProfile.music_genres : []);
         setBlockedTrackKeys(
           Array.isArray(savedProfile.music_blocked_tracks) ? savedProfile.music_blocked_tracks : [],
@@ -186,7 +182,7 @@ export default function ProfilePage() {
       id: user.id,
       email: profile?.email || user.email || '',
       nickname: cleanNickname,
-      emoji: normalizeEmoji(emoji),
+      emoji: normalizeEmoji(profile?.emoji),
       avatar_url: profile?.avatar_url || '',
       avatar_animation_set_id: profile?.avatar_animation_set_id || null,
       music_genres: nextGenres,
@@ -336,7 +332,7 @@ export default function ProfilePage() {
     if (!user?.id || saving) return;
 
     const cleanNickname = normalizeNickname(nickname);
-    const cleanEmoji = normalizeEmoji(emoji);
+    const cleanEmoji = normalizeEmoji(profile?.emoji);
 
     setError('');
 
@@ -429,11 +425,10 @@ export default function ProfilePage() {
 
   const totalTracks = musicGroups.reduce((total, group) => total + group.tracks.length, 0);
   const isAdminUser = isProjectAdmin(user.id);
-  const safeEmoji = normalizeEmoji(emoji);
 
   return (
     <div className="min-h-screen overflow-hidden bg-[#071a64] text-white font-sans party-grid-bg">
-      <GameTopNav profile={{ ...profile, nickname, emoji: safeEmoji }} isAdmin={isAdminUser} onLogout={handleLogout} />
+      <GameTopNav profile={{ ...profile, nickname }} isAdmin={isAdminUser} onLogout={handleLogout} />
 
       <div className="absolute inset-0 bg-[url('/api/branding/loading')] bg-cover bg-center opacity-20" />
       <div className="absolute inset-0 bg-gradient-to-br from-[#071a64]/95 via-[#0b4fb8]/55 to-[#05091f]/95" />
@@ -463,6 +458,12 @@ export default function ProfilePage() {
             <div className="rounded-3xl border-2 border-cyan-200/25 bg-white/10 p-4 text-center">
               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200">Seu avatar</p>
 
+              <AvatarFigure
+                avatarUrl={avatarUrl}
+                label={nickname || 'Jogador'}
+                className="mx-auto mt-3 h-28 w-28 rounded-3xl border-4 border-cyan-200/30 bg-white shadow-inner"
+              />
+
               {avatarEquipped ? (
                 <div className="mt-3 rounded-2xl border border-emerald-200/40 bg-emerald-400/15 px-4 py-3 text-xs font-black uppercase text-emerald-100">
                   Avatar equipado
@@ -481,33 +482,6 @@ export default function ProfilePage() {
                 <Shirt className="mr-2 h-4 w-4" />
                 Escolher avatar
               </Button>
-            </div>
-
-            <div className="rounded-3xl border-2 border-cyan-200/25 bg-white/10 p-4 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200">Seu emoji</p>
-
-              <div className="mx-auto mt-3 flex h-24 w-24 items-center justify-center rounded-3xl border-4 border-cyan-200/30 bg-white text-5xl shadow-inner">
-                {safeEmoji}
-              </div>
-
-              <div className="mt-4 grid grid-cols-4 gap-2">
-                {PLAYER_EMOJIS.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setEmoji(option)}
-                    className={cn(
-                      'flex h-12 items-center justify-center rounded-2xl border-2 bg-white/10 text-2xl transition hover:bg-white/20',
-                      safeEmoji === option
-                        ? 'border-yellow-300 bg-yellow-300/20 shadow-[0_0_0_2px_rgba(250,204,21,.25)]'
-                        : 'border-cyan-200/20',
-                    )}
-                    aria-label={`Usar emoji ${option}`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div className="space-y-2">

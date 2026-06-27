@@ -23,10 +23,18 @@ export default function AvatarFigure({ avatarUrl, selection, label, className, i
   const source = selected?.imageUrl || (avatarUrl && !avatarUrl.startsWith('avatar:') ? safePublicUrl(avatarUrl) : '');
 
   if (!source) {
-    const fallback = String(label || selected?.displayName || 'Jogador').trim().charAt(0).toUpperCase() || 'J';
     return (
-      <div className={cn('relative flex items-center justify-center overflow-hidden rounded-xl bg-white text-lg font-black text-indigo-900 border border-slate-200', className)}>
-        {fallback}
+      <div
+        className={cn(
+          'relative flex items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-cyan-100 via-white to-indigo-100',
+          className,
+        )}
+        aria-label={label || selected?.displayName || 'Jogador'}
+        role="img"
+      >
+        <div className="absolute inset-x-[24%] bottom-[18%] h-[34%] rounded-t-full bg-indigo-300/80" />
+        <div className="absolute left-1/2 top-[22%] h-[32%] w-[32%] -translate-x-1/2 rounded-full bg-indigo-500/80 shadow-inner" />
+        <div className="absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/70" />
       </div>
     );
   }

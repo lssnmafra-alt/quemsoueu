@@ -148,9 +148,10 @@ export default function FriendsPage() {
             <h1 className="mt-1 text-4xl font-black uppercase italic text-white font-display md:text-6xl">Amigos</h1>
             <p className="mt-2 text-sm font-bold text-blue-100">Busque jogadores, aceite pedidos e veja convites de sala.</p>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-black uppercase">
+          <div className="grid grid-cols-2 gap-2 text-center text-[10px] font-black uppercase sm:grid-cols-4">
             <StatPill label="Amigos" value={friends.length} />
             <StatPill label="Pedidos recebidos" value={incoming.length} highlight={incoming.length > 0} />
+            <StatPill label="Pedidos enviados" value={outgoing.length} highlight={outgoing.length > 0} />
             <StatPill label="Convites de sala" value={roomInvites.length} highlight={roomInvites.length > 0} />
           </div>
         </header>
@@ -194,11 +195,11 @@ export default function FriendsPage() {
 
         <div className="grid gap-5 lg:grid-cols-2">
           <SocialSection title="Pedidos recebidos" icon={<UserPlus className="h-5 w-5 text-yellow-200" />} rows={incoming} empty="Nenhum pedido recebido.">
-            {(row) => <><Button size="sm" onClick={() => action(row.other_profile_id, 'accept')} className="rounded-xl text-[10px] font-black uppercase"><Check className="mr-1 h-3.5 w-3.5" />Aceitar</Button><Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'decline')} className="rounded-xl text-[10px] font-black uppercase"><X className="mr-1 h-3.5 w-3.5" />Recusar</Button></>}
+            {(row) => <><Button size="sm" variant="outline" onClick={() => router.push(`/profile/${row.other_profile_id}`)} className="rounded-xl text-[10px] font-black uppercase">Ver perfil</Button><Button size="sm" onClick={() => action(row.other_profile_id, 'accept')} className="rounded-xl text-[10px] font-black uppercase"><Check className="mr-1 h-3.5 w-3.5" />Aceitar</Button><Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'decline')} className="rounded-xl text-[10px] font-black uppercase"><X className="mr-1 h-3.5 w-3.5" />Recusar</Button></>}
           </SocialSection>
 
           <SocialSection title="Pedidos enviados" icon={<Users className="h-5 w-5 text-cyan-200" />} rows={outgoing} empty="Nenhum pedido enviado.">
-            {(row) => <Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'cancel')} className="rounded-xl text-[10px] font-black uppercase">Cancelar</Button>}
+            {(row) => <><Button size="sm" variant="outline" onClick={() => router.push(`/profile/${row.other_profile_id}`)} className="rounded-xl text-[10px] font-black uppercase">Ver perfil</Button><Button size="sm" variant="outline" onClick={() => action(row.other_profile_id, 'cancel')} className="rounded-xl text-[10px] font-black uppercase">Cancelar</Button></>}
           </SocialSection>
 
           <SocialSection title="Meus amigos" icon={<Users className="h-5 w-5 text-emerald-300" />} rows={friends} empty="Você ainda não tem amigos adicionados.">
@@ -231,11 +232,10 @@ function SocialSection({ title, icon, rows, empty, children }: { title: string; 
 
 function ProfileCard({ profile, subtext, children }: { profile: any; subtext?: string; children?: ReactNode }) {
   if (!profile) return <EmptyCard text="Perfil indisponível." />;
-  const fallback = String(profile.nickname || 'J').trim().charAt(0).toUpperCase() || 'J';
   return (
     <div className="rounded-2xl border-2 border-cyan-200/20 bg-white/95 p-3 text-[#1e1b4b] shadow-lg">
       <div className="flex items-center gap-3">
-        <AvatarFigure avatarUrl={profile.avatar_url} label={profile.nickname || fallback} className="h-14 w-14 shrink-0 rounded-2xl border-2 border-white bg-indigo-50 shadow-inner" />
+        <AvatarFigure avatarUrl={profile.avatar_url} label={profile.nickname || 'Jogador'} className="h-14 w-14 shrink-0 rounded-2xl border-2 border-white bg-indigo-50 shadow-inner" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-black leading-tight text-indigo-950">{profile.nickname || 'Jogador'}</p>
           <p className="truncate text-[11px] font-black uppercase text-slate-500">{subtext || `${profile.wins || 0} vitórias · ${profile.played_matches || 0} partidas`}</p>

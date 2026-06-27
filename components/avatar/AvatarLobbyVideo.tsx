@@ -45,7 +45,7 @@ function mp4FallbackFor(src: string) {
   return value.replace(/\.webm/gi, '.mp4');
 }
 
-function FastAvatarVideo({ src, poster, label, onReady, onError }: { src: string; poster?: string; label: string; onReady: () => void; onError: () => void }) {
+function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label: string; onReady: () => void; onError: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [activeSrc, setActiveSrc] = useState(src);
   const [fallbackUsed, setFallbackUsed] = useState(false);
@@ -98,7 +98,6 @@ function FastAvatarVideo({ src, poster, label, onReady, onError }: { src: string
       key={activeSrc}
       ref={videoRef}
       src={activeSrc}
-      poster={poster}
       autoPlay
       muted
       loop
@@ -132,6 +131,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
   const isHomeEvent = eventType === 'home' || (mounted && isHome && !eventType);
   const resolvedEventType: AvatarVideoEventType = isHomeEvent ? 'home' : eventType || 'lobby';
   const imageFallback = useMemo(() => resolveAvatarImageUrl(avatarUrl), [avatarUrl]);
+  const shouldHideFallback = Boolean(mounted && videoUrl && !failed && videoReady);
 
   useEffect(() => {
     if (!mounted || !videoUrl) return;
@@ -190,9 +190,18 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
   }, [avatarUrl, directVideoUrl, mounted, resolvedEventType]);
 
   const fallbackContent = imageFallback ? (
-    <img src={imageFallback} alt={label} referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" suppressHydrationWarning />
+    <img
+      src={imageFallback}
+      alt={label}
+      referrerPolicy="no-referrer"
+      className={cn(
+        'absolute inset-0 h-full w-full object-cover transition-opacity duration-100',
+        shouldHideFallback ? 'opacity-0' : 'opacity-100',
+      )}
+      suppressHydrationWarning
+    />
   ) : (
-    <UserRound className="relative z-10 h-20 w-20 text-indigo-400" />
+    <UserRound className={cn('relative z-10 h-20 w-20 text-indigo-400 transition-opacity duration-100', shouldHideFallback ? 'opacity-0' : 'opacity-100')} />
   );
 
   return (
@@ -200,7 +209,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
       {fallbackContent}
       {mounted && videoUrl && !failed && (
         <div className={cn('absolute inset-0 z-20 transition-opacity duration-75', videoReady ? 'opacity-100' : 'opacity-0')}>
-          <FastAvatarVideo src={videoUrl} poster={imageFallback} label={label} onReady={() => setVideoReady(true)} onError={() => setFailed(true)} />
+          <FastAvatarVideo src={videoUrl} label={label} onReady={() => setVideoReady(true)} onError={() => setFailed(true)} />
         </div>
       )}
       <div className="pointer-events-none absolute inset-0 z-30 rounded-[inherit] ring-1 ring-inset ring-white/70" />

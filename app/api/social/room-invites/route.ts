@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
 
       const invite = await readInvite(inviteId);
       if (!invite) return NextResponse.json({ error: 'Convite nao encontrado.' }, { status: 404 });
+      if (invite.receiver_profile_id !== invite.sender_profile_id && invite.receiver_profile_id !== userId) {
+        return NextResponse.json({ error: 'Este convite pertence a outro jogador.' }, { status: 403 });
+      }
       if (invite.status === 'cancelled' || invite.status === 'declined') {
         return NextResponse.json({ error: 'Esse convite nao esta mais disponivel.', invite }, { status: 409 });
       }

@@ -59,7 +59,7 @@ export default function DecksPage() {
       const official = Boolean(deck.is_official) || deck.creator_id === null || isOfficialDeckId(deck.id);
       return {
         ...deck,
-        cover_url: sanitizeDeckImageUrl(deck.cover_url || deck.image_url),
+        cover_url: official ? sanitizeDeckImageUrl(deck.cover_url || deck.image_url) : '',
         is_official: official,
         character_count: counts.get(deck.id) || 0,
       };
@@ -183,7 +183,7 @@ export default function DecksPage() {
             <div className="grid gap-4 md:grid-cols-2">
               {filteredDecks.map((deck) => {
                 const canRemove = isAdminUser || (!deck.is_official && deck.creator_id === user.id);
-                const deckCoverUrl = sanitizeDeckImageUrl(deck.cover_url || deck.image_url);
+                const deckCoverUrl = deck.is_official ? sanitizeDeckImageUrl(deck.cover_url || deck.image_url) : '';
                 return (
                   <div key={deck.id} className="flex items-center gap-3 rounded-2xl border-2 border-cyan-200/20 bg-white/95 p-4 text-[#1e1b4b] shadow-xl transition hover:-translate-y-1 hover:border-yellow-300">
                     <button type="button" onClick={() => router.push(`/decks/${deck.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left">

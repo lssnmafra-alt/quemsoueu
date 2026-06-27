@@ -33,14 +33,39 @@ function normalizeEmoji(value: unknown) {
   return Array.from(emoji).slice(0, 2).join('') || '🙂';
 }
 
-function isUuid(value: unknown) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ''));
+function dedupeRoomPlayers(list: any[]) {
+  const seenIds = new Set<string>();
+  const seenUserIds = new Set<string>();
+
+  return list.filter((player: any) => {
+    const id = String(player?.id || '');
+    const userId = String(player?.user_id || '');
+    if (id && seenIds.has(id)) return false;
+    if (userId && seenUserIds.has(userId)) return false;
+    if (id) seenIds.add(id);
+    if (userId) seenUserIds.add(userId);
+    return true;
+  });
 }
 
-async function getProfileName(profileId: string) {
-  if (!isUuid(profileId)) return 'Jogador';
-  const { data } = await supabaseGame.from('profiles').select('nickname').eq('id', profileId).maybeSingle();
-  return data?.nickname || 'Jogador';
+function mergeRoomPlayer(list: any[], nextPlayer: any) {
+  const nextId = String(nextPlayer?.id || '');
+  const nextUserId = String(nextPlayer?.user_id || '');
+  const index = list.findIndex((player: any) => {
+    const id = String(player?.id || '');
+    const userId = String(player?.user_id || '');
+    return (nextId && id === nextId) || (nextUserId && userId === nextUserId);
+  });
+
+  if (index === -1) return [...list, nextPlayer];
+
+  const merged = [...list];
+  merged[index] = nextPlayer;
+  return merged;
+}
+
+function isUuid(value: unknown) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ''));
 }
 
 async function ensureJoinFriendRequest(roomOwnerId: string, visitorId: string) {
@@ -72,6 +97,7 @@ export default function RoomPage() {
   const [broadcastVote, setBroadcastVote] = useState<any>(null);
   const pickingFinalizeAttemptAtRef = useRef(0);
   const handledActionRef = useRef('');
+  const joinedRef = useRef(false);
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
@@ -91,11 +117,11 @@ export default function RoomPage() {
 
       const { data: pls } = await supabaseGame.from('room_players').select('*').eq('room_id', roomId);
       const currentPlayers = pls || [];
-      const myRows = currentPlayers.filter((p: any) => p.user_id === user.id);
-      const alreadyInRoom = myRows[0];
-      let normalizedPlayers = currentPlayers.filter((p: any, index: number, list: any[]) => (p.user_id !== user.id || list.findIndex((item: any) => item.user_id === user.id) === index));
+      let normalizedPlayers = dedupeRoomPlayers(currentPlayers);
+      const alreadyInRoom = normalizedPlayers.find((p: any) => p.user_id === user.id);
 
       if (alreadyInRoom) {
+        joinedRef.current = true;
         const updates: Record<string, any> = {};
         const nextNickname = profile?.nickname || user.email?.split('@')[0] || alreadyInRoom.nickname;
         const nextEmoji = normalizeEmoji(profile?.emoji || alreadyInRoom.emoji);
@@ -123,23 +149,35 @@ export default function RoomPage() {
       }
 
       if (shouldAutoJoin && !alreadyInRoom) {
+        if (joinedRef.current) return;
         if (rm.status !== 'LOBBY') { alert('Essa sala não aceita novos jogadores no momento. Escolha uma sala aguardando jogadores.'); router.push('/lobby'); return; }
         if (rm.status === 'LOBBY' && normalizedPlayers.length >= (rm.max_players || 6)) { alert('Sala cheia.'); router.push('/lobby'); return; }
 
-        if (rm.admin_id !== user.id && typeof window !== 'undefined') {
-          const confirmKey = `room-link-confirmed:${roomId}:${user.id}`;
-          if (!sessionStorage.getItem(confirmKey)) {
-            const ownerName = await getProfileName(rm.admin_id);
-            const allowed = window.confirm(`${ownerName} convidou você para uma partida.\n\nEntrar na sala como ${profile?.nickname || user.email?.split('@')[0] || 'convidado'}?`);
-            if (!allowed) { router.push('/'); return; }
-            sessionStorage.setItem(confirmKey, '1');
-          }
+        joinedRef.current = true;
+        const playerPayload = {
+          room_id: roomId,
+          user_id: user.id,
+          nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante',
+          emoji: normalizeEmoji(profile?.emoji),
+          avatar_url: profile?.avatar_url || '',
+          avatar_animation_set_id: profile?.avatar_animation_set_id || null,
+          is_admin: rm.admin_id === user.id,
+        };
+
+        const { data: newP, error } = await supabaseGame
+          .from('room_players')
+          .upsert(playerPayload, { onConflict: 'room_id,user_id' })
+          .select()
+          .single();
+
+        if (error) {
+          joinedRef.current = false;
+          console.error('Erro ao entrar na sala:', error);
         }
 
-        const { data: newP } = await supabaseGame.from('room_players').insert({ room_id: roomId, user_id: user.id, nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante', emoji: normalizeEmoji(profile?.emoji), avatar_url: profile?.avatar_url || '', avatar_animation_set_id: profile?.avatar_animation_set_id || null, is_admin: rm.admin_id === user.id }).select().single();
         if (newP) {
           await ensureJoinFriendRequest(rm.admin_id, user.id);
-          setPlayers([...normalizedPlayers, newP]);
+          setPlayers((prev) => mergeRoomPlayer(dedupeRoomPlayers(prev.length > 0 ? prev : normalizedPlayers), newP));
           setRoomNotices((prev) => [...prev.slice(-2), { id: uid(), text: `${newP.nickname} entrou na sala` }]);
           requestAdvance(true);
           setTimeout(() => requestAdvance(false), 1200);
@@ -156,13 +194,13 @@ export default function RoomPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, (payload) => setRoom(payload.new))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'room_players', filter: `room_id=eq.${roomId}` }, (payload) => {
         if (payload.eventType === 'INSERT') {
-          setPlayers((prev) => prev.some((p) => p.id === payload.new.id) ? prev : [...prev, payload.new]);
+          setPlayers((prev) => mergeRoomPlayer(prev, payload.new));
           if (payload.new.user_id !== user.id) setRoomNotices((prev) => [...prev.slice(-2), { id: uid(), text: `${payload.new.nickname || 'Usuario'} entrou na sala` }]);
           const humanJoined = payload.new.is_bot !== true;
           requestAdvance(humanJoined);
           setTimeout(() => requestAdvance(false), 5200);
         } else if (payload.eventType === 'UPDATE') {
-          setPlayers((prev) => prev.map((p) => p.id === payload.new.id ? payload.new : p));
+          setPlayers((prev) => mergeRoomPlayer(prev, payload.new));
         } else {
           setPlayers((prev) => prev.filter((p) => p.id !== payload.old.id));
         }

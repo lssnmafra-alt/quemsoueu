@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Coins, Lock, Check, ArrowLeft, ShoppingCart, Layers3, Film } from 'lucide-react';
+import { Coins, Lock, Check, ArrowLeft, ShoppingCart, Layers3, Film, Loader2, Pause, Play } from 'lucide-react';
 import GameTopNav from '@/components/navigation/GameTopNav';
 import LoadingArena from '@/components/LoadingArena';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
@@ -190,7 +190,82 @@ function ItemGrid({ title, items, selectedId, equippedAvatarUrl, onSelect }: { t
 
 function AnimationPreview({ label, animationKey }: { label: string; animationKey: string }) {
   const src = animationUrl(animationKey);
-  return <button type="button" onClick={(event) => { const video = event.currentTarget.querySelector('video'); if (!video) return; if (video.paused) void video.play().catch(() => {}); else video.pause(); }} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200"><div className="flex items-center justify-between gap-2 px-2 py-2"><p className="text-[10px] font-black uppercase tracking-wide text-slate-600">{label}</p><span className="rounded-full bg-slate-100 px-2 py-1 text-[8px] font-black uppercase text-slate-500">tocar</span></div>{src ? <div className="relative h-28 overflow-hidden bg-slate-950"><video src={src} muted loop playsInline preload="metadata" className="h-full w-full object-contain" /><div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10 opacity-100 transition group-hover:bg-black/0"><span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/50 bg-black/45 pl-0.5 text-lg font-black text-white shadow-xl">▶</span></div></div> : <div className="flex h-24 items-center justify-center text-[10px] font-black uppercase text-slate-400">Sem animação</div>}<p className="truncate px-2 py-2 text-[8px] font-bold text-slate-400">{fileName(animationKey)}</p></button>;
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [loading, setLoading] = useState(Boolean(src));
+  const [failed, setFailed] = useState(false);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    setLoading(Boolean(src));
+    setFailed(false);
+    setPlaying(false);
+  }, [src]);
+
+  function togglePlayback() {
+    const video = videoRef.current;
+    if (!video || !src || failed) return;
+    if (video.paused) {
+      void video.play().then(() => setPlaying(true)).catch(() => {
+        setFailed(true);
+        setLoading(false);
+      });
+      return;
+    }
+    video.pause();
+    setPlaying(false);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={togglePlayback}
+      disabled={!src || failed}
+      className="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 disabled:cursor-default disabled:hover:translate-y-0"
+    >
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <p className="truncate text-[10px] font-black uppercase tracking-wide text-slate-600">{label}</p>
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[8px] font-black uppercase text-slate-500">
+          {playing ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+          {playing ? 'Pausar' : 'Tocar'}
+        </span>
+      </div>
+      <div className="relative h-28 overflow-hidden bg-gradient-to-br from-indigo-100 via-sky-50 to-yellow-50">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.85),transparent_48%)]" />
+        {src && !failed ? (
+          <video
+            ref={videoRef}
+            src={src}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            controls={false}
+            onLoadedData={() => setLoading(false)}
+            onCanPlay={() => setLoading(false)}
+            onError={() => {
+              setFailed(true);
+              setLoading(false);
+              setPlaying(false);
+            }}
+            onPause={() => setPlaying(false)}
+            onPlay={() => setPlaying(true)}
+            className={cn('relative z-10 h-full w-full object-contain transition-opacity', loading ? 'opacity-0' : 'opacity-100')}
+          />
+        ) : null}
+        {loading && !failed && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+          </div>
+        )}
+        {(!src || failed) && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center px-3 text-center text-[10px] font-black uppercase tracking-wide text-slate-500">
+            Animação indisponível
+          </div>
+        )}
+      </div>
+      <p className="truncate px-3 py-2 text-[8px] font-bold text-slate-400">{fileName(animationKey) || 'sem arquivo'}</p>
+    </button>
+  );
 }
 
 function selectionForItem(item: StoreItem) { return normalizeAvatarSelection({ avatarId: item.avatarKey, imageUrl: item.imageUrl, imageKey: item.imageKey, animationSlug: `${item.avatarKey}/${item.skinCode}`, animations: item.animations || defaultAnimationMap(item), skinCode: item.skinCode, skinName: item.skinName, accessType: item.accessType as any, displayName: item.displayName }); }

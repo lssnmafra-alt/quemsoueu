@@ -59,7 +59,54 @@ function loadGoogleIdentityScript() {
   });
 }
 
-export default function GoogleLoginButton({ redirectTo = '/profile?next=/lobby' }: { redirectTo?: string }) {
+async function convertGuestProfileToGoogleUser(nextUser: any, previousProfile: any) {
+  if (!nextUser?.id || !previousProfile?.is_guest) return null;
+
+  const payload = {
+    ...previousProfile,
+    id: nextUser.id,
+    email: nextUser.email || previousProfile.email || '',
+    nickname: previousProfile.nickname || nextUser.email?.split('@')[0] || 'Jogador',
+    emoji: previousProfile.emoji || '🙂',
+    avatar_url: previousProfile.avatar_url || '',
+    avatar_animation_set_id: previousProfile.avatar_animation_set_id || null,
+    music_genres: Array.isArray(previousProfile.music_genres) ? previousProfile.music_genres : [],
+    music_blocked_tracks: Array.isArray(previousProfile.music_blocked_tracks) ? previousProfile.music_blocked_tracks : [],
+    profile_completed: Boolean(previousProfile.avatar_url),
+    is_guest: false,
+  };
+
+  try {
+    const {
+      data: { session },
+    } = await supabaseAuth.auth.getSession();
+
+    const response = await fetch('/api/player-profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'Nao foi possivel converter convidado.');
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('guestId');
+      localStorage.removeItem('guestNickname');
+      localStorage.setItem('quemSouEu:profile', JSON.stringify(result.profile || payload));
+    }
+
+    return result.profile || payload;
+  } catch (error) {
+    console.warn('Guest conversion failed, keeping Google login:', error);
+    return null;
+  }
+}
+
+export default function GoogleLoginButton({ redirectTo = '/profile?next=/lobby', text = 'continue_with' }: { redirectTo?: string; text?: GoogleButtonOptions['text'] }) {
   const router = useRouter();
   const buttonRef = useRef<HTMLDivElement | null>(null);
   const initializedRef = useRef(false);
@@ -105,6 +152,7 @@ export default function GoogleLoginButton({ redirectTo = '/profile?next=/lobby' 
             return;
           }
 
+          const previousProfile = useUserStore.getState().profile;
           const { data, error } = await supabaseAuth.auth.signInWithIdToken({
             provider: 'google',
             token: response.credential,
@@ -117,8 +165,13 @@ export default function GoogleLoginButton({ redirectTo = '/profile?next=/lobby' 
           }
 
           if (data.user) {
-            setSessionUser(data.user);
-            await fetchProfile(data.user.id);
+            const convertedProfile = await convertGuestProfileToGoogleUser(data.user, previousProfile);
+            if (convertedProfile) {
+              setSessionUser(data.user, convertedProfile);
+            } else {
+              setSessionUser(data.user);
+              await fetchProfile(data.user.id);
+            }
           }
 
           router.replace(redirectTo);
@@ -129,7 +182,7 @@ export default function GoogleLoginButton({ redirectTo = '/profile?next=/lobby' 
       window.google.accounts.id.renderButton(buttonRef.current, {
         theme: 'outline',
         size: 'large',
-        text: 'continue_with',
+        text,
         shape: 'pill',
         width: 320,
       });
@@ -140,7 +193,7 @@ export default function GoogleLoginButton({ redirectTo = '/profile?next=/lobby' 
     return () => {
       cancelled = true;
     };
-  }, [fetchProfile, redirectTo, router, setSessionUser]);
+  }, [fetchProfile, redirectTo, router, setSessionUser, text]);
 
   return (
     <div className="flex w-full flex-col items-center">

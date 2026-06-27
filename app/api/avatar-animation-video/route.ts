@@ -83,8 +83,7 @@ function proxiedVideoUrl(key: string, slug: string, eventType: AnimationEventTyp
 
 async function animationResponse(key: string, eventType: AnimationEventType, slug: string, extra?: any) {
   const videoUrl = proxiedVideoUrl(key, slug, eventType);
-  const mp4FallbackKey = key.toLowerCase().endsWith('.webm') ? key.replace(/\.webm$/i, '.mp4') : '';
-  const mp4FallbackUrl = mp4FallbackKey ? proxiedVideoUrl(mp4FallbackKey, slug, eventType) : '';
+  const contentType = key.toLowerCase().endsWith('.webm') ? 'video/webm' : 'video/mp4';
 
   return NextResponse.json({
     available: true,
@@ -95,8 +94,9 @@ async function animationResponse(key: string, eventType: AnimationEventType, slu
     url: videoUrl,
     videoUrl,
     proxyUrl: videoUrl,
-    fallbackUrl: mp4FallbackUrl,
-    fallbackKey: mp4FallbackKey,
+    fallbackUrl: '',
+    fallbackKey: '',
+    contentType,
     direct: false,
     ...(extra || {}),
   }, { headers: RESPONSE_HEADERS });
@@ -180,8 +180,8 @@ function expectedNames(slug: string, eventType: AnimationEventType) {
     `${avatarKey} ${suffix}`,
     `${avatarKey}.${suffix}`,
     ...aliases.flatMap((alias) => [`${avatarKey}-${alias}`, `${avatarKey}_${alias}`, `${avatarKey} ${alias}`]),
-    `${avatarKey}.mp4`,
     `${avatarKey}.webm`,
+    `${avatarKey}.mp4`,
   ];
 }
 

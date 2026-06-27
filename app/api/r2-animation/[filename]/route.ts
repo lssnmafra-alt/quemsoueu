@@ -112,27 +112,15 @@ async function resolveR2VideoObject(key: string) {
 
 function keyCandidates(key: string) {
   const variants = [key];
-  const oppositeExt = key.toLowerCase().endsWith('.webm')
-    ? key.replace(/\.webm$/i, '.mp4')
-    : key.toLowerCase().endsWith('.mp4')
-      ? key.replace(/\.mp4$/i, '.webm')
-      : '';
-
-  if (oppositeExt) variants.push(oppositeExt);
 
   if (key.startsWith('atuem/avatar/')) variants.push(key.replace(/^atuem\/avatar\//, 'atuem/atuem/avatar/'));
   if (key.startsWith('atuem/atuem/avatar/')) variants.push(key.replace(/^atuem\/atuem\/avatar\//, 'atuem/avatar/'));
-  if (oppositeExt.startsWith('atuem/avatar/')) variants.push(oppositeExt.replace(/^atuem\/avatar\//, 'atuem/atuem/avatar/'));
-  if (oppositeExt.startsWith('atuem/atuem/avatar/')) variants.push(oppositeExt.replace(/^atuem\/atuem\/avatar\//, 'atuem/avatar/'));
 
   const avatarMatch = key.match(/^atuem\/(?:atuem\/)?avatar\/([^/]+)\/([^/]+\.(?:mp4|webm))$/i);
   if (avatarMatch) {
     const [, avatarKey, file] = avatarMatch;
     variants.push(`atuem/atuem/avatar/Padrao/${avatarKey}/${file}`);
     variants.push(`atuem/avatar/Padrao/${avatarKey}/${file}`);
-    const altFile = file.toLowerCase().endsWith('.webm') ? file.replace(/\.webm$/i, '.mp4') : file.replace(/\.mp4$/i, '.webm');
-    variants.push(`atuem/atuem/avatar/Padrao/${avatarKey}/${altFile}`);
-    variants.push(`atuem/avatar/Padrao/${avatarKey}/${altFile}`);
   }
 
   return [...new Set(variants.filter(Boolean))];

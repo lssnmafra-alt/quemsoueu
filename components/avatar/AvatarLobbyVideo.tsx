@@ -39,35 +39,8 @@ function cachedVideo(cacheKey: string) {
   return resolvedVideoCache.get(cacheKey) || readSessionCache()[cacheKey] || '';
 }
 
-function mp4FallbackFor(src: string) {
-  const value = String(src || '').trim();
-  if (!value.toLowerCase().includes('.webm')) return '';
-  return value.replace(/\.webm/gi, '.mp4');
-}
-
 function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label: string; onReady: () => void; onError: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [activeSrc, setActiveSrc] = useState(src);
-  const [fallbackUsed, setFallbackUsed] = useState(false);
-
-  const tryFallback = () => {
-    if (fallbackUsed) {
-      onError();
-      return;
-    }
-    const fallback = mp4FallbackFor(activeSrc);
-    if (!fallback || fallback === activeSrc) {
-      onError();
-      return;
-    }
-    setFallbackUsed(true);
-    setActiveSrc(fallback);
-  };
-
-  useEffect(() => {
-    setActiveSrc(src);
-    setFallbackUsed(false);
-  }, [src]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -75,9 +48,9 @@ function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label:
 
     const play = () => video.play().catch(() => null);
     const timers = [0, 60, 160, 360, 800].map((delay) => window.setTimeout(play, delay));
-    const fallbackTimer = window.setTimeout(() => {
-      if (video.readyState < 2 && activeSrc.toLowerCase().includes('.webm')) tryFallback();
-    }, 1400);
+    const loadTimer = window.setTimeout(() => {
+      if (video.readyState < 2) onError();
+    }, 2200);
 
     video.muted = true;
     video.defaultMuted = true;
@@ -89,15 +62,15 @@ function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label:
 
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
-      window.clearTimeout(fallbackTimer);
+      window.clearTimeout(loadTimer);
     };
-  }, [activeSrc]);
+  }, [src, onError]);
 
   return (
     <video
-      key={activeSrc}
+      key={src}
       ref={videoRef}
-      src={activeSrc}
+      src={src}
       autoPlay
       muted
       loop
@@ -109,7 +82,7 @@ function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label:
       onLoadedData={onReady}
       onCanPlay={onReady}
       onPlaying={onReady}
-      onError={tryFallback}
+      onError={onError}
       className="h-full w-full object-cover"
       aria-label={label}
     />

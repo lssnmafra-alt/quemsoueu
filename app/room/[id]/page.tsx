@@ -53,10 +53,12 @@ function describeRoomJoinError(error: any) {
 }
 
 function logRoomJoinError(error: any, context?: Record<string, unknown>) {
-  console.error('Erro ao entrar na sala:', {
-    ...describeRoomJoinError(error),
+  const { raw: _raw, ...safeError } = describeRoomJoinError(error);
+  const payload = {
+    ...safeError,
     context,
-  });
+  };
+  console.error('Erro ao entrar na sala:', JSON.stringify(payload, null, 2));
 }
 
 function roomJoinErrorState(error: any): RoomJoinErrorState {
@@ -104,6 +106,11 @@ function isUuid(value: unknown) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ''));
 }
 
+function isStaleAvatarAnimationSetError(error: any) {
+  const text = [error?.message, error?.details, error?.hint, error?.code].filter(Boolean).join(' ').toLowerCase();
+  return text.includes('room_players_avatar_animation_set_id_fkey') || text.includes('avatar_animation_set_id');
+}
+
 async function ensureJoinFriendRequest(roomOwnerId: string, visitorId: string) {
   if (!isUuid(roomOwnerId) || !isUuid(visitorId) || roomOwnerId === visitorId) return;
 
@@ -136,12 +143,19 @@ export default function RoomPage() {
   const pickingFinalizeAttemptAtRef = useRef(0);
   const handledActionRef = useRef('');
   const joinedRef = useRef(false);
+  const staleAvatarAnimationSetIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
     if (!user) { router.push('/'); return; }
 
     const requestAdvance = (humanJoined = false) => fetch(`/api/rooms/${roomId}/tick`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ humanJoined }) }).catch(() => {});
+
+    const usableProfileAvatarAnimationSetId = () => {
+      const avatarAnimationSetId = String(profile?.avatar_animation_set_id || '').trim();
+      if (!avatarAnimationSetId || staleAvatarAnimationSetIdsRef.current.has(avatarAnimationSetId)) return null;
+      return avatarAnimationSetId;
+    };
 
     const joinCurrentUser = async (rm: any) => {
       const playerPayload = {
@@ -150,7 +164,7 @@ export default function RoomPage() {
         nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante',
         emoji: normalizeEmoji(profile?.emoji),
         avatar_url: profile?.avatar_url || '',
-        avatar_animation_set_id: profile?.avatar_animation_set_id || null,
+        avatar_animation_set_id: usableProfileAvatarAnimationSetId(),
         is_admin: rm.admin_id === user.id,
       };
 
@@ -166,7 +180,7 @@ export default function RoomPage() {
       if (existingError) throw existingError;
 
       if (existingPlayer) {
-        const { data: updatedPlayer, error: updateError } = await supabaseGame
+        let { data: updatedPlayer, error: updateError } = await supabaseGame
           .from('room_players')
           .update({
             nickname: playerPayload.nickname,
@@ -181,15 +195,50 @@ export default function RoomPage() {
           .select()
           .single();
 
+        if (updateError && playerPayload.avatar_animation_set_id && isStaleAvatarAnimationSetError(updateError)) {
+          logRoomJoinError(updateError, { roomId, userId: user.id, step: 'update-player-stale-avatar-animation-set', avatarAnimationSetId: playerPayload.avatar_animation_set_id });
+          staleAvatarAnimationSetIdsRef.current.add(playerPayload.avatar_animation_set_id);
+          playerPayload.avatar_animation_set_id = null;
+          const retry = await supabaseGame
+            .from('room_players')
+            .update({
+              nickname: playerPayload.nickname,
+              emoji: playerPayload.emoji,
+              avatar_url: playerPayload.avatar_url,
+              avatar_animation_set_id: null,
+              is_admin: playerPayload.is_admin,
+              connection_status: 'online',
+              last_seen_at: new Date().toISOString(),
+            })
+            .eq('id', existingPlayer.id)
+            .select()
+            .single();
+          updatedPlayer = retry.data;
+          updateError = retry.error;
+        }
+
         if (updateError) throw updateError;
         return updatedPlayer || { ...existingPlayer, ...playerPayload };
       }
 
-      const { data: insertedPlayer, error: insertError } = await supabaseGame
+      let { data: insertedPlayer, error: insertError } = await supabaseGame
         .from('room_players')
         .insert(playerPayload)
         .select()
         .single();
+
+      if (insertError && playerPayload.avatar_animation_set_id && isStaleAvatarAnimationSetError(insertError)) {
+        logRoomJoinError(insertError, { roomId, userId: user.id, step: 'insert-player-stale-avatar-animation-set', avatarAnimationSetId: playerPayload.avatar_animation_set_id });
+        staleAvatarAnimationSetIdsRef.current.add(playerPayload.avatar_animation_set_id);
+        playerPayload.avatar_animation_set_id = null;
+        const retry = await supabaseGame
+          .from('room_players')
+          .insert(playerPayload)
+          .select()
+          .single();
+        insertedPlayer = retry.data;
+        insertError = retry.error;
+      }
 
       if (!insertError) return insertedPlayer;
 
@@ -231,15 +280,23 @@ export default function RoomPage() {
           const nextNickname = profile?.nickname || user.email?.split('@')[0] || alreadyInRoom.nickname;
           const nextEmoji = normalizeEmoji(profile?.emoji || alreadyInRoom.emoji);
           const nextAvatarUrl = profile?.avatar_url || alreadyInRoom.avatar_url || '';
-          const nextAvatarSetId = profile?.avatar_animation_set_id || alreadyInRoom.avatar_animation_set_id || null;
+          const nextAvatarSetId = usableProfileAvatarAnimationSetId() || alreadyInRoom.avatar_animation_set_id || null;
           if (nextNickname && alreadyInRoom.nickname !== nextNickname) updates.nickname = nextNickname;
           if (alreadyInRoom.emoji !== nextEmoji) updates.emoji = nextEmoji;
           if ((alreadyInRoom.avatar_url || '') !== nextAvatarUrl) updates.avatar_url = nextAvatarUrl;
           if ((alreadyInRoom.avatar_animation_set_id || null) !== nextAvatarSetId) updates.avatar_animation_set_id = nextAvatarSetId;
           if (Object.keys(updates).length > 0) {
-            const { error: updateError } = await supabaseGame.from('room_players').update(updates).eq('id', alreadyInRoom.id);
+            let appliedUpdates = updates;
+            let { error: updateError } = await supabaseGame.from('room_players').update(appliedUpdates).eq('id', alreadyInRoom.id);
+            if (updateError && appliedUpdates.avatar_animation_set_id && isStaleAvatarAnimationSetError(updateError)) {
+              logRoomJoinError(updateError, { roomId, userId: user.id, step: 'refresh-existing-player-stale-avatar-animation-set', avatarAnimationSetId: appliedUpdates.avatar_animation_set_id });
+              staleAvatarAnimationSetIdsRef.current.add(appliedUpdates.avatar_animation_set_id);
+              appliedUpdates = { ...appliedUpdates, avatar_animation_set_id: null };
+              const retry = await supabaseGame.from('room_players').update(appliedUpdates).eq('id', alreadyInRoom.id);
+              updateError = retry.error;
+            }
             if (updateError) logRoomJoinError(updateError, { roomId, userId: user.id, step: 'refresh-existing-player' });
-            else normalizedPlayers = normalizedPlayers.map((player: any) => player.id === alreadyInRoom.id ? { ...player, ...updates } : player);
+            else normalizedPlayers = normalizedPlayers.map((player: any) => player.id === alreadyInRoom.id ? { ...player, ...appliedUpdates } : player);
           }
         }
 

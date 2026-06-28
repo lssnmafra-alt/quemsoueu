@@ -14,16 +14,18 @@ const INVITE_SELECT = `
   sender:profiles!room_invites_sender_profile_id_fkey(id,nickname,avatar_url,wins,played_matches),
   receiver:profiles!room_invites_receiver_profile_id_fkey(id,nickname,avatar_url,wins,played_matches)
 `;
+const PUBLIC_ROOM_INVITE_PREFIX = 'room-';
 
 export async function GET(req: NextRequest) {
   try {
     const inviteId = req.nextUrl.searchParams.get('inviteId')?.trim() || req.nextUrl.searchParams.get('id')?.trim() || '';
     const userId = req.nextUrl.searchParams.get('userId')?.trim() || '';
     const roomId = req.nextUrl.searchParams.get('roomId')?.trim() || '';
-    if (!isUuid(inviteId) && !isUuid(userId) && !isUuid(roomId)) return NextResponse.json({ invites: [], invite: null, error: 'Usuario, convite ou sala invalida.' }, { status: 400 });
+    const publicRoomId = roomIdFromPublicInviteId(inviteId);
+    if (!isUuid(inviteId) && !publicRoomId && !isUuid(userId) && !isUuid(roomId)) return NextResponse.json({ invites: [], invite: null, error: 'Usuario, convite ou sala invalida.' }, { status: 400 });
 
-    if (isUuid(inviteId)) {
-      const invite = await readInvite(inviteId);
+    if (isUuid(inviteId) || publicRoomId) {
+      const invite = publicRoomId ? await readPublicRoomInvite(publicRoomId) : await readInvite(inviteId);
       return NextResponse.json({ invite, invites: invite ? [invite] : [] });
     }
 
@@ -51,13 +53,14 @@ export async function POST(req: NextRequest) {
     const action = String(body.action || 'invite').trim();
 
     if (action === 'accept') {
-      if (!isUuid(userId) || !isUuid(inviteId)) {
+      const publicRoomId = roomIdFromPublicInviteId(inviteId);
+      if (!isUuid(userId) || (!isUuid(inviteId) && !publicRoomId)) {
         return NextResponse.json({ error: 'Convite invalido.' }, { status: 400 });
       }
 
-      const invite = await readInvite(inviteId);
+      const invite = publicRoomId ? await readPublicRoomInvite(publicRoomId) : await readInvite(inviteId);
       if (!invite) return NextResponse.json({ error: 'Convite nao encontrado.' }, { status: 404 });
-      if (invite.receiver_profile_id !== invite.sender_profile_id && invite.receiver_profile_id !== userId) {
+      if (!publicRoomId && invite.receiver_profile_id !== userId) {
         return NextResponse.json({ error: 'Este convite pertence a outro jogador.' }, { status: 403 });
       }
       if (invite.status === 'cancelled' || invite.status === 'declined') {
@@ -68,7 +71,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Essa sala nao aceita novos jogadores no momento.', invite }, { status: 409 });
       }
 
-      if (invite.status !== 'accepted') {
+      if (!publicRoomId && invite.status !== 'accepted') {
         const { error } = await supabaseGame
           .from('room_invites')
           .update({ status: 'accepted', updated_at: new Date().toISOString() })
@@ -77,12 +80,18 @@ export async function POST(req: NextRequest) {
       }
 
       await ensureInviteFriendRequest(invite.sender_profile_id, userId);
-      const acceptedInvite = await readInvite(inviteId);
+      const acceptedInvite = publicRoomId ? invite : await readInvite(inviteId);
       return NextResponse.json({ ok: true, invite: acceptedInvite || invite, roomId: invite.room_id });
     }
 
     if (!isUuid(userId) || !isUuid(roomId) || (!isUuid(targetId) && action !== 'link')) {
       return NextResponse.json({ error: 'Convite invalido.' }, { status: 400 });
+    }
+
+    if (action === 'link') {
+      const invite = await readPublicRoomInvite(roomId, userId);
+      if (!invite) return NextResponse.json({ error: 'Sala nao encontrada.' }, { status: 404 });
+      return NextResponse.json({ ok: true, invite });
     }
 
     if (action === 'decline' || action === 'cancel') {
@@ -134,6 +143,38 @@ async function readInvite(inviteId: string): Promise<any> {
   return data;
 }
 
+async function readPublicRoomInvite(roomId: string, senderProfileId?: string): Promise<any> {
+  if (!isUuid(roomId)) return null;
+
+  const { data: room, error: roomError } = await supabaseGame
+    .from('rooms')
+    .select('id,code,status,max_players,deck_id,admin_id')
+    .eq('id', roomId)
+    .maybeSingle();
+  if (roomError) throw roomError;
+  if (!room?.id) return null;
+
+  const senderId = isUuid(senderProfileId || '') ? senderProfileId : room.admin_id;
+  const { data: sender, error: senderError } = await supabaseGame
+    .from('profiles')
+    .select('id,nickname,avatar_url,wins,played_matches')
+    .eq('id', senderId)
+    .maybeSingle();
+  if (senderError) throw senderError;
+
+  return {
+    id: publicRoomInviteId(room.id),
+    room_id: room.id,
+    sender_profile_id: senderId,
+    receiver_profile_id: senderId,
+    status: 'pending',
+    message: `Convite para a sala #${room.code || ''}`.trim(),
+    room,
+    sender,
+    receiver: sender,
+  };
+}
+
 async function ensureInviteFriendRequest(senderId: string, visitorId: string) {
   if (!isUuid(senderId) || !isUuid(visitorId) || senderId === visitorId) return;
 
@@ -154,4 +195,14 @@ async function ensureInviteFriendRequest(senderId: string, visitorId: string) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function publicRoomInviteId(roomId: string) {
+  return `${PUBLIC_ROOM_INVITE_PREFIX}${roomId}`;
+}
+
+function roomIdFromPublicInviteId(inviteId: string) {
+  if (!inviteId.startsWith(PUBLIC_ROOM_INVITE_PREFIX)) return '';
+  const roomId = inviteId.slice(PUBLIC_ROOM_INVITE_PREFIX.length);
+  return isUuid(roomId) ? roomId : '';
 }

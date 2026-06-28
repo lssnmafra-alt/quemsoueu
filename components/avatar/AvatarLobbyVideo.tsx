@@ -78,6 +78,7 @@ function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label:
       key={src}
       ref={videoRef}
       src={src}
+      data-qse-avatar-chroma="1"
       autoPlay
       muted
       loop
@@ -90,7 +91,7 @@ function FastAvatarVideo({ src, label, onReady, onError }: { src: string; label:
       onCanPlay={onReady}
       onPlaying={onReady}
       onError={onError}
-      className="h-full w-full object-cover"
+      className="absolute inset-0 h-full w-full bg-transparent object-cover"
       aria-label={label}
     />
   );
@@ -114,6 +115,10 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
   const imageFallback = useMemo(() => resolveAvatarImageUrl(avatarUrl), [avatarUrl]);
   const canShowImageFallback = Boolean(imageFallback && !imageFailed);
   const shouldHideFallback = Boolean(mounted && videoUrl && !failed && videoReady);
+  const handleVideoReady = () => {
+    setVideoReady(true);
+    window.dispatchEvent(new CustomEvent('qse:avatar-chroma-refresh'));
+  };
 
   useEffect(() => {
     setImageFailed(false);
@@ -198,7 +203,7 @@ export default function AvatarLobbyVideo({ avatarUrl = '', directVideoUrl = '', 
       {fallbackContent}
       {mounted && videoUrl && !failed && (
         <div className={cn('absolute inset-0 z-20 transition-opacity duration-75', videoReady ? 'opacity-100' : 'opacity-0')}>
-          <FastAvatarVideo src={videoUrl} label={label} onReady={() => setVideoReady(true)} onError={() => setFailed(true)} />
+          <FastAvatarVideo src={videoUrl} label={label} onReady={handleVideoReady} onError={() => setFailed(true)} />
         </div>
       )}
       <div className="pointer-events-none absolute inset-0 z-30 rounded-[inherit] ring-1 ring-inset ring-white/70" />

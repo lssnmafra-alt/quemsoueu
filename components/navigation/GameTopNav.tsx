@@ -63,13 +63,13 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
   }, [profile?.id]);
 
   return (
-    <nav className="fixed left-0 right-0 top-0 z-[100] border-b-4 border-indigo-950/40 bg-[#071a64]/95 text-white shadow-[0_12px_40px_rgba(15,23,42,.35)] backdrop-blur-xl">
-      <div className="mx-auto flex h-[74px] max-w-[1500px] items-center justify-between gap-3 px-3 md:px-6">
-        <div className="flex h-full items-center gap-1 overflow-x-auto pr-2">
+    <nav className="qse-game-top-nav fixed left-0 right-0 top-0 z-[100] border-b-4 border-indigo-950/40 bg-[#071a64]/95 text-white shadow-[0_12px_40px_rgba(15,23,42,.35)] backdrop-blur-xl">
+      <div className="qse-game-top-nav-inner mx-auto flex h-[74px] max-w-[1500px] items-center justify-between gap-3 px-3 md:px-6">
+        <div className="qse-game-top-nav-tabs flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-x-contain pr-2">
           <button
             type="button"
             onClick={() => router.push('/')}
-            className="mr-2 flex h-11 min-w-11 items-center justify-center rounded-xl border-2 border-cyan-300/40 bg-cyan-400/20 text-cyan-100 shadow-inner transition hover:bg-cyan-300/30"
+            className="qse-game-top-nav-home mr-2 flex h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border-2 border-cyan-300/40 bg-cyan-400/20 text-cyan-100 shadow-inner transition hover:bg-cyan-300/30"
             title="Voltar para o início"
             aria-label="Voltar para o início"
           >
@@ -86,7 +86,7 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
                 type="button"
                 onClick={() => router.push(tab.href)}
                 className={cn(
-                  'relative flex h-full min-w-fit items-center gap-2 px-3 text-[11px] font-black uppercase tracking-wide transition-all md:px-5 md:text-xs',
+                  'qse-game-top-nav-tab relative flex h-full min-w-fit shrink-0 items-center gap-2 px-3 text-[11px] font-black uppercase tracking-wide transition-all md:px-5 md:text-xs',
                   active
                     ? 'bg-white text-[#071a64] shadow-[inset_0_-5px_0_#facc15]'
                     : 'text-blue-100 hover:bg-white/10 hover:text-white',
@@ -99,7 +99,7 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
           })}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="qse-game-top-nav-user flex shrink-0 items-center gap-2">
           {isAdmin && (
             <span className="hidden items-center gap-1 rounded-md border border-amber-300/50 bg-amber-300 px-2.5 py-1 text-[10px] font-black uppercase text-amber-950 shadow md:flex">
               <Shield className="h-3.5 w-3.5" /> ADM
@@ -113,7 +113,7 @@ export default function GameTopNav({ profile, isAdmin = false, onLogout }: GameT
           <button
             type="button"
             onClick={() => router.push('/profile')}
-            className="flex items-center gap-2 rounded-xl border-2 border-white/20 bg-white/10 p-1.5 pr-3 transition hover:bg-white/20"
+            className="qse-game-top-nav-profile flex items-center gap-2 rounded-xl border-2 border-white/20 bg-white/10 p-1.5 pr-3 transition hover:bg-white/20"
           >
             <span
               className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border-2 border-cyan-200 bg-white text-indigo-700 leading-none shadow-inner"

@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
         .filter(([eventType, key]) => eventType && key),
     );
 
-    const imageKey = String(skin.card_image_key || skin.image_key || '').trim();
+    const imageKey = String(skin.image_key || skin.card_image_key || '').trim();
     const imageUrl = await getPublicR2Url(imageKey);
 
     const avatarUrl = avatarSelectionToUrl(

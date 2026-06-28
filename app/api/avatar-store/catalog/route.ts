@@ -17,6 +17,8 @@ type StoreItem = {
   skinName: string;
   imageKey?: string;
   imageUrl: string;
+  cardImageKey?: string;
+  cardImageUrl: string;
   rarity: string;
   accessType: string;
   priceCoins: number;
@@ -84,12 +86,13 @@ async function readWallet(db: any, userId: string): Promise<number> {
 }
 
 async function skinToItem(skin: any, category: any, rows: any[], unlocks: Set<string>): Promise<StoreItem> {
-  const imageKey = String(skin.card_image_key || skin.image_key || '').trim();
+  const imageKey = String(skin.image_key || skin.card_image_key || '').trim();
+  const cardImageKey = String(skin.card_image_key || imageKey).trim();
   const isDefaultSkin = String(skin.skin_code || '') === String(skin.avatar_key || '');
   const accessType = String(skin.access_type || (isDefaultSkin ? 'free' : 'premium'));
   const owned = accessType === 'free' || unlocks.has(String(skin.id));
   const bundle = normalizeAnimationBundle(rows);
-  return { id: String(skin.id), avatarKey: String(skin.avatar_key || ''), displayName: String(skin.avatar_name || skin.avatar_key || 'Avatar'), skinCode: String(skin.skin_code || skin.avatar_key || ''), skinName: String(skin.skin_name || (isDefaultSkin ? 'Oficial' : 'Skin')), imageKey, imageUrl: imageKey ? imageProxyUrl(imageKey) : '', rarity: String(skin.rarity || 'common'), accessType, priceCoins: Number(skin.price_coins ?? (isDefaultSkin ? 0 : DEFAULT_SKIN_PRICE)), owned, locked: !owned, sortOrder: Number(skin.sort_order || 0), animations: bundle.animations, animationVariants: bundle.animationVariants, isDefaultSkin, categoryId: String(skin.category_id || ''), categorySlug: String(category?.slug || ''), categoryName: String(category?.name || '') };
+  return { id: String(skin.id), avatarKey: String(skin.avatar_key || ''), displayName: String(skin.avatar_name || skin.avatar_key || 'Avatar'), skinCode: String(skin.skin_code || skin.avatar_key || ''), skinName: String(skin.skin_name || (isDefaultSkin ? 'Oficial' : 'Skin')), imageKey, imageUrl: imageKey ? imageProxyUrl(imageKey) : '', cardImageKey, cardImageUrl: cardImageKey ? imageProxyUrl(cardImageKey) : '', rarity: String(skin.rarity || 'common'), accessType, priceCoins: Number(skin.price_coins ?? (isDefaultSkin ? 0 : DEFAULT_SKIN_PRICE)), owned, locked: !owned, sortOrder: Number(skin.sort_order || 0), animations: bundle.animations, animationVariants: bundle.animationVariants, isDefaultSkin, categoryId: String(skin.category_id || ''), categorySlug: String(category?.slug || ''), categoryName: String(category?.name || '') };
 }
 
 async function buildR2Items(categories: any[], dbItems: StoreItem[]): Promise<StoreItem[]> {
@@ -108,7 +111,7 @@ async function buildR2Items(categories: any[], dbItems: StoreItem[]): Promise<St
       if (existing.has(key)) continue;
       const isFree = String(category.slug) === 'padrao' && parsed.isDefaultSkin;
       const bundle = r2Animations(prefix, parsed.avatarKey, parsed.skinCode, videoKeys);
-      output.push({ id: `r2:${normalizeKey(category.slug)}:${normalizeKey(parsed.skinCode)}`, avatarKey: parsed.avatarKey, displayName: prettyName(parsed.avatarKey), skinCode: parsed.skinCode, skinName: parsed.isDefaultSkin ? 'Oficial' : `Skin ${parsed.skinNumber}`, imageKey, imageUrl: imageProxyUrl(imageKey), rarity: isFree ? 'common' : 'rare', accessType: isFree ? 'free' : 'premium', priceCoins: isFree ? 0 : DEFAULT_SKIN_PRICE, owned: isFree, locked: !isFree, sortOrder: parsed.avatarSort * 100 + parsed.skinNumber, animations: bundle.animations, animationVariants: bundle.animationVariants, isDefaultSkin: parsed.isDefaultSkin, categoryId: String(category.id || ''), categorySlug: String(category.slug || ''), categoryName: String(category.name || '') });
+      output.push({ id: `r2:${normalizeKey(category.slug)}:${normalizeKey(parsed.skinCode)}`, avatarKey: parsed.avatarKey, displayName: prettyName(parsed.avatarKey), skinCode: parsed.skinCode, skinName: parsed.isDefaultSkin ? 'Oficial' : `Skin ${parsed.skinNumber}`, imageKey, imageUrl: imageProxyUrl(imageKey), cardImageKey: imageKey, cardImageUrl: imageProxyUrl(imageKey), rarity: isFree ? 'common' : 'rare', accessType: isFree ? 'free' : 'premium', priceCoins: isFree ? 0 : DEFAULT_SKIN_PRICE, owned: isFree, locked: !isFree, sortOrder: parsed.avatarSort * 100 + parsed.skinNumber, animations: bundle.animations, animationVariants: bundle.animationVariants, isDefaultSkin: parsed.isDefaultSkin, categoryId: String(category.id || ''), categorySlug: String(category.slug || ''), categoryName: String(category.name || '') });
     }
   }
   return output;
@@ -198,7 +201,7 @@ function groupCharacters(items: StoreItem[]) {
   return [...grouped.entries()].map(([id, skins]) => {
     const sortedSkins = skins.sort((a, b) => Number(!a.isDefaultSkin) - Number(!b.isDefaultSkin) || a.sortOrder - b.sortOrder);
     const official = sortedSkins.find((skin) => skin.isDefaultSkin) || sortedSkins[0];
-    return { id, avatarKey: official.avatarKey, displayName: official.displayName, imageUrl: official.imageUrl, imageKey: official.imageKey, categorySlug: official.categorySlug, categoryName: official.categoryName, skinCount: sortedSkins.length, ownedCount: sortedSkins.filter((skin) => skin.owned).length, skins: sortedSkins, sortOrder: official.sortOrder };
+    return { id, avatarKey: official.avatarKey, displayName: official.displayName, imageUrl: official.imageUrl, imageKey: official.imageKey, cardImageUrl: official.cardImageUrl || official.imageUrl, cardImageKey: official.cardImageKey || official.imageKey, categorySlug: official.categorySlug, categoryName: official.categoryName, skinCount: sortedSkins.length, ownedCount: sortedSkins.filter((skin) => skin.owned).length, skins: sortedSkins, sortOrder: official.sortOrder };
   }).sort((a, b) => a.sortOrder - b.sortOrder || a.displayName.localeCompare(b.displayName));
 }
 

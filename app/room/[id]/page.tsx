@@ -61,6 +61,15 @@ function logRoomJoinError(error: any, context?: Record<string, unknown>) {
   console.error('Erro ao entrar na sala:', JSON.stringify(payload, null, 2));
 }
 
+function logRoomJoinRecovery(error: any, context?: Record<string, unknown>) {
+  const { raw: _raw, ...safeError } = describeRoomJoinError(error);
+  const payload = {
+    ...safeError,
+    context,
+  };
+  console.warn('Entrada da sala recuperada:', JSON.stringify(payload, null, 2));
+}
+
 function roomJoinErrorState(error: any): RoomJoinErrorState {
   const safeError = describeRoomJoinError(error);
   const technical = [safeError.code, safeError.message, safeError.details || safeError.hint].filter(Boolean).join(' — ');
@@ -144,6 +153,7 @@ export default function RoomPage() {
   const handledActionRef = useRef('');
   const joinedRef = useRef(false);
   const staleAvatarAnimationSetIdsRef = useRef(new Set<string>());
+  const validAvatarAnimationSetIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
@@ -151,20 +161,56 @@ export default function RoomPage() {
 
     const requestAdvance = (humanJoined = false) => fetch(`/api/rooms/${roomId}/tick`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ humanJoined }) }).catch(() => {});
 
-    const usableProfileAvatarAnimationSetId = () => {
+    const profileAvatarAnimationSetId = () => {
       const avatarAnimationSetId = String(profile?.avatar_animation_set_id || '').trim();
       if (!avatarAnimationSetId || staleAvatarAnimationSetIdsRef.current.has(avatarAnimationSetId)) return null;
       return avatarAnimationSetId;
     };
 
+    const usableRoomAvatarAnimationSetId = (value: unknown) => {
+      const avatarAnimationSetId = String(value || '').trim();
+      if (!avatarAnimationSetId || staleAvatarAnimationSetIdsRef.current.has(avatarAnimationSetId)) return null;
+      return avatarAnimationSetId;
+    };
+
+    const resolveProfileAvatarAnimationSetId = async () => {
+      const avatarAnimationSetId = profileAvatarAnimationSetId();
+      if (!avatarAnimationSetId) return null;
+      if (validAvatarAnimationSetIdsRef.current.has(avatarAnimationSetId)) return avatarAnimationSetId;
+
+      const { data, error } = await supabaseGame
+        .from('avatar_animation_sets')
+        .select('id')
+        .eq('id', avatarAnimationSetId)
+        .maybeSingle();
+
+      if (error || !data) {
+        staleAvatarAnimationSetIdsRef.current.add(avatarAnimationSetId);
+        if (error) {
+          console.warn('Avatar animation set indisponivel para entrada na sala:', JSON.stringify({
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+            context: { roomId, userId: user.id, avatarAnimationSetId },
+          }, null, 2));
+        }
+        return null;
+      }
+
+      validAvatarAnimationSetIdsRef.current.add(avatarAnimationSetId);
+      return avatarAnimationSetId;
+    };
+
     const joinCurrentUser = async (rm: any) => {
+      const avatarAnimationSetId = await resolveProfileAvatarAnimationSetId();
       const playerPayload = {
         room_id: roomId,
         user_id: user.id,
         nickname: profile?.nickname || user.email?.split('@')[0] || 'Visitante',
         emoji: normalizeEmoji(profile?.emoji),
         avatar_url: profile?.avatar_url || '',
-        avatar_animation_set_id: usableProfileAvatarAnimationSetId(),
+        avatar_animation_set_id: avatarAnimationSetId,
         is_admin: rm.admin_id === user.id,
       };
 
@@ -196,7 +242,7 @@ export default function RoomPage() {
           .single();
 
         if (updateError && playerPayload.avatar_animation_set_id && isStaleAvatarAnimationSetError(updateError)) {
-          logRoomJoinError(updateError, { roomId, userId: user.id, step: 'update-player-stale-avatar-animation-set', avatarAnimationSetId: playerPayload.avatar_animation_set_id });
+          logRoomJoinRecovery(updateError, { roomId, userId: user.id, step: 'update-player-stale-avatar-animation-set', avatarAnimationSetId: playerPayload.avatar_animation_set_id });
           staleAvatarAnimationSetIdsRef.current.add(playerPayload.avatar_animation_set_id);
           playerPayload.avatar_animation_set_id = null;
           const retry = await supabaseGame
@@ -228,7 +274,7 @@ export default function RoomPage() {
         .single();
 
       if (insertError && playerPayload.avatar_animation_set_id && isStaleAvatarAnimationSetError(insertError)) {
-        logRoomJoinError(insertError, { roomId, userId: user.id, step: 'insert-player-stale-avatar-animation-set', avatarAnimationSetId: playerPayload.avatar_animation_set_id });
+        logRoomJoinRecovery(insertError, { roomId, userId: user.id, step: 'insert-player-stale-avatar-animation-set', avatarAnimationSetId: playerPayload.avatar_animation_set_id });
         staleAvatarAnimationSetIdsRef.current.add(playerPayload.avatar_animation_set_id);
         playerPayload.avatar_animation_set_id = null;
         const retry = await supabaseGame
@@ -280,7 +326,8 @@ export default function RoomPage() {
           const nextNickname = profile?.nickname || user.email?.split('@')[0] || alreadyInRoom.nickname;
           const nextEmoji = normalizeEmoji(profile?.emoji || alreadyInRoom.emoji);
           const nextAvatarUrl = profile?.avatar_url || alreadyInRoom.avatar_url || '';
-          const nextAvatarSetId = usableProfileAvatarAnimationSetId() || alreadyInRoom.avatar_animation_set_id || null;
+          const profileAvatarSetId = await resolveProfileAvatarAnimationSetId();
+          const nextAvatarSetId = profileAvatarSetId || usableRoomAvatarAnimationSetId(alreadyInRoom.avatar_animation_set_id);
           if (nextNickname && alreadyInRoom.nickname !== nextNickname) updates.nickname = nextNickname;
           if (alreadyInRoom.emoji !== nextEmoji) updates.emoji = nextEmoji;
           if ((alreadyInRoom.avatar_url || '') !== nextAvatarUrl) updates.avatar_url = nextAvatarUrl;
@@ -289,7 +336,7 @@ export default function RoomPage() {
             let appliedUpdates = updates;
             let { error: updateError } = await supabaseGame.from('room_players').update(appliedUpdates).eq('id', alreadyInRoom.id);
             if (updateError && appliedUpdates.avatar_animation_set_id && isStaleAvatarAnimationSetError(updateError)) {
-              logRoomJoinError(updateError, { roomId, userId: user.id, step: 'refresh-existing-player-stale-avatar-animation-set', avatarAnimationSetId: appliedUpdates.avatar_animation_set_id });
+              logRoomJoinRecovery(updateError, { roomId, userId: user.id, step: 'refresh-existing-player-stale-avatar-animation-set', avatarAnimationSetId: appliedUpdates.avatar_animation_set_id });
               staleAvatarAnimationSetIdsRef.current.add(appliedUpdates.avatar_animation_set_id);
               appliedUpdates = { ...appliedUpdates, avatar_animation_set_id: null };
               const retry = await supabaseGame.from('room_players').update(appliedUpdates).eq('id', alreadyInRoom.id);

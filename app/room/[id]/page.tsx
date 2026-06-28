@@ -154,12 +154,47 @@ export default function RoomPage() {
   const joinedRef = useRef(false);
   const staleAvatarAnimationSetIdsRef = useRef(new Set<string>());
   const validAvatarAnimationSetIdsRef = useRef(new Set<string>());
+  const deckMetaByIdRef = useRef(new Map<string, { deck_is_official: boolean; deck_creator_id: string | null }>());
 
   useEffect(() => {
     if (!authInitialized || authLoading) return;
     if (!user) { router.push('/'); return; }
 
     const requestAdvance = (humanJoined = false) => fetch(`/api/rooms/${roomId}/tick`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ humanJoined }) }).catch(() => {});
+
+    const withDeckMeta = async (nextRoom: any) => {
+      const deckId = String(nextRoom?.deck_id || '').trim();
+      if (!nextRoom || !deckId) return nextRoom;
+
+      const cached = deckMetaByIdRef.current.get(deckId);
+      if (cached) return { ...nextRoom, ...cached };
+
+      const { data, error } = await supabaseGame
+        .from('decks')
+        .select('id,is_official,creator_id')
+        .eq('id', deckId)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('Nao foi possivel carregar metadados do deck da sala:', JSON.stringify({
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          context: { roomId, deckId },
+        }, null, 2));
+        return nextRoom;
+      }
+
+      if (!data) return nextRoom;
+
+      const meta = {
+        deck_is_official: Boolean(data?.is_official),
+        deck_creator_id: data.creator_id ?? null,
+      };
+      deckMetaByIdRef.current.set(deckId, meta);
+      return { ...nextRoom, ...meta };
+    };
 
     const profileAvatarAnimationSetId = () => {
       const avatarAnimationSetId = String(profile?.avatar_animation_set_id || '').trim();
@@ -312,6 +347,7 @@ export default function RoomPage() {
         }
 
         if (!rm) { router.push('/lobby'); return; }
+        rm = await withDeckMeta(rm);
 
         const { data: pls, error: playersError } = await supabaseGame.from('room_players').select('*').eq('room_id', roomId);
         if (playersError) throw playersError;
@@ -392,7 +428,9 @@ export default function RoomPage() {
     syncRoomState(true);
     const poll = setInterval(() => { syncRoomState(false); requestAdvance(false); }, 1500);
     const subs1 = supabaseGame.channel(`room:${roomId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, (payload) => setRoom(payload.new))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, (payload) => {
+        void withDeckMeta(payload.new).then((nextRoom) => setRoom(nextRoom));
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'room_players', filter: `room_id=eq.${roomId}` }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setPlayers((prev) => mergeRoomPlayer(prev, payload.new));

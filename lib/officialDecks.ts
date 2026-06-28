@@ -11,3 +11,21 @@ export const OFFICIAL_DECK_IDS = new Set([
 export function isOfficialDeckId(deckId?: string | null) {
   return Boolean(deckId && OFFICIAL_DECK_IDS.has(deckId));
 }
+
+export function shouldUseOfficialDeckImages(deckOrRoom?: any) {
+  if (!deckOrRoom) return false;
+
+  const deckId = deckOrRoom.deck_id || deckOrRoom.id || null;
+  if (!deckId) return true;
+
+  const nestedDeck = deckOrRoom.deck || null;
+  return Boolean(
+    isOfficialDeckId(deckId)
+    || deckOrRoom.is_official === true
+    || deckOrRoom.deck_is_official === true
+    || deckOrRoom.creator_id === null
+    || deckOrRoom.deck_creator_id === null
+    || nestedDeck?.is_official === true
+    || nestedDeck?.creator_id === null,
+  );
+}

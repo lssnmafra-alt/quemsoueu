@@ -4,7 +4,7 @@ import { Clock, Eye, Heart, HeartCrack, LogOut, Skull, Target, Zap } from 'lucid
 import { cn } from '@/lib/utils';
 import { supabaseGame } from '@/lib/supabase';
 import { audioManager } from '@/lib/audioManager';
-import { isOfficialDeckId } from '@/lib/officialDecks';
+import { shouldUseOfficialDeckImages } from '@/lib/officialDecks';
 import { useSyncedCountdown } from '@/hooks/useSyncedCountdown';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import CharacterImage from '@/components/CharacterImage';
@@ -133,7 +133,7 @@ export default function RoomPlayingPremium({ room, players, me, leaveRoom }: any
   const isSpectator = Boolean(me?.is_eliminated || (me?.lives || 0) <= 0);
   const isExplaining = Boolean(revelation || timeoutNotice);
   const isMyTurn = activePlayer?.id === me?.id && !isSpectator && !isExplaining && !isVoting && !voteProcessingRef.current;
-  const usesOfficialImages = !room.deck_id || isOfficialDeckId(room.deck_id);
+  const usesOfficialImages = shouldUseOfficialDeckImages(room);
   const visibleDeckChars = liveCardsLoaded ? deckChars.filter((c) => liveCharIds.has(c.id)) : deckChars;
   const isSuddenDeath = activePlayers.length > 1 && activePlayers.every((p: any) => (p.lives || 0) <= 1);
   const humanPlayers = orderedPlayers.filter((p: any) => !p.is_bot);

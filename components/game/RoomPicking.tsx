@@ -6,7 +6,7 @@ import { useSyncedCountdown, formatCountdown } from '@/hooks/useSyncedCountdown'
 import { motion } from 'motion/react';
 import { Check, Layers, Lightbulb, Loader2, RefreshCw } from 'lucide-react';
 import CharacterImage from '@/components/CharacterImage';
-import { isOfficialDeckId } from '@/lib/officialDecks';
+import { shouldUseOfficialDeckImages } from '@/lib/officialDecks';
 
 const ALLOWED_PICK_SECONDS = [15, 30, 45] as const;
 const DEFAULT_PICK_SECONDS = 30;
@@ -237,7 +237,7 @@ export default function RoomPicking({ room, players, me, isAdmin }: any) {
 
   const totalTime = safePickSeconds;
   const progressPercent = allRealPlayersReady ? 0 : Math.max(0, (timeLeft / totalTime) * 100);
-  const usesOfficialImages = !room.deck_id || isOfficialDeckId(room.deck_id);
+  const usesOfficialImages = shouldUseOfficialDeckImages(room);
   const showEmptyDeckState = !isDeckLoading && deckChars.length === 0;
 
   return (

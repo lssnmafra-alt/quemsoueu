@@ -7,7 +7,7 @@ import { audioManager } from '@/lib/audioManager';
 import ChatMenu from './ChatMenu';
 import AvatarFigure from '@/components/avatar/AvatarFigure';
 import CharacterImage from '@/components/CharacterImage';
-import { isOfficialDeckId } from '@/lib/officialDecks';
+import { shouldUseOfficialDeckImages } from '@/lib/officialDecks';
 import { useSyncedCountdown } from '@/hooks/useSyncedCountdown';
 
 const REVEAL_TIMING = {
@@ -206,7 +206,7 @@ export default function RoomPlaying({ room, players, me, leaveRoom }: any) {
   const activePlayer = activePlayers.length > 0 ? activePlayers[(room.current_turn_number || 0) % activePlayers.length] : null;
   const isSuddenDeath = activePlayers.length > 1 && activePlayers.every((p: any) => (p.lives || 0) <= 1);
   const isSpectator = Boolean(me?.is_eliminated || (me?.lives || 0) <= 0);
-  const usesOfficialImages = !room.deck_id || isOfficialDeckId(room.deck_id);
+  const usesOfficialImages = shouldUseOfficialDeckImages(room);
   const visibleDeckChars = liveCardsLoaded ? deckChars.filter((c) => liveCharIds.has(c.id)) : deckChars;
   const isExplaining = isRevealing || Boolean(timeoutNotice);
   const isMyTurn = activePlayer?.id === me.id && !me.is_eliminated && !isExplaining && !isVoting && !voteProcessingRef.current;
